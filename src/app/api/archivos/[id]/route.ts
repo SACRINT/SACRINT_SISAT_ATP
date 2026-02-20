@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { deleteFileFromDrive } from "@/lib/drive";
 
 // DELETE: Director deletes their uploaded file (if entrega is not APROBADO)
 export async function DELETE(
@@ -43,6 +44,11 @@ export async function DELETE(
                 { error: "No se puede eliminar un archivo de una entrega aprobada" },
                 { status: 403 }
             );
+        }
+
+        // Delete from Google Drive if driveId exists
+        if (archivo.driveId) {
+            await deleteFileFromDrive(archivo.driveId);
         }
 
         // Delete from database (cascade will handle relations)

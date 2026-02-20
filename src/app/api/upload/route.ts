@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { getEscuelaProgramaFolder, uploadFileToDrive } from "@/lib/drive";
+import { notifyN8n } from "@/lib/n8n";
 
 export async function POST(req: NextRequest) {
     try {
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Faltan datos" }, { status: 400 });
         }
 
-        // Validate file sizes
+        // Validate file sizes (25 MB max)
         for (const file of files) {
             if (file.size > 25 * 1024 * 1024) {
                 return NextResponse.json(
@@ -83,34 +83,50 @@ export async function POST(req: NextRequest) {
         }
 
         const programa = entrega.periodoEntrega.programa;
+        const escuela = entrega.escuela;
 
-        // Save files locally (will be replaced by Google Drive later)
-        const uploadsDir = join(process.cwd(), "uploads", entrega.escuela.cct, programa.nombre);
-        await mkdir(uploadsDir, { recursive: true });
+        // Get or create the Drive folder for this escuela/programa
+        const driveFolderId = await getEscuelaProgramaFolder(
+            escuela.cct,
+            escuela.nombre,
+            programa.nombre
+        );
 
+        // Upload files to Google Drive
         const createdArchivos = [];
+        let lastDriveUrl: string | undefined;
+
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const etiqueta = etiquetas[i] || null;
 
             const buffer = Buffer.from(await file.arrayBuffer());
             const fileName = `${Date.now()}_${file.name}`;
-            const filePath = join(uploadsDir, fileName);
-            await writeFile(filePath, buffer);
+
+            const { driveId, driveUrl } = await uploadFileToDrive(
+                driveFolderId,
+                fileName,
+                buffer,
+                file.type
+            );
 
             const archivo = await prisma.archivo.create({
                 data: {
                     entregaId,
                     nombre: file.name,
+                    driveId,
+                    driveUrl,
                     tipo: "ENTREGA",
                     subidoPor: "director",
                     etiqueta,
                 },
             });
+
             createdArchivos.push(archivo);
+            lastDriveUrl = driveUrl;
         }
 
-        // Update entrega status to PENDIENTE (uploaded, waiting for review)
+        // Update entrega status
         await prisma.entrega.update({
             where: { id: entregaId },
             data: {
@@ -119,9 +135,29 @@ export async function POST(req: NextRequest) {
             },
         });
 
+        // Build period label
+        let periodoLabel = "Ciclo 2025-2026";
+        const periodo = entrega.periodoEntrega;
+        if (periodo.mes) {
+            const meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            periodoLabel = meses[periodo.mes];
+        } else if (periodo.semestre) {
+            periodoLabel = `Semestre ${periodo.semestre}`;
+        }
+
+        // Notify n8n (non-blocking)
+        notifyN8n("entrega-subida", {
+            escuelaNombre: escuela.nombre,
+            escuelaCCT: escuela.cct,
+            escuelaEmail: escuela.email,
+            programaNombre: programa.nombre,
+            periodo: periodoLabel,
+            driveUrl: lastDriveUrl,
+        });
+
         return NextResponse.json({
             success: true,
-            message: `${files.length} archivo(s) subido(s) correctamente`,
+            message: `${files.length} archivo(s) subido(s) a Google Drive`,
             archivos: createdArchivos,
         });
     } catch (error) {
