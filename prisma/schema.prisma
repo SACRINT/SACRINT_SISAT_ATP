@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Escuela {
+  id          String   @id @default(cuid())
+  cct         String   @unique
+  nombre      String
+  localidad   String
+  email       String   @unique
+  password    String
+  hombres     Int      @default(0)
+  mujeres     Int      @default(0)
+  total       Int      @default(0)
+  rol         String   @default("director")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entregas    Entrega[]
+}
+
+model Programa {
+  id          String   @id @default(cuid())
+  nombre      String   @unique
+  descripcion String?
+  orden       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  entregas    Entrega[]
+  recursos    Recurso[]
+}
+
+model Entrega {
+  id              String   @id @default(cuid())
+  escuelaId       String
+  programaId      String
+  estatus         String   @default("PENDIENTE") // PENDIENTE | COMPLETO | NO_ENTREGADO
+  archivoNombre   String?
+  archivoDriveId  String?
+  archivoDriveUrl String?
+  observaciones   String?
+  fechaSubida     DateTime?
+  fechaRevision   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  escuela  Escuela  @relation(fields: [escuelaId], references: [id])
+  programa Programa @relation(fields: [programaId], references: [id])
+
+  @@unique([escuelaId, programaId])
+}
+
+model Recurso {
+  id              String   @id @default(cuid())
+  titulo          String
+  descripcion     String?
+  archivoNombre   String
+  archivoDriveId  String?
+  archivoDriveUrl String?
+  programaId      String?
+  createdAt       DateTime @default(now())
+
+  programa Programa? @relation(fields: [programaId], references: [id])
+}
+
+model Admin {
+  id        String @id @default(cuid())
+  email     String @unique
+  password  String
+  nombre    String
+}
