@@ -160,10 +160,14 @@ export async function POST(req: NextRequest) {
             message: `${files.length} archivo(s) subido(s) a Google Drive`,
             archivos: createdArchivos,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Upload error:", error);
+        const message =
+            error?.message ||
+            error?.errors?.[0]?.message ||
+            "Error al procesar el archivo";
         return NextResponse.json(
-            { error: "Error al procesar el archivo" },
+            { error: message },
             { status: 500 }
         );
     }
