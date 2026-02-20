@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getEscuelaProgramaFolder, uploadFileToDrive } from "@/lib/drive";
+import { uploadFileToCloudinary, buildFolderPath } from "@/lib/cloudinary";
 import { notifyN8n } from "@/lib/n8n";
 
 // POST: ATP sends correction to a delivery
@@ -27,7 +27,6 @@ export async function POST(
             );
         }
 
-        // Get entrega info
         const entrega = await prisma.entrega.findUnique({
             where: { id },
             include: {
@@ -40,7 +39,6 @@ export async function POST(
             return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
         }
 
-        // Get admin
         const adminEmail = (session.user as any)?.email;
         const admin = await prisma.admin.findUnique({ where: { email: adminEmail } });
         if (!admin) {
@@ -49,38 +47,28 @@ export async function POST(
 
         let archivoId: string | null = null;
 
-        // Upload correction file to Google Drive if provided
+        // Upload correction file to Cloudinary if provided
         if (file) {
             const programa = entrega.periodoEntrega.programa;
             const escuela = entrega.escuela;
 
-            // Get escuela folder on Drive, then create _correcciones subfolder inside programa folder
-            const programaFolderId = await getEscuelaProgramaFolder(
-                escuela.cct,
-                escuela.nombre,
-                programa.nombre
-            );
-
-            // Sub-folder for corrections inside the programa folder
-            const { getOrCreateFolder } = await import("@/lib/drive");
-            const corrFolderId = await getOrCreateFolder(programaFolderId, "_correcciones");
-
+            // Store corrections in a _correcciones subfolder
+            const folderPath = buildFolderPath(escuela.cct, escuela.nombre, programa.nombre) + "/_correcciones";
             const buffer = Buffer.from(await file.arrayBuffer());
-            const fileName = `correccion_${Date.now()}_${file.name}`;
 
-            const { driveId, driveUrl } = await uploadFileToDrive(
-                corrFolderId,
-                fileName,
+            const { publicId, url } = await uploadFileToCloudinary(
                 buffer,
-                file.type
+                `correccion_${file.name}`,
+                file.type,
+                folderPath
             );
 
             const archivo = await prisma.archivo.create({
                 data: {
                     entregaId: id,
                     nombre: file.name,
-                    driveId,
-                    driveUrl,
+                    driveId: publicId,
+                    driveUrl: url,
                     tipo: "CORRECCION",
                     subidoPor: "atp",
                 },
@@ -98,7 +86,7 @@ export async function POST(
             },
         });
 
-        // Update entrega status to REQUIERE_CORRECCION
+        // Update entrega status
         await prisma.entrega.update({
             where: { id },
             data: {
@@ -121,9 +109,12 @@ export async function POST(
             message: "Corrección enviada al director",
             correccion,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Correction error:", error);
-        return NextResponse.json({ error: "Error al enviar corrección" }, { status: 500 });
+        return NextResponse.json(
+            { error: error?.message || "Error al enviar corrección" },
+            { status: 500 }
+        );
     }
 }
 

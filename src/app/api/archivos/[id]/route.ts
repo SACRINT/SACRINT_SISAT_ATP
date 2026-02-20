@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { deleteFileFromDrive } from "@/lib/drive";
+import { deleteFileFromCloudinary } from "@/lib/cloudinary";
 
-// DELETE: Director deletes their uploaded file (if entrega is not APROBADO)
+// DELETE: Delete an uploaded file
 export async function DELETE(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -19,9 +19,7 @@ export async function DELETE(
         const archivo = await prisma.archivo.findUnique({
             where: { id },
             include: {
-                entrega: {
-                    include: { escuela: true },
-                },
+                entrega: { include: { escuela: true } },
             },
         });
 
@@ -46,15 +44,15 @@ export async function DELETE(
             );
         }
 
-        // Delete from Google Drive if driveId exists
+        // Delete from Cloudinary if publicId exists
         if (archivo.driveId) {
-            await deleteFileFromDrive(archivo.driveId);
+            await deleteFileFromCloudinary(archivo.driveId);
         }
 
-        // Delete from database (cascade will handle relations)
+        // Delete from database
         await prisma.archivo.delete({ where: { id } });
 
-        // If no more ENTREGA files, reset status to PENDIENTE
+        // If no more ENTREGA files, reset entrega status
         const remainingFiles = await prisma.archivo.count({
             where: { entregaId: archivo.entregaId, tipo: "ENTREGA" },
         });
@@ -67,8 +65,11 @@ export async function DELETE(
         }
 
         return NextResponse.json({ success: true, message: "Archivo eliminado" });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Delete file error:", error);
-        return NextResponse.json({ error: "Error al eliminar archivo" }, { status: 500 });
+        return NextResponse.json(
+            { error: error?.message || "Error al eliminar archivo" },
+            { status: 500 }
+        );
     }
 }

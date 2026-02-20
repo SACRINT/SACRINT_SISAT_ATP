@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getEscuelaProgramaFolder, uploadFileToDrive } from "@/lib/drive";
+import { uploadFileToCloudinary, buildFolderPath } from "@/lib/cloudinary";
 import { notifyN8n } from "@/lib/n8n";
 
 export async function POST(req: NextRequest) {
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
             "image/jpeg",
             "image/png",
         ];
-
         for (const file of files) {
             if (!allowedTypes.includes(file.type)) {
                 return NextResponse.json(
@@ -72,8 +71,6 @@ export async function POST(req: NextRequest) {
             if (entrega.escuela.cct !== userCct) {
                 return NextResponse.json({ error: "No autorizado" }, { status: 403 });
             }
-
-            // Directors cannot replace if APROBADO
             if (entrega.estado === "APROBADO") {
                 return NextResponse.json(
                     { error: "Esta entrega ya fue aprobada. No se puede modificar." },
@@ -84,38 +81,30 @@ export async function POST(req: NextRequest) {
 
         const programa = entrega.periodoEntrega.programa;
         const escuela = entrega.escuela;
+        const folderPath = buildFolderPath(escuela.cct, escuela.nombre, programa.nombre);
 
-        // Get or create the Drive folder for this escuela/programa
-        const driveFolderId = await getEscuelaProgramaFolder(
-            escuela.cct,
-            escuela.nombre,
-            programa.nombre
-        );
-
-        // Upload files to Google Drive
+        // Upload files to Cloudinary
         const createdArchivos = [];
-        let lastDriveUrl: string | undefined;
+        let lastUrl: string | undefined;
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const etiqueta = etiquetas[i] || null;
-
             const buffer = Buffer.from(await file.arrayBuffer());
-            const fileName = `${Date.now()}_${file.name}`;
 
-            const { driveId, driveUrl } = await uploadFileToDrive(
-                driveFolderId,
-                fileName,
+            const { publicId, url } = await uploadFileToCloudinary(
                 buffer,
-                file.type
+                file.name,
+                file.type,
+                folderPath
             );
 
             const archivo = await prisma.archivo.create({
                 data: {
                     entregaId,
                     nombre: file.name,
-                    driveId,
-                    driveUrl,
+                    driveId: publicId,   // reusing driveId field for Cloudinary public_id
+                    driveUrl: url,       // reusing driveUrl field for Cloudinary URL
                     tipo: "ENTREGA",
                     subidoPor: "director",
                     etiqueta,
@@ -123,7 +112,7 @@ export async function POST(req: NextRequest) {
             });
 
             createdArchivos.push(archivo);
-            lastDriveUrl = driveUrl;
+            lastUrl = url;
         }
 
         // Update entrega status
@@ -135,29 +124,30 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        // Build period label
+        // Build period label for n8n notification
         let periodoLabel = "Ciclo 2025-2026";
         const periodo = entrega.periodoEntrega;
         if (periodo.mes) {
-            const meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            const meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
             periodoLabel = meses[periodo.mes];
         } else if (periodo.semestre) {
             periodoLabel = `Semestre ${periodo.semestre}`;
         }
 
-        // Notify n8n (non-blocking)
+        // Notify n8n (non-blocking, skipped if not configured)
         notifyN8n("entrega-subida", {
             escuelaNombre: escuela.nombre,
             escuelaCCT: escuela.cct,
             escuelaEmail: escuela.email,
             programaNombre: programa.nombre,
             periodo: periodoLabel,
-            driveUrl: lastDriveUrl,
+            driveUrl: lastUrl,
         });
 
         return NextResponse.json({
             success: true,
-            message: `${files.length} archivo(s) subido(s) a Google Drive`,
+            message: `${files.length} archivo(s) subido(s) correctamente`,
             archivos: createdArchivos,
         });
     } catch (error: any) {
@@ -166,9 +156,6 @@ export async function POST(req: NextRequest) {
             error?.message ||
             error?.errors?.[0]?.message ||
             "Error al procesar el archivo";
-        return NextResponse.json(
-            { error: message },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
