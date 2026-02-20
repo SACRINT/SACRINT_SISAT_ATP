@@ -36,3 +36,5 @@ next-env.d.ts
 
 # uploads (local dev only)
 uploads/
+
+.vercel
