@@ -3,14 +3,37 @@ import { PassThrough } from "stream";
 
 // ─── Google Drive client ────────────────────────────────────────────────────
 
+/**
+ * Parses the private key from env var, handling all possible formats:
+ * - Escaped newlines: \\n → \n
+ * - Literal newlines (already correct)
+ * - Windows line endings: \r\n → \n
+ * - Extra surrounding quotes added accidentally
+ */
+function parsePrivateKey(raw: string): string {
+    return raw
+        .replace(/^["']|["']$/g, "")   // remove accidental surrounding quotes
+        .replace(/\\n/g, "\n")          // escaped \n → real newline
+        .replace(/\r\n/g, "\n")         // Windows CRLF → LF
+        .trim();
+}
+
 function getDriveClient() {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    const privateKey = (process.env.GOOGLE_PRIVATE_KEY || "")
-        .replace(/\\n/g, "\n"); // handles escaped newlines from env vars
+    const rawKey = process.env.GOOGLE_PRIVATE_KEY || "";
 
-    if (!clientEmail || !privateKey) {
+    if (!clientEmail || !rawKey) {
         throw new Error(
-            "Google Drive credentials not configured. Set GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY."
+            "Google Drive credentials not configured. Set GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY in Vercel env vars."
+        );
+    }
+
+    const privateKey = parsePrivateKey(rawKey);
+
+    if (!privateKey.includes("BEGIN PRIVATE KEY")) {
+        throw new Error(
+            `GOOGLE_PRIVATE_KEY format invalid. Key starts with: "${privateKey.slice(0, 40)}...". ` +
+            "Make sure to paste the full key including -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY-----."
         );
     }
 
