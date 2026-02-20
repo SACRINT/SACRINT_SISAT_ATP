@@ -6,70 +6,146 @@ datasource db {
   provider = "postgresql"
 }
 
-model Escuela {
-  id          String   @id @default(cuid())
-  cct         String   @unique
-  nombre      String
-  localidad   String
-  email       String   @unique
-  password    String
-  hombres     Int      @default(0)
-  mujeres     Int      @default(0)
-  total       Int      @default(0)
-  rol         String   @default("director")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// ─── Enums ─────────────────────────────────────
 
-  entregas    Entrega[]
+enum EstadoEntrega {
+  PENDIENTE
+  EN_REVISION
+  REQUIERE_CORRECCION
+  APROBADO
+  NO_APROBADO
+  NO_ENTREGADO
+}
+
+enum TipoPeriodo {
+  ANUAL
+  SEMESTRAL
+  MENSUAL
+}
+
+// ─── Models ────────────────────────────────────
+
+model Admin {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  password     String
+  nombre       String
+  correcciones Correccion[]
+}
+
+model Escuela {
+  id        String   @id @default(cuid())
+  cct       String   @unique
+  nombre    String
+  localidad String
+  email     String   @unique
+  password  String
+  hombres   Int      @default(0)
+  mujeres   Int      @default(0)
+  total     Int      @default(0)
+  rol       String   @default("director")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entregas Entrega[]
+}
+
+model CicloEscolar {
+  id     String   @id @default(cuid())
+  nombre String   @unique // "2025-2026"
+  inicio DateTime // 2025-08-01
+  fin    DateTime // 2026-07-31
+  activo Boolean  @default(true)
+
+  periodos PeriodoEntrega[]
 }
 
 model Programa {
-  id          String   @id @default(cuid())
-  nombre      String   @unique
+  id          String      @id @default(cuid())
+  nombre      String      @unique
   descripcion String?
-  orden       Int      @default(0)
-  createdAt   DateTime @default(now())
+  tipo        TipoPeriodo @default(ANUAL)
+  numArchivos Int         @default(1) // Día Naranja = 2
+  orden       Int         @default(0)
+  createdAt   DateTime    @default(now())
 
-  entregas    Entrega[]
-  recursos    Recurso[]
+  periodos PeriodoEntrega[]
+  recursos Recurso[]
+}
+
+model PeriodoEntrega {
+  id             String   @id @default(cuid())
+  cicloEscolarId String
+  programaId     String
+  mes            Int?     // 1-12 para MENSUAL
+  semestre       Int?     // 1 o 2 para SEMESTRAL
+  activo         Boolean  @default(true)
+  fechaLimite    DateTime?
+  createdAt      DateTime @default(now())
+
+  cicloEscolar CicloEscolar @relation(fields: [cicloEscolarId], references: [id])
+  programa     Programa     @relation(fields: [programaId], references: [id])
+  entregas     Entrega[]
+
+  @@unique([cicloEscolarId, programaId, mes, semestre])
 }
 
 model Entrega {
-  id              String   @id @default(cuid())
-  escuelaId       String
-  programaId      String
-  estatus         String   @default("PENDIENTE") // PENDIENTE | COMPLETO | NO_ENTREGADO
-  archivoNombre   String?
-  archivoDriveId  String?
-  archivoDriveUrl String?
-  observaciones   String?
-  fechaSubida     DateTime?
-  fechaRevision   DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String         @id @default(cuid())
+  escuelaId        String
+  periodoEntregaId String
+  estado           EstadoEntrega  @default(PENDIENTE)
+  observacionesATP String?
+  fechaSubida      DateTime?
+  fechaRevision    DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  escuela  Escuela  @relation(fields: [escuelaId], references: [id])
-  programa Programa @relation(fields: [programaId], references: [id])
+  escuela        Escuela        @relation(fields: [escuelaId], references: [id])
+  periodoEntrega PeriodoEntrega @relation(fields: [periodoEntregaId], references: [id])
+  archivos       Archivo[]
+  correcciones   Correccion[]
 
-  @@unique([escuelaId, programaId])
+  @@unique([escuelaId, periodoEntregaId])
+}
+
+model Archivo {
+  id        String   @id @default(cuid())
+  entregaId String
+  nombre    String
+  driveId   String?
+  driveUrl  String?
+  tipo      String   @default("ENTREGA") // ENTREGA | CORRECCION
+  subidoPor String   @default("director") // director | atp
+  etiqueta  String?  // "Registro", "Evidencias" (Día Naranja)
+  createdAt DateTime @default(now())
+
+  entrega    Entrega     @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  correccion Correccion?
+}
+
+model Correccion {
+  id         String   @id @default(cuid())
+  entregaId  String
+  texto      String?
+  archivoId  String?  @unique
+  adminId    String
+  createdAt  DateTime @default(now())
+
+  entrega  Entrega  @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  archivo  Archivo? @relation(fields: [archivoId], references: [id])
+  admin    Admin    @relation(fields: [adminId], references: [id])
 }
 
 model Recurso {
-  id              String   @id @default(cuid())
-  titulo          String
-  descripcion     String?
-  archivoNombre   String
+  id            String   @id @default(cuid())
+  titulo        String
+  descripcion   String?
+  archivoNombre String
   archivoDriveId  String?
   archivoDriveUrl String?
-  programaId      String?
-  createdAt       DateTime @default(now())
+  programaId    String?
+  createdAt     DateTime @default(now())
 
   programa Programa? @relation(fields: [programaId], references: [id])
-}
-
-model Admin {
-  id        String @id @default(cuid())
-  email     String @unique
-  password  String
-  nombre    String
 }

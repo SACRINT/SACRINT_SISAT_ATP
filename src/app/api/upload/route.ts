@@ -12,22 +12,25 @@ export async function POST(req: NextRequest) {
         }
 
         const formData = await req.formData();
-        const file = formData.get("file") as File;
+        const files = formData.getAll("file") as File[];
         const entregaId = formData.get("entregaId") as string;
+        const etiquetas = formData.getAll("etiqueta") as string[];
 
-        if (!file || !entregaId) {
+        if (files.length === 0 || !entregaId) {
             return NextResponse.json({ error: "Faltan datos" }, { status: 400 });
         }
 
-        // Validate file size (max 25MB)
-        if (file.size > 25 * 1024 * 1024) {
-            return NextResponse.json(
-                { error: "El archivo es muy grande. Máximo 25 MB." },
-                { status: 400 }
-            );
+        // Validate file sizes
+        for (const file of files) {
+            if (file.size > 25 * 1024 * 1024) {
+                return NextResponse.json(
+                    { error: `"${file.name}" es muy grande. Máximo 25 MB.` },
+                    { status: 400 }
+                );
+            }
         }
 
-        // Validate file type
+        // Validate file types
         const allowedTypes = [
             "application/pdf",
             "application/msword",
@@ -40,17 +43,22 @@ export async function POST(req: NextRequest) {
             "image/png",
         ];
 
-        if (!allowedTypes.includes(file.type)) {
-            return NextResponse.json(
-                { error: "Tipo de archivo no permitido. Use PDF, Word, Excel, PowerPoint o imagen." },
-                { status: 400 }
-            );
+        for (const file of files) {
+            if (!allowedTypes.includes(file.type)) {
+                return NextResponse.json(
+                    { error: `"${file.name}" no es un tipo permitido. Use PDF, Word, Excel, PowerPoint o imagen.` },
+                    { status: 400 }
+                );
+            }
         }
 
         // Get the entrega and verify ownership
         const entrega = await prisma.entrega.findUnique({
             where: { id: entregaId },
-            include: { escuela: true, programa: true },
+            include: {
+                escuela: true,
+                periodoEntrega: { include: { programa: true } },
+            },
         });
 
         if (!entrega) {
@@ -64,31 +72,57 @@ export async function POST(req: NextRequest) {
             if (entrega.escuela.cct !== userCct) {
                 return NextResponse.json({ error: "No autorizado" }, { status: 403 });
             }
+
+            // Directors cannot replace if APROBADO
+            if (entrega.estado === "APROBADO") {
+                return NextResponse.json(
+                    { error: "Esta entrega ya fue aprobada. No se puede modificar." },
+                    { status: 403 }
+                );
+            }
         }
 
-        // Save file locally (will be replaced by Google Drive later)
-        const uploadsDir = join(process.cwd(), "uploads", entrega.escuela.cct, entrega.programa.nombre);
+        const programa = entrega.periodoEntrega.programa;
+
+        // Save files locally (will be replaced by Google Drive later)
+        const uploadsDir = join(process.cwd(), "uploads", entrega.escuela.cct, programa.nombre);
         await mkdir(uploadsDir, { recursive: true });
 
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const fileName = `${Date.now()}_${file.name}`;
-        const filePath = join(uploadsDir, fileName);
-        await writeFile(filePath, buffer);
+        const createdArchivos = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const etiqueta = etiquetas[i] || null;
 
-        // Update entrega status
+            const buffer = Buffer.from(await file.arrayBuffer());
+            const fileName = `${Date.now()}_${file.name}`;
+            const filePath = join(uploadsDir, fileName);
+            await writeFile(filePath, buffer);
+
+            const archivo = await prisma.archivo.create({
+                data: {
+                    entregaId,
+                    nombre: file.name,
+                    tipo: "ENTREGA",
+                    subidoPor: "director",
+                    etiqueta,
+                },
+            });
+            createdArchivos.push(archivo);
+        }
+
+        // Update entrega status to PENDIENTE (uploaded, waiting for review)
         await prisma.entrega.update({
             where: { id: entregaId },
             data: {
-                estatus: "COMPLETO",
-                archivoNombre: file.name,
+                estado: "PENDIENTE",
                 fechaSubida: new Date(),
-                // archivoDriveId will be set when Google Drive is integrated
             },
         });
 
         return NextResponse.json({
             success: true,
-            message: "Archivo subido correctamente",
+            message: `${files.length} archivo(s) subido(s) correctamente`,
+            archivos: createdArchivos,
         });
     } catch (error) {
         console.error("Upload error:", error);
