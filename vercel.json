@@ -1,6 +1,7 @@
 {
-    "buildCommand": "prisma generate && next build",
     "framework": "nextjs",
+    "buildCommand": "prisma generate && next build",
+    "installCommand": "npm install",
     "regions": [
         "iad1"
     ],
@@ -14,11 +15,7 @@
         }
     },
     "functions": {
-        "src/app/**/*": {
-            "maxDuration": 30
-        },
-        "src/app/api/upload/**/*": {
-            "memory": 1024,
+        "src/app/api/**": {
             "maxDuration": 30
         }
     },
@@ -46,9 +43,5 @@
         }
     ],
     "cleanUrls": true,
-    "trailingSlash": false,
-    "github": {
-        "silent": false,
-        "autoJobCancelation": true
-    }
+    "trailingSlash": false
 }
