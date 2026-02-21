@@ -18,10 +18,12 @@ import {
     Upload,
     ToggleLeft,
     ToggleRight,
+    Calendar,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import GestionEscuelas from "./_componentes/GestionEscuelas";
+import GestionFechas from "./_componentes/GestionFechas";
 
 interface Archivo {
     id: string;
@@ -45,6 +47,7 @@ interface PeriodoAdmin {
     mes: number | null;
     semestre: number | null;
     activo: boolean;
+    fechaLimite?: Date | string | null;
     entregas: EntregaAdmin[];
 }
 
@@ -106,7 +109,7 @@ export default function AdminDashboard({
     ciclo: string;
     userName: string;
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-periodos" | "recursos">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-periodos" | "gestion-fechas" | "recursos">("general");
     const [expanded, setExpanded] = useState<string | null>(null);
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string } | null>(null);
@@ -218,7 +221,10 @@ export default function AdminDashboard({
                         <School size={18} /> Gestión de Escuelas
                     </button>
                     <button className={`sidebar-link ${vista === "gestion-periodos" ? "active" : ""}`} onClick={() => setVista("gestion-periodos")}>
-                        <Clock size={18} /> Fechas y Periodos
+                        <Clock size={18} /> Activar Periodos
+                    </button>
+                    <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => setVista("gestion-fechas")}>
+                        <Calendar size={18} /> Fechas y Tareas
                     </button>
                     <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => setVista("recursos")}>
                         <Upload size={18} /> Formatos y Plantillas
@@ -514,11 +520,10 @@ export default function AdminDashboard({
                         ))}
                     </div>
                 )}
-                {/* Placeholder for Fechas Límite (To be implemented) */}
-                <div className="card" style={{ marginTop: "1rem" }}>
-                    <h3 style={{ marginBottom: "1rem" }}><Clock size={16} style={{ verticalAlign: "text-bottom", marginRight: "0.5rem" }} /> Configurar Fechas Límite</h3>
-                    <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>En desarrollo: Aquí podrás establecer el día exacto de entrega para enviar los recordatorios automáticos.</p>
-                </div>
+                {/* ========= VISTA: GESTIÓN DE FECHAS Y TAREAS EXTRAORDINARIAS ========= */}
+                {vista === "gestion-fechas" && (
+                    <GestionFechas programas={programas} />
+                )}
                 {/* ========= VISTA: GESTIÓN DE ESCUELAS ========= */}
                 {
                     vista === "gestion-escuelas" && (
