@@ -25,13 +25,18 @@ export async function sendUploadConfirmation(
         <div style="font-family: Arial, sans-serif; color: #333;">
           <h2 style="color: #2563eb;">Acuse de Recibo</h2>
           <p>Estimado(a) Director(a) de la escuela <strong>${escuelaNombre}</strong>,</p>
-          <p>Le confirmamos que hemos recibido correctamente sus archivos para:</p>
+          <p>La Supervisión Escolar ha recibido correctamente sus archivo(s) para:</p>
           <ul>
             <li><strong>Programa:</strong> ${programaNombre}</li>
             <li><strong>Periodo:</strong> ${periodoLabel}</li>
           </ul>
-          <p>Sus documentos están ahora en estado <strong>Pendiente de revisión</strong> por la Supervisión ATP. Se le notificará si se requiere alguna modificación.</p>
-          <p>Gracias por su puntualidad y compromiso.</p>
+          <p>En los próximos días, el ATP revisará sus documentos y le notificará por este medio en caso de requerir alguna corrección o ajuste.</p>
+          
+          <p style="text-align: center; margin: 30px 0;">
+            <a href="https://sacrint-sisat-atp.vercel.app" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Acceder a la Plataforma</a>
+          </p>
+
+          <p>Agradecemos su compromiso.</p>
           <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
           <p style="font-size: 12px; color: #888;">Este es un mensaje automático del Sistema de Centro de Mando ATP. Por favor no responda a este correo.</p>
         </div>
@@ -51,9 +56,12 @@ export async function sendCorrectionNotification(
   programaNombre: string,
   periodoLabel: string,
   notasATP: string,
-  adminNombre: string
+  adminNombre: string,
+  archivoAdjuntoUrl?: string
 ) {
   if (!process.env.RESEND_API_KEY) return;
+
+  const APP_URL = "https://sacrint-sisat-atp.vercel.app";
 
   try {
     await resend.emails.send({
@@ -73,7 +81,20 @@ export async function sendCorrectionNotification(
           <blockquote style="border-left: 4px solid #ea580c; padding-left: 15px; margin-left: 0; font-style: italic; background: #fff7ed; padding: 15px;">
             ${notasATP.replace(/\n/g, "<br>")}
           </blockquote>
-          <p>Por favor, ingrese al sistema para subir el archivo corregido a la brevedad posible.</p>
+          
+          ${archivoAdjuntoUrl ? `
+          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0; border: 1px solid #cbd5e1;">
+            <p style="margin: 0 0 10px 0;"><strong>📎 Archivo adjunto por el ATP:</strong></p>
+            <p style="margin: 0;"><a href="${archivoAdjuntoUrl}" style="color: #2563eb; text-decoration: underline; font-weight: bold;" target="_blank">Descargar documento revisado</a></p>
+          </div>
+          ` : ""}
+
+          <p>Por favor, ingrese al sistema para revisar el detalle y subir el archivo corregido a la brevedad posible.</p>
+          
+          <p style="text-align: center; margin: 30px 0;">
+            <a href="${APP_URL}" style="background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ir a la plataforma para corregir</a>
+          </p>
+
           <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
           <p style="font-size: 12px; color: #888;">Este es un mensaje automático del Sistema de Centro de Mando ATP.</p>
         </div>

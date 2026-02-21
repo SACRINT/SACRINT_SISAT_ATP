@@ -370,12 +370,16 @@ export default function DirectorPortal({
                                                                                 <div style={{ fontWeight: 600, marginBottom: "0.25rem", color: "#e67e22" }}>
                                                                                     {corr.admin.nombre} — {new Date(corr.createdAt).toLocaleDateString("es-MX")}
                                                                                 </div>
-                                                                                {corr.texto && <p style={{ margin: "0 0 0.25rem" }}>{corr.texto}</p>}
                                                                                 {corr.archivo && (
-                                                                                    <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)" }}>
+                                                                                    <a
+                                                                                        href={corr.archivo.driveUrl || "#"}
+                                                                                        target="_blank"
+                                                                                        rel="noreferrer"
+                                                                                        style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", textDecoration: "none", fontWeight: 600, marginTop: "0.25rem" }}
+                                                                                    >
                                                                                         <Download size={12} />
-                                                                                        <span>{corr.archivo.nombre}</span>
-                                                                                    </div>
+                                                                                        <span>Descargar archivo: {corr.archivo.nombre}</span>
+                                                                                    </a>
                                                                                 )}
                                                                             </div>
                                                                         ))}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { deleteFileFromDrive } from "@/lib/drive";
+import { deleteFileFromCloudinary } from "@/lib/cloudinary";
 
 export async function DELETE(
     request: NextRequest,
@@ -24,9 +24,9 @@ export async function DELETE(
             return NextResponse.json({ error: "Recurso no encontrado" }, { status: 404 });
         }
 
-        // Delete from Google Drive if it exists there
+        // Delete from Cloudinary if it exists there
         if (recurso.archivoDriveId) {
-            await deleteFileFromDrive(recurso.archivoDriveId);
+            await deleteFileFromCloudinary(recurso.archivoDriveId);
         }
 
         // Delete from DB

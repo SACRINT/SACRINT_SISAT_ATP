@@ -117,6 +117,7 @@ export default function AdminDashboard({
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
+    const [correccionFile, setCorreccionFile] = useState<File | null>(null);
     const [sendingCorreccion, setSendingCorreccion] = useState(false);
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
     const [togglingPeriodo, setTogglingPeriodo] = useState<string | null>(null);
@@ -148,11 +149,12 @@ export default function AdminDashboard({
     }
 
     async function handleSendCorreccion() {
-        if (!correccionModal || !correccionTexto.trim()) return;
+        if (!correccionModal || (!correccionTexto.trim() && !correccionFile)) return;
         setSendingCorreccion(true);
 
         const formData = new FormData();
-        formData.append("texto", correccionTexto);
+        if (correccionTexto.trim()) formData.append("texto", correccionTexto);
+        if (correccionFile) formData.append("file", correccionFile);
 
         try {
             const res = await fetch(`/api/entregas/${correccionModal.entregaId}/correcciones`, {
@@ -163,6 +165,7 @@ export default function AdminDashboard({
                 setMessage({ type: "success", text: "Corrección enviada" });
                 setCorreccionModal(null);
                 setCorreccionTexto("");
+                setCorreccionFile(null);
                 router.refresh();
             } else {
                 const data = await res.json();
@@ -579,10 +582,23 @@ export default function AdminDashboard({
                                 }}
                             />
 
+                            <div style={{ marginTop: "1rem" }}>
+                                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--text)" }}>
+                                    Adjuntar Archivo de Corrección (Opcional)
+                                </label>
+                                <input
+                                    type="file"
+                                    className="form-control"
+                                    onChange={(e) => setCorreccionFile(e.target.files ? e.target.files[0] : null)}
+                                    style={{ padding: "0.5rem", fontSize: "0.875rem" }}
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.png"
+                                />
+                            </div>
+
                             <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
                                 <button
                                     className="btn btn-outline"
-                                    onClick={() => { setCorreccionModal(null); setCorreccionTexto(""); }}
+                                    onClick={() => { setCorreccionModal(null); setCorreccionTexto(""); setCorreccionFile(null); }}
                                     style={{ flex: 1 }}
                                 >
                                     Cancelar
@@ -590,7 +606,7 @@ export default function AdminDashboard({
                                 <button
                                     className="btn btn-primary"
                                     onClick={handleSendCorreccion}
-                                    disabled={sendingCorreccion || !correccionTexto.trim()}
+                                    disabled={sendingCorreccion || (!correccionTexto.trim() && !correccionFile)}
                                     style={{ flex: 1 }}
                                 >
                                     {sendingCorreccion ? "Enviando..." : (

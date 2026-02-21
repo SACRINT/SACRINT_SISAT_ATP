@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { uploadFileToDrive, getOrCreateFolder } from "@/lib/drive";
+import { uploadFileToCloudinary } from "@/lib/cloudinary";
 
 export async function POST(request: NextRequest) {
     try {
@@ -20,15 +20,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Archivo y título son obligatorios" }, { status: 400 });
         }
 
-        // Upload to Drive
+        // Upload to Cloudinary under a 'RECURSOS' folder
         const buffer = Buffer.from(await file.arrayBuffer());
-        const rootFolderId = await getOrCreateFolder("root", "SISAT_ATP_RECURSOS");
 
-        const { driveId, driveUrl } = await uploadFileToDrive(
-            rootFolderId,
-            file.name,
+        const { publicId, url } = await uploadFileToCloudinary(
             buffer,
-            file.type
+            file.name,
+            file.type,
+            "RECURSOS_INSTITUCIONALES"
         );
 
         // Save to DB
@@ -37,8 +36,8 @@ export async function POST(request: NextRequest) {
                 titulo: titulo.trim(),
                 descripcion: descripcion?.trim() || null,
                 archivoNombre: file.name,
-                archivoDriveId: driveId,
-                archivoDriveUrl: driveUrl,
+                archivoDriveId: publicId, // reusing this field for Cloudinary public_id
+                archivoDriveUrl: url,     // reusing this field for Cloudinary URL
                 programaId: programaId || null,
             },
             include: { programa: true }

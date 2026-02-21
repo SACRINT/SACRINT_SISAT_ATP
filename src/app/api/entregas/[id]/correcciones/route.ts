@@ -46,6 +46,7 @@ export async function POST(
         }
 
         let archivoId: string | null = null;
+        let archivoUrl: string | undefined;
 
         // Upload correction file to Cloudinary if provided
         if (file) {
@@ -74,6 +75,7 @@ export async function POST(
                 },
             });
             archivoId = archivo.id;
+            archivoUrl = url;
         }
 
         // Create correction record
@@ -113,7 +115,8 @@ export async function POST(
             entrega.periodoEntrega.programa.nombre,
             periodoLabel,
             texto || "Se ha adjuntado un archivo con las correcciones necesarias.",
-            admin.nombre
+            admin.nombre,
+            archivoUrl
         );
 
         return NextResponse.json({
