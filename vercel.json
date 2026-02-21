@@ -46,5 +46,11 @@
         }
     ],
     "cleanUrls": true,
-    "trailingSlash": false
+    "trailingSlash": false,
+    "crons": [
+        {
+            "path": "/api/cron/recordatorios",
+            "schedule": "0 14 * * *"
+        }
+    ]
 }

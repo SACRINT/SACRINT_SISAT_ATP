@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadFileToCloudinary, buildFolderPath } from "@/lib/cloudinary";
-import { notifyN8n } from "@/lib/n8n";
+import { sendCorrectionNotification } from "@/lib/email";
 
 // POST: ATP sends correction to a delivery
 export async function POST(
@@ -95,14 +95,26 @@ export async function POST(
             },
         });
 
-        // Notify director via n8n (non-blocking)
-        notifyN8n("correccion-enviada", {
-            escuelaNombre: entrega.escuela.nombre,
-            escuelaEmail: entrega.escuela.email,
-            programaNombre: entrega.periodoEntrega.programa.nombre,
-            texto: texto || undefined,
-            adminNombre: admin.nombre,
-        });
+        // Build period label for email notification
+        let periodoLabel = "Ciclo 2025-2026";
+        const periodo = entrega.periodoEntrega;
+        if (periodo.mes) {
+            const meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            periodoLabel = meses[periodo.mes];
+        } else if (periodo.semestre) {
+            periodoLabel = `Semestre ${periodo.semestre}`;
+        }
+
+        // Send correction email via Resend
+        await sendCorrectionNotification(
+            entrega.escuela.email,
+            entrega.escuela.nombre,
+            entrega.periodoEntrega.programa.nombre,
+            periodoLabel,
+            texto || "Se ha adjuntado un archivo con las correcciones necesarias.",
+            admin.nombre
+        );
 
         return NextResponse.json({
             success: true,

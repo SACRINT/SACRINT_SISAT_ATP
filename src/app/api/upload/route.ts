@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadFileToCloudinary, buildFolderPath } from "@/lib/cloudinary";
-import { notifyN8n } from "@/lib/n8n";
+import { sendUploadConfirmation } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
     try {
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        // Build period label for n8n notification
+        // Build period label for email notification
         let periodoLabel = "Ciclo 2025-2026";
         const periodo = entrega.periodoEntrega;
         if (periodo.mes) {
@@ -135,15 +135,13 @@ export async function POST(req: NextRequest) {
             periodoLabel = `Semestre ${periodo.semestre}`;
         }
 
-        // Notify n8n (non-blocking, skipped if not configured)
-        notifyN8n("entrega-subida", {
-            escuelaNombre: escuela.nombre,
-            escuelaCCT: escuela.cct,
-            escuelaEmail: escuela.email,
-            programaNombre: programa.nombre,
-            periodo: periodoLabel,
-            driveUrl: lastUrl,
-        });
+        // Enviar acuse de recibo por email
+        await sendUploadConfirmation(
+            escuela.email,
+            escuela.nombre,
+            programa.nombre,
+            periodoLabel
+        );
 
         return NextResponse.json({
             success: true,
