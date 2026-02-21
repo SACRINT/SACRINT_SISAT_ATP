@@ -114,7 +114,8 @@ export default function AdminDashboard({
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const router = useRouter();
 
-    const porcentaje = stats.totalEntregas > 0 ? Math.round((stats.aprobadas / stats.totalEntregas) * 100) : 0;
+    const entregadas = stats.totalEntregas - stats.noEntregadas;
+    const porcentaje = stats.totalEntregas > 0 ? Math.round((entregadas / stats.totalEntregas) * 100) : 0;
 
     async function handleEstadoChange(entregaId: string, nuevoEstado: string) {
         setUpdatingEstado(entregaId);
@@ -250,7 +251,7 @@ export default function AdminDashboard({
                 {/* Progress Bar */}
                 <div className="card" style={{ marginBottom: "1.5rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                        <span style={{ fontWeight: 600 }}>Progreso General (Aprobadas)</span>
+                        <span style={{ fontWeight: 600 }}>Progreso de Recepción (Entregados vs Faltantes)</span>
                         <span style={{ color: "var(--primary)", fontWeight: 700 }}>{porcentaje}%</span>
                     </div>
                     <div className="progress-bar">
@@ -275,9 +276,9 @@ export default function AdminDashboard({
                 {vista === "escuelas" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                         {escuelas.map((esc) => {
-                            const aprobEsc = esc.entregas.filter((e) => e.estado === "APROBADO").length;
+                            const entregadosEsc = esc.entregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
                             const totalEsc = esc.entregas.length;
-                            const porcEsc = totalEsc > 0 ? Math.round((aprobEsc / totalEsc) * 100) : 0;
+                            const porcEsc = totalEsc > 0 ? Math.round((entregadosEsc / totalEsc) * 100) : 0;
                             const isExpanded = expanded === esc.id;
 
                             let borderColor = "var(--danger)";
@@ -360,9 +361,9 @@ export default function AdminDashboard({
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                         {programas.map((prog) => {
                             const activeEntregas = prog.periodos.filter((p) => p.activo).flatMap((p) => p.entregas);
-                            const aprobProg = activeEntregas.filter((e) => e.estado === "APROBADO").length;
+                            const entregadosProg = activeEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
                             const totalProg = activeEntregas.length;
-                            const porc = totalProg > 0 ? Math.round((aprobProg / totalProg) * 100) : 0;
+                            const porc = totalProg > 0 ? Math.round((entregadosProg / totalProg) * 100) : 0;
                             const isExpanded = expanded === prog.id;
 
                             return (
@@ -372,7 +373,7 @@ export default function AdminDashboard({
                                             <div>
                                                 <div style={{ fontWeight: 700 }}>{prog.nombre}</div>
                                                 <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                                                    {aprobProg}/{totalProg} aprobadas • {prog.periodos.filter((p) => p.activo).length} periodo(s) activo(s)
+                                                    {entregadosProg}/{totalProg} recibidas • {prog.periodos.filter((p) => p.activo).length} periodo(s) activo(s)
                                                 </div>
                                             </div>
                                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -393,7 +394,7 @@ export default function AdminDashboard({
                                                         <div style={{ padding: "0.5rem 1rem", background: "var(--bg-secondary)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
                                                             onClick={() => setExpandedPeriodo(expandedPeriodo === periodo.id ? null : periodo.id)}
                                                         >
-                                                            {getPeriodoLabel(periodo)} ({periodo.entregas.filter((e) => e.estado === "APROBADO").length}/{periodo.entregas.length} aprobadas)
+                                                            {getPeriodoLabel(periodo)} ({periodo.entregas.filter((e) => e.estado !== "NO_ENTREGADO").length}/{periodo.entregas.length} recibidas)
                                                         </div>
                                                     )}
 
@@ -469,7 +470,7 @@ export default function AdminDashboard({
                                             <span style={{ fontWeight: 500 }}>{getPeriodoLabel(periodo)}</span>
                                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                                                 <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                                    {periodo.entregas.filter((e) => e.estado === "APROBADO").length}/{periodo.entregas.length}
+                                                    {periodo.entregas.filter((e) => e.estado !== "NO_ENTREGADO").length}/{periodo.entregas.length}
                                                 </span>
                                                 <button
                                                     onClick={() => handleTogglePeriodo(periodo.id, !periodo.activo)}
