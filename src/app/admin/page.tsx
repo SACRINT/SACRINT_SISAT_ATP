@@ -55,6 +55,12 @@ export default async function AdminPage() {
         },
     });
 
+    // Fetch recursos
+    const recursos = await prisma.recurso.findMany({
+        orderBy: { createdAt: "desc" },
+        include: { programa: true }
+    });
+
     // Calculate stats from active periods only
     const activeEntregas = programas.flatMap((p) =>
         p.periodos.filter((per) => per.activo).flatMap((per) => per.entregas)
@@ -74,6 +80,7 @@ export default async function AdminPage() {
         <AdminDashboard
             programas={JSON.parse(JSON.stringify(programas))}
             escuelas={JSON.parse(JSON.stringify(escuelas))}
+            recursos={JSON.parse(JSON.stringify(recursos))}
             stats={stats}
             ciclo={ciclo.nombre}
             userName={(session.user as any)?.name || "Admin"}

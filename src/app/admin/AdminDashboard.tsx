@@ -24,6 +24,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import GestionEscuelas from "./_componentes/GestionEscuelas";
 import GestionFechas from "./_componentes/GestionFechas";
+import GestionRecursos from "./_componentes/GestionRecursos";
 
 interface Archivo {
     id: string;
@@ -99,12 +100,14 @@ const ESTADO_COLORS: Record<string, string> = {
 export default function AdminDashboard({
     programas,
     escuelas,
+    recursos,
     stats,
     ciclo,
     userName,
 }: {
     programas: ProgramaAdmin[];
     escuelas: EscuelaAdmin[];
+    recursos: any[];
     stats: Stats;
     ciclo: string;
     userName: string;
@@ -544,17 +547,7 @@ export default function AdminDashboard({
                 {/* ========= VISTA: RECURSOS Y FORMATOS ========= */}
                 {
                     vista === "recursos" && (
-                        <div className="fade-in">
-                            <div className="page-header" style={{ marginBottom: "2rem" }}>
-                                <h1>Formatos y Plantillas</h1>
-                                <p style={{ color: "var(--text-secondary)" }}>
-                                    Sube formatos en Word o Excel para que los directores los descarguen.
-                                </p>
-                            </div>
-                            <div className="card">
-                                <p style={{ color: "var(--text-muted)" }}>Módulo en desarrollo...</p>
-                            </div>
-                        </div>
+                        <GestionRecursos recursos={recursos} programas={programas} />
                     )
                 }
             </main >
