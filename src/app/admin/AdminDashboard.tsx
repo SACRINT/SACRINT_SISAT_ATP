@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import GestionEscuelas from "./_componentes/GestionEscuelas";
 
 interface Archivo {
     id: string;
@@ -60,6 +61,8 @@ interface EscuelaAdmin {
     cct: string;
     nombre: string;
     localidad: string;
+    director?: string | null;
+    email?: string | null;
     total: number;
     entregas: {
         id: string;
@@ -103,7 +106,7 @@ export default function AdminDashboard({
     ciclo: string;
     userName: string;
 }) {
-    const [vista, setVista] = useState<"escuelas" | "programas" | "periodos">("escuelas");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-periodos" | "recursos">("general");
     const [expanded, setExpanded] = useState<string | null>(null);
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string } | null>(null);
@@ -191,39 +194,52 @@ export default function AdminDashboard({
     }
 
     return (
-        <>
-            {/* Navbar */}
-            <nav className="navbar">
-                <div className="navbar-brand">
+        <div className="admin-layout">
+            {/* Sidebar */}
+            <aside className="admin-sidebar">
+                <div className="admin-sidebar-header">
                     <BarChart3 size={24} />
                     <span>Centro de Mando ATP</span>
                 </div>
-                <div className="navbar-user">
-                    <span style={{ display: "none" }}>{userName}</span>
-                    <button
-                        className="btn btn-outline"
-                        onClick={() => signOut({ callbackUrl: "/login" })}
-                        style={{ fontSize: "0.8125rem", padding: "0.5rem 0.75rem", minHeight: "auto" }}
-                    >
-                        <LogOut size={16} />
-                        Salir
+                <div className="admin-sidebar-nav">
+                    <button className={`sidebar-link ${vista === "general" ? "active" : ""}`} onClick={() => setVista("general")}>
+                        <BarChart3 size={18} /> Vista General
+                    </button>
+                    <button className={`sidebar-link ${vista === "escuelas" ? "active" : ""}`} onClick={() => setVista("escuelas")}>
+                        <CheckCircle2 size={18} /> Avance Escuelas
+                    </button>
+                    <button className={`sidebar-link ${vista === "programas" ? "active" : ""}`} onClick={() => setVista("programas")}>
+                        <FileText size={18} /> Avance Programas
+                    </button>
+
+                    <div style={{ margin: "1rem 0 0.5rem", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", paddingLeft: "0.5rem" }}>Administración</div>
+
+                    <button className={`sidebar-link ${vista === "gestion-escuelas" ? "active" : ""}`} onClick={() => setVista("gestion-escuelas")}>
+                        <School size={18} /> Gestión de Escuelas
+                    </button>
+                    <button className={`sidebar-link ${vista === "gestion-periodos" ? "active" : ""}`} onClick={() => setVista("gestion-periodos")}>
+                        <Clock size={18} /> Fechas y Periodos
+                    </button>
+                    <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => setVista("recursos")}>
+                        <Upload size={18} /> Formatos y Plantillas
                     </button>
                 </div>
-            </nav>
-
-            <div className="page-container fade-in">
-                {/* Header */}
-                <div className="page-header">
-                    <h1>
-                        <BarChart3 size={28} />
-                        Panel de Control
-                    </h1>
-                    <p style={{ color: "var(--text-secondary)" }}>
-                        Ciclo {ciclo} • 18 bachilleratos • {stats.totalEntregas} entregas activas
-                    </p>
+                <div className="admin-sidebar-footer">
+                    <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem", paddingLeft: "0.25rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        Conectado como <br /><strong>{userName}</strong>
+                    </div>
+                    <button
+                        className="btn btn-outline btn-block"
+                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        style={{ fontSize: "0.8125rem", padding: "0.5rem", minHeight: "auto", marginTop: "0.5rem" }}
+                    >
+                        <LogOut size={16} /> Salir
+                    </button>
                 </div>
+            </aside>
 
-                {/* Message */}
+            {/* Main Content */}
+            <main className="admin-content fade-in">
                 {message && (
                     <div className={`alert ${message.type === "success" ? "alert-success" : "alert-error"}`} style={{ marginBottom: "1rem" }}>
                         {message.text}
@@ -231,46 +247,53 @@ export default function AdminDashboard({
                     </div>
                 )}
 
-                {/* Stats Row */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.75rem", marginBottom: "1.5rem" }}>
-                    {[
-                        { label: "Aprobadas", value: stats.aprobadas, color: "var(--success)" },
-                        { label: "Pendientes", value: stats.pendientes, color: "var(--warning)" },
-                        { label: "En Revisión", value: stats.enRevision, color: "var(--primary)" },
-                        { label: "Req. Corrección", value: stats.requiereCorreccion, color: "#e67e22" },
-                        { label: "No Aprobadas", value: stats.noAprobado, color: "var(--danger)" },
-                        { label: "No Entregadas", value: stats.noEntregadas, color: "var(--text-muted)" },
-                    ].map(({ label, value, color }) => (
-                        <div key={label} className="card" style={{ textAlign: "center", padding: "0.75rem" }}>
-                            <div style={{ fontSize: "1.5rem", fontWeight: 800, color }}>{value}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{label}</div>
+                {/* ========= VISTA: VISTA GENERAL ========= */}
+                {vista === "general" && (
+                    <div className="fade-in">
+                        <div className="page-header" style={{ marginBottom: "2rem" }}>
+                            <h1>Vista General</h1>
+                            <p style={{ color: "var(--text-secondary)" }}>
+                                Ciclo {ciclo} • 18 bachilleratos • {stats.totalEntregas} entregas
+                            </p>
                         </div>
-                    ))}
-                </div>
 
-                {/* Progress Bar */}
-                <div className="card" style={{ marginBottom: "1.5rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                        <span style={{ fontWeight: 600 }}>Progreso de Recepción (Entregados vs Faltantes)</span>
-                        <span style={{ color: "var(--primary)", fontWeight: 700 }}>{porcentaje}%</span>
-                    </div>
-                    <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: `${porcentaje}%` }} />
-                    </div>
-                </div>
+                        {/* Stats Row */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+                            {[
+                                { label: "Aprobadas", value: stats.aprobadas, color: "var(--success)" },
+                                { label: "Pendientes", value: stats.pendientes, color: "var(--warning)" },
+                                { label: "En Revisión", value: stats.enRevision, color: "var(--primary)" },
+                                { label: "Req. Corrección", value: stats.requiereCorreccion, color: "#e67e22" },
+                                { label: "No Aprobadas", value: stats.noAprobado, color: "var(--danger)" },
+                                { label: "No Entregadas", value: stats.noEntregadas, color: "var(--text-muted)" },
+                            ].map(({ label, value, color }) => (
+                                <div key={label} className="card" style={{ textAlign: "center", padding: "1rem", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                    <div style={{ fontSize: "2rem", fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.5rem", textAlign: "center", fontWeight: 600 }}>{label}</div>
+                                </div>
+                            ))}
+                        </div>
 
-                {/* View Toggle */}
-                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-                    <button className={`btn ${vista === "escuelas" ? "btn-primary" : "btn-outline"}`} onClick={() => setVista("escuelas")} style={{ flex: 1 }}>
-                        <School size={18} /> Escuelas
-                    </button>
-                    <button className={`btn ${vista === "programas" ? "btn-primary" : "btn-outline"}`} onClick={() => setVista("programas")} style={{ flex: 1 }}>
-                        <FileText size={18} /> Programas
-                    </button>
-                    <button className={`btn ${vista === "periodos" ? "btn-primary" : "btn-outline"}`} onClick={() => setVista("periodos")} style={{ flex: 1 }}>
-                        <ToggleLeft size={18} /> Periodos
-                    </button>
-                </div>
+                        {/* Progress Bar */}
+                        <div className="card" style={{ marginBottom: "1.5rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                                <span style={{ fontWeight: 600 }}>Progreso de Recepción (Entregados vs Faltantes)</span>
+                                <span style={{ color: "var(--primary)", fontWeight: 700 }}>{porcentaje}%</span>
+                            </div>
+                            <div className="progress-bar" style={{ height: "12px" }}>
+                                <div className="progress-fill" style={{ width: `${porcentaje}%` }} />
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7" }}>
+                            <h3 style={{ color: "#0c5a8e", marginBottom: "0.5rem", fontSize: "1rem" }}>Siguientes Pasos</h3>
+                            <p style={{ margin: 0, fontSize: "0.875rem", color: "#0c5a8e" }}>
+                                Utiliza el menú lateral para revisar el progreso individual por escuela o por programa.
+                                Para administrar fechas límite o la información de las escuelas, utiliza la sección de Administración.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* ========= VISTA: ESCUELAS ========= */}
                 {vista === "escuelas" && (
@@ -448,8 +471,8 @@ export default function AdminDashboard({
                     </div>
                 )}
 
-                {/* ========= VISTA: PERIODOS (Gestión) ========= */}
-                {vista === "periodos" && (
+                {/* ========= VISTA: GESTIÓN DE PERIODOS ========= */}
+                {vista === "gestion-periodos" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                         <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7" }}>
                             <p style={{ margin: 0, fontSize: "0.875rem", color: "#0c5a8e" }}>
@@ -491,56 +514,96 @@ export default function AdminDashboard({
                         ))}
                     </div>
                 )}
-            </div>
+                {/* Placeholder for Fechas Límite (To be implemented) */}
+                <div className="card" style={{ marginTop: "1rem" }}>
+                    <h3 style={{ marginBottom: "1rem" }}><Clock size={16} style={{ verticalAlign: "text-bottom", marginRight: "0.5rem" }} /> Configurar Fechas Límite</h3>
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>En desarrollo: Aquí podrás establecer el día exacto de entrega para enviar los recordatorios automáticos.</p>
+                </div>
+                {/* ========= VISTA: GESTIÓN DE ESCUELAS ========= */}
+                {
+                    vista === "gestion-escuelas" && (
+                        <div className="fade-in">
+                            <div className="page-header" style={{ marginBottom: "2rem" }}>
+                                <h1>Gestión de Escuelas</h1>
+                                <p style={{ color: "var(--text-secondary)" }}>
+                                    Edita los datos de contacto y directores de las 18 escuelas.
+                                </p>
+                            </div>
+                            <div className="card">
+                                <p style={{ color: "var(--text-muted)" }}>Módulo en desarrollo...</p>
+                            </div>
+                        </div>
+                    )
+                }
+
+                {/* ========= VISTA: RECURSOS Y FORMATOS ========= */}
+                {
+                    vista === "recursos" && (
+                        <div className="fade-in">
+                            <div className="page-header" style={{ marginBottom: "2rem" }}>
+                                <h1>Formatos y Plantillas</h1>
+                                <p style={{ color: "var(--text-secondary)" }}>
+                                    Sube formatos en Word o Excel para que los directores los descarguen.
+                                </p>
+                            </div>
+                            <div className="card">
+                                <p style={{ color: "var(--text-muted)" }}>Módulo en desarrollo...</p>
+                            </div>
+                        </div>
+                    )
+                }
+            </main >
 
             {/* Correction Modal */}
-            {correccionModal && (
-                <div style={{
-                    position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    padding: "1rem", zIndex: 1000,
-                }}>
-                    <div className="card" style={{ maxWidth: "500px", width: "100%" }}>
-                        <h3 style={{ marginBottom: "0.5rem" }}>
-                            <MessageSquare size={20} /> Enviar Corrección
-                        </h3>
-                        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
-                            Para: <strong>{correccionModal.escuelaNombre}</strong>
-                        </p>
+            {
+                correccionModal && (
+                    <div style={{
+                        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        padding: "1rem", zIndex: 1000,
+                    }}>
+                        <div className="card" style={{ maxWidth: "500px", width: "100%" }}>
+                            <h3 style={{ marginBottom: "0.5rem" }}>
+                                <MessageSquare size={20} /> Enviar Corrección
+                            </h3>
+                            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
+                                Para: <strong>{correccionModal.escuelaNombre}</strong>
+                            </p>
 
-                        <textarea
-                            value={correccionTexto}
-                            onChange={(e) => setCorreccionTexto(e.target.value)}
-                            placeholder="Escribe las correcciones necesarias..."
-                            style={{
-                                width: "100%", minHeight: "120px", padding: "0.75rem",
-                                borderRadius: "8px", border: "1px solid var(--border)",
-                                fontFamily: "inherit", fontSize: "0.875rem", resize: "vertical",
-                            }}
-                        />
+                            <textarea
+                                value={correccionTexto}
+                                onChange={(e) => setCorreccionTexto(e.target.value)}
+                                placeholder="Escribe las correcciones necesarias..."
+                                style={{
+                                    width: "100%", minHeight: "120px", padding: "0.75rem",
+                                    borderRadius: "8px", border: "1px solid var(--border)",
+                                    fontFamily: "inherit", fontSize: "0.875rem", resize: "vertical",
+                                }}
+                            />
 
-                        <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-                            <button
-                                className="btn btn-outline"
-                                onClick={() => { setCorreccionModal(null); setCorreccionTexto(""); }}
-                                style={{ flex: 1 }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                className="btn btn-primary"
-                                onClick={handleSendCorreccion}
-                                disabled={sendingCorreccion || !correccionTexto.trim()}
-                                style={{ flex: 1 }}
-                            >
-                                {sendingCorreccion ? "Enviando..." : (
-                                    <><Send size={16} /> Enviar</>
-                                )}
-                            </button>
+                            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+                                <button
+                                    className="btn btn-outline"
+                                    onClick={() => { setCorreccionModal(null); setCorreccionTexto(""); }}
+                                    style={{ flex: 1 }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleSendCorreccion}
+                                    disabled={sendingCorreccion || !correccionTexto.trim()}
+                                    style={{ flex: 1 }}
+                                >
+                                    {sendingCorreccion ? "Enviando..." : (
+                                        <><Send size={16} /> Enviar</>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </>
+                )
+            }
+        </div >
     );
 }
