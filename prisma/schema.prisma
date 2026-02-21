@@ -94,7 +94,7 @@ model Entrega {
   id               String         @id @default(cuid())
   escuelaId        String
   periodoEntregaId String
-  estado           EstadoEntrega  @default(PENDIENTE)
+  estado           EstadoEntrega  @default(NO_ENTREGADO)
   observacionesATP String?
   fechaSubida      DateTime?
   fechaRevision    DateTime?
