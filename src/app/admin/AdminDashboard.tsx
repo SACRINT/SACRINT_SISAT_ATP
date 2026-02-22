@@ -666,7 +666,7 @@ export default function AdminDashboard({
                             </p>
                         </div>
 
-                        {programas.filter((p) => p.tipo === "MENSUAL").map((prog) => (
+                        {programas.map((prog) => (
                             <div key={prog.id} className="card" style={{ padding: 0 }}>
                                 <div style={{ padding: "1rem", fontWeight: 700 }}>{prog.nombre}</div>
                                 <div style={{ borderTop: "1px solid var(--border)" }}>
