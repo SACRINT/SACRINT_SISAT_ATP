@@ -20,6 +20,7 @@ import {
     ToggleRight,
     Calendar,
     Download,
+    Layers,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ import * as XLSX from "xlsx";
 import GestionEscuelas from "./_componentes/GestionEscuelas";
 import GestionFechas from "./_componentes/GestionFechas";
 import GestionRecursos from "./_componentes/GestionRecursos";
+import GestionProgramas from "./_componentes/GestionProgramas";
 
 interface Archivo {
     id: string;
@@ -63,8 +65,10 @@ interface PeriodoAdmin {
 interface ProgramaAdmin {
     id: string;
     nombre: string;
+    descripcion: string | null;
     tipo: string;
     numArchivos: number;
+    orden: number;
     periodos: PeriodoAdmin[];
 }
 
@@ -127,7 +131,7 @@ export default function AdminDashboard({
     ciclo: string;
     userName: string;
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-periodos" | "gestion-fechas" | "recursos">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos">("general");
     const [expanded, setExpanded] = useState<string | null>(null);
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
@@ -272,6 +276,9 @@ export default function AdminDashboard({
 
                     <button className={`sidebar-link ${vista === "gestion-escuelas" ? "active" : ""}`} onClick={() => setVista("gestion-escuelas")}>
                         <School size={18} /> Gestión de Escuelas
+                    </button>
+                    <button className={`sidebar-link ${vista === "gestion-programas" ? "active" : ""}`} onClick={() => setVista("gestion-programas")}>
+                        <Layers size={18} /> Gestión de Programas
                     </button>
                     <button className={`sidebar-link ${vista === "gestion-periodos" ? "active" : ""}`} onClick={() => setVista("gestion-periodos")}>
                         <Clock size={18} /> Activar Periodos
@@ -585,17 +592,20 @@ export default function AdminDashboard({
                 {/* ========= VISTA: GESTIÓN DE ESCUELAS ========= */}
                 {
                     vista === "gestion-escuelas" && (
-                        <div className="fade-in">
-                            <div className="page-header" style={{ marginBottom: "2rem" }}>
-                                <h1>Gestión de Escuelas</h1>
-                                <p style={{ color: "var(--text-secondary)" }}>
-                                    Edita los datos de contacto y directores de las 18 escuelas.
-                                </p>
-                            </div>
-                            <div className="card">
-                                <p style={{ color: "var(--text-muted)" }}>Módulo en desarrollo...</p>
-                            </div>
-                        </div>
+                        <GestionEscuelas inicialEscuelas={escuelas.map(e => ({
+                            id: e.id,
+                            cct: e.cct,
+                            nombre: e.nombre,
+                            director: e.director ?? null,
+                            email: e.email ?? null
+                        }))} />
+                    )
+                }
+
+                {/* ========= VISTA: GESTIÓN DE PROGRAMAS ========= */}
+                {
+                    vista === "gestion-programas" && (
+                        <GestionProgramas inicialProgramas={programas} />
                     )
                 }
 

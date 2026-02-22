@@ -1,0 +1,316 @@
+"use strict";
+"use client";
+
+import { useState } from "react";
+import { Plus, Edit2, Save, Trash2, X, FileText, Settings, AlignLeft, Layers } from "lucide-react";
+
+interface PeriodoAdmin {
+    id: string;
+}
+
+interface ProgramaAdmin {
+    id: string;
+    nombre: string;
+    descripcion: string | null;
+    tipo: string;
+    numArchivos: number;
+    orden: number;
+    periodos: PeriodoAdmin[];
+}
+
+export default function GestionProgramas({ inicialProgramas }: { inicialProgramas: ProgramaAdmin[] }) {
+    const [programas, setProgramas] = useState<ProgramaAdmin[]>(inicialProgramas);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+    const [formData, setFormData] = useState<{
+        nombre: string;
+        descripcion: string;
+        tipo: string;
+        numArchivos: number;
+        orden: number;
+    }>({
+        nombre: "",
+        descripcion: "",
+        tipo: "ANUAL",
+        numArchivos: 1,
+        orden: 0,
+    });
+
+    const handleOpenModal = (prog?: ProgramaAdmin) => {
+        setMessage(null);
+        if (prog) {
+            setEditingId(prog.id);
+            setFormData({
+                nombre: prog.nombre,
+                descripcion: prog.descripcion || "",
+                tipo: prog.tipo,
+                numArchivos: prog.numArchivos,
+                orden: prog.orden,
+            });
+        } else {
+            setEditingId(null);
+            setFormData({
+                nombre: "",
+                descripcion: "",
+                tipo: "ANUAL",
+                numArchivos: 1,
+                orden: 0,
+            });
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingId(null);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setMessage(null);
+        setIsLoading(true);
+
+        try {
+            const url = editingId ? `/api/programas/${editingId}` : `/api/programas`;
+            const method = editingId ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Error al guardar el programa");
+            }
+
+            const savedPrograma = await res.json();
+
+            if (editingId) {
+                setProgramas(prev => prev.map(p => p.id === editingId ? { ...p, ...savedPrograma } : p));
+                setMessage({ type: "success", text: "Programa actualizado exitosamente." });
+            } else {
+                setProgramas(prev => [...prev, { ...savedPrograma, periodos: [] }]);
+                setMessage({ type: "success", text: "Programa creado exitosamente." });
+            }
+
+            setTimeout(() => {
+                handleCloseModal();
+                setMessage(null);
+            }, 1500);
+
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDelete = async (id: string, periodosCount: number) => {
+        if (periodosCount > 0) {
+            alert(`No puedes eliminar este programa porque ya tiene ${periodosCount} periodos asignados. Elimina o reasigna los periodos primero.`);
+            return;
+        }
+
+        if (!confirm("¿Estás seguro de eliminar este programa de manera definitiva?")) return;
+        setIsLoading(true);
+
+        try {
+            const res = await fetch(`/api/programas/${id}`, {
+                method: "DELETE",
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Error al eliminar el programa");
+            }
+
+            setProgramas(prev => prev.filter(p => p.id !== id));
+            setMessage({ type: "success", text: "Programa eliminado." });
+            setTimeout(() => setMessage(null), 3000);
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="fade-in">
+            <div className="page-header" style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+                <div>
+                    <h1>Gestión de Programas</h1>
+                    <p style={{ color: "var(--text-secondary)" }}>
+                        Crea o edita los programas operativos, la periodicidad de entregas y el total de formatos o evidencias que la escuela te debe enviar en cada entrega.
+                    </p>
+                </div>
+                <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <Plus size={18} /> Nuevo Programa
+                </button>
+            </div>
+
+            {message && !isModalOpen && (
+                <div className={`alert ${message.type === "success" ? "alert-success" : "alert-error"}`} style={{ marginBottom: "1.5rem" }}>
+                    {message.text}
+                </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.5rem" }}>
+                {programas.sort((a, b) => a.orden - b.orden).map(prog => (
+                    <div key={prog.id} className="card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "1rem" }}>
+                        <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                                <h3 style={{ margin: 0, fontSize: "1.125rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <FileText size={18} color="var(--primary)" />
+                                    {prog.nombre}
+                                </h3>
+                                <div style={{ display: "flex", gap: "0.5rem" }}>
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => handleOpenModal(prog)}
+                                        style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.25rem" }}
+                                        title="Editar Programa"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => handleDelete(prog.id, prog.periodos?.length || 0)}
+                                        style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: "0.25rem" }}
+                                        title="Eliminar Programa"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", minHeight: "2.5rem" }}>
+                                {prog.descripcion || <em style={{ color: "var(--border)" }}>Sin descripción</em>}
+                            </p>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                            <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                                <AlignLeft size={12} /> {prog.tipo}
+                            </span>
+                            <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                                <Layers size={12} /> {prog.numArchivos} Documento(s) req.
+                            </span>
+                        </div>
+                    </div>
+                ))}
+                {programas.length === 0 && (
+                    <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem", color: "var(--text-muted)", background: "var(--bg-secondary)", borderRadius: "8px", border: "1px dashed var(--border)" }}>
+                        No hay programas agregados. Crea tu primer programa para comenzar.
+                    </div>
+                )}
+            </div>
+
+            {/* Modal de Crear / Editar */}
+            {isModalOpen && (
+                <div style={{
+                    position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "1rem", zIndex: 1000
+                }}>
+                    <div className="card fade-in" style={{ width: "100%", maxWidth: "500px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                            <h2 style={{ fontSize: "1.25rem", margin: 0 }}>
+                                {editingId ? "Editar Programa" : "Nuevo Programa"}
+                            </h2>
+                            <button onClick={handleCloseModal} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {message && (
+                            <div className={`alert ${message.type === "success" ? "alert-success" : "alert-error"}`} style={{ marginBottom: "1rem" }}>
+                                {message.text}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <div>
+                                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>Nombre del Programa</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="form-control"
+                                    value={formData.nombre}
+                                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                                    placeholder="Ej. Rendición de Cuentas"
+                                    disabled={isLoading}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>Descripción (Opcional)</label>
+                                <textarea
+                                    className="form-control"
+                                    value={formData.descripcion}
+                                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                                    rows={2}
+                                    placeholder="Agrega notas o instrucciones breves."
+                                    disabled={isLoading}
+                                    style={{ resize: "vertical" }}
+                                />
+                            </div>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                                <div>
+                                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>Tipo de Periodicidad</label>
+                                    <select
+                                        className="form-control"
+                                        value={formData.tipo}
+                                        onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                                        disabled={isLoading}
+                                    >
+                                        <option value="ANUAL">ANUAL</option>
+                                        <option value="SEMESTRAL">SEMESTRAL</option>
+                                        <option value="MENSUAL">MENSUAL</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>Documentos Requeridos</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min={1}
+                                        className="form-control"
+                                        value={formData.numArchivos}
+                                        onChange={(e) => setFormData({ ...formData, numArchivos: parseInt(e.target.value) || 1 })}
+                                        disabled={isLoading}
+                                    />
+                                    <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "0.25rem", display: "block" }}>¿Cúantos PDFs deben adjuntar en la entrega?</small>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>Orden de Aparición</label>
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    value={formData.orden}
+                                    onChange={(e) => setFormData({ ...formData, orden: parseInt(e.target.value) || 0 })}
+                                    disabled={isLoading}
+                                />
+                                <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "0.25rem", display: "block" }}>Número menor aparecerá primero en la lista.</small>
+                            </div>
+
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem" }}>
+                                <button type="button" className="btn btn-outline" onClick={handleCloseModal} disabled={isLoading}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={isLoading} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <Save size={16} /> {isLoading ? "Guardando..." : "Guardar Programa"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
