@@ -21,6 +21,7 @@ import {
     Calendar,
     Download,
     Layers,
+    Search,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -137,6 +138,9 @@ export default function AdminDashboard({
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
+
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("TODOS");
     const [sendingCorreccion, setSendingCorreccion] = useState(false);
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
     const [togglingPeriodo, setTogglingPeriodo] = useState<string | null>(null);
@@ -369,7 +373,50 @@ export default function AdminDashboard({
                 {/* ========= VISTA: ESCUELAS ========= */}
                 {vista === "escuelas" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                        {escuelas.map((esc) => {
+                        <div style={{ marginBottom: "0.5rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+                            <div style={{ flex: 1, minWidth: "250px", position: "relative" }}>
+                                <Search size={18} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por CCT o nombre de escuela..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="form-control"
+                                    style={{ paddingLeft: "2.5rem" }}
+                                />
+                            </div>
+                            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                                {["TODOS", ...ESTADOS].map((st) => {
+                                    const color = st === "TODOS" ? "var(--text-muted)" : ESTADO_COLORS[st] || "var(--text-muted)";
+                                    const isActive = statusFilter === st;
+                                    return (
+                                        <button
+                                            key={st}
+                                            onClick={() => setStatusFilter(st)}
+                                            style={{
+                                                padding: "0.4rem 0.75rem",
+                                                borderRadius: "20px",
+                                                border: `1px solid ${color}`,
+                                                background: isActive ? color : "transparent",
+                                                color: isActive ? "#fff" : color,
+                                                fontSize: "0.75rem",
+                                                fontWeight: 600,
+                                                cursor: "pointer",
+                                                transition: "all 0.2s"
+                                            }}
+                                        >
+                                            {st === "TODOS" ? "Mostrar Todos" : ESTADO_LABELS[st]}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {escuelas.filter(esc => {
+                            const matchesSearch = esc.nombre.toLowerCase().includes(searchQuery.toLowerCase()) || esc.cct.toLowerCase().includes(searchQuery.toLowerCase());
+                            const matchesStatus = statusFilter === "TODOS" || esc.entregas.some(ent => ent.estado === statusFilter);
+                            return matchesSearch && matchesStatus;
+                        }).map((esc) => {
                             const entregadosEsc = esc.entregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
                             const totalEsc = esc.entregas.length;
                             const porcEsc = totalEsc > 0 ? Math.round((entregadosEsc / totalEsc) * 100) : 0;
