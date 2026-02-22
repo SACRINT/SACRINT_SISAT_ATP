@@ -9,7 +9,8 @@ export async function DELETE(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -35,7 +36,7 @@ export async function DELETE(
         });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error deleting recurso:", error);
         return NextResponse.json({ error: "Ocurrió un error al eliminar el recurso" }, { status: 500 });
     }
@@ -47,7 +48,8 @@ export async function PUT(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -72,7 +74,15 @@ export async function PUT(
             return NextResponse.json({ error: "El título es obligatorio" }, { status: 400 });
         }
 
-        let updateData: any = {
+        // Using const and mapping types implicitly
+        const updateData: {
+            titulo: string;
+            descripcion: string | null;
+            programaId: string | null;
+            archivoNombre?: string;
+            archivoDriveId?: string;
+            archivoDriveUrl?: string;
+        } = {
             titulo: titulo.trim(),
             descripcion: descripcion?.trim() || null,
             programaId: programaId || null,
@@ -103,7 +113,7 @@ export async function PUT(
         });
 
         return NextResponse.json({ success: true, recurso: updatedRecurso });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error updating recurso:", error);
         return NextResponse.json({ error: "Ocurrió un error al actualizar el recurso" }, { status: 500 });
     }

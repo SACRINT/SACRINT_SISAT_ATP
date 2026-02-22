@@ -37,6 +37,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 if (escuela) {
                     const valid = await bcrypt.compare(password, escuela.password);
                     if (valid) {
+                        try {
+                            await prisma.escuela.update({
+                                where: { id: escuela.id },
+                                data: { ultimoIngreso: new Date() },
+                            });
+                        } catch (error) {
+                            console.error("No se pudo actualizar ultimoIngreso:", error);
+                        }
+
                         return {
                             id: escuela.id,
                             email: escuela.email,
@@ -55,18 +64,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
-                token.role = (user as any).role;
-                token.dbRole = (user as any).dbRole;
-                token.cct = (user as any).cct;
+                const customUser = user as { role?: string; dbRole?: string; cct?: string };
+                token.role = customUser.role;
+                token.dbRole = customUser.dbRole;
+                token.cct = customUser.cct;
             }
             return token;
         },
         async session({ session, token }) {
             if (session.user) {
-                (session.user as any).id = token.sub;
-                (session.user as any).role = token.role;
-                (session.user as any).dbRole = token.dbRole;
-                (session.user as any).cct = token.cct;
+                const customSessionUser = session.user as { id?: string; role?: unknown; dbRole?: unknown; cct?: unknown };
+                customSessionUser.id = token.sub;
+                customSessionUser.role = token.role;
+                customSessionUser.dbRole = token.dbRole;
+                customSessionUser.cct = token.cct;
             }
             return session;
         },

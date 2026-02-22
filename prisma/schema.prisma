@@ -46,6 +46,7 @@ model Escuela {
   mujeres   Int      @default(0)
   total     Int      @default(0)
   rol       String   @default("director")
+  ultimoIngreso DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -58,6 +59,7 @@ model CicloEscolar {
   inicio DateTime // 2025-08-01
   fin    DateTime // 2026-07-31
   activo Boolean  @default(true)
+  anuncioGlobal String?
 
   periodos PeriodoEntrega[]
 }

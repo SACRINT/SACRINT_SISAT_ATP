@@ -94,11 +94,13 @@ export default function DirectorPortal({
     escuela,
     programas,
     ciclo,
+    anuncioGlobal,
     recursos,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string };
     programas: ProgramaGroup[];
     ciclo: string;
+    anuncioGlobal?: string;
     recursos: Recurso[];
 }) {
     const [tab, setTab] = useState<"entregas" | "recursos">("entregas");
@@ -222,6 +224,23 @@ export default function DirectorPortal({
                 {message && (
                     <div className={`alert ${message.type === "success" ? "alert-success" : "alert-error"}`} style={{ marginBottom: "1rem" }}>
                         {message.text}
+                    </div>
+                )}
+
+                {/* Anuncio Global */}
+                {anuncioGlobal && (
+                    <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7", marginBottom: "1.5rem", padding: "1rem" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+                            <div style={{ color: "#0c5a8e", marginTop: "2px" }}>
+                                <MessageSquare size={20} />
+                            </div>
+                            <div>
+                                <h3 style={{ color: "#0c5a8e", marginBottom: "0.25rem", fontSize: "1rem", fontWeight: 700 }}>Aviso Importante</h3>
+                                <p style={{ margin: 0, fontSize: "0.875rem", color: "#0c5a8e", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                                    {anuncioGlobal}
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 )}
 

@@ -8,7 +8,8 @@ export async function PUT(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -26,7 +27,7 @@ export async function PUT(
         });
 
         return NextResponse.json(periodoUpdate);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error updating fechaLimite:", error);
         return NextResponse.json({ error: "Ocurrió un error al actualizar la fecha límite" }, { status: 500 });
     }

@@ -85,6 +85,7 @@ interface EscuelaAdmin {
     localidad: string;
     director?: string | null;
     email?: string | null;
+    ultimoIngreso?: string | Date | null;
     total: number;
     entregas: {
         id: string;
@@ -129,16 +130,20 @@ export default function AdminDashboard({
     recursos,
     stats,
     ciclo,
+    cicloId,
+    anuncioGlobal,
     userName,
     dbRole,
 }: {
     programas: ProgramaAdmin[];
     escuelas: EscuelaAdmin[];
-    recursos: any[];
+    recursos: Record<string, unknown>[];
     stats: Stats;
     ciclo: string;
     userName: string;
     dbRole: string;
+    cicloId: string;
+    anuncioGlobal: string | null;
 }) {
     const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps">("general");
     const [expanded, setExpanded] = useState<string | null>(null);
@@ -153,7 +158,30 @@ export default function AdminDashboard({
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
     const [togglingPeriodo, setTogglingPeriodo] = useState<string | null>(null);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [anuncio, setAnuncio] = useState(anuncioGlobal || "");
+    const [savingAnuncio, setSavingAnuncio] = useState(false);
     const router = useRouter();
+
+    async function handleSaveAnuncio() {
+        setSavingAnuncio(true);
+        try {
+            const res = await fetch("/api/ciclos/anuncio", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ anuncioGlobal: anuncio }),
+            });
+            if (res.ok) {
+                setMessage({ type: "success", text: "Anuncio global actualizado" });
+                router.refresh();
+            } else {
+                setMessage({ type: "error", text: "Error al actualizar anuncio" });
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setSavingAnuncio(false);
+        }
+    }
 
     const entregadas = stats.totalEntregas - stats.noEntregadas;
     const porcentaje = stats.totalEntregas > 0 ? Math.round((entregadas / stats.totalEntregas) * 100) : 0;
@@ -420,9 +448,26 @@ export default function AdminDashboard({
                             </div>
                         </div>
 
-                        <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7" }}>
-                            <h3 style={{ color: "#0c5a8e", marginBottom: "0.5rem", fontSize: "1rem" }}>Siguientes Pasos</h3>
-                            <p style={{ margin: 0, fontSize: "0.875rem", color: "#0c5a8e" }}>
+                        <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7", marginBottom: "1.5rem" }}>
+                            <h3 style={{ color: "#0c5a8e", marginBottom: "0.5rem", fontSize: "1rem" }}>Aviso Global para Directores</h3>
+                            <textarea
+                                className="form-control"
+                                rows={2}
+                                value={anuncio}
+                                onChange={(e) => setAnuncio(e.target.value)}
+                                placeholder="Escribe un aviso que todos los directores visualizarán en su portal..."
+                                style={{ resize: "vertical", fontFamily: "inherit", marginBottom: "0.5rem" }}
+                            />
+                            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                <button className="btn btn-primary" onClick={handleSaveAnuncio} disabled={savingAnuncio || anuncio === anuncioGlobal}>
+                                    <Send size={16} /> {savingAnuncio ? "Guardando..." : "Actualizar Aviso"}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ background: "#f8f9fa", border: "1px solid var(--border)" }}>
+                            <h3 style={{ color: "var(--text)", marginBottom: "0.5rem", fontSize: "1rem" }}>Siguientes Pasos</h3>
+                            <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                                 Utiliza el menú lateral para revisar el progreso individual por escuela o por programa.
                                 Para administrar fechas límite o la información de las escuelas, utiliza la sección de Administración.
                             </p>
@@ -711,7 +756,8 @@ export default function AdminDashboard({
                             cct: e.cct,
                             nombre: e.nombre,
                             director: e.director ?? null,
-                            email: e.email ?? null
+                            email: e.email ?? null,
+                            ultimoIngreso: e.ultimoIngreso ?? null
                         }))} />
                     )
                 }

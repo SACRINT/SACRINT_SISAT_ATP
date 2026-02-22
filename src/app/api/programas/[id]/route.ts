@@ -8,7 +8,8 @@ export async function PUT(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -30,7 +31,7 @@ export async function PUT(
         });
 
         return NextResponse.json(updatedPrograma);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error updating programa:", error);
         return NextResponse.json({ error: "Error al actualizar el programa. Verifique datos." }, { status: 500 });
     }
@@ -42,7 +43,8 @@ export async function DELETE(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -67,7 +69,7 @@ export async function DELETE(
         });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error deleting programa:", error);
         return NextResponse.json({ error: "Ocurrió un error al intentar eliminar el programa." }, { status: 500 });
     }

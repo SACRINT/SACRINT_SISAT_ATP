@@ -28,9 +28,9 @@ export async function DELETE(
         }
 
         // Only directors can delete their own files
-        const userRole = (session.user as any)?.role;
+        const userRole = (session.user as { role?: string })?.role;
         if (userRole === "director") {
-            const userCct = (session.user as any)?.cct;
+            const userCct = (session.user as { cct?: string })?.cct;
             if (archivo.entrega.escuela.cct !== userCct) {
                 return NextResponse.json({ error: "No autorizado" }, { status: 403 });
             }
@@ -65,10 +65,10 @@ export async function DELETE(
         }
 
         return NextResponse.json({ success: true, message: "Archivo eliminado" });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Delete file error:", error);
         return NextResponse.json(
-            { error: error?.message || "Error al eliminar archivo" },
+            { error: error instanceof Error ? error.message : "Error al eliminar archivo" },
             { status: 500 }
         );
     }

@@ -65,9 +65,10 @@ export async function POST(req: NextRequest) {
         }
 
         // Directors can only upload to their own school
-        const userRole = (session.user as any)?.role;
+        const user = session.user as { role?: string; cct?: string } | undefined;
+        const userRole = user?.role;
         if (userRole === "director") {
-            const userCct = (session.user as any)?.cct;
+            const userCct = user?.cct;
             if (entrega.escuela.cct !== userCct) {
                 return NextResponse.json({ error: "No autorizado" }, { status: 403 });
             }
@@ -148,12 +149,17 @@ export async function POST(req: NextRequest) {
             message: `${files.length} archivo(s) subido(s) correctamente`,
             archivos: createdArchivos,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Upload error:", error);
+
+        // Safely extract properties from error if it exists
+        const errObj = error as Record<string, unknown>;
+        const errList = errObj?.errors as Array<Record<string, unknown>> | undefined;
         const message =
-            error?.message ||
-            error?.errors?.[0]?.message ||
+            errObj?.message ||
+            errList?.[0]?.message ||
             "Error al procesar el archivo";
+
         return NextResponse.json({ error: message }, { status: 500 });
     }
 }

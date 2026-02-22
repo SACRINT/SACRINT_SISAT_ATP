@@ -6,7 +6,8 @@ import bcrypt from "bcryptjs";
 export async function GET(request: NextRequest) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin" || (session.user as any)?.dbRole !== "SUPER_ADMIN") {
+        const user = session?.user as { role?: string; dbRole?: string } | undefined;
+        if (!session || user?.role !== "admin" || user?.dbRole !== "SUPER_ADMIN") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json(admins);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Error al obtener administradores" }, { status: 500 });
     }
 }
@@ -29,7 +30,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin" || (session.user as any)?.dbRole !== "SUPER_ADMIN") {
+        const user = session?.user as { role?: string; dbRole?: string } | undefined;
+        if (!session || user?.role !== "admin" || user?.dbRole !== "SUPER_ADMIN") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
             email: admin.email,
             role: admin.role
         });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Error al crear administrador" }, { status: 500 });
     }
 }

@@ -6,11 +6,13 @@ import DirectorPortal from "./DirectorPortal";
 export default async function DirectorPage() {
     const session = await auth();
 
-    if (!session || (session.user as any)?.role !== "director") {
+    const user = session?.user as { role?: string; cct?: string } | undefined;
+
+    if (!session || user?.role !== "director") {
         redirect("/login");
     }
 
-    const cct = (session.user as any)?.cct;
+    const cct = user?.cct;
     if (!cct) redirect("/login");
 
     const escuela = await prisma.escuela.findUnique({

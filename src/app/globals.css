@@ -555,8 +555,8 @@ h3 {
 }
 
 .sidebar-link.active {
-  background: var(--primary-light);
-  color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
 }
 
 .admin-sidebar-footer {

@@ -9,7 +9,8 @@ export async function PUT(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -19,10 +20,10 @@ export async function PUT(
         const data = await request.json();
         const { nombre, email, director, password } = data;
 
-        const updateData: any = {
-            nombre: nombre !== undefined ? nombre : undefined,
-            email: email !== undefined ? email : undefined,
-            director: director !== undefined ? director : undefined,
+        const updateData: Record<string, string | undefined> = {
+            nombre: typeof nombre === "string" ? nombre : undefined,
+            email: typeof email === "string" ? email : undefined,
+            director: typeof director === "string" ? director : undefined,
         };
 
         if (password && password.trim().length > 0) {
@@ -35,7 +36,7 @@ export async function PUT(
         });
 
         return NextResponse.json(escuelaUpdate);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error updating escuela:", error);
         return NextResponse.json({ error: "Ocurrió un error al actualizar los datos del centro de trabajo" }, { status: 500 });
     }

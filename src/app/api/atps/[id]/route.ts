@@ -9,7 +9,8 @@ export async function PUT(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin" || (session.user as any)?.dbRole !== "SUPER_ADMIN") {
+        const user = session?.user as { role?: string; dbRole?: string } | undefined;
+        if (!session || user?.role !== "admin" || user?.dbRole !== "SUPER_ADMIN") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -18,7 +19,7 @@ export async function PUT(
         const data = await request.json();
 
         // Si se envía contraseña, la actualizamos
-        const updateData: any = {};
+        const updateData: Record<string, string> = {};
         if (data.nombre) updateData.nombre = data.nombre;
         if (data.email) updateData.email = data.email;
         if (data.role) updateData.role = data.role;
@@ -34,7 +35,7 @@ export async function PUT(
         });
 
         return NextResponse.json(admin);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Error al actualizar administrador" }, { status: 500 });
     }
 }
@@ -45,7 +46,8 @@ export async function DELETE(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin" || (session.user as any)?.dbRole !== "SUPER_ADMIN") {
+        const user = session?.user as { role?: string; dbRole?: string; id?: string } | undefined;
+        if (!session || user?.role !== "admin" || user?.dbRole !== "SUPER_ADMIN") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -53,14 +55,14 @@ export async function DELETE(
         const id = params.id;
 
         // Validar que no se auto-elimine
-        if ((session.user as any).id === id) {
+        if (user?.id === id) {
             return NextResponse.json({ error: "No puedes eliminar tu propia cuenta" }, { status: 400 });
         }
 
         await prisma.admin.delete({ where: { id } });
 
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch {
         // Puede fallar si existen correcciones asociadas por la restricción de FK
         return NextResponse.json({ error: "Error al eliminar administrador. Puede que tenga correcciones asociadas." }, { status: 500 });
     }

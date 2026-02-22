@@ -89,6 +89,8 @@ export default async function AdminPage() {
             recursos={JSON.parse(JSON.stringify(recursos))}
             stats={stats}
             ciclo={ciclo.nombre}
+            cicloId={ciclo.id}
+            anuncioGlobal={ciclo.anuncioGlobal || ""}
             userName={(session.user as any)?.name || "Admin"}
             dbRole={(session.user as any)?.dbRole || "ATP_LECTOR"}
         />

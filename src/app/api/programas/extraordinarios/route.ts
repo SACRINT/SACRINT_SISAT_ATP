@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db";
 export async function POST(request: NextRequest) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json(nuevoPrograma);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error creating extraordinary task:", error);
         return NextResponse.json({ error: "Ocurrió un error al crear la nueva tarea" }, { status: 500 });
     }

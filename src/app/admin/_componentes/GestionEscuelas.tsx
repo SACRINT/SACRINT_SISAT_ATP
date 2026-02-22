@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Edit2, Save, X, Building2, User, Mail, School, Lock } from "lucide-react";
+import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock } from "lucide-react";
 
 type Escuela = {
     id: string;
@@ -9,6 +9,7 @@ type Escuela = {
     nombre: string;
     director: string | null;
     email: string | null;
+    ultimoIngreso?: Date | string | null;
 };
 
 export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: Escuela[] }) {
@@ -146,6 +147,19 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                                 disabled
                                 style={{ background: "var(--bg)", color: "var(--text-muted)", cursor: "not-allowed" }}
                                 title="La CCT no se puede modificar por seguridad de la base de datos."
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                                <BadgeIcon icon={<Clock size={14} />} /> Último Acceso
+                            </label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={selectedEscuela.ultimoIngreso ? new Date(selectedEscuela.ultimoIngreso).toLocaleString("es-MX") : "Nunca"}
+                                disabled
+                                style={{ background: "var(--bg)", color: "var(--text-muted)", cursor: "not-allowed" }}
+                                title="Última fecha y hora en la que el director inició sesión."
                             />
                         </div>
 

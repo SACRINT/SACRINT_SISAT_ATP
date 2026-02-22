@@ -9,7 +9,8 @@ export async function PATCH(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -22,7 +23,7 @@ export async function PATCH(
         });
 
         return NextResponse.json({ success: true, periodo });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Periodo update error:", error);
         return NextResponse.json({ error: "Error al actualizar periodo" }, { status: 500 });
     }

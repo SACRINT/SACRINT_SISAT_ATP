@@ -11,7 +11,8 @@ export async function POST(
 ) {
     try {
         const session = await auth();
-        if (!session || (session.user as any)?.role !== "admin") {
+        const user = session?.user as { role?: string; email?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -39,7 +40,8 @@ export async function POST(
             return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
         }
 
-        const adminEmail = (session.user as any)?.email;
+        const adminEmail = user?.email;
+        if (!adminEmail) return NextResponse.json({ error: "No se encontró email" }, { status: 400 });
         const admin = await prisma.admin.findUnique({ where: { email: adminEmail } });
         if (!admin) {
             return NextResponse.json({ error: "Admin no encontrado" }, { status: 404 });
@@ -124,10 +126,10 @@ export async function POST(
             message: "Corrección enviada al director",
             correccion,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Correction error:", error);
         return NextResponse.json(
-            { error: error?.message || "Error al enviar corrección" },
+            { error: error instanceof Error ? error.message : "Error al enviar corrección" },
             { status: 500 }
         );
     }
@@ -155,7 +157,7 @@ export async function GET(
         });
 
         return NextResponse.json({ correcciones });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Error al obtener correcciones" }, { status: 500 });
     }
 }
