@@ -775,6 +775,13 @@ export default function AdminDashboard({
                         <GestionRecursos recursos={recursos} programas={programas} />
                     )
                 }
+
+                {/* ========= VISTA: USUARIOS ATP (ACCESOS Y SEGURIDAD) ========= */}
+                {
+                    vista === "gestion-atps" && (
+                        <GestionATPs />
+                    )
+                }
             </main >
 
             {/* Correction Modal */}
