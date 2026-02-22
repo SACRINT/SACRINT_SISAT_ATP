@@ -342,6 +342,11 @@ export default function DirectorPortal({
                                                                                 {arch.etiqueta && <strong>{arch.etiqueta}: </strong>}
                                                                                 {arch.nombre}
                                                                             </span>
+                                                                            {arch.createdAt && (
+                                                                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginLeft: "auto", flexShrink: 0, paddingRight: "0.5rem" }}>
+                                                                                    {new Date(arch.createdAt).toLocaleDateString("es-MX", { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                                </span>
+                                                                            )}
                                                                         </div>
                                                                         {canUpload(ent.estado) && (
                                                                             <button
