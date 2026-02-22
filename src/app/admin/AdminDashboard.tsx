@@ -40,6 +40,7 @@ interface Archivo {
     nombre: string;
     etiqueta: string | null;
     tipo: string;
+    createdAt?: string | Date;
 }
 
 interface EntregaAdmin {
@@ -317,7 +318,7 @@ export default function AdminDashboard({
             <aside className="admin-sidebar">
                 <div className="admin-sidebar-header">
                     <BarChart3 size={24} />
-                    <span>SISAT-ATP</span>
+                    <span style={{ fontSize: "0.9375rem" }}>SISAT-ATP</span>
                 </div>
                 <div className="admin-sidebar-nav">
                     <button className={`sidebar-link ${vista === "general" ? "active" : ""}`} onClick={() => setVista("general")}>

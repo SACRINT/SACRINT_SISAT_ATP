@@ -183,7 +183,7 @@ export default function DirectorPortal({
             <nav className="navbar">
                 <div className="navbar-brand">
                     <School size={24} />
-                    <span style={{ fontSize: "0.9375rem" }}>Centro de Mando</span>
+                    <span style={{ fontSize: "0.9375rem" }}>SISAT-ATP</span>
                 </div>
                 <div className="navbar-user">
                     <button
