@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Edit2, Save, X, Building2, User, Mail, School } from "lucide-react";
+import { Edit2, Save, X, Building2, User, Mail, School, Lock } from "lucide-react";
 
 type Escuela = {
     id: string;
@@ -19,10 +19,11 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Form state
-    const [formData, setFormData] = useState<{ nombre: string; director: string; email: string }>({
+    const [formData, setFormData] = useState<{ nombre: string; director: string; email: string; password?: string }>({
         nombre: "",
         director: "",
         email: "",
+        password: "",
     });
 
     const selectedEscuela = escuelas.find((e) => e.id === selectedId);
@@ -40,6 +41,7 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                     nombre: esc.nombre,
                     director: esc.director || "",
                     email: esc.email || "",
+                    password: "",
                 });
             }
         }
@@ -121,7 +123,7 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                             <div style={{ display: "flex", gap: "0.5rem" }}>
                                 <button className="btn btn-outline" onClick={() => {
                                     setIsEditing(false);
-                                    setFormData({ nombre: selectedEscuela.nombre, director: selectedEscuela.director || "", email: selectedEscuela.email || "" });
+                                    setFormData({ nombre: selectedEscuela.nombre, director: selectedEscuela.director || "", email: selectedEscuela.email || "", password: "" });
                                 }} disabled={saving}>
                                     <X size={16} /> Cancelar
                                 </button>
@@ -198,6 +200,28 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                                     resize: "vertical", fontFamily: "inherit"
                                 }}
                             />
+                        </div>
+
+                        <div>
+                            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                                <BadgeIcon icon={<Lock size={14} />} /> Cambiar Contraseña de Acceso
+                            </label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={formData.password || ""}
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                disabled={!isEditing}
+                                placeholder={isEditing ? "Escribe la nueva contraseña aquí..." : "********"}
+                                style={{
+                                    ...(!isEditing ? { background: "var(--bg)", border: "1px dashed var(--border)", color: "var(--text-muted)", fontStyle: "italic" } : {}),
+                                }}
+                            />
+                            {isEditing && (
+                                <p style={{ margin: "0.25rem 0 0", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                    Deja este campo en blanco si no deseas cambiar la contraseña actual del director.
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>

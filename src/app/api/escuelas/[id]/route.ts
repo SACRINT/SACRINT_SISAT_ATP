@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 export async function PUT(
     request: NextRequest,
@@ -16,15 +17,21 @@ export async function PUT(
         const escuelaId = params.id;
 
         const data = await request.json();
-        const { nombre, email, director } = data;
+        const { nombre, email, director, password } = data;
+
+        const updateData: any = {
+            nombre: nombre !== undefined ? nombre : undefined,
+            email: email !== undefined ? email : undefined,
+            director: director !== undefined ? director : undefined,
+        };
+
+        if (password && password.trim().length > 0) {
+            updateData.password = await bcrypt.hash(password, 10);
+        }
 
         const escuelaUpdate = await prisma.escuela.update({
             where: { id: escuelaId },
-            data: {
-                nombre: nombre !== undefined ? nombre : undefined,
-                email: email !== undefined ? email : undefined,
-                director: director !== undefined ? director : undefined,
-            },
+            data: updateData,
         });
 
         return NextResponse.json(escuelaUpdate);

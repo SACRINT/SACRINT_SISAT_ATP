@@ -44,6 +44,7 @@ interface PeriodoEntrega {
     id: string;
     mes: number | null;
     semestre: number | null;
+    fechaLimite?: string | null;
     programa: { id: string; nombre: string; numArchivos: number; tipo: string };
 }
 
@@ -286,7 +287,14 @@ export default function DirectorPortal({
                                                     <div key={ent.id} style={{ padding: "1rem", borderBottom: "1px solid var(--border)" }}>
                                                         {/* Period label + status */}
                                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                                                            <span style={{ fontWeight: 600 }}>{getPeriodoLabel(ent)}</span>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                                                                <span style={{ fontWeight: 600 }}>{getPeriodoLabel(ent)}</span>
+                                                                {ent.periodoEntrega.fechaLimite && (
+                                                                    <span style={{ fontSize: "0.75rem", color: "var(--danger)", padding: "0.1rem 0.4rem", background: "var(--danger-light, #fee2e2)", borderRadius: "12px", fontWeight: 500 }}>
+                                                                        Vence: {new Date(ent.periodoEntrega.fechaLimite).toLocaleDateString("es-MX", { day: '2-digit', month: 'long', year: 'numeric' })}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <span
                                                                 style={{
                                                                     display: "inline-flex", alignItems: "center", gap: "0.25rem",
