@@ -49,13 +49,17 @@ export async function DELETE(
         const params = await context.params;
         const programaId = params.id;
 
-        // Check if there are periodos connected
-        const count = await prisma.periodoEntrega.count({
-            where: { programaId }
-        });
+        // Check if there are periodos connected and delete their deliveries and the periods themselves
+        const periodos = await prisma.periodoEntrega.findMany({ where: { programaId } });
+        const periodoIds = periodos.map(p => p.id);
 
-        if (count > 0) {
-            return NextResponse.json({ error: "No se puede eliminar porque tiene periodos y entregas conectadas." }, { status: 400 });
+        if (periodoIds.length > 0) {
+            await prisma.entrega.deleteMany({
+                where: { periodoEntregaId: { in: periodoIds } }
+            });
+            await prisma.periodoEntrega.deleteMany({
+                where: { programaId }
+            });
         }
 
         await prisma.programa.delete({
