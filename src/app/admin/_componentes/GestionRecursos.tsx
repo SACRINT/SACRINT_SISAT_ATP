@@ -23,13 +23,39 @@ export default function GestionRecursos({
     // Status
     const [isUploading, setIsUploading] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-    const handleUpload = async (e: React.FormEvent) => {
+    const openCreateModal = () => {
+        setEditingId(null);
+        setTitulo("");
+        setDescripcion("");
+        setProgramaId("");
+        setFile(null);
+        setIsModalOpen(true);
+        setMessage(null);
+    };
+
+    const openEditModal = (recurso: any) => {
+        setEditingId(recurso.id);
+        setTitulo(recurso.titulo);
+        setDescripcion(recurso.descripcion || "");
+        setProgramaId(recurso.programaId || "");
+        setFile(null); // Optional file replace
+        setIsModalOpen(true);
+        setMessage(null);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!file || !titulo.trim()) {
-            setMessage({ type: "error", text: "El título y el archivo son obligatorios." });
+        if (!titulo.trim()) {
+            setMessage({ type: "error", text: "El título es obligatorio." });
+            return;
+        }
+
+        if (!editingId && !file) {
+            setMessage({ type: "error", text: "El archivo es obligatorio para crear." });
             return;
         }
 
@@ -38,24 +64,27 @@ export default function GestionRecursos({
 
         try {
             const formData = new FormData();
-            formData.append("file", file);
+            if (file) formData.append("file", file);
             formData.append("titulo", titulo);
             formData.append("descripcion", descripcion);
             if (programaId) {
                 formData.append("programaId", programaId);
             }
 
-            const res = await fetch("/api/recursos", {
-                method: "POST",
+            const url = editingId ? `/api/recursos/${editingId}` : "/api/recursos";
+            const method = editingId ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method,
                 body: formData,
             });
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || "Ocurrió un error al subir el recurso");
+                throw new Error(data.error || "Ocurrió un error al procesar el recurso");
             }
 
-            setMessage({ type: "success", text: "El recurso se ha subido correctamente." });
+            setMessage({ type: "success", text: editingId ? "El recurso se actualizó correctamente." : "El recurso se ha subido correctamente." });
             setIsModalOpen(false);
 
             // Reset form
@@ -63,6 +92,7 @@ export default function GestionRecursos({
             setDescripcion("");
             setProgramaId("");
             setFile(null);
+            setEditingId(null);
 
             // Refresh
             router.refresh();
@@ -107,7 +137,7 @@ export default function GestionRecursos({
                 </div>
                 <button
                     className="btn btn-primary"
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={openCreateModal}
                     style={{ whiteSpace: "nowrap" }}
                 >
                     <Upload size={18} /> Subir Nuevo Recurso
@@ -176,6 +206,14 @@ export default function GestionRecursos({
                                                     </a>
                                                 )}
                                                 <button
+                                                    onClick={() => openEditModal(recurso)}
+                                                    className="btn btn-outline"
+                                                    style={{ padding: "0.3rem 0.6rem", color: "var(--primary)", borderColor: "var(--primary)" }}
+                                                    title="Editar formato"
+                                                >
+                                                    <FileText size={16} />
+                                                </button>
+                                                <button
                                                     onClick={() => handleDelete(recurso.id, recurso.titulo)}
                                                     disabled={deletingId === recurso.id}
                                                     className="btn btn-outline"
@@ -203,13 +241,13 @@ export default function GestionRecursos({
                 }}>
                     <div className="card fade-in" style={{ maxWidth: "500px", width: "100%" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-                            <h3 style={{ margin: 0 }}>Subir Formato o Plantilla</h3>
+                            <h3 style={{ margin: 0 }}>{editingId ? "Editar Formato o Plantilla" : "Subir Formato o Plantilla"}</h3>
                             <button onClick={() => setIsModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <form onSubmit={handleUpload} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                             <div>
                                 <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, fontSize: "0.875rem" }}>Título del Formato</label>
                                 <input
@@ -251,12 +289,12 @@ export default function GestionRecursos({
                             </div>
 
                             <div>
-                                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, fontSize: "0.875rem" }}>Archivo (.pdf, .doc, .xls, .xlsx)</label>
+                                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, fontSize: "0.875rem" }}>Archivo (.pdf, .doc, .xls, .xlsx) {editingId && "(Opcional si solo cambias datos)"}</label>
                                 <input
                                     type="file"
                                     className="form-control"
                                     onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-                                    required
+                                    required={!editingId}
                                     style={{ padding: "0.5rem" }}
                                 />
                             </div>
@@ -274,10 +312,10 @@ export default function GestionRecursos({
                                 <button
                                     type="submit"
                                     className="btn btn-primary"
-                                    disabled={isUploading || !titulo || !file}
+                                    disabled={isUploading || !titulo || (!editingId && !file)}
                                     style={{ flex: 1 }}
                                 >
-                                    {isUploading ? "Subiendo a Drive..." : "Subir Archivo"}
+                                    {isUploading ? (editingId ? "Guardando..." : "Subiendo...") : (editingId ? "Guardar Cambios" : "Subir Archivo")}
                                 </button>
                             </div>
                         </form>
