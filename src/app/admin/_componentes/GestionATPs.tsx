@@ -199,14 +199,16 @@ export default function GestionATPs() {
                                         >
                                             <Edit2 size={16} />
                                         </button>
-                                        <button
-                                            className="btn-icon"
-                                            onClick={() => handleDelete(admin.id, admin.nombre)}
-                                            style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: "0.25rem" }}
-                                            title="Eliminar Usuario"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                                        {admin.role !== "SUPER_ADMIN" && (
+                                            <button
+                                                className="btn-icon"
+                                                onClick={() => handleDelete(admin.id, admin.nombre)}
+                                                style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: "0.25rem" }}
+                                                title="Eliminar Usuario"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                                 <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", minHeight: "1.5rem" }}>
@@ -286,7 +288,7 @@ export default function GestionATPs() {
                                         className="form-control"
                                         value={formData.role}
                                         onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                        disabled={isLoading}
+                                        disabled={isLoading || (editingId !== null && formData.role === "SUPER_ADMIN")}
                                     >
                                         <option value="ATP_LECTOR">Lector (Solo ver y descargar)</option>
                                         <option value="ATP_EDITOR">Editor (Modificar estatus y entregas)</option>

@@ -59,6 +59,14 @@ export async function DELETE(
             return NextResponse.json({ error: "No puedes eliminar tu propia cuenta" }, { status: 400 });
         }
 
+        const targetAdmin = await prisma.admin.findUnique({ where: { id } });
+        if (!targetAdmin) {
+            return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+        }
+        if (targetAdmin.role === "SUPER_ADMIN") {
+            return NextResponse.json({ error: "No está permitido eliminar a un Super Administrador" }, { status: 403 });
+        }
+
         await prisma.admin.delete({ where: { id } });
 
         return NextResponse.json({ success: true });
