@@ -30,6 +30,7 @@ model Admin {
   email        String       @unique
   password     String
   nombre       String
+  role         String       @default("ATP_LECTOR")
   correcciones Correccion[]
 }
 

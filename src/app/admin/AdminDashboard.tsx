@@ -22,6 +22,7 @@ import {
     Download,
     Layers,
     Search,
+    UserCog,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -32,6 +33,7 @@ import GestionEscuelas from "./_componentes/GestionEscuelas";
 import GestionFechas from "./_componentes/GestionFechas";
 import GestionRecursos from "./_componentes/GestionRecursos";
 import GestionProgramas from "./_componentes/GestionProgramas";
+import GestionATPs from "./_componentes/GestionATPs";
 
 interface Archivo {
     id: string;
@@ -86,6 +88,7 @@ interface EscuelaAdmin {
     entregas: {
         id: string;
         estado: string;
+        fechaSubida: string | null;
         archivos: Archivo[];
         correcciones: {
             id: string;
@@ -126,6 +129,7 @@ export default function AdminDashboard({
     stats,
     ciclo,
     userName,
+    dbRole,
 }: {
     programas: ProgramaAdmin[];
     escuelas: EscuelaAdmin[];
@@ -133,8 +137,9 @@ export default function AdminDashboard({
     stats: Stats;
     ciclo: string;
     userName: string;
+    dbRole: string;
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps">("general");
     const [expanded, setExpanded] = useState<string | null>(null);
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
@@ -228,7 +233,7 @@ export default function AdminDashboard({
                     perName,
                     ESTADO_LABELS[ent.estado] || ent.estado,
                     ent.archivos.length.toString(),
-                    ent.fechaSubida ? new Date(ent.fechaSubida).toLocaleDateString("es-MX") : "N/A"
+                    ent.archivos?.[0]?.createdAt ? new Date(ent.archivos[0].createdAt).toLocaleDateString("es-MX") : "N/A"
                 ];
             });
 
@@ -312,7 +317,7 @@ export default function AdminDashboard({
             <aside className="admin-sidebar">
                 <div className="admin-sidebar-header">
                     <BarChart3 size={24} />
-                    <span>Centro de Mando ATP</span>
+                    <span>SISAT-ATP</span>
                 </div>
                 <div className="admin-sidebar-nav">
                     <button className={`sidebar-link ${vista === "general" ? "active" : ""}`} onClick={() => setVista("general")}>
@@ -342,6 +347,11 @@ export default function AdminDashboard({
                     <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => setVista("recursos")}>
                         <Upload size={18} /> Formatos y Plantillas
                     </button>
+                    {dbRole === "SUPER_ADMIN" && (
+                        <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => setVista("gestion-atps")}>
+                            <UserCog size={18} /> Accesos y Seguridad
+                        </button>
+                    )}
                 </div>
                 <div className="admin-sidebar-footer">
                     <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem", paddingLeft: "0.25rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

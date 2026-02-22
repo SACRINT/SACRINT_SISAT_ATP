@@ -71,7 +71,7 @@ async function main() {
     console.log("👤 Creando cuenta de administrador ATP...");
     const hashedAdminPwd = await bcrypt.hash("admin2025", 12);
     await prisma.admin.create({
-        data: { email: "atp@supervision.edu.mx", password: hashedAdminPwd, nombre: "Supervisión ATP" },
+        data: { email: "atp@supervision.edu.mx", password: hashedAdminPwd, nombre: "Supervisión ATP", role: "SUPER_ADMIN" },
     });
 
     // ─── Escuelas ─────────────────────────────────

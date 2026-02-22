@@ -90,6 +90,7 @@ export default async function AdminPage() {
             stats={stats}
             ciclo={ciclo.nombre}
             userName={(session.user as any)?.name || "Admin"}
+            dbRole={(session.user as any)?.dbRole || "ATP_LECTOR"}
         />
     );
 }

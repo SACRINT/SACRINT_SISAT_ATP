@@ -42,7 +42,7 @@ export default function LoginPage() {
         <div className="login-container">
             <div className="login-card fade-in">
                 <div className="login-logo">🏫</div>
-                <h1>Centro de Mando</h1>
+                <h1>SISAT-ATP</h1>
                 <p className="subtitle">Supervisión Escolar EMS</p>
 
                 {error && (

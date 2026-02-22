@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Centro de Mando ATP",
+  title: "SISAT-ATP",
   description: "Plataforma de gestión para supervisión escolar EMS",
 };
 

@@ -27,6 +27,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             email: admin.email,
                             name: admin.nombre,
                             role: "admin",
+                            dbRole: admin.role,
                         };
                     }
                 }
@@ -41,6 +42,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             email: escuela.email,
                             name: escuela.nombre,
                             role: "director",
+                            dbRole: "director",
                             cct: escuela.cct,
                         };
                     }
@@ -54,6 +56,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async jwt({ token, user }) {
             if (user) {
                 token.role = (user as any).role;
+                token.dbRole = (user as any).dbRole;
                 token.cct = (user as any).cct;
             }
             return token;
@@ -62,6 +65,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (session.user) {
                 (session.user as any).id = token.sub;
                 (session.user as any).role = token.role;
+                (session.user as any).dbRole = token.dbRole;
                 (session.user as any).cct = token.cct;
             }
             return session;
