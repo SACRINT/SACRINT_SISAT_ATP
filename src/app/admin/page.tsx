@@ -31,7 +31,13 @@ export default async function AdminPage() {
                         include: {
                             escuela: true,
                             archivos: { where: { tipo: "ENTREGA" } },
-                            correcciones: true,
+                            correcciones: {
+                                include: {
+                                    admin: { select: { id: true, nombre: true } },
+                                    archivo: true,
+                                },
+                                orderBy: { createdAt: "desc" }
+                            },
                         },
                     },
                 },

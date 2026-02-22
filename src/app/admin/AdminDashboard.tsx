@@ -19,9 +19,11 @@ import {
     ToggleLeft,
     ToggleRight,
     Calendar,
+    Download,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import * as XLSX from "xlsx";
 import GestionEscuelas from "./_componentes/GestionEscuelas";
 import GestionFechas from "./_componentes/GestionFechas";
 import GestionRecursos from "./_componentes/GestionRecursos";
@@ -39,7 +41,13 @@ interface EntregaAdmin {
     fechaSubida: string | null;
     observacionesATP: string | null;
     archivos: Archivo[];
-    correcciones: { id: string }[];
+    correcciones: {
+        id: string;
+        texto: string | null;
+        createdAt: string;
+        admin: { nombre: string };
+        archivo?: { nombre: string; driveUrl: string | null } | null;
+    }[];
     escuela: { id: string; cct: string; nombre: string; localidad: string; total: number };
 }
 
@@ -72,6 +80,13 @@ interface EscuelaAdmin {
         id: string;
         estado: string;
         archivos: Archivo[];
+        correcciones: {
+            id: string;
+            texto: string | null;
+            createdAt: string;
+            admin: { nombre: string };
+            archivo?: { nombre: string; driveUrl: string | null } | null;
+        }[];
         periodoEntrega: { programa: { nombre: string }; mes: number | null; semestre: number | null };
     }[];
 }
@@ -115,7 +130,7 @@ export default function AdminDashboard({
     const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-periodos" | "gestion-fechas" | "recursos">("general");
     const [expanded, setExpanded] = useState<string | null>(null);
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
-    const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string } | null>(null);
+    const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
     const [sendingCorreccion, setSendingCorreccion] = useState(false);
@@ -147,6 +162,38 @@ export default function AdminDashboard({
             setUpdatingEstado(null);
         }
     }
+
+    const exportToExcel = () => {
+        try {
+            const rows: any[] = [];
+            escuelas.forEach(esc => {
+                esc.entregas.forEach(ent => {
+                    const programa = ent.periodoEntrega?.programa?.nombre || "N/A";
+                    let periodoName = "Anual";
+                    if (ent.periodoEntrega?.mes) periodoName = MESES[ent.periodoEntrega.mes];
+                    else if (ent.periodoEntrega?.semestre) periodoName = `Semestre ${ent.periodoEntrega.semestre}`;
+
+                    rows.push({
+                        "CCT": esc.cct,
+                        "Escuela": esc.nombre,
+                        "Programa": programa,
+                        "Periodo": periodoName,
+                        "Estado": ESTADO_LABELS[ent.estado] || ent.estado,
+                        "Archivos Subidos": ent.archivos.length,
+                    });
+                });
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(rows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Avance Global");
+            XLSX.writeFile(workbook, `Reporte_SISAT_${new Date().toISOString().split("T")[0]}.xlsx`);
+            setMessage({ type: "success", text: "Reporte Excel generado exitosamente." });
+        } catch (error) {
+            console.error("Error exporting to excel:", error);
+            setMessage({ type: "error", text: "Hubo un error al generar el archivo Excel." });
+        }
+    };
 
     async function handleSendCorreccion() {
         if (!correccionModal || (!correccionTexto.trim() && !correccionFile)) return;
@@ -262,11 +309,16 @@ export default function AdminDashboard({
                 {/* ========= VISTA: VISTA GENERAL ========= */}
                 {vista === "general" && (
                     <div className="fade-in">
-                        <div className="page-header" style={{ marginBottom: "2rem" }}>
-                            <h1>Vista General</h1>
-                            <p style={{ color: "var(--text-secondary)" }}>
-                                Ciclo {ciclo} • 18 bachilleratos • {stats.totalEntregas} entregas
-                            </p>
+                        <div className="page-header" style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                            <div>
+                                <h1>Vista General</h1>
+                                <p style={{ color: "var(--text-secondary)" }}>
+                                    Ciclo {ciclo} • 18 bachilleratos • {stats.totalEntregas} entregas
+                                </p>
+                            </div>
+                            <button onClick={exportToExcel} className="btn btn-outline" style={{ display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
+                                <Download size={18} /> Exportar Reporte a Excel
+                            </button>
                         </div>
 
                         {/* Stats Row */}
@@ -373,9 +425,9 @@ export default function AdminDashboard({
                                                                 ))}
                                                             </select>
                                                             <button
-                                                                onClick={() => setCorreccionModal({ entregaId: ent.id, escuelaNombre: esc.nombre })}
+                                                                onClick={() => setCorreccionModal({ entregaId: ent.id, escuelaNombre: esc.nombre, history: ent.correcciones })}
                                                                 style={{ background: "none", border: "none", cursor: "pointer", color: "#e67e22", padding: "0.25rem" }}
-                                                                title="Enviar corrección"
+                                                                title="Enviar corrección / Ver historial"
                                                             >
                                                                 <MessageSquare size={16} />
                                                             </button>
@@ -461,9 +513,9 @@ export default function AdminDashboard({
                                                                                 ))}
                                                                             </select>
                                                                             <button
-                                                                                onClick={() => setCorreccionModal({ entregaId: ent.id, escuelaNombre: ent.escuela.nombre })}
+                                                                                onClick={() => setCorreccionModal({ entregaId: ent.id, escuelaNombre: ent.escuela.nombre, history: ent.correcciones })}
                                                                                 style={{ background: "none", border: "none", cursor: "pointer", color: "#e67e22", padding: "0.25rem" }}
-                                                                                title="Enviar corrección"
+                                                                                title="Enviar corrección / Ver historial"
                                                                             >
                                                                                 <MessageSquare size={16} />
                                                                             </button>
@@ -570,6 +622,38 @@ export default function AdminDashboard({
                             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
                                 Para: <strong>{correccionModal.escuelaNombre}</strong>
                             </p>
+
+                            {correccionModal.history && correccionModal.history.length > 0 && (
+                                <div style={{
+                                    maxHeight: "200px", overflowY: "auto", marginBottom: "1rem",
+                                    padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: "8px", border: "1px solid var(--border)",
+                                }}>
+                                    <h4 style={{ fontSize: "0.8125rem", margin: "0 0 0.5rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
+                                        Historial de Correcciones
+                                    </h4>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                                        {correccionModal.history.map((hist) => (
+                                            <div key={hist.id} style={{ fontSize: "0.8125rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
+                                                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
+                                                    <strong>{hist.admin?.nombre || "ATP"}</strong>
+                                                    <span>{new Date(hist.createdAt).toLocaleDateString()} {new Date(hist.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                                </div>
+                                                <div style={{ color: "var(--text)" }}>{hist.texto || <em style={{ color: "var(--text-muted)" }}>[Sin texto, solo adjunto]</em>}</div>
+                                                {hist.archivo && hist.archivo.driveUrl && (
+                                                    <a
+                                                        href={hist.archivo.driveUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", marginTop: "0.25rem", color: "var(--primary)", textDecoration: "none", fontWeight: 500 }}
+                                                    >
+                                                        <FileText size={12} /> {hist.archivo.nombre}
+                                                    </a>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <textarea
                                 value={correccionTexto}
