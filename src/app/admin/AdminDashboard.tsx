@@ -26,6 +26,8 @@ import {
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import GestionEscuelas from "./_componentes/GestionEscuelas";
 import GestionFechas from "./_componentes/GestionFechas";
 import GestionRecursos from "./_componentes/GestionRecursos";
@@ -200,6 +202,53 @@ export default function AdminDashboard({
         } catch (error) {
             console.error("Error exporting to excel:", error);
             setMessage({ type: "error", text: "Hubo un error al generar el archivo Excel." });
+        }
+    };
+
+    const exportEscuelaPDF = (esc: EscuelaAdmin) => {
+        try {
+            const doc = new jsPDF();
+            doc.setFontSize(16);
+            doc.text("Acuse de Recepción SISAT", 14, 20);
+
+            doc.setFontSize(11);
+            doc.text(`CCT: ${esc.cct}`, 14, 30);
+            doc.text(`Escuela: ${esc.nombre}`, 14, 36);
+            doc.text(`Director: ${esc.director || "No especificado"}`, 14, 42);
+            doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString("es-MX")}`, 14, 48);
+
+            const tableData = esc.entregas.map(ent => {
+                const progName = ent.periodoEntrega?.programa?.nombre || "N/A";
+                let perName = "Anual";
+                if (ent.periodoEntrega?.mes) perName = MESES[ent.periodoEntrega.mes];
+                else if (ent.periodoEntrega?.semestre) perName = `Semestre ${ent.periodoEntrega.semestre}`;
+
+                return [
+                    progName,
+                    perName,
+                    ESTADO_LABELS[ent.estado] || ent.estado,
+                    ent.archivos.length.toString(),
+                    ent.fechaSubida ? new Date(ent.fechaSubida).toLocaleDateString("es-MX") : "N/A"
+                ];
+            });
+
+            autoTable(doc, {
+                startY: 55,
+                head: [['Programa', 'Periodo', 'Estado', 'Archivos', 'Fecha Subida']],
+                body: tableData,
+                styles: { fontSize: 9 },
+                headStyles: { fillColor: [12, 90, 142] }
+            });
+
+            const finalY = (doc as any).lastAutoTable.finalY || 60;
+            doc.text("___________________________", 14, finalY + 30);
+            doc.text("Sello / Firma Supervisión", 14, finalY + 36);
+
+            doc.save(`Acuse_${esc.cct}_${new Date().toISOString().split("T")[0]}.pdf`);
+            setMessage({ type: "success", text: "Acuse PDF generado exitosamente." });
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            setMessage({ type: "error", text: "Error al generar el PDF." });
         }
     };
 
@@ -438,6 +487,13 @@ export default function AdminDashboard({
                                             </div>
                                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                                                 <span style={{ fontWeight: 700, color: borderColor }}>{porcEsc}%</span>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); exportEscuelaPDF(esc); }}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem", display: "flex", alignItems: "center" }}
+                                                    title="Descargar Acuse PDF"
+                                                >
+                                                    <FileText size={18} />
+                                                </button>
                                                 {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                             </div>
                                         </div>
