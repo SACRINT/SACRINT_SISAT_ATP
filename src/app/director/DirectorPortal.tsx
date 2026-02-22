@@ -24,6 +24,8 @@ import { useRouter } from "next/navigation";
 interface Archivo {
     id: string;
     nombre: string;
+    driveId: string | null;
+    driveUrl: string | null;
     etiqueta: string | null;
     tipo: string;
     subidoPor: string;
