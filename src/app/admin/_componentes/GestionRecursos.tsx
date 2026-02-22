@@ -250,13 +250,14 @@ export default function GestionRecursos({
                         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                             <div>
                                 <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, fontSize: "0.875rem" }}>Título del Formato</label>
-                                <input
-                                    type="text"
+                                <textarea
                                     className="form-control"
                                     placeholder="Ej: Ficha de Inscripción (Word)"
                                     value={titulo}
                                     onChange={(e) => setTitulo(e.target.value)}
                                     required
+                                    rows={2}
+                                    style={{ resize: "vertical", fontFamily: "inherit" }}
                                 />
                             </div>
 
@@ -267,7 +268,8 @@ export default function GestionRecursos({
                                     placeholder="Instrucciones sobre cómo llenar el formato..."
                                     value={descripcion}
                                     onChange={(e) => setDescripcion(e.target.value)}
-                                    rows={2}
+                                    rows={4}
+                                    style={{ resize: "vertical", fontFamily: "inherit" }}
                                 />
                             </div>
 

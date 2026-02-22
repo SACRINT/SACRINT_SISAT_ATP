@@ -151,13 +151,16 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
                                 <BadgeIcon icon={<School size={14} />} /> Nombre de la Escuela
                             </label>
-                            <input
-                                type="text"
+                            <textarea
                                 className="form-control"
+                                rows={2}
                                 value={isEditing ? formData.nombre : selectedEscuela.nombre}
                                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                                 disabled={!isEditing}
-                                style={!isEditing ? { background: "var(--bg)", border: "1px dashed var(--border)" } : {}}
+                                style={{
+                                    ...(!isEditing ? { background: "var(--bg)", border: "1px dashed var(--border)" } : {}),
+                                    resize: "vertical", fontFamily: "inherit"
+                                }}
                             />
                         </div>
 
@@ -165,14 +168,17 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
                                 <BadgeIcon icon={<User size={14} />} /> Nombre del Director(a)
                             </label>
-                            <input
-                                type="text"
+                            <textarea
                                 className="form-control"
+                                rows={2}
                                 value={isEditing ? formData.director : (selectedEscuela.director || "No especificado")}
                                 onChange={(e) => setFormData({ ...formData, director: e.target.value })}
                                 disabled={!isEditing}
                                 placeholder="Ej: Mtro. Juan Pérez"
-                                style={!isEditing ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !selectedEscuela.director ? "italic" : "normal", color: !selectedEscuela.director ? "var(--text-muted)" : "inherit" } : {}}
+                                style={{
+                                    ...(!isEditing ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !selectedEscuela.director ? "italic" : "normal", color: !selectedEscuela.director ? "var(--text-muted)" : "inherit" } : {}),
+                                    resize: "vertical", fontFamily: "inherit"
+                                }}
                             />
                         </div>
 
@@ -180,14 +186,17 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
                                 <BadgeIcon icon={<Mail size={14} />} /> Correo Electrónico (Notificaciones)
                             </label>
-                            <input
-                                type="email"
+                            <textarea
                                 className="form-control"
+                                rows={2}
                                 value={isEditing ? formData.email : (selectedEscuela.email || "No especificado")}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 disabled={!isEditing}
                                 placeholder="ejemplo@escuela.edu.mx"
-                                style={!isEditing ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !selectedEscuela.email ? "italic" : "normal", color: !selectedEscuela.email ? "var(--text-muted)" : "inherit" } : {}}
+                                style={{
+                                    ...(!isEditing ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !selectedEscuela.email ? "italic" : "normal", color: !selectedEscuela.email ? "var(--text-muted)" : "inherit" } : {}),
+                                    resize: "vertical", fontFamily: "inherit"
+                                }}
                             />
                         </div>
                     </div>
