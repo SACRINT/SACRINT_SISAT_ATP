@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Edit2, Save, Trash2, X, FileText, Settings, AlignLeft, Layers } from "lucide-react";
+import { Plus, Edit2, Save, Trash2, X, FileText, Settings, AlignLeft, Layers, Bell, ToggleLeft, ToggleRight, Send } from "lucide-react";
 
 interface PeriodoAdmin {
     id: string;
@@ -15,6 +15,7 @@ interface ProgramaAdmin {
     tipo: string;
     numArchivos: number;
     orden: number;
+    recordatorioAuto?: boolean;
     periodos: PeriodoAdmin[];
 }
 
@@ -139,6 +140,48 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
         }
     };
 
+    const handleToggleAuto = async (id: string, currentVal: boolean) => {
+        setIsLoading(true);
+        try {
+            const res = await fetch(`/api/programas/${id}/toggle-recordatorio`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ recordatorioAuto: !currentVal })
+            });
+            if (!res.ok) throw new Error("Error al cambiar estado de recordatorio automático");
+            const updated = await res.json();
+            setProgramas(prev => prev.map(p => p.id === id ? { ...p, recordatorioAuto: updated.recordatorioAuto } : p));
+            setMessage({ type: "success", text: "Configuración de recordatorios actualizada." });
+            setTimeout(() => setMessage(null), 3000);
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSendManual = async (id: string, nombre: string) => {
+        if (!confirm(`¿Estás seguro que deseas enviar correos de recordatorio INMEDIATOS a las escuelas con entregas PENDIENTES o con CORRECCIONES del programa ${nombre}?`)) return;
+        setIsLoading(true);
+        try {
+            const res = await fetch(`/api/recordatorios`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ programaId: id })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Error al enviar recordatorios");
+            }
+            const data = await res.json();
+            setMessage({ type: "success", text: `¡Notificaciones enviadas! Se mandaron ${data.enviados || 0} correos a los directores.` });
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="fade-in">
             <div className="page-header" style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
@@ -198,6 +241,29 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                             <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
                                 <Layers size={12} /> {prog.numArchivos} Documento(s) req.
                             </span>
+
+                            <div style={{ width: "100%", marginTop: "0.5rem", paddingTop: "0.75rem", borderTop: "1px dashed var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <button
+                                        onClick={() => handleToggleAuto(prog.id, prog.recordatorioAuto || false)}
+                                        disabled={isLoading}
+                                        style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", color: prog.recordatorioAuto ? "var(--primary)" : "var(--text-muted)" }}
+                                        title="Activar o desactivar recordatorios diarios a las 8AM"
+                                    >
+                                        {prog.recordatorioAuto ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                                        <span style={{ fontSize: "0.75rem", fontWeight: prog.recordatorioAuto ? 600 : 400 }}>Auto-Reminders</span>
+                                    </button>
+                                </div>
+                                <button
+                                    className="btn btn-outline"
+                                    style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", display: "flex", alignItems: "center", gap: "0.25rem", borderColor: "var(--primary)", color: "var(--primary)" }}
+                                    onClick={() => handleSendManual(prog.id, prog.nombre)}
+                                    disabled={isLoading}
+                                    title="Disparar correos manualmente en este instante"
+                                >
+                                    <Send size={12} /> Disparar Ahora
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ))}

@@ -65,13 +65,14 @@ model CicloEscolar {
 }
 
 model Programa {
-  id          String      @id @default(cuid())
-  nombre      String      @unique
-  descripcion String?
-  tipo        TipoPeriodo @default(ANUAL)
-  numArchivos Int         @default(1) // Día Naranja = 2
-  orden       Int         @default(0)
-  createdAt   DateTime    @default(now())
+  id               String           @id @default(cuid())
+  nombre           String           @unique
+  descripcion      String?
+  tipo             TipoPeriodo      @default(ANUAL)
+  numArchivos      Int              @default(1) // Día Naranja = 2
+  orden            Int              @default(0)
+  recordatorioAuto Boolean          @default(false)
+  createdAt        DateTime         @default(now())
 
   periodos PeriodoEntrega[]
   recursos Recurso[]
