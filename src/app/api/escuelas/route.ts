@@ -41,6 +41,24 @@ export async function POST(req: NextRequest) {
             }
         });
 
+        // Obtener el ciclo activo y sus periodos para asignarle las entregas
+        const cicloActivo = await prisma.cicloEscolar.findFirst({
+            where: { activo: true },
+            include: { periodos: true }
+        });
+
+        if (cicloActivo && cicloActivo.periodos.length > 0) {
+            const entregasToCreate = cicloActivo.periodos.map((periodo: any) => ({
+                escuelaId: nuevaEscuela.id,
+                periodoEntregaId: periodo.id,
+                estado: "NO_ENTREGADO"
+            }));
+
+            await prisma.entrega.createMany({
+                data: entregasToCreate
+            });
+        }
+
         return NextResponse.json(nuevaEscuela);
 
     } catch (error: any) {
