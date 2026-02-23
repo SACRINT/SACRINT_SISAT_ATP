@@ -266,7 +266,7 @@ export default function DirectorPortal({
                     ref={fileInputRef}
                     type="file"
                     style={{ display: "none" }}
-                    accept=".pdf,.doc,.docx,.xlsx,.xls,.ppt,.pptx,.jpg,.jpeg,.png"
+                    accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png,.pdf,.doc,.docx,.xlsx,.xls,.ppt,.pptx,.jpg,.jpeg,.png"
                     onChange={handleFileSelected}
                 />
 

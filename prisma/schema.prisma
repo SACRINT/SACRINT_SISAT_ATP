@@ -106,7 +106,7 @@ model Entrega {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
-  escuela        Escuela        @relation(fields: [escuelaId], references: [id])
+  escuela        Escuela        @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
   periodoEntrega PeriodoEntrega @relation(fields: [periodoEntregaId], references: [id])
   archivos       Archivo[]
   correcciones   Correccion[]
