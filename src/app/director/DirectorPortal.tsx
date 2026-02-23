@@ -266,7 +266,7 @@ export default function DirectorPortal({
                     ref={fileInputRef}
                     type="file"
                     style={{ display: "none" }}
-                    accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png,.pdf,.doc,.docx,.xlsx,.xls,.ppt,.pptx,.jpg,.jpeg,.png"
+                    accept="*/*"
                     onChange={handleFileSelected}
                 />
 
@@ -503,14 +503,14 @@ export default function DirectorPortal({
                             </div>
                         ) : (
                             recursos.map((rec) => (
-                                <div key={rec.id} className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <div>
-                                        <div style={{ fontWeight: 700 }}>{rec.titulo}</div>
-                                        {rec.descripcion && <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>{rec.descripcion}</div>}
+                                <div key={rec.id} className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div style={{ fontWeight: 700, wordBreak: "break-word" }}>{rec.titulo}</div>
+                                        {rec.descripcion && <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", wordBreak: "break-word" }}>{rec.descripcion}</div>}
                                         <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.25rem" }}>
-                                            <FileText size={12} />
-                                            {rec.archivoNombre}
-                                            {rec.programa && <span> • {rec.programa.nombre}</span>}
+                                            <FileText size={12} style={{ flexShrink: 0 }} />
+                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rec.archivoNombre}</span>
+                                            {rec.programa && <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}> • {rec.programa.nombre}</span>}
                                         </div>
                                     </div>
                                     {rec.archivoDriveUrl && (
