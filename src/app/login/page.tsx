@@ -125,7 +125,7 @@ export default function LoginPage() {
                         marginTop: "1.5rem",
                     }}
                 >
-                    Zona Escolar EMS • Supervisión
+                    Zona Escolar 004 BG • Supervisión
                 </p>
             </div>
         </div>
