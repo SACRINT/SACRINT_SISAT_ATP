@@ -184,9 +184,14 @@ export default function DirectorPortal({
         <>
             {/* Navbar */}
             <nav className="navbar">
-                <div className="navbar-brand">
-                    <School size={24} />
-                    <span style={{ fontSize: "0.9375rem" }}>SISAT-ATP</span>
+                <div className="navbar-brand" style={{ display: "flex", flexDirection: "column", gap: "0.15rem", justifyContent: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <School size={24} />
+                        <span style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>SISAT-ATP</span>
+                    </div>
+                    <span style={{ fontSize: "0.6rem", opacity: 0.8, lineHeight: 1 }}>
+                        Sistema Inteligente de Supervisión y Automatización Técnica
+                    </span>
                 </div>
                 <div className="navbar-user">
                     <button

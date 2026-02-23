@@ -344,9 +344,14 @@ export default function AdminDashboard({
         <div className="admin-layout">
             {/* Sidebar */}
             <aside className="admin-sidebar">
-                <div className="admin-sidebar-header">
-                    <BarChart3 size={24} />
-                    <span style={{ fontSize: "0.9375rem" }}>SISAT-ATP</span>
+                <div className="admin-sidebar-header" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.25rem", padding: "1.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <BarChart3 size={24} />
+                        <span style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>SISAT-ATP</span>
+                    </div>
+                    <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", lineHeight: 1.2 }}>
+                        Sistema Inteligente de Supervisión<br />y Automatización Técnica
+                    </span>
                 </div>
                 <div className="admin-sidebar-nav">
                     <button className={`sidebar-link ${vista === "general" ? "active" : ""}`} onClick={() => setVista("general")}>
