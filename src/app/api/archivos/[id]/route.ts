@@ -60,7 +60,7 @@ export async function DELETE(
         if (remainingFiles === 0) {
             await prisma.entrega.update({
                 where: { id: archivo.entregaId },
-                data: { estado: "PENDIENTE", fechaSubida: null },
+                data: { estado: "NO_ENTREGADO", fechaSubida: null },
             });
         }
 
