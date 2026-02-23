@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin } from "lucide-react";
 
 type Escuela = {
@@ -20,6 +21,7 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
     const [isCreating, setIsCreating] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const router = useRouter();
 
     // Form state
     const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; director: string; email: string; password?: string }>({
@@ -96,6 +98,7 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                 setMessage({ type: "success", text: "Datos actualizados correctamente." });
             }
 
+            router.refresh();
             setTimeout(() => setMessage(null), 3000);
         } catch (error: any) {
             setMessage({ type: "error", text: error.message });
@@ -119,6 +122,7 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
             setEscuelas(prev => prev.filter(e => e.id !== selectedId));
             setSelectedId("");
             setMessage({ type: "success", text: "Escuela eliminada correctamente." });
+            router.refresh();
         } catch (error: any) {
             setMessage({ type: "error", text: error.message });
         } finally {

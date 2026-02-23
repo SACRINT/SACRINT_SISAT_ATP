@@ -417,7 +417,7 @@ export default function AdminDashboard({
                             <div>
                                 <h1>Vista General</h1>
                                 <p style={{ color: "var(--text-secondary)" }}>
-                                    Ciclo {ciclo} • 18 bachilleratos • {stats.totalEntregas} entregas
+                                    Ciclo {ciclo} • {escuelas.length} bachilleratos • {stats.totalEntregas} entregas
                                 </p>
                             </div>
                             <button onClick={exportToExcel} className="btn btn-outline" style={{ display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
