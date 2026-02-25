@@ -140,16 +140,65 @@ export default function DirectorPortal({
         }
 
         try {
-            const res = await fetch("/api/upload", { method: "POST", body: formData });
-            if (res.ok) {
+            // 1. Obtener firma segura desde nuestro backend
+            const signRes = await fetch("/api/sign-cloudinary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ entregaId: selectedEntrega })
+            });
+
+            if (!signRes.ok) {
+                const err = await signRes.json();
+                throw new Error(err.error || "No se pudo iniciar la subida");
+            }
+
+            const { signature, timestamp, folder, apiKey, cloudName } = await signRes.json();
+
+            // 2. Subir directamente a Cloudinary (salta el límite de 4.5MB de Vercel)
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("api_key", apiKey);
+            formData.append("timestamp", timestamp.toString());
+            formData.append("signature", signature);
+            formData.append("folder", folder);
+
+            const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+                method: "POST",
+                body: formData
+            });
+
+            if (!uploadRes.ok) {
+                const errData = await uploadRes.json();
+                throw new Error(errData.error?.message || "Error al subir a la nube");
+            }
+
+            const uploadData = await uploadRes.json();
+
+            // 3. Confirmar la subida en nuestro backend para guardar en la base de datos
+            const confirmRes = await fetch("/api/upload/confirm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    entregaId: selectedEntrega,
+                    etiqueta: selectedEtiqueta,
+                    fileData: {
+                        name: file.name,
+                        type: file.type,
+                        url: uploadData.secure_url,
+                        publicId: uploadData.public_id
+                    }
+                })
+            });
+
+            if (confirmRes.ok) {
                 setMessage({ type: "success", text: `✅ "${file.name}" subido correctamente` });
                 router.refresh();
             } else {
-                const data = await res.json();
-                setMessage({ type: "error", text: data.error || "Error al subir archivo" });
+                const data = await confirmRes.json();
+                setMessage({ type: "error", text: data.error || "Error al guardar el archivo" });
             }
-        } catch {
-            setMessage({ type: "error", text: "Error de conexión. Intenta de nuevo." });
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message || "Error de conexión. Intenta de nuevo." });
         } finally {
             setUploading(null);
             setSelectedEntrega(null);

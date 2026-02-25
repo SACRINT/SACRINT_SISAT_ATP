@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { EstadoEntrega } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 export async function POST(req: NextRequest) {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
             const entregasToCreate = cicloActivo.periodos.map((periodo: any) => ({
                 escuelaId: nuevaEscuela.id,
                 periodoEntregaId: periodo.id,
-                estado: "NO_ENTREGADO"
+                estado: EstadoEntrega.NO_ENTREGADO
             }));
 
             await prisma.entrega.createMany({

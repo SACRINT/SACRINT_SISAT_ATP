@@ -290,15 +290,53 @@ export default function AdminDashboard({
         if (!correccionModal || (!correccionTexto.trim() && !correccionFile)) return;
         setSendingCorreccion(true);
 
-        const formData = new FormData();
-        if (correccionTexto.trim()) formData.append("texto", correccionTexto);
-        if (correccionFile) formData.append("file", correccionFile);
-
         try {
+            let uploadedFileData = null;
+
+            if (correccionFile) {
+                // 1. Get signature for subfolder _correcciones
+                const signRes = await fetch("/api/sign-cloudinary", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ entregaId: correccionModal.entregaId, subfolder: "_correcciones" })
+                });
+
+                if (!signRes.ok) throw new Error("Error obteniendo firma para subir archivo");
+                const { signature, timestamp, folder, apiKey, cloudName } = await signRes.json();
+
+                // 2. Direct upload to Cloudinary
+                const formData = new FormData();
+                formData.append("file", correccionFile);
+                formData.append("api_key", apiKey);
+                formData.append("timestamp", timestamp.toString());
+                formData.append("signature", signature);
+                formData.append("folder", folder);
+
+                const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!uploadRes.ok) throw new Error("Error subiendo el archivo de corrección a la nube");
+                const uploadData = await uploadRes.json();
+
+                uploadedFileData = {
+                    name: correccionFile.name,
+                    url: uploadData.secure_url,
+                    publicId: uploadData.public_id
+                };
+            }
+
+            // 3. Confirm with backend
             const res = await fetch(`/api/entregas/${correccionModal.entregaId}/correcciones`, {
                 method: "POST",
-                body: formData,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    texto: correccionTexto.trim() || null,
+                    fileData: uploadedFileData
+                }),
             });
+
             if (res.ok) {
                 setMessage({ type: "success", text: "Corrección enviada" });
                 setCorreccionModal(null);
@@ -307,10 +345,10 @@ export default function AdminDashboard({
                 router.refresh();
             } else {
                 const data = await res.json();
-                setMessage({ type: "error", text: data.error || "Error" });
+                setMessage({ type: "error", text: data.error || "Error al guardar corrección" });
             }
-        } catch {
-            setMessage({ type: "error", text: "Error de conexión" });
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message || "Error de conexión" });
         } finally {
             setSendingCorreccion(false);
         }

@@ -17,11 +17,10 @@ export async function POST(
         }
 
         const { id } = await params;
-        const formData = await req.formData();
-        const texto = formData.get("texto") as string | null;
-        const file = formData.get("file") as File | null;
+        const body = await req.json();
+        const { texto, fileData } = body;
 
-        if (!texto && !file) {
+        if (!texto && !fileData) {
             return NextResponse.json(
                 { error: "Debe incluir un texto o un archivo de corrección" },
                 { status: 400 }
@@ -50,34 +49,20 @@ export async function POST(
         let archivoId: string | null = null;
         let archivoUrl: string | undefined;
 
-        // Upload correction file to Cloudinary if provided
-        if (file) {
-            const programa = entrega.periodoEntrega.programa;
-            const escuela = entrega.escuela;
-
-            // Store corrections in a _correcciones subfolder
-            const folderPath = buildFolderPath(escuela.cct, escuela.nombre, programa.nombre) + "/_correcciones";
-            const buffer = Buffer.from(await file.arrayBuffer());
-
-            const { publicId, url } = await uploadFileToCloudinary(
-                buffer,
-                `correccion_${file.name}`,
-                file.type,
-                folderPath
-            );
-
+        // Save correction file to Database if uploaded
+        if (fileData && fileData.url && fileData.publicId) {
             const archivo = await prisma.archivo.create({
                 data: {
                     entregaId: id,
-                    nombre: file.name,
-                    driveId: publicId,
-                    driveUrl: url,
+                    nombre: fileData.name,
+                    driveId: fileData.publicId,
+                    driveUrl: fileData.url,
                     tipo: "CORRECCION",
                     subidoPor: "atp",
                 },
             });
             archivoId = archivo.id;
-            archivoUrl = url;
+            archivoUrl = fileData.url;
         }
 
         // Create correction record
