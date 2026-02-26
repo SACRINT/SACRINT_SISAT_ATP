@@ -4,9 +4,9 @@ import { v2 as cloudinary } from "cloudinary";
 /**
  * GET /api/download?url=<cloudinary_url>&name=<filename>
  *
- * Proxy server-side que genera una URL firmada de Cloudinary
- * y descarga el archivo, luego lo retransmite al navegador.
- * Esto resuelve el 401 de cuentas con restricciones de acceso.
+ * Proxy que descarga archivos de Cloudinary usando la Admin API
+ * con autenticación HTTP Basic (api_key:api_secret).
+ * Esto garantiza el acceso sin importar restricciones de la cuenta.
  */
 
 function configureCloudinary() {
@@ -19,33 +19,34 @@ function configureCloudinary() {
 }
 
 /**
- * Parse a Cloudinary URL into its components.
- * Example: https://res.cloudinary.com/drgahsnt4/image/upload/v1772130997/SISAT_ATP/folder/file.pdf
- * Returns { resourceType: "image", publicId: "SISAT_ATP/folder/file", format: "pdf" }
+ * Parse a Cloudinary URL to extract cloud_name, resource_type, and public_id.
+ * Handles both encoded and decoded URLs.
+ *
+ * Example inputs:
+ * - https://res.cloudinary.com/drgahsnt4/image/upload/v1772130997/SISAT-ATP/folder/file.pdf
+ * - https://res.cloudinary.com/dhyirvsqm/raw/upload/v1772118749/SISAT-ATP/folder/file.docx
  */
-function parseCloudinaryUrl(url: string): { resourceType: string; publicId: string; format: string } | null {
-    // Pattern: https://res.cloudinary.com/{cloud}/{resource_type}/upload/v{version}/{public_id}.{ext}
-    // or without version: https://res.cloudinary.com/{cloud}/{resource_type}/upload/{public_id}.{ext}
-    const match = url.match(
-        /res\.cloudinary\.com\/[^/]+\/(\w+)\/upload\/(?:v\d+\/)?(.+)$/
+function parseCloudinaryUrl(url: string) {
+    const decoded = decodeURIComponent(url);
+    const match = decoded.match(
+        /res\.cloudinary\.com\/([^/]+)\/(\w+)\/upload\/(?:v\d+\/)?(.+)$/
     );
     if (!match) return null;
 
-    const resourceType = match[1]; // 'image', 'raw', 'video'
-    const fullPath = decodeURIComponent(match[2]);
+    const cloudName = match[1];
+    const resourceType = match[2]; // 'image', 'raw', 'video'
+    const fullPath = match[3];
 
-    // Extract format (extension) and public_id
-    const lastDotIndex = fullPath.lastIndexOf(".");
-    if (lastDotIndex === -1) {
-        return { resourceType, publicId: fullPath, format: "" };
+    // For raw, public_id includes extension. For image, it doesn't.
+    let publicId: string;
+    if (resourceType === "raw") {
+        publicId = fullPath;
+    } else {
+        // Remove extension for image/video
+        publicId = fullPath.replace(/\.[^/.]+$/, "");
     }
 
-    const format = fullPath.slice(lastDotIndex + 1);
-    // For image/video resource types, public_id does NOT include the extension
-    // For raw resource type, public_id INCLUDES the extension
-    const publicId = resourceType === "raw" ? fullPath : fullPath.slice(0, lastDotIndex);
-
-    return { resourceType, publicId, format };
+    return { cloudName, resourceType, publicId, fullPath };
 }
 
 export async function GET(request: NextRequest) {
@@ -57,83 +58,84 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Missing 'url' parameter" }, { status: 400 });
     }
 
-    // Validate it's a Cloudinary URL
     if (!fileUrl.includes("res.cloudinary.com")) {
         return NextResponse.json({ error: "Only Cloudinary URLs are allowed" }, { status: 403 });
     }
 
-    configureCloudinary();
-
-    // Strategy: try multiple approaches to download the file
-    const strategies: (() => Promise<Response>)[] = [];
-
-    // Parse the URL to generate signed variants
     const parsed = parseCloudinaryUrl(fileUrl);
+    if (!parsed) {
+        return NextResponse.json({ error: "Could not parse Cloudinary URL" }, { status: 400 });
+    }
 
-    if (parsed) {
-        // Strategy 1: Signed URL with original resource type
-        strategies.push(() => {
+    // Get credentials - use the cloud_name from the URL to determine which account
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const configuredCloudName = process.env.CLOUDINARY_CLOUD_NAME;
+
+    if (!apiKey || !apiSecret) {
+        return NextResponse.json({ error: "Cloudinary credentials not configured" }, { status: 500 });
+    }
+
+    console.log(`[download] Attempting download for cloud=${parsed.cloudName}, type=${parsed.resourceType}, publicId=${parsed.publicId}`);
+
+    // Strategy 1: Use Cloudinary Admin API to get the resource, then fetch the secure_url
+    // The Admin API endpoint: GET /resources/{resource_type}/upload/{public_id}
+    // Uses HTTP Basic Auth with api_key:api_secret
+    const errors: string[] = [];
+
+    // Try fetching the resource info via Admin API to get an accessible URL
+    if (parsed.cloudName === configuredCloudName) {
+        try {
+            configureCloudinary();
+            const resourceInfo = await cloudinary.api.resource(parsed.publicId, {
+                resource_type: parsed.resourceType,
+                type: "upload",
+            });
+
+            if (resourceInfo?.secure_url) {
+                console.log(`[download] Got resource URL from Admin API: ${resourceInfo.secure_url}`);
+                // Fetch the content using the authenticated session
+                const basicAuth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+                const response = await fetch(resourceInfo.secure_url, {
+                    headers: {
+                        "Authorization": `Basic ${basicAuth}`,
+                    },
+                });
+
+                if (response.ok) {
+                    const contentType = response.headers.get("content-type") || "application/octet-stream";
+                    const blob = await response.arrayBuffer();
+                    return new NextResponse(blob, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": contentType,
+                            "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+                            "Content-Length": blob.byteLength.toString(),
+                            "Cache-Control": "private, no-cache",
+                        },
+                    });
+                }
+                errors.push(`Admin API URL fetch returned ${response.status}`);
+            }
+        } catch (e: any) {
+            errors.push(`Admin API error: ${e.message || e}`);
+            console.log(`[download] Admin API failed:`, e.message || e);
+        }
+
+        // Strategy 2: Generate a signed URL with proper encoding
+        try {
+            configureCloudinary();
             const signedUrl = cloudinary.url(parsed.publicId, {
                 resource_type: parsed.resourceType as "image" | "raw" | "video",
                 type: "upload",
                 sign_url: true,
                 secure: true,
-                format: parsed.format || undefined,
             });
-            console.log(`[download] Trying signed URL (${parsed.resourceType}):`, signedUrl);
-            return fetch(signedUrl);
-        });
-
-        // Strategy 2: If it was image, try raw (some PDFs are stored as raw)
-        if (parsed.resourceType === "image") {
-            strategies.push(() => {
-                const rawPublicId = parsed.format
-                    ? `${parsed.publicId}.${parsed.format}`
-                    : parsed.publicId;
-                const signedUrl = cloudinary.url(rawPublicId, {
-                    resource_type: "raw",
-                    type: "upload",
-                    sign_url: true,
-                    secure: true,
-                });
-                console.log("[download] Trying signed URL (raw):", signedUrl);
-                return fetch(signedUrl);
-            });
-        }
-
-        // Strategy 3: If it was raw, try image
-        if (parsed.resourceType === "raw") {
-            strategies.push(() => {
-                const imgPublicId = parsed.publicId.replace(/\.[^/.]+$/, "");
-                const signedUrl = cloudinary.url(imgPublicId, {
-                    resource_type: "image",
-                    type: "upload",
-                    sign_url: true,
-                    secure: true,
-                    format: parsed.format || undefined,
-                });
-                console.log("[download] Trying signed URL (image):", signedUrl);
-                return fetch(signedUrl);
-            });
-        }
-    }
-
-    // Strategy 4: Try the original URL directly (in case signing is not needed)
-    strategies.push(() => {
-        console.log("[download] Trying original URL:", fileUrl);
-        return fetch(fileUrl, {
-            headers: { "User-Agent": "SISAT-ATP-Server/1.0" },
-        });
-    });
-
-    // Try each strategy until one works
-    for (const tryFetch of strategies) {
-        try {
-            const response = await tryFetch();
+            console.log(`[download] Trying signed URL: ${signedUrl}`);
+            const response = await fetch(signedUrl);
             if (response.ok) {
                 const contentType = response.headers.get("content-type") || "application/octet-stream";
                 const blob = await response.arrayBuffer();
-
                 return new NextResponse(blob, {
                     status: 200,
                     headers: {
@@ -144,15 +146,82 @@ export async function GET(request: NextRequest) {
                     },
                 });
             }
-            console.log(`[download] Strategy returned ${response.status}, trying next...`);
-        } catch (e) {
-            console.log("[download] Strategy failed, trying next...", e);
+            errors.push(`Signed URL returned ${response.status}`);
+        } catch (e: any) {
+            errors.push(`Signed URL error: ${e.message || e}`);
         }
     }
 
-    // All strategies failed
+    // Strategy 3: Direct URL fetch (might work if restrictions were relaxed)
+    try {
+        console.log(`[download] Trying direct URL fetch`);
+        const response = await fetch(fileUrl, {
+            headers: { "User-Agent": "SISAT-ATP-Server/1.0" },
+        });
+        if (response.ok) {
+            const contentType = response.headers.get("content-type") || "application/octet-stream";
+            const blob = await response.arrayBuffer();
+            return new NextResponse(blob, {
+                status: 200,
+                headers: {
+                    "Content-Type": contentType,
+                    "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+                    "Content-Length": blob.byteLength.toString(),
+                    "Cache-Control": "private, no-cache",
+                },
+            });
+        }
+        errors.push(`Direct URL returned ${response.status}`);
+    } catch (e: any) {
+        errors.push(`Direct URL error: ${e.message || e}`);
+    }
+
+    // Strategy 4: Try with the other resource type
+    if (parsed.cloudName === configuredCloudName) {
+        const altType = parsed.resourceType === "image" ? "raw" : "image";
+        const altPublicId = altType === "raw"
+            ? parsed.fullPath  // raw needs extension
+            : parsed.fullPath.replace(/\.[^/.]+$/, ""); // image doesn't
+        try {
+            configureCloudinary();
+            const resourceInfo = await cloudinary.api.resource(altPublicId, {
+                resource_type: altType,
+                type: "upload",
+            });
+            if (resourceInfo?.secure_url) {
+                const response = await fetch(resourceInfo.secure_url);
+                if (response.ok) {
+                    const contentType = response.headers.get("content-type") || "application/octet-stream";
+                    const blob = await response.arrayBuffer();
+                    return new NextResponse(blob, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": contentType,
+                            "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+                            "Content-Length": blob.byteLength.toString(),
+                            "Cache-Control": "private, no-cache",
+                        },
+                    });
+                }
+                errors.push(`Alt type (${altType}) URL returned ${response.status}`);
+            }
+        } catch (e: any) {
+            errors.push(`Alt type (${altType}) API error: ${e.message || e}`);
+        }
+    }
+
+    console.error(`[download] All strategies failed:`, errors);
     return NextResponse.json(
-        { error: "No se pudo descargar el archivo de Cloudinary. Todas las estrategias fallaron." },
+        {
+            error: "No se pudo descargar el archivo de Cloudinary.",
+            details: errors,
+            parsed: {
+                cloudName: parsed.cloudName,
+                resourceType: parsed.resourceType,
+                publicId: parsed.publicId,
+                configuredCloud: configuredCloudName,
+            },
+        },
         { status: 502 }
     );
 }
