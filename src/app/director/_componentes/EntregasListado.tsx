@@ -16,6 +16,7 @@ import {
     MessageSquare,
 } from "lucide-react";
 import { ProgramaGroup, EntregaDirector } from "@/types/director";
+import { getDownloadUrl } from "@/lib/cloudinary";
 
 const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -308,7 +309,7 @@ export default function EntregasListado({
                                                                         </div>
                                                                         {corr.archivo && (
                                                                             <a
-                                                                                href={corr.archivo.driveUrl || "#"}
+                                                                                href={getDownloadUrl(corr.archivo.driveUrl) || "#"}
                                                                                 target="_blank"
                                                                                 rel="noreferrer"
                                                                                 style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", textDecoration: "none", fontWeight: 600, marginTop: "0.25rem" }}

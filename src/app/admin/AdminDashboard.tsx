@@ -40,6 +40,7 @@ import GestionPeriodos from "./_componentes/GestionPeriodos";
 import { ProgramaAdmin, EscuelaAdmin, Stats } from "@/types";
 
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
+import { getDownloadUrl } from "@/lib/cloudinary";
 
 export default function AdminDashboard({
     programas,
@@ -382,7 +383,7 @@ export default function AdminDashboard({
                                                 <div style={{ color: "var(--text)" }}>{hist.texto || <em style={{ color: "var(--text-muted)" }}>[Sin texto, solo adjunto]</em>}</div>
                                                 {hist.archivo && hist.archivo.driveUrl && (
                                                     <a
-                                                        href={hist.archivo.driveUrl}
+                                                        href={getDownloadUrl(hist.archivo.driveUrl) || "#"}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", marginTop: "0.25rem", color: "var(--primary)", textDecoration: "none", fontWeight: 500 }}

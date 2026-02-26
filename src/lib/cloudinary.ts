@@ -88,7 +88,7 @@ export async function deleteFileFromCloudinary(publicId: string): Promise<void> 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Removes characters that Cloudinary doesn't allow in public_id.
+ * Removemos caracteres no permitidos en el public_id de Cloudinary.
  */
 function sanitizeFileName(name: string): string {
     return name
@@ -98,11 +98,22 @@ function sanitizeFileName(name: string): string {
 }
 
 /**
- * Builds the Cloudinary folder path for a given escuela + programa.
- * Format: "CCT - EscuelaNombre/ProgramaNombre"
+ * Función para generar la estructura de carpetas: "CCT - Escuela/Programa"
  */
 export function buildFolderPath(cct: string, escuelaNombre: string, programaNombre: string): string {
     const escuelaFolder = sanitizeFileName(`${cct} - ${escuelaNombre}`);
     const programaFolder = sanitizeFileName(programaNombre);
     return `${escuelaFolder}/${programaFolder}`;
+}
+
+/**
+ * Añade la bandera fl_attachment a la URL para forzar la descarga de Cloudinary.
+ * Útil para saltarse bloqueos 401 en PDFs u otros adjuntos en cuentas sin firmas estrictas para la visualización de medios.
+ */
+export function getDownloadUrl(url: string | null | undefined): string | undefined {
+    if (!url) return undefined;
+    if (url.includes('/upload/') && !url.includes('/fl_attachment')) {
+        return url.replace('/upload/', '/upload/fl_attachment/');
+    }
+    return url;
 }
