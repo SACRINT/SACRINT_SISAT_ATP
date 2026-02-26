@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
     try {
+        const params = await props.params;
         const session = await auth();
         if (!session || (session.user as any)?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -19,8 +20,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
     try {
+        const params = await props.params;
         const session = await auth();
         if (!session || (session.user as any)?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
