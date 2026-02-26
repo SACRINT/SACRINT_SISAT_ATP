@@ -116,7 +116,7 @@ interface Stats {
 const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const ESTADOS = ["PENDIENTE", "EN_REVISION", "REQUIERE_CORRECCION", "APROBADO", "NO_APROBADO", "NO_ENTREGADO"];
 const ESTADO_LABELS: Record<string, string> = {
-    PENDIENTE: "Pendiente", EN_REVISION: "En Revisión", REQUIERE_CORRECCION: "Req. Corrección",
+    PENDIENTE: "Entregado", EN_REVISION: "En Revisión", REQUIERE_CORRECCION: "Req. Corrección",
     APROBADO: "Aprobado", NO_APROBADO: "No Aprobado", NO_ENTREGADO: "No Entregado",
 };
 const ESTADO_COLORS: Record<string, string> = {
@@ -467,7 +467,7 @@ export default function AdminDashboard({
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
                             {[
                                 { label: "Aprobadas", value: stats.aprobadas, color: "var(--success)" },
-                                { label: "Pendientes", value: stats.pendientes, color: "var(--warning)" },
+                                { label: "Entregados", value: stats.pendientes, color: "var(--warning)" },
                                 { label: "En Revisión", value: stats.enRevision, color: "var(--primary)" },
                                 { label: "Req. Corrección", value: stats.requiereCorreccion, color: "#e67e22" },
                                 { label: "No Aprobadas", value: stats.noAprobado, color: "var(--danger)" },

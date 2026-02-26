@@ -75,7 +75,7 @@ interface Recurso {
 const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const ESTADO_CONFIG: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
-    PENDIENTE: { color: "var(--warning)", icon: <Clock size={14} />, label: "Pendiente" },
+    PENDIENTE: { color: "var(--success)", icon: <CheckCircle2 size={14} />, label: "Entregado" },
     EN_REVISION: { color: "var(--primary)", icon: <Eye size={14} />, label: "En Revisión" },
     REQUIERE_CORRECCION: { color: "#e67e22", icon: <AlertTriangle size={14} />, label: "Requiere Corrección" },
     APROBADO: { color: "var(--success)", icon: <CheckCircle2 size={14} />, label: "Aprobado" },
