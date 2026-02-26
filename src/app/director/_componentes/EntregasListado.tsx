@@ -16,7 +16,7 @@ import {
     MessageSquare,
 } from "lucide-react";
 import { ProgramaGroup, EntregaDirector } from "@/types/director";
-import { getDownloadUrl } from "@/lib/cloudinary";
+import { getDownloadUrl } from "@/lib/download-url";
 
 const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 

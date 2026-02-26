@@ -40,7 +40,7 @@ import GestionPeriodos from "./_componentes/GestionPeriodos";
 import { ProgramaAdmin, EscuelaAdmin, Stats } from "@/types";
 
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
-import { getDownloadUrl } from "@/lib/cloudinary";
+import { getDownloadUrl } from "@/lib/download-url";
 
 export default function AdminDashboard({
     programas,

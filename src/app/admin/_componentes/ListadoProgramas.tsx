@@ -6,7 +6,7 @@ import { ChevronUp, ChevronDown, MessageSquare, Download } from "lucide-react";
 import JSZip from "jszip";
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
-import { getDownloadUrl } from "@/lib/cloudinary";
+import { getDownloadUrl } from "@/lib/download-url";
 
 interface ListadoProgramasProps {
     programas: ProgramaAdmin[];

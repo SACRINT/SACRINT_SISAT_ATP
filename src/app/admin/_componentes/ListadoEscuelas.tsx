@@ -7,7 +7,7 @@ import autoTable from "jspdf-autotable";
 import { Search, FileText, ChevronUp, ChevronDown, MessageSquare, Download, Mail } from "lucide-react";
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
 import { EscuelaAdmin } from "@/types";
-import { getDownloadUrl } from "@/lib/cloudinary";
+import { getDownloadUrl } from "@/lib/download-url";
 
 interface ListadoEscuelasProps {
     escuelas: EscuelaAdmin[];
