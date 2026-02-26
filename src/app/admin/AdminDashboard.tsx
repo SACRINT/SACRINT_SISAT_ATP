@@ -383,7 +383,7 @@ export default function AdminDashboard({
                                                 <div style={{ color: "var(--text)" }}>{hist.texto || <em style={{ color: "var(--text-muted)" }}>[Sin texto, solo adjunto]</em>}</div>
                                                 {hist.archivo && hist.archivo.driveUrl && (
                                                     <a
-                                                        href={getDownloadUrl(hist.archivo.driveUrl) || "#"}
+                                                        href={getDownloadUrl(hist.archivo.driveUrl, hist.archivo.nombre) || "#"}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", marginTop: "0.25rem", color: "var(--primary)", textDecoration: "none", fontWeight: 500 }}

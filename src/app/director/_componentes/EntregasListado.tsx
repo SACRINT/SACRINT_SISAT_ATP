@@ -309,7 +309,7 @@ export default function EntregasListado({
                                                                         </div>
                                                                         {corr.archivo && (
                                                                             <a
-                                                                                href={getDownloadUrl(corr.archivo.driveUrl) || "#"}
+                                                                                href={getDownloadUrl(corr.archivo.driveUrl, corr.archivo.nombre) || "#"}
                                                                                 target="_blank"
                                                                                 rel="noreferrer"
                                                                                 style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", textDecoration: "none", fontWeight: 600, marginTop: "0.25rem" }}

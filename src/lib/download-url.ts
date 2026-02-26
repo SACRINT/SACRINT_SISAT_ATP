@@ -1,13 +1,16 @@
 /**
- * Añade la bandera fl_attachment a la URL para forzar la descarga de Cloudinary.
- * Útil para saltarse bloqueos 401 en PDFs u otros adjuntos.
+ * Genera una URL de descarga que usa el proxy del servidor (/api/download)
+ * para descargar archivos de Cloudinary sin restricciones de acceso directo.
  *
- * Este archivo es client-safe (no importa el SDK de Cloudinary de Node).
+ * Este archivo es client-safe (no importa dependencias de Node.js).
  */
-export function getDownloadUrl(url: string | null | undefined): string | undefined {
+export function getDownloadUrl(url: string | null | undefined, fileName?: string): string | undefined {
     if (!url) return undefined;
-    if (url.includes('/upload/') && !url.includes('/fl_attachment')) {
-        return url.replace('/upload/', '/upload/fl_attachment/');
+
+    // Use the server-side proxy to download the file
+    const params = new URLSearchParams({ url });
+    if (fileName) {
+        params.set("name", fileName);
     }
-    return url;
+    return `/api/download?${params.toString()}`;
 }
