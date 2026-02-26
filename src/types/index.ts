@@ -5,6 +5,7 @@ export interface Archivo {
     tipo: string;
     createdAt?: string | Date;
     driveUrl?: string | null;
+    driveId?: string | null;
 }
 
 export interface CorreccionAdmin {
@@ -12,7 +13,7 @@ export interface CorreccionAdmin {
     texto: string | null;
     createdAt: string;
     admin: { nombre: string };
-    archivo?: { nombre: string; driveUrl: string | null } | null;
+    archivo?: { nombre: string; driveUrl: string | null; driveId?: string | null } | null;
 }
 
 export interface EntregaAdmin {

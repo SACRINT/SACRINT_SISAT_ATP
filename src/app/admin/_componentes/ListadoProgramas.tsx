@@ -37,7 +37,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                             const arch = ent.archivos[i];
                             if (arch.driveUrl) {
                                 try {
-                                    const downloadUrl = getDownloadUrl(arch.driveUrl, arch.nombre) || arch.driveUrl;
+                                    const downloadUrl = getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId) || arch.driveUrl;
                                     const response = await fetch(downloadUrl);
                                     if (!response.ok) throw new Error("HTTP error");
                                     const blob = await response.blob();
@@ -167,7 +167,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                         {ent.archivos.map((arch, index) => (
                                                                             <a
                                                                                 key={arch.id}
-                                                                                href={getDownloadUrl(arch.driveUrl, arch.nombre) || "#"}
+                                                                                href={getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId) || "#"}
                                                                                 target="_blank"
                                                                                 rel="noopener noreferrer"
                                                                                 style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}

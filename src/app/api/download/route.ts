@@ -63,6 +63,17 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Could not parse Cloudinary URL" }, { status: 400 });
     }
 
+    // Prefer publicId from query params (exact driveId from DB) over parsed from URL
+    const directPublicId = searchParams.get("publicId");
+    if (directPublicId) {
+        parsed.publicId = directPublicId;
+        // Also update format if not already set
+        const lastDot = directPublicId.lastIndexOf(".");
+        if (lastDot > 0 && parsed.resourceType === "raw") {
+            parsed.format = directPublicId.slice(lastDot + 1);
+        }
+    }
+
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
@@ -73,7 +84,7 @@ export async function GET(request: NextRequest) {
 
     const errors: string[] = [];
 
-    console.log(`[download] cloud=${parsed.cloudName}, type=${parsed.resourceType}, id=${parsed.publicId}, format=${parsed.format}`);
+    console.log(`[download] cloud=${parsed.cloudName}, type=${parsed.resourceType}, id=${parsed.publicId}, format=${parsed.format}, directId=${directPublicId || "none"}`);
 
     // Only use authenticated strategies if the cloud name matches
     if (parsed.cloudName === cloudName) {
@@ -132,8 +143,18 @@ export async function GET(request: NextRequest) {
 
         // Try alternate resource type
         const altType = parsed.resourceType === "image" ? "raw" : "image";
-        const altPublicId = altType === "raw" ? parsed.fullPath : parsed.fullPath.replace(/\.[^/.]+$/, "");
-        const altFormat = altType === "raw" ? "" : parsed.format;
+        // For raw: public_id includes extension. For image: it doesn't.
+        let altPublicId: string;
+        let altFormat: string;
+        if (altType === "raw") {
+            // Going from image to raw: add extension back
+            altPublicId = parsed.publicId + "." + parsed.format;
+            altFormat = "";
+        } else {
+            // Going from raw to image: strip extension
+            altPublicId = parsed.publicId.replace(/\.[^/.]+$/, "");
+            altFormat = parsed.format;
+        }
         try {
             const response = await tryDownload(altType, altPublicId, altFormat);
             if (response.ok) {
