@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { v2 as cloudinary } from "cloudinary";
 
 /**
- * GET /api/download?url=<cloudinary_url>&name=<filename>
+ * GET /api/download?url=<cloudinary_url>&name=<filename>&publicId=<driveId>
  *
- * Proxy que descarga archivos de Cloudinary.
- * Genera una URL de descarga firmada usando el endpoint API de Cloudinary
- * (api.cloudinary.com) que requiere autenticación, evitando las restricciones
- * del CDN (res.cloudinary.com) que bloquea PDFs en cuentas gratuitas.
+ * Proxy que descarga archivos de Cloudinary usando la Admin API
+ * para verificar el recurso y luego generar una URL de descarga autenticada.
  */
 
+function configureCloudinary() {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+        secure: true,
+    });
+}
+
 /**
- * Parse a Cloudinary delivery URL to extract components.
+ * Parse a Cloudinary URL.
  */
 function parseCloudinaryUrl(url: string) {
     const decoded = decodeURIComponent(url);
@@ -23,32 +30,30 @@ function parseCloudinaryUrl(url: string) {
     const cloudName = match[1];
     const resourceType = match[2];
     const fullPath = match[3];
-
     const lastDotIndex = fullPath.lastIndexOf(".");
-    if (lastDotIndex === -1) {
-        return { cloudName, resourceType, publicId: fullPath, format: "", fullPath };
-    }
-
-    const format = fullPath.slice(lastDotIndex + 1);
-    // For image/video: public_id doesn't include extension; for raw: it does
-    const publicId = resourceType === "raw" ? fullPath : fullPath.slice(0, lastDotIndex);
+    const format = lastDotIndex > 0 ? fullPath.slice(lastDotIndex + 1) : "";
+    const publicId = resourceType === "raw" ? fullPath : (lastDotIndex > 0 ? fullPath.slice(0, lastDotIndex) : fullPath);
 
     return { cloudName, resourceType, publicId, format, fullPath };
 }
 
-/**
- * Generate a Cloudinary API signature for private download.
- */
-function generateSignature(params: Record<string, string>, apiSecret: string): string {
-    const sortedKeys = Object.keys(params).sort();
-    const toSign = sortedKeys.map(k => `${k}=${params[k]}`).join("&");
-    return crypto.createHash("sha1").update(toSign + apiSecret).digest("hex");
+function respondWithFile(blob: ArrayBuffer, contentType: string, fileName: string) {
+    return new NextResponse(blob, {
+        status: 200,
+        headers: {
+            "Content-Type": contentType,
+            "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+            "Content-Length": blob.byteLength.toString(),
+            "Cache-Control": "private, no-cache",
+        },
+    });
 }
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const fileUrl = searchParams.get("url");
     const fileName = searchParams.get("name") || "archivo";
+    const directPublicId = searchParams.get("publicId");
 
     if (!fileUrl) {
         return NextResponse.json({ error: "Missing 'url' parameter" }, { status: 400 });
@@ -63,123 +68,108 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Could not parse Cloudinary URL" }, { status: 400 });
     }
 
-    // Prefer publicId from query params (exact driveId from DB) over parsed from URL
-    const directPublicId = searchParams.get("publicId");
-    if (directPublicId) {
-        parsed.publicId = directPublicId;
-        // Also update format if not already set
-        const lastDot = directPublicId.lastIndexOf(".");
-        if (lastDot > 0 && parsed.resourceType === "raw") {
-            parsed.format = directPublicId.slice(lastDot + 1);
-        }
-    }
+    // Use direct publicId from DB if available
+    const publicId = directPublicId || parsed.publicId;
 
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const configuredCloud = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
-    if (!cloudName || !apiKey || !apiSecret) {
+    if (!configuredCloud || !apiKey || !apiSecret) {
         return NextResponse.json({ error: "Cloudinary credentials not configured" }, { status: 500 });
     }
 
     const errors: string[] = [];
+    console.log(`[download] cloud=${parsed.cloudName}, publicId=${publicId}, format=${parsed.format}, directId=${directPublicId ? "yes" : "no"}`);
 
-    console.log(`[download] cloud=${parsed.cloudName}, type=${parsed.resourceType}, id=${parsed.publicId}, format=${parsed.format}, directId=${directPublicId || "none"}`);
+    if (parsed.cloudName === configuredCloud) {
+        configureCloudinary();
 
-    // Only use authenticated strategies if the cloud name matches
-    if (parsed.cloudName === cloudName) {
-        // Strategy 1: Cloudinary authenticated download via API endpoint
-        // POST https://api.cloudinary.com/v1_1/{cloud}/image/download
-        // This endpoint is designed for server-side downloads with auth
-        const timestamp = Math.floor(Date.now() / 1000).toString();
-        const tryDownload = async (resType: string, pubId: string, fmt: string) => {
-            const params: Record<string, string> = {
-                public_id: pubId,
-                timestamp,
-            };
-            if (fmt) params.format = fmt;
+        // Strategy 1: Use Admin API to get the resource and its secure_url
+        // Then generate a signed delivery URL with fl_attachment
+        const resourceTypes = [parsed.resourceType, parsed.resourceType === "image" ? "raw" : "image"];
 
-            const signature = generateSignature(params, apiSecret);
+        for (const resType of resourceTypes) {
+            const tryId = resType === "raw" && parsed.resourceType !== "raw"
+                ? publicId + "." + parsed.format
+                : (resType === "image" && parsed.resourceType === "raw"
+                    ? publicId.replace(/\.[^/.]+$/, "")
+                    : publicId);
 
-            const body = new URLSearchParams({
-                ...params,
-                api_key: apiKey,
-                signature,
-            });
-
-            const apiUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${resType}/download`;
-            console.log(`[download] Trying API download: ${apiUrl} (publicId=${pubId}, format=${fmt})`);
-
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                body,
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            });
-
-            return response;
-        };
-
-        // Try original resource type
-        try {
-            const response = await tryDownload(parsed.resourceType, parsed.publicId, parsed.format);
-            if (response.ok) {
-                const contentType = response.headers.get("content-type") || "application/octet-stream";
-                const blob = await response.arrayBuffer();
-                return new NextResponse(blob, {
-                    status: 200,
-                    headers: {
-                        "Content-Type": contentType,
-                        "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
-                        "Content-Length": blob.byteLength.toString(),
-                        "Cache-Control": "private, no-cache",
-                    },
+            try {
+                console.log(`[download] Admin API: resType=${resType}, tryId=${tryId}`);
+                const resource = await cloudinary.api.resource(tryId, {
+                    resource_type: resType,
+                    type: "upload",
                 });
-            }
-            const errText = await response.text().catch(() => "");
-            errors.push(`API download (${parsed.resourceType}) returned ${response.status}: ${errText.slice(0, 200)}`);
-        } catch (e: any) {
-            errors.push(`API download (${parsed.resourceType}) error: ${e.message || String(e)}`);
-        }
 
-        // Try alternate resource type
-        const altType = parsed.resourceType === "image" ? "raw" : "image";
-        // For raw: public_id includes extension. For image: it doesn't.
-        let altPublicId: string;
-        let altFormat: string;
-        if (altType === "raw") {
-            // Going from image to raw: add extension back
-            altPublicId = parsed.publicId + "." + parsed.format;
-            altFormat = "";
-        } else {
-            // Going from raw to image: strip extension
-            altPublicId = parsed.publicId.replace(/\.[^/.]+$/, "");
-            altFormat = parsed.format;
-        }
-        try {
-            const response = await tryDownload(altType, altPublicId, altFormat);
-            if (response.ok) {
-                const contentType = response.headers.get("content-type") || "application/octet-stream";
-                const blob = await response.arrayBuffer();
-                return new NextResponse(blob, {
-                    status: 200,
-                    headers: {
-                        "Content-Type": contentType,
-                        "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
-                        "Content-Length": blob.byteLength.toString(),
-                        "Cache-Control": "private, no-cache",
-                    },
-                });
+                if (resource && resource.secure_url) {
+                    console.log(`[download] Found resource! secure_url=${resource.secure_url}`);
+
+                    // Generate a signed URL with fl_attachment using the SDK
+                    const signedUrl = cloudinary.url(tryId, {
+                        resource_type: resType as "image" | "raw" | "video",
+                        type: "upload" as "upload",
+                        sign_url: true,
+                        secure: true,
+                        flags: "attachment",
+                        format: resType === "raw" ? undefined : parsed.format || undefined,
+                    });
+
+                    console.log(`[download] Trying signed attachment URL: ${signedUrl}`);
+                    try {
+                        const response = await fetch(signedUrl);
+                        if (response.ok) {
+                            const contentType = response.headers.get("content-type") || "application/octet-stream";
+                            const blob = await response.arrayBuffer();
+                            return respondWithFile(blob, contentType, fileName);
+                        }
+                        errors.push(`signed attachment (${resType}) returned ${response.status}`);
+                    } catch (e: any) {
+                        errors.push(`signed attachment (${resType}) error: ${e.message}`);
+                    }
+
+                    // Fallback: try fetching the secure_url directly
+                    try {
+                        const response = await fetch(resource.secure_url);
+                        if (response.ok) {
+                            const contentType = response.headers.get("content-type") || "application/octet-stream";
+                            const blob = await response.arrayBuffer();
+                            return respondWithFile(blob, contentType, fileName);
+                        }
+                        errors.push(`secure_url (${resType}) returned ${response.status}`);
+                    } catch (e: any) {
+                        errors.push(`secure_url (${resType}) error: ${e.message}`);
+                    }
+
+                    // Fallback: try just the original URL with version
+                    if (resource.version) {
+                        const ext = resType === "raw" ? "" : `.${parsed.format}`;
+                        const versionedUrl = `https://res.cloudinary.com/${configuredCloud}/${resType}/upload/v${resource.version}/${tryId}${ext}`;
+                        try {
+                            const response = await fetch(versionedUrl);
+                            if (response.ok) {
+                                const contentType = response.headers.get("content-type") || "application/octet-stream";
+                                const blob = await response.arrayBuffer();
+                                return respondWithFile(blob, contentType, fileName);
+                            }
+                            errors.push(`versioned URL (${resType}) returned ${response.status}`);
+                        } catch (e: any) {
+                            errors.push(`versioned URL (${resType}) error: ${e.message}`);
+                        }
+                    }
+                }
+            } catch (e: any) {
+                const msg = e?.error?.message || e?.message || String(e);
+                errors.push(`Admin API (${resType}, id=${tryId}): ${msg}`);
+                console.log(`[download] Admin API error for ${resType}:`, msg);
             }
-            const errText = await response.text().catch(() => "");
-            errors.push(`API download (${altType}) returned ${response.status}: ${errText.slice(0, 200)}`);
-        } catch (e: any) {
-            errors.push(`API download (${altType}) error: ${e.message || String(e)}`);
         }
     } else {
-        errors.push(`Cloud mismatch: URL='${parsed.cloudName}' config='${cloudName}'`);
+        errors.push(`Cloud mismatch: URL='${parsed.cloudName}' config='${configuredCloud}'`);
     }
 
-    // Strategy 3: Direct URL (fallback for other cloud accounts like dhyirvsqm)
+    // Last resort: direct URL fetch
     try {
         const response = await fetch(fileUrl, {
             headers: { "User-Agent": "SISAT-ATP-Server/1.0" },
@@ -187,19 +177,11 @@ export async function GET(request: NextRequest) {
         if (response.ok) {
             const contentType = response.headers.get("content-type") || "application/octet-stream";
             const blob = await response.arrayBuffer();
-            return new NextResponse(blob, {
-                status: 200,
-                headers: {
-                    "Content-Type": contentType,
-                    "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
-                    "Content-Length": blob.byteLength.toString(),
-                    "Cache-Control": "private, no-cache",
-                },
-            });
+            return respondWithFile(blob, contentType, fileName);
         }
-        errors.push(`direct fetch returned ${response.status}`);
+        errors.push(`direct URL returned ${response.status}`);
     } catch (e: any) {
-        errors.push(`direct fetch error: ${e.message || String(e)}`);
+        errors.push(`direct URL error: ${e.message}`);
     }
 
     console.error(`[download] All strategies failed:`, errors);
@@ -207,12 +189,13 @@ export async function GET(request: NextRequest) {
         {
             error: "No se pudo descargar el archivo.",
             details: errors,
-            parsed: {
+            info: {
                 cloudName: parsed.cloudName,
                 resourceType: parsed.resourceType,
-                publicId: parsed.publicId,
+                publicId,
                 format: parsed.format,
-                configuredCloud: cloudName,
+                configuredCloud,
+                hadDirectId: !!directPublicId,
             },
         },
         { status: 502 }
