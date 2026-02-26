@@ -144,7 +144,11 @@ export default function DirectorPortal({
             const signRes = await fetch("/api/sign-cloudinary", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ entregaId: selectedEntrega })
+                body: JSON.stringify({
+                    entregaId: selectedEntrega,
+                    originalFilename: file.name,
+                    etiqueta: selectedEtiqueta
+                })
             });
 
             if (!signRes.ok) {
@@ -152,7 +156,7 @@ export default function DirectorPortal({
                 throw new Error(err.error || "No se pudo iniciar la subida");
             }
 
-            const { signature, timestamp, folder, apiKey, cloudName } = await signRes.json();
+            const { signature, timestamp, folder, publicId, apiKey, cloudName } = await signRes.json();
 
             // 2. Subir directamente a Cloudinary (salta el límite de 4.5MB de Vercel)
             const formData = new FormData();
@@ -161,6 +165,7 @@ export default function DirectorPortal({
             formData.append("timestamp", timestamp.toString());
             formData.append("signature", signature);
             formData.append("folder", folder);
+            if (publicId) formData.append("public_id", publicId);
 
             const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
                 method: "POST",

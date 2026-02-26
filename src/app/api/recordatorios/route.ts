@@ -23,7 +23,11 @@ export async function POST(req: NextRequest) {
         }
 
         const data = await req.json();
-        const { programaId } = data;
+        const { programaId, estados } = data;
+
+        const targetEstados = Array.isArray(estados) && estados.length > 0
+            ? estados
+            : ["NO_ENTREGADO", "REQUIERE_CORRECCION"];
 
         if (!programaId) {
             return NextResponse.json({ error: "Falta el ID del programa" }, { status: 400 });
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
                 escuelaId: { in: escuelas.map(e => e.id) },
                 periodoEntregaId: { in: periodoIds },
                 estado: {
-                    in: ["PENDIENTE", "REQUIERE_CORRECCION"]
+                    in: targetEstados
                 }
             },
             include: {

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
-        const { entregaId } = await req.json();
+        const { entregaId, originalFilename, etiqueta, subfolder } = await req.json();
 
         if (!entregaId) {
             return NextResponse.json({ error: "EntregaId es requerido" }, { status: 400 });
@@ -29,8 +29,26 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
         }
 
-        const folderPath = buildFolderPath(entrega.escuela.cct, entrega.escuela.nombre, entrega.periodoEntrega.programa.nombre);
+        let folderPath = buildFolderPath(entrega.escuela.cct, entrega.escuela.nombre, entrega.periodoEntrega.programa.nombre);
+        if (subfolder) {
+            folderPath += `/${subfolder.replace(/^\/+/, '')}`;
+        }
         const folder = `SISAT-ATP/${folderPath}`;
+
+        let publicId: string | undefined = undefined;
+        if (originalFilename) {
+            // Formato solicitado: CCT_Nombre_Programa_Documento
+            const docName = etiqueta ? etiqueta : originalFilename.split('.').slice(0, -1).join('.');
+            const prefix = `${entrega.escuela.cct}_${entrega.escuela.nombre}_${entrega.periodoEntrega.programa.nombre}`;
+
+            let finalName = `${prefix}_${docName}`;
+            if (subfolder === "_correcciones") {
+                finalName = `${prefix}_Correccion_${docName}`;
+            }
+
+            // Cloudinary public_id cannot contain ? & # \ % < >
+            publicId = finalName.replace(/[\?&#\\%<>]/g, '').trim();
+        }
 
         // Configure cloudinary using env vars
         cloudinary.config({
@@ -43,10 +61,14 @@ export async function POST(req: NextRequest) {
         const timestamp = Math.round(new Date().getTime() / 1000);
 
         // Parameters to sign
-        const paramsToSign = {
+        const paramsToSign: Record<string, any> = {
             timestamp,
             folder
         };
+
+        if (publicId) {
+            paramsToSign.public_id = publicId;
+        }
 
         const signature = cloudinary.utils.api_sign_request(
             paramsToSign,
@@ -57,6 +79,7 @@ export async function POST(req: NextRequest) {
             signature,
             timestamp,
             folder,
+            publicId,
             cloudName: process.env.CLOUDINARY_CLOUD_NAME,
             apiKey: process.env.CLOUDINARY_API_KEY
         });

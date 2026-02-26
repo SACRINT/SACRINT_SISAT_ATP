@@ -298,11 +298,15 @@ export default function AdminDashboard({
                 const signRes = await fetch("/api/sign-cloudinary", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ entregaId: correccionModal.entregaId, subfolder: "_correcciones" })
+                    body: JSON.stringify({
+                        entregaId: correccionModal.entregaId,
+                        subfolder: "_correcciones",
+                        originalFilename: correccionFile.name
+                    })
                 });
 
                 if (!signRes.ok) throw new Error("Error obteniendo firma para subir archivo");
-                const { signature, timestamp, folder, apiKey, cloudName } = await signRes.json();
+                const { signature, timestamp, folder, apiKey, cloudName, publicId } = await signRes.json();
 
                 // 2. Direct upload to Cloudinary
                 const formData = new FormData();
@@ -311,6 +315,7 @@ export default function AdminDashboard({
                 formData.append("timestamp", timestamp.toString());
                 formData.append("signature", signature);
                 formData.append("folder", folder);
+                if (publicId) formData.append("public_id", publicId);
 
                 const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
                     method: "POST",

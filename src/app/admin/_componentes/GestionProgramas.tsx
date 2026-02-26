@@ -26,6 +26,11 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+    // Modal de Recordatorios
+    const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+    const [sendModalProg, setSendModalProg] = useState<{ id: string, nombre: string } | null>(null);
+    const [sendStatuses, setSendStatuses] = useState<string[]>(["NO_ENTREGADO", "REQUIERE_CORRECCION"]);
+
     const [formData, setFormData] = useState<{
         nombre: string;
         descripcion: string;
@@ -160,14 +165,39 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
         }
     };
 
-    const handleSendManual = async (id: string, nombre: string) => {
-        if (!confirm(`¿Estás seguro que deseas enviar correos de recordatorio INMEDIATOS a las escuelas con entregas PENDIENTES o con CORRECCIONES del programa ${nombre}?`)) return;
+    const handleOpenSendModal = (progId: string, progNombre: string) => {
+        setSendModalProg({ id: progId, nombre: progNombre });
+        setSendStatuses(["NO_ENTREGADO", "REQUIERE_CORRECCION"]);
+        setIsSendModalOpen(true);
+    };
+
+    const handleCloseSendModal = () => {
+        setIsSendModalOpen(false);
+        setSendModalProg(null);
+    };
+
+    const toggleSendStatus = (status: string) => {
+        setSendStatuses(prev =>
+            prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+        );
+    };
+
+    const handleSendManual = async () => {
+        if (!sendModalProg) return;
+        if (sendStatuses.length === 0) {
+            setMessage({ type: "error", text: "Debes seleccionar al menos un estado para enviar notificaciones." });
+            return;
+        }
+
         setIsLoading(true);
         try {
             const res = await fetch(`/api/recordatorios`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ programaId: id })
+                body: JSON.stringify({
+                    programaId: sendModalProg.id,
+                    estados: sendStatuses
+                })
             });
             if (!res.ok) {
                 const data = await res.json();
@@ -175,6 +205,7 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
             }
             const data = await res.json();
             setMessage({ type: "success", text: `¡Notificaciones enviadas! Se mandaron ${data.enviados || 0} correos a los directores.` });
+            handleCloseSendModal();
         } catch (error: any) {
             setMessage({ type: "error", text: error.message });
         } finally {
@@ -257,11 +288,11 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                                 <button
                                     className="btn btn-outline"
                                     style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", display: "flex", alignItems: "center", gap: "0.25rem", borderColor: "var(--primary)", color: "var(--primary)" }}
-                                    onClick={() => handleSendManual(prog.id, prog.nombre)}
+                                    onClick={() => handleOpenSendModal(prog.id, prog.nombre)}
                                     disabled={isLoading}
-                                    title="Disparar correos manualmente en este instante"
+                                    title="Disparar correos manualmente eligiendo estados"
                                 >
-                                    <Send size={12} /> Disparar Ahora
+                                    <Send size={12} /> Recordatorio Manual
                                 </button>
                             </div>
                         </div>
@@ -374,6 +405,56 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Recordatorios Manuales */}
+            {isSendModalOpen && sendModalProg && (
+                <div style={{
+                    position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "1rem", zIndex: 1000
+                }}>
+                    <div className="card fade-in" style={{ width: "100%", maxWidth: "450px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                            <h2 style={{ fontSize: "1.25rem", margin: 0 }}>
+                                Enviar Recordatorios: {sendModalProg.nombre}
+                            </h2>
+                            <button onClick={handleCloseSendModal} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: "1rem" }}>
+                            Selecciona a qué escuelas notificar, según el estado actual de su entrega.
+                        </p>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.5rem", border: "1px solid var(--border)", padding: "1rem", borderRadius: "8px", background: "var(--bg)" }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                                <input
+                                    type="checkbox"
+                                    checked={sendStatuses.includes("NO_ENTREGADO")}
+                                    onChange={() => toggleSendStatus("NO_ENTREGADO")}
+                                />
+                                No Entregado (No han subido nada)
+                            </label>
+                            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                                <input
+                                    type="checkbox"
+                                    checked={sendStatuses.includes("REQUIERE_CORRECCION")}
+                                    onChange={() => toggleSendStatus("REQUIERE_CORRECCION")}
+                                />
+                                Requiere Corrección (Archivos rebotados)
+                            </label>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
+                            <button type="button" className="btn btn-outline" onClick={handleCloseSendModal} disabled={isLoading}>
+                                Cancelar
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={handleSendManual} disabled={isLoading || sendStatuses.length === 0} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Send size={16} /> {isLoading ? "Enviando..." : "Enviar Correos"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
