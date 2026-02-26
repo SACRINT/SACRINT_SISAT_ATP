@@ -64,6 +64,12 @@ export default async function DirectorPage() {
         orderBy: { createdAt: "desc" },
     });
 
+    // Fetch custom configs for this school
+    const configuraciones = await prisma.configuracionPrograma.findMany({
+        where: { escuelaId: escuela.id }
+    });
+    const configMap = new Map(configuraciones.map(c => [c.programaId, c.numArchivos]));
+
     // Group entregas by programa
     const programasMap: Record<string, {
         programa: { id: string; nombre: string; numArchivos: number; tipo: string };
@@ -73,8 +79,14 @@ export default async function DirectorPage() {
     for (const ent of entregas) {
         const prog = ent.periodoEntrega.programa;
         if (!programasMap[prog.id]) {
+            const customNumArchivos = configMap.get(prog.id);
             programasMap[prog.id] = {
-                programa: { id: prog.id, nombre: prog.nombre, numArchivos: prog.numArchivos, tipo: prog.tipo },
+                programa: {
+                    id: prog.id,
+                    nombre: prog.nombre,
+                    numArchivos: customNumArchivos !== undefined ? customNumArchivos : prog.numArchivos,
+                    tipo: prog.tipo
+                },
                 entregas: [],
             };
         }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Search, FileText, ChevronUp, ChevronDown, MessageSquare } from "lucide-react";
+import { Search, FileText, ChevronUp, ChevronDown, MessageSquare, Download, Mail } from "lucide-react";
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
 import { EscuelaAdmin } from "@/types";
 
@@ -20,6 +20,26 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
     const [statusFilter, setStatusFilter] = useState("TODOS");
     const [expanded, setExpanded] = useState<string | null>(null);
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
+    const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+
+    async function handleSendReminder(entregaId: string, escuelaNombre: string) {
+        if (!confirm(`¿Seguro que deseas enviar un recordatorio por correo a ${escuelaNombre} para esta entrega?`)) return;
+        setSendingReminder(entregaId);
+        try {
+            const res = await fetch(`/api/recordatorios/individual`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ entregaId })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error al enviar");
+            onSetMessage({ type: "success", text: data.message });
+        } catch (e: any) {
+            onSetMessage({ type: "error", text: e.message });
+        } finally {
+            setSendingReminder(null);
+        }
+    }
 
     async function handleEstadoChange(entregaId: string, nuevoEstado: string) {
         setUpdatingEstado(entregaId);
@@ -183,12 +203,42 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
 
                                     return (
                                         <div key={ent.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)", gap: "0.5rem", flexWrap: "wrap" }}>
-                                            <div style={{ fontSize: "0.875rem", minWidth: "140px" }}>
-                                                <span style={{ fontWeight: 500 }}>{ent.periodoEntrega.programa.nombre}</span>
-                                                {periodoLabel && <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}> ({periodoLabel})</span>}
-                                                {ent.archivos.length > 0 && <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}> • {ent.archivos.length} archivo(s)</span>}
+                                            <div style={{ fontSize: "0.875rem", minWidth: "140px", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                                <div>
+                                                    <span style={{ fontWeight: 500 }}>{ent.periodoEntrega.programa.nombre}</span>
+                                                    {periodoLabel && <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}> ({periodoLabel})</span>}
+                                                </div>
+                                                {ent.archivos.length > 0 && (
+                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
+                                                        {ent.archivos.map((arch, index) => (
+                                                            <a
+                                                                key={arch.id}
+                                                                href={arch.driveUrl || "#"}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
+                                                                title={`Descargar ${arch.nombre}`}
+                                                            >
+                                                                <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
+                                                            </a>
+                                                        ))}
+                                                        <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "flex", alignItems: "center" }}>
+                                                            • Subido: {new Date(ent.archivos[0].createdAt!).toLocaleDateString("es-MX")}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                {ent.estado !== "APROBADO" && (
+                                                    <button
+                                                        onClick={() => handleSendReminder(ent.id, esc.nombre)}
+                                                        disabled={sendingReminder === ent.id}
+                                                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem", opacity: sendingReminder === ent.id ? 0.5 : 1 }}
+                                                        title="Enviar Recordatorio Individual"
+                                                    >
+                                                        <Mail size={16} />
+                                                    </button>
+                                                )}
                                                 <select
                                                     value={ent.estado}
                                                     onChange={(e) => handleEstadoChange(ent.id, e.target.value)}

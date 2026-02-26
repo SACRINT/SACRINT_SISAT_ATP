@@ -51,6 +51,7 @@ model Escuela {
   updatedAt DateTime @updatedAt
 
   entregas Entrega[]
+  configuraciones ConfiguracionPrograma[]
 }
 
 model CicloEscolar {
@@ -76,6 +77,7 @@ model Programa {
 
   periodos PeriodoEntrega[]
   recursos Recurso[]
+  configuraciones ConfiguracionPrograma[]
 }
 
 model PeriodoEntrega {
@@ -153,4 +155,17 @@ model Recurso {
   createdAt     DateTime @default(now())
 
   programa Programa? @relation(fields: [programaId], references: [id])
+}
+
+model ConfiguracionPrograma {
+  id          String   @id @default(cuid())
+  escuelaId   String
+  programaId  String
+  numArchivos Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  escuela     Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  programa    Programa @relation(fields: [programaId], references: [id], onDelete: Cascade)
+
+  @@unique([escuelaId, programaId])
 }

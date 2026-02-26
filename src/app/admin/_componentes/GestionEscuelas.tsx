@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin } from "lucide-react";
+import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin, FileDigit } from "lucide-react";
+import { ProgramaAdmin } from "@/types";
 
 type Escuela = {
     id: string;
@@ -14,7 +15,7 @@ type Escuela = {
     ultimoIngreso?: Date | string | null;
 };
 
-export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: Escuela[] }) {
+export default function GestionEscuelas({ inicialEscuelas, programas }: { inicialEscuelas: Escuela[], programas: ProgramaAdmin[] }) {
     const [escuelas, setEscuelas] = useState<Escuela[]>(inicialEscuelas);
     const [selectedId, setSelectedId] = useState<string>("");
     const [isEditing, setIsEditing] = useState(false);
@@ -35,6 +36,10 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
 
     const selectedEscuela = escuelas.find((e) => e.id === selectedId);
 
+    // Custom configuration state
+    const [configuraciones, setConfiguraciones] = useState<Record<string, number>>({});
+    const [loadingConfig, setLoadingConfig] = useState(false);
+
     const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedId(id);
@@ -53,7 +58,23 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                     email: esc.email || "",
                     password: "",
                 });
+
+                // Fetch configuraciones
+                setLoadingConfig(true);
+                fetch(`/api/escuelas/${id}/configuracion`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const map: Record<string, number> = {};
+                        if (Array.isArray(data)) {
+                            data.forEach((c: any) => map[c.programaId] = c.numArchivos);
+                        }
+                        setConfiguraciones(map);
+                    })
+                    .catch(e => console.error("Error al obtener configuracion:", e))
+                    .finally(() => setLoadingConfig(false));
             }
+        } else {
+            setConfiguraciones({});
         }
     };
 
@@ -63,6 +84,7 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
         setIsEditing(false);
         setMessage(null);
         setFormData({ cct: "", nombre: "", localidad: "", director: "", email: "", password: "" });
+        setConfiguraciones({});
     };
 
     const handleSave = async () => {
@@ -91,12 +113,23 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                 setEscuelas([...escuelas, savedEscuela]);
                 setSelectedId(savedEscuela.id);
                 setIsCreating(false);
-                setMessage({ type: "success", text: "Nueva escuela agregada correctamente." });
             } else {
                 setEscuelas(prev => prev.map(e => e.id === selectedId ? { ...e, ...savedEscuela } : e));
                 setIsEditing(false);
-                setMessage({ type: "success", text: "Datos actualizados correctamente." });
             }
+
+            // Save configuraciones
+            const schoolId = isCreating ? savedEscuela.id : selectedId;
+            const configData = Object.keys(configuraciones).map(progId => ({ programaId: progId, numArchivos: configuraciones[progId] }));
+
+            await fetch(`/api/escuelas/${schoolId}/configuracion`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ configuraciones: configData })
+            });
+
+            setMessage({ type: "success", text: isCreating ? "Nueva escuela agregada correctamente." : "Datos actualizados correctamente." });
+
 
             router.refresh();
             setTimeout(() => setMessage(null), 3000);
@@ -337,6 +370,68 @@ export default function GestionEscuelas({ inicialEscuelas }: { inicialEscuelas: 
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {showForm && (
+                <div className="card fade-in" style={{ marginTop: "1.5rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
+                        <h3 style={{ margin: 0, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <FileDigit size={20} color="var(--primary)" /> Configuración de Entregas (Archivos)
+                        </h3>
+                    </div>
+                    {loadingConfig ? (
+                        <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>Cargando configuración...</div>
+                    ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: "0 0 0.5rem 0" }}>
+                                Ajusta cuántos archivos debe subir esta escuela para cada programa específico.
+                                Si lo dejas vacío, se usará el valor por defecto del programa.
+                            </p>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.5rem" }}>
+                                {programas.map(prog => {
+                                    const value = configuraciones[prog.id];
+                                    return (
+                                        <div key={prog.id} style={{ background: "var(--bg-secondary)", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                                            <div style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: "0.25rem", color: "var(--text)" }}>
+                                                {prog.nombre}
+                                            </div>
+                                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
+                                                Por defecto: {prog.numArchivos} archivo(s)
+                                            </div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="50"
+                                                    className="form-control"
+                                                    disabled={!isEditingMode}
+                                                    value={value !== undefined ? value : ""}
+                                                    onChange={(e) => {
+                                                        const num = parseInt(e.target.value);
+                                                        setConfiguraciones(prev => {
+                                                            const next = { ...prev };
+                                                            if (isNaN(num)) {
+                                                                delete next[prog.id];
+                                                            } else {
+                                                                next[prog.id] = num;
+                                                            }
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    placeholder={`Usar defecto (${prog.numArchivos})`}
+                                                    style={{
+                                                        padding: "0.375rem 0.5rem", width: "100%",
+                                                        ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", color: "var(--text-muted)" } : {})
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
                     textBody = `El ATP ha marcado su entrega de <strong>${pName}</strong> para el programa <strong>${programa.nombre}</strong> con estado de Corrección. Favor de subir nuevamente los archivos listos a la brevedad.`;
                 }
 
-                await resend.emails.send({
+                const { error: resendError } = await resend.emails.send({
                     from: FROM_EMAIL,
                     to: entrega.escuela.email,
                     subject: subject,
@@ -111,9 +111,14 @@ export async function POST(req: NextRequest) {
                         </div>
                     `,
                 });
-                emailCount++;
+
+                if (resendError) {
+                    console.error("Resend API reportó error enviando a", entrega.escuela.email, resendError);
+                } else {
+                    emailCount++;
+                }
             } catch (err) {
-                console.error("No se pudo enviar correo a " + entrega.escuela.email, err);
+                console.error("Excepción al enviar correo a " + entrega.escuela.email, err);
             }
         }
 

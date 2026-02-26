@@ -312,14 +312,17 @@ export default function AdminDashboard({
                 {/* ========= VISTA: GESTIÓN DE ESCUELAS ========= */}
                 {
                     vista === "gestion-escuelas" && (
-                        <GestionEscuelas inicialEscuelas={escuelas.map(e => ({
-                            id: e.id,
-                            cct: e.cct,
-                            nombre: e.nombre,
-                            director: e.director ?? null,
-                            email: e.email ?? null,
-                            ultimoIngreso: e.ultimoIngreso ?? null
-                        }))} />
+                        <GestionEscuelas
+                            programas={programas}
+                            inicialEscuelas={escuelas.map(e => ({
+                                id: e.id,
+                                cct: e.cct,
+                                nombre: e.nombre,
+                                director: e.director ?? null,
+                                email: e.email ?? null,
+                                ultimoIngreso: e.ultimoIngreso ?? null
+                            }))}
+                        />
                     )
                 }
 

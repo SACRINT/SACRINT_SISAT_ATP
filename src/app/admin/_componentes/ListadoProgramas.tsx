@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronUp, ChevronDown, MessageSquare } from "lucide-react";
+import { ChevronUp, ChevronDown, MessageSquare, Download } from "lucide-react";
+import JSZip from "jszip";
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
 
@@ -17,6 +18,60 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
     const [expanded, setExpanded] = useState<string | null>(null);
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
+    const [downloadingZip, setDownloadingZip] = useState<string | null>(null);
+
+    async function handleDownloadZip(prog: ProgramaAdmin) {
+        setDownloadingZip(prog.id);
+        onSetMessage({ type: "success", text: "Preparando descarga masiva, por favor espera..." });
+        try {
+            const zip = new JSZip();
+            let fileCount = 0;
+
+            for (const p of prog.periodos.filter(per => per.activo)) {
+                const periodLabel = getPeriodoLabel(p).replace(/[/\\?%*:|"<>]/g, '-');
+                for (const ent of p.entregas) {
+                    if (ent.archivos && ent.archivos.length > 0) {
+                        const schoolName = ent.escuela.nombre.replace(/[/\\?%*:|"<>]/g, '-');
+                        for (let i = 0; i < ent.archivos.length; i++) {
+                            const arch = ent.archivos[i];
+                            if (arch.driveUrl) {
+                                try {
+                                    const response = await fetch(arch.driveUrl);
+                                    if (!response.ok) throw new Error("HTTP error");
+                                    const blob = await response.blob();
+                                    const ext = arch.nombre.split('.').pop() || 'pdf';
+                                    const fileName = `${arch.etiqueta || `Archivo_${i + 1}`}.${ext}`;
+                                    zip.file(`${schoolName}/${periodLabel}/${fileName}`, blob);
+                                    fileCount++;
+                                } catch (e) {
+                                    console.error(`Error descargando ${arch.nombre}`, e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (fileCount === 0) throw new Error("No se encontraron archivos válidos para descargar.");
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${prog.nombre.replace(/[/\\?%*:|"<>]/g, '-')}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 0);
+            onSetMessage({ type: "success", text: "Descarga completada." });
+        } catch (e: any) {
+            onSetMessage({ type: "error", text: e.message });
+        } finally {
+            setDownloadingZip(null);
+        }
+    }
 
     async function handleEstadoChange(entregaId: string, nuevoEstado: string) {
         setUpdatingEstado(entregaId);
@@ -66,6 +121,14 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                                     <span style={{ fontWeight: 700, color: "var(--primary)" }}>{porc}%</span>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDownloadZip(prog); }}
+                                        disabled={downloadingZip === prog.id}
+                                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem", display: "flex", alignItems: "center", opacity: downloadingZip === prog.id ? 0.5 : 1 }}
+                                        title="Descargar todos los archivos generados en este programa en formato ZIP"
+                                    >
+                                        <Download size={18} />
+                                    </button>
                                     {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                 </div>
                             </div>
@@ -92,11 +155,30 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                     const color = ESTADO_COLORS[ent.estado] || "var(--text-muted)";
                                                     return (
                                                         <div key={ent.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)", gap: "0.5rem", flexWrap: "wrap" }}>
-                                                            <div style={{ fontSize: "0.875rem" }}>
+                                                            <div style={{ fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                                                                 <div style={{ fontWeight: 500 }}>{ent.escuela.nombre}</div>
                                                                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                                                    {ent.escuela.cct} • {ent.archivos.length} archivo(s)
+                                                                    {ent.escuela.cct}
                                                                 </div>
+                                                                {ent.archivos.length > 0 && (
+                                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
+                                                                        {ent.archivos.map((arch, index) => (
+                                                                            <a
+                                                                                key={arch.id}
+                                                                                href={arch.driveUrl || "#"}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
+                                                                                title={`Descargar ${arch.nombre}`}
+                                                                            >
+                                                                                <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
+                                                                            </a>
+                                                                        ))}
+                                                                        <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "flex", alignItems: "center" }}>
+                                                                            • Subido: {new Date(ent.archivos[0].createdAt!).toLocaleDateString("es-MX")}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                                                 <select

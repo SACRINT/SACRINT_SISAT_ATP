@@ -326,49 +326,34 @@ export default function EntregasListado({
 
                                                 {/* Upload buttons */}
                                                 {canUpload(ent.estado) && (
-                                                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                                                        {group.programa.numArchivos === 2 ? (
-                                                            // Día Naranja: 2 upload buttons
-                                                            <>
-                                                                {!entregaArchivos.some((a) => a.etiqueta === "Registro") && (
-                                                                    <button
-                                                                        className="btn btn-success"
-                                                                        onClick={() => handleUpload(ent.id, "Registro")}
-                                                                        disabled={uploading === ent.id + "Registro"}
-                                                                        style={{ flex: 1, fontSize: "0.8125rem" }}
-                                                                    >
-                                                                        {uploading === ent.id + "Registro" ? "Subiendo..." : (
-                                                                            <><Upload size={16} /> Registro</>
-                                                                        )}
-                                                                    </button>
-                                                                )}
-                                                                {!entregaArchivos.some((a) => a.etiqueta === "Evidencias") && (
-                                                                    <button
-                                                                        className="btn btn-success"
-                                                                        onClick={() => handleUpload(ent.id, "Evidencias")}
-                                                                        disabled={uploading === ent.id + "Evidencias"}
-                                                                        style={{ flex: 1, fontSize: "0.8125rem" }}
-                                                                    >
-                                                                        {uploading === ent.id + "Evidencias" ? "Subiendo..." : (
-                                                                            <><Upload size={16} /> Evidencias</>
-                                                                        )}
-                                                                    </button>
-                                                                )}
-                                                            </>
-                                                        ) : (
-                                                            // Regular: 1 upload button (only if no files)
-                                                            entregaArchivos.length === 0 && (
+                                                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", width: "100%" }}>
+                                                        {Array.from({ length: group.programa.numArchivos }).map((_, i) => {
+                                                            // Mantenemos retrocompatibilidad con Día Naranja si son 2 archivos
+                                                            const isDianaranja = group.programa.nombre === "Día Naranja" && group.programa.numArchivos === 2;
+                                                            let defaultLabel = `Archivo ${i + 1}`;
+                                                            if (isDianaranja) defaultLabel = i === 0 ? "Registro" : "Evidencias";
+
+                                                            // Si solo es 1 archivo general, lo usualmente no usa etiqueta en la UI original
+                                                            if (group.programa.numArchivos === 1) defaultLabel = "";
+
+                                                            const hasFileAlready = defaultLabel !== "" ? entregaArchivos.some(a => a.etiqueta === defaultLabel) : entregaArchivos.length > 0;
+
+                                                            if (hasFileAlready) return null;
+
+                                                            return (
                                                                 <button
-                                                                    className="btn btn-success btn-block"
-                                                                    onClick={() => handleUpload(ent.id)}
-                                                                    disabled={uploading === ent.id}
+                                                                    key={i}
+                                                                    className="btn btn-success"
+                                                                    onClick={() => handleUpload(ent.id, defaultLabel !== "" ? defaultLabel : undefined)}
+                                                                    disabled={uploading === ent.id + defaultLabel}
+                                                                    style={{ flex: 1, fontSize: "0.8125rem", minWidth: "120px" }}
                                                                 >
-                                                                    {uploading === ent.id ? "Subiendo..." : (
-                                                                        <><Upload size={18} /> Subir Archivo</>
+                                                                    {uploading === ent.id + defaultLabel ? "Subiendo..." : (
+                                                                        <><Upload size={16} /> Subir {defaultLabel || "Archivo"}</>
                                                                     )}
                                                                 </button>
-                                                            )
-                                                        )}
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
 

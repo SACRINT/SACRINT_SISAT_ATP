@@ -4,6 +4,7 @@ export interface Archivo {
     etiqueta: string | null;
     tipo: string;
     createdAt?: string | Date;
+    driveUrl?: string | null;
 }
 
 export interface CorreccionAdmin {
