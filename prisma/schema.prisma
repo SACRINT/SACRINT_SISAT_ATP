@@ -52,6 +52,7 @@ model Escuela {
 
   entregas Entrega[]
   configuraciones ConfiguracionPrograma[]
+  inscripcionEvento InscripcionEvento2026?
 }
 
 model CicloEscolar {
@@ -168,4 +169,45 @@ model ConfiguracionPrograma {
   programa    Programa @relation(fields: [programaId], references: [id], onDelete: Cascade)
 
   @@unique([escuelaId, programaId])
+}
+
+// ─── Eventos Culturales 2026 ─────────────────────
+
+model CategoriaEvento {
+  id          String   @id @default(cuid())
+  nombre      String   @unique
+  color       String   @default("#2e75b6")
+  orden       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  disciplinas DisciplinaEvento[]
+}
+
+model DisciplinaEvento {
+  id               String   @id @default(cuid())
+  categoriaId      String
+  nombre           String
+  tipo             String   // "simple" | "individual" | "equipo" | "grupo"
+  minParticipantes Int      @default(1)
+  maxParticipantes Int      @default(1)
+  grupoExclusion   String?  // ID de grupo para exclusión mutua (ej. "canto")
+  orden            Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  categoria        CategoriaEvento @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+}
+
+model EventosConfig {
+  id     String  @id @default("singleton")
+  activo Boolean @default(false)
+}
+
+model InscripcionEvento2026 {
+  id        String   @id @default(cuid())
+  escuelaId String   @unique
+  datos     Json     // { [disciplinaId]: { participa: boolean, numParticipantes: number } }
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
 }

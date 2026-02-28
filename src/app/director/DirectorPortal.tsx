@@ -7,11 +7,13 @@ import {
     School,
     BookOpen,
     MessageSquare,
+    Trophy,
 } from "lucide-react";
 import { useState } from "react";
 
 import EntregasListado from "./_componentes/EntregasListado";
 import RecursosListado from "./_componentes/RecursosListado";
+import InscripcionEventos from "./_componentes/InscripcionEventos";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
@@ -28,7 +30,7 @@ export default function DirectorPortal({
     anuncioGlobal?: string;
     recursos: RecursoDirector[];
 }) {
-    const [tab, setTab] = useState<"entregas" | "recursos">("entregas");
+    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos">("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Stats
@@ -111,6 +113,10 @@ export default function DirectorPortal({
                         <Upload size={18} />
                         Mis Entregas
                     </button>
+                    <button className={`btn ${tab === "eventos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("eventos")} style={{ flex: 1 }}>
+                        <Trophy size={18} />
+                        Eventos 2026
+                    </button>
                     <button className={`btn ${tab === "recursos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("recursos")} style={{ flex: 1 }}>
                         <BookOpen size={18} />
                         Recursos
@@ -129,6 +135,10 @@ export default function DirectorPortal({
                     <RecursosListado
                         recursos={recursos}
                     />
+                )}
+
+                {tab === "eventos" && (
+                    <InscripcionEventos />
                 )}
             </div>
         </>

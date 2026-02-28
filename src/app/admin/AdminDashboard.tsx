@@ -23,6 +23,7 @@ import {
     Layers,
     Search,
     UserCog,
+    Trophy,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -36,6 +37,7 @@ import VistaGeneral from "./_componentes/VistaGeneral";
 import ListadoEscuelas from "./_componentes/ListadoEscuelas";
 import ListadoProgramas from "./_componentes/ListadoProgramas";
 import GestionPeriodos from "./_componentes/GestionPeriodos";
+import GestionEventos from "./_componentes/GestionEventos";
 
 import { ProgramaAdmin, EscuelaAdmin, Stats } from "@/types";
 
@@ -63,7 +65,7 @@ export default function AdminDashboard({
     cicloId: string;
     anuncioGlobal: string | null;
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos">("general");
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
@@ -243,6 +245,9 @@ export default function AdminDashboard({
                     <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => setVista("recursos")}>
                         <Upload size={18} /> Formatos y Plantillas
                     </button>
+                    <button className={`sidebar-link ${vista === "eventos" ? "active" : ""}`} onClick={() => setVista("eventos")}>
+                        <Trophy size={18} /> Eventos Culturales
+                    </button>
                     {dbRole === "SUPER_ADMIN" && (
                         <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => setVista("gestion-atps")}>
                             <UserCog size={18} /> Accesos y Seguridad
@@ -345,6 +350,13 @@ export default function AdminDashboard({
                 {
                     vista === "gestion-atps" && (
                         <GestionATPs />
+                    )
+                }
+
+                {/* ========= VISTA: EVENTOS CULTURALES ========= */}
+                {
+                    vista === "eventos" && (
+                        <GestionEventos />
                     )
                 }
             </main >
