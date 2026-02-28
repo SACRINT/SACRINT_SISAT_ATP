@@ -6,12 +6,14 @@ import {
     ToggleRight,
     Download,
     Loader2,
-    CheckCircle2,
-    AlertTriangle,
     Palette,
     Users,
     Trophy,
     RefreshCw,
+    CheckCircle2,
+    XCircle,
+    Trash2,
+    School,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────
@@ -34,16 +36,31 @@ interface Categoria {
     disciplinas: Disciplina[];
 }
 
+interface EscuelaEvento {
+    id: string;
+    cct: string;
+    nombre: string;
+    email: string;
+    inscrita: boolean;
+    disciplinasActivas: number;
+    totalParticipantes: number;
+    fechaInscripcion: string | null;
+    inscripcionId: string | null;
+}
+
 // ─── Component ───────────────────────────────────
 
 export default function GestionEventos() {
     const [activo, setActivo] = useState(false);
     const [categorias, setCategorias] = useState<Categoria[]>([]);
+    const [escuelas, setEscuelas] = useState<EscuelaEvento[]>([]);
     const [totalInscripciones, setTotalInscripciones] = useState(0);
     const [totalEscuelas, setTotalEscuelas] = useState(0);
     const [loading, setLoading] = useState(true);
     const [toggling, setToggling] = useState(false);
     const [downloading, setDownloading] = useState(false);
+    const [cancellingId, setCancellingId] = useState<string | null>(null);
+    const [filtroEscuelas, setFiltroEscuelas] = useState<"todas" | "inscritas" | "pendientes">("todas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     const fetchConfig = useCallback(async () => {
@@ -55,6 +72,7 @@ export default function GestionEventos() {
             setCategorias(data.categorias || []);
             setTotalInscripciones(data.totalInscripciones || 0);
             setTotalEscuelas(data.totalEscuelas || 0);
+            setEscuelas(data.escuelas || []);
         } catch {
             setMessage({ type: "error", text: "Error al cargar configuración de eventos" });
         } finally {
@@ -120,7 +138,56 @@ export default function GestionEventos() {
         }
     }
 
-    const totalDisciplinas = categorias.reduce((sum, c) => sum + c.disciplinas.length, 0);
+    // ─── Cancel inscription ──────────────────────
+
+    async function handleCancelInscripcion(escuelaId: string, nombre: string) {
+        if (!confirm(`¿Estás seguro de CANCELAR la inscripción de "${nombre}"?\n\nEsta acción eliminará todos sus datos de participación y no se puede deshacer.`)) return;
+        setCancellingId(escuelaId);
+        try {
+            const res = await fetch(`/api/admin/eventos-config?escuelaId=${escuelaId}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Error al cancelar inscripción");
+            setMessage({ type: "success", text: `Inscripción de "${nombre}" cancelada exitosamente.` });
+            // Refresh data
+            setLoading(true);
+            await fetchConfig();
+        } catch {
+            setMessage({ type: "error", text: "Error al cancelar la inscripción" });
+        } finally {
+            setCancellingId(null);
+        }
+    }
+
+    // ─── Computed values ─────────────────────
+
+    // Calculate real max disciplines (considering mutual exclusions)
+    const maxDisciplinasPosibles = (() => {
+        let total = 0;
+        for (const cat of categorias) {
+            const exclusionGroups = new Map<string, number>();
+            for (const disc of cat.disciplinas) {
+                if (disc.grupoExclusion) {
+                    // Only count 1 per exclusion group
+                    if (!exclusionGroups.has(disc.grupoExclusion)) {
+                        exclusionGroups.set(disc.grupoExclusion, 1);
+                        total++;
+                    }
+                } else {
+                    total++;
+                }
+            }
+        }
+        return total;
+    })();
+
+    const escuelasInscritas = escuelas.filter(e => e.inscrita);
+    const escuelasPendientes = escuelas.filter(e => !e.inscrita);
+
+    const escuelasFiltradas = filtroEscuelas === "inscritas"
+        ? escuelasInscritas
+        : filtroEscuelas === "pendientes"
+            ? escuelasPendientes
+            : escuelas;
+
     const pctInscripciones = totalEscuelas > 0
         ? Math.round((totalInscripciones / totalEscuelas) * 100) : 0;
 
@@ -138,7 +205,7 @@ export default function GestionEventos() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
                     <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Trophy size={24} /> Eventos Culturales PAEC 2026
+                        <Trophy size={24} /> Eventos Culturales 2026
                     </h2>
                     <p style={{ color: "var(--text-muted)", margin: "0.25rem 0 0", fontSize: "0.875rem" }}>
                         Gestión de inscripciones a eventos culturales
@@ -211,16 +278,16 @@ export default function GestionEventos() {
                     </div>
                 </div>
 
-                {/* Disciplines Count */}
+                {/* Max Disciplines */}
                 <div className="card" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}>
                     <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "0.75rem" }}>
                         Catálogo
                     </div>
                     <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--primary)" }}>
-                        {totalDisciplinas}
+                        {maxDisciplinasPosibles}
                     </div>
                     <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                        disciplinas en {categorias.length} categorías
+                        disciplinas máx. por escuela
                     </div>
                 </div>
             </div>
@@ -247,6 +314,112 @@ export default function GestionEventos() {
                         )}
                     </button>
                 </div>
+            </div>
+
+            {/* ═══════ Schools List ═══════ */}
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                <div style={{
+                    padding: "1rem 1.25rem",
+                    background: "linear-gradient(135deg, #1f4e78 0%, #2e75b6 100%)",
+                    color: "white",
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>
+                        <School size={16} style={{ display: "inline", marginRight: "0.4rem", verticalAlign: "text-bottom" }} />
+                        Listado de Escuelas
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {(["todas", "inscritas", "pendientes"] as const).map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFiltroEscuelas(f)}
+                                style={{
+                                    padding: "0.25rem 0.65rem",
+                                    borderRadius: "12px",
+                                    border: "1px solid rgba(255,255,255,0.4)",
+                                    background: filtroEscuelas === f ? "white" : "transparent",
+                                    color: filtroEscuelas === f ? "#1f4e78" : "white",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s",
+                                }}
+                            >
+                                {f === "todas" ? `Todas (${escuelas.length})` : f === "inscritas" ? `Inscritas (${escuelasInscritas.length})` : `Pendientes (${escuelasPendientes.length})`}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Table header */}
+                <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "2fr 1fr 0.8fr 0.8fr 0.6fr",
+                    padding: "0.6rem 1.25rem",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    borderBottom: "2px solid var(--border)",
+                    background: "var(--bg)",
+                }}>
+                    <span>Escuela</span>
+                    <span>Correo</span>
+                    <span style={{ textAlign: "center" }}>Disciplinas</span>
+                    <span style={{ textAlign: "center" }}>Participantes</span>
+                    <span style={{ textAlign: "center" }}>Estado</span>
+                </div>
+
+                {/* School rows */}
+                {escuelasFiltradas.map(esc => (
+                    <div key={esc.id} style={{
+                        display: "grid",
+                        gridTemplateColumns: "2fr 1fr 0.8fr 0.8fr 0.6fr",
+                        padding: "0.6rem 1.25rem",
+                        borderBottom: "1px solid var(--border)",
+                        fontSize: "0.8125rem",
+                        alignItems: "center",
+                        background: esc.inscrita ? "#f0fdf4" : "transparent",
+                    }}>
+                        <div>
+                            <div style={{ fontWeight: 600 }}>{esc.nombre}</div>
+                            <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{esc.cct}</div>
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{esc.email}</div>
+                        <div style={{ textAlign: "center", fontWeight: 700 }}>
+                            {esc.inscrita ? esc.disciplinasActivas : "—"}
+                        </div>
+                        <div style={{ textAlign: "center", fontWeight: 700 }}>
+                            {esc.inscrita ? esc.totalParticipantes : "—"}
+                        </div>
+                        <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}>
+                            {esc.inscrita ? (
+                                <>
+                                    <CheckCircle2 size={16} style={{ color: "var(--success)" }} />
+                                    <button
+                                        onClick={() => handleCancelInscripcion(esc.id, esc.nombre)}
+                                        disabled={cancellingId === esc.id}
+                                        title="Cancelar inscripción"
+                                        style={{
+                                            background: "none", border: "none", cursor: "pointer",
+                                            color: "var(--danger)", padding: "0.15rem",
+                                        }}
+                                    >
+                                        {cancellingId === esc.id ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
+                                    </button>
+                                </>
+                            ) : (
+                                <XCircle size={16} style={{ color: "var(--text-muted)" }} />
+                            )}
+                        </div>
+                    </div>
+                ))}
+
+                {escuelasFiltradas.length === 0 && (
+                    <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+                        No hay escuelas en este filtro.
+                    </div>
+                )}
             </div>
 
             {/* Categories Overview */}

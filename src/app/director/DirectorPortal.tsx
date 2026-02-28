@@ -115,7 +115,7 @@ export default function DirectorPortal({
                     </button>
                     <button className={`btn ${tab === "eventos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("eventos")} style={{ flex: 1 }}>
                         <Trophy size={18} />
-                        Eventos 2026
+                        Eventos Culturales 2026
                     </button>
                     <button className={`btn ${tab === "recursos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("recursos")} style={{ flex: 1 }}>
                         <BookOpen size={18} />

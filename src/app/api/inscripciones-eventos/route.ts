@@ -136,3 +136,33 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }
+
+/**
+ * DELETE /api/inscripciones-eventos
+ * Cancels the director's event registration.
+ */
+export async function DELETE() {
+    try {
+        const session = await auth();
+        const user = session?.user as { role?: string; cct?: string } | undefined;
+
+        if (!session || user?.role !== "director") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        }
+
+        const cct = user?.cct;
+        if (!cct) return NextResponse.json({ error: "Sin CCT" }, { status: 400 });
+
+        const escuela = await prisma.escuela.findUnique({ where: { cct } });
+        if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
+
+        await prisma.inscripcionEvento2026.deleteMany({
+            where: { escuelaId: escuela.id },
+        });
+
+        return NextResponse.json({ ok: true });
+    } catch (error: unknown) {
+        console.error("Error DELETE inscripciones-eventos:", error);
+        return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    }
+}

@@ -6,7 +6,6 @@ import {
     ChevronUp,
     Save,
     Loader2,
-    CheckCircle2,
     AlertTriangle,
     Music,
     Palette,
@@ -14,6 +13,9 @@ import {
     Beaker,
     Cpu,
     Globe,
+    Users,
+    Hash,
+    Trash2,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────
@@ -62,7 +64,9 @@ export default function InscripcionEventos() {
     const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
     const [activo, setActivo] = useState(false);
+    const [hasInscripcion, setHasInscripcion] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [lastSaved, setLastSaved] = useState<string | null>(null);
 
@@ -87,6 +91,7 @@ export default function InscripcionEventos() {
                 }
             }
             setFormData(initial);
+            setHasInscripcion(!!data.inscripcion && Object.keys(data.inscripcion).length > 0);
 
             if (data.updatedAt) {
                 setLastSaved(new Date(data.updatedAt).toLocaleString("es-MX"));
@@ -161,6 +166,7 @@ export default function InscripcionEventos() {
             if (res.ok) {
                 setMessage({ type: "success", text: "¡Inscripción guardada exitosamente!" });
                 setLastSaved(new Date().toLocaleString("es-MX"));
+                setHasInscripcion(true);
             } else {
                 const errorText = data.details
                     ? data.details.join("\n")
@@ -171,6 +177,34 @@ export default function InscripcionEventos() {
             setMessage({ type: "error", text: "Error de conexión" });
         } finally {
             setSaving(false);
+        }
+    }
+
+    async function handleCancelar() {
+        if (!confirm("¿Estás seguro de CANCELAR tu inscripción a Eventos Culturales 2026?\n\nEsta acción eliminará todas tus selecciones y no se puede deshacer.")) return;
+        setCancelling(true);
+        setMessage(null);
+        try {
+            const res = await fetch("/api/inscripciones-eventos", { method: "DELETE" });
+            if (res.ok) {
+                setMessage({ type: "success", text: "Inscripción cancelada exitosamente." });
+                setHasInscripcion(false);
+                // Reset all form data
+                const reset: FormData = {};
+                for (const cat of categorias) {
+                    for (const disc of cat.disciplinas) {
+                        reset[disc.id] = { participa: false, numParticipantes: disc.minParticipantes };
+                    }
+                }
+                setFormData(reset);
+                setLastSaved(null);
+            } else {
+                setMessage({ type: "error", text: "Error al cancelar la inscripción" });
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setCancelling(false);
         }
     }
 
@@ -189,6 +223,13 @@ export default function InscripcionEventos() {
     function countActive(cat: Categoria): number {
         return cat.disciplinas.filter(d => formData[d.id]?.participa).length;
     }
+
+    // ─── Summary calculations ────────────────────
+
+    const totalDisciplinasSeleccionadas = Object.values(formData).filter(d => d.participa).length;
+    const totalAlumnosParticipantes = Object.entries(formData)
+        .filter(([, d]) => d.participa)
+        .reduce((sum, [, d]) => sum + (d.numParticipantes || 0), 0);
 
     // ─── Render ──────────────────────────────────
 
@@ -221,10 +262,10 @@ export default function InscripcionEventos() {
                 color: "white", border: "none",
             }}>
                 <h2 style={{ marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <Palette size={24} /> Inscripción PAEC 2026
+                    <Palette size={24} /> Inscripciones a Eventos Culturales 2026
                 </h2>
                 <p style={{ opacity: 0.85, fontSize: "0.875rem", margin: 0 }}>
-                    Seleccione las disciplinas en las que participará su escuela.
+                    Seleccione las disciplinas en las que participará su escuela e indique el número de participantes.
                 </p>
                 {lastSaved && (
                     <p style={{ opacity: 0.7, fontSize: "0.75rem", margin: "0.5rem 0 0" }}>
@@ -314,18 +355,23 @@ export default function InscripcionEventos() {
                                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
                                                 {/* Participant count input for grupo and equipo types */}
                                                 {entry.participa && (disc.tipo === "grupo" || disc.tipo === "equipo") && disc.maxParticipantes > disc.minParticipantes && (
-                                                    <input
-                                                        type="number"
-                                                        min={disc.minParticipantes}
-                                                        max={disc.maxParticipantes}
-                                                        value={entry.numParticipantes}
-                                                        onChange={e => handleNumChange(disc.id, parseInt(e.target.value) || disc.minParticipantes, disc.minParticipantes, disc.maxParticipantes)}
-                                                        style={{
-                                                            width: "60px", padding: "0.4rem", textAlign: "center",
-                                                            borderRadius: "8px", border: "1px solid var(--border)",
-                                                            fontSize: "0.875rem", fontWeight: 600,
-                                                        }}
-                                                    />
+                                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.15rem" }}>
+                                                        <label style={{ fontSize: "0.6rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase" }}>
+                                                            Nº Participantes
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min={disc.minParticipantes}
+                                                            max={disc.maxParticipantes}
+                                                            value={entry.numParticipantes}
+                                                            onChange={e => handleNumChange(disc.id, parseInt(e.target.value) || disc.minParticipantes, disc.minParticipantes, disc.maxParticipantes)}
+                                                            style={{
+                                                                width: "60px", padding: "0.4rem", textAlign: "center",
+                                                                borderRadius: "8px", border: "1px solid var(--border)",
+                                                                fontSize: "0.875rem", fontWeight: 600,
+                                                            }}
+                                                        />
+                                                    </div>
                                                 )}
 
                                                 {/* Toggle button */}
@@ -357,33 +403,101 @@ export default function InscripcionEventos() {
                 );
             })}
 
-            {/* Save Button */}
-            <button
-                className="btn btn-primary"
-                onClick={handleSave}
-                disabled={saving}
-                style={{
-                    padding: "1rem",
-                    fontSize: "1rem",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.5rem",
-                }}
-            >
-                {saving ? (
-                    <>
-                        <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
-                        Guardando...
-                    </>
-                ) : (
-                    <>
-                        <Save size={20} />
-                        Guardar Inscripción
-                    </>
+            {/* ═══════ Summary ═══════ */}
+            <div className="card" style={{
+                background: "linear-gradient(135deg, #0f172a, #1e293b)",
+                color: "white", border: "none",
+                padding: "1.25rem",
+            }}>
+                <div style={{ fontWeight: 700, fontSize: "0.875rem", marginBottom: "0.75rem", opacity: 0.8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Resumen de Inscripción
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                        <div style={{
+                            width: "44px", height: "44px", borderRadius: "12px",
+                            background: "rgba(59,130,246,0.2)", display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                            <Hash size={22} style={{ color: "#60a5fa" }} />
+                        </div>
+                        <div>
+                            <div style={{ fontSize: "1.75rem", fontWeight: 800, lineHeight: 1 }}>{totalDisciplinasSeleccionadas}</div>
+                            <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>disciplinas seleccionadas</div>
+                        </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                        <div style={{
+                            width: "44px", height: "44px", borderRadius: "12px",
+                            background: "rgba(16,185,129,0.2)", display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                            <Users size={22} style={{ color: "#34d399" }} />
+                        </div>
+                        <div>
+                            <div style={{ fontSize: "1.75rem", fontWeight: 800, lineHeight: 1 }}>{totalAlumnosParticipantes}</div>
+                            <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>alumnos participantes</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+                <button
+                    className="btn btn-primary"
+                    onClick={handleSave}
+                    disabled={saving}
+                    style={{
+                        padding: "1rem",
+                        fontSize: "1rem",
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        flex: 1,
+                    }}
+                >
+                    {saving ? (
+                        <>
+                            <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+                            Guardando...
+                        </>
+                    ) : (
+                        <>
+                            <Save size={20} />
+                            Guardar Inscripción
+                        </>
+                    )}
+                </button>
+
+                {hasInscripcion && (
+                    <button
+                        className="btn btn-outline"
+                        onClick={handleCancelar}
+                        disabled={cancelling}
+                        style={{
+                            padding: "1rem",
+                            fontSize: "0.875rem",
+                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "0.5rem",
+                            color: "var(--danger)",
+                            borderColor: "var(--danger)",
+                        }}
+                    >
+                        {cancelling ? (
+                            <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+                        ) : (
+                            <>
+                                <Trash2 size={18} />
+                                Cancelar
+                            </>
+                        )}
+                    </button>
                 )}
-            </button>
+            </div>
 
             {/* Spin animation */}
             <style>{`

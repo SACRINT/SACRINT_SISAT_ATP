@@ -117,12 +117,11 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
     };
 
     const handleDelete = async (id: string, periodosCount: number) => {
-        if (periodosCount > 0) {
-            alert(`No puedes eliminar este programa porque ya tiene ${periodosCount} periodos asignados. Elimina o reasigna los periodos primero.`);
-            return;
-        }
+        const msg = periodosCount > 0
+            ? `Este programa tiene ${periodosCount} periodo(s) asignado(s) con entregas asociadas. Al eliminarlo se borrarán también todos los periodos y entregas.\n\n¿Estás seguro de eliminar este programa de manera DEFINITIVA?`
+            : "¿Estás seguro de eliminar este programa de manera definitiva?";
 
-        if (!confirm("¿Estás seguro de eliminar este programa de manera definitiva?")) return;
+        if (!confirm(msg)) return;
         setIsLoading(true);
 
         try {
