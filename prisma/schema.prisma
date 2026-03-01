@@ -39,6 +39,9 @@ model Escuela {
   cct       String   @unique
   nombre    String
   localidad String
+  municipio    String?
+  zonaEscolar  String?
+  codigoPostal String?
   email     String   @unique
   password  String
   director  String?
@@ -53,6 +56,7 @@ model Escuela {
   entregas Entrega[]
   configuraciones ConfiguracionPrograma[]
   inscripcionEvento InscripcionEvento2026?
+  descargasCircular05 Circular05Descarga[]
 }
 
 model CicloEscolar {
@@ -207,6 +211,25 @@ model InscripcionEvento2026 {
   escuelaId String   @unique
   datos     Json     // { [disciplinaId]: { participa: boolean, numParticipantes: number } }
   updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+}
+
+// ─── Proyecto Circular 05 ────────────────────────
+
+model Circular05Config {
+  id                String  @id @default("singleton")
+  activo            Boolean @default(false)
+  destinatario      String  @default("ING. ALEJANDRO ESCAMILLA MARTINEZ")
+  cargoDestinatario String  @default("SUPERVISOR ESCOLAR DE BACHILLERATOS GENERALES")
+  zonaDestinatario  String  @default("ZONA 004, VENUSTIANO CARRANZA PUEBLA")
+}
+
+model Circular05Descarga {
+  id        String   @id @default(cuid())
+  escuelaId String
+  datos     Json
   createdAt DateTime @default(now())
 
   escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)

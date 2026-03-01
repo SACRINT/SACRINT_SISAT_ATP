@@ -8,12 +8,14 @@ import {
     BookOpen,
     MessageSquare,
     Trophy,
+    FileText,
 } from "lucide-react";
 import { useState } from "react";
 
 import EntregasListado from "./_componentes/EntregasListado";
 import RecursosListado from "./_componentes/RecursosListado";
 import InscripcionEventos from "./_componentes/InscripcionEventos";
+import ProyectoCircular05 from "./_componentes/ProyectoCircular05";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
@@ -24,13 +26,13 @@ export default function DirectorPortal({
     anuncioGlobal,
     recursos,
 }: {
-    escuela: { id: string; cct: string; nombre: string; localidad: string };
+    escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null };
     programas: ProgramaGroup[];
     ciclo: string;
     anuncioGlobal?: string;
     recursos: RecursoDirector[];
 }) {
-    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos">("entregas");
+    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05">("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Stats
@@ -121,6 +123,10 @@ export default function DirectorPortal({
                         <BookOpen size={18} />
                         Recursos
                     </button>
+                    <button className={`btn ${tab === "circular05" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("circular05")} style={{ flex: 1 }}>
+                        <FileText size={18} />
+                        Circular 05
+                    </button>
                 </div>
 
                 {/* Tab Content */}
@@ -139,6 +145,10 @@ export default function DirectorPortal({
 
                 {tab === "eventos" && (
                     <InscripcionEventos />
+                )}
+
+                {tab === "circular05" && (
+                    <ProyectoCircular05 escuela={escuela} />
                 )}
             </div>
         </>
