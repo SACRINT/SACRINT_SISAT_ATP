@@ -22,10 +22,15 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
     }
 
-    // Verificar que el módulo esté activo
-    const config = await prisma.circular05Config.findUnique({ where: { id: "singleton" } });
-    if (!config?.activo) {
-        return NextResponse.json({ error: "El módulo Circular 05 no está habilitado" }, { status: 403 });
+    // Verificar que el módulo esté activo (auto-crear config si no existe)
+    let config = await prisma.circular05Config.findUnique({ where: { id: "singleton" } });
+    if (!config) {
+        config = await prisma.circular05Config.create({
+            data: { id: "singleton", activo: false },
+        });
+    }
+    if (!config.activo) {
+        return NextResponse.json({ error: "El módulo Circular 05 no está habilitado. El administrador ATP debe activarlo primero." }, { status: 403 });
     }
 
     try {

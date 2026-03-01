@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
     FileText, Download, Plus, Trash2, ClipboardCheck, ChevronDown, ChevronUp,
-    AlertTriangle, CheckCircle2, Info, Loader2,
+    AlertTriangle, CheckCircle2, Info, Loader2, RotateCcw, XCircle,
 } from "lucide-react";
 
 // ─── Tipos ────────────────────────────────────────
@@ -52,8 +52,24 @@ const ORDEN_INTEGRACION = [
     "13. Credenciales escolares de los alumnos participantes.",
 ];
 
+const ITINERARIO_INICIAL: Itinerario[] = [
+    { hora: "", actividad: "REUNIÓN DE LOS ASISTENTES", lugar: "" },
+    { hora: "", actividad: "SALIDA", lugar: "" },
+    { hora: "", actividad: "LLEGADA APROXIMADA A LA SEDE", lugar: "" },
+    { hora: "", actividad: "DESAYUNO", lugar: "" },
+    { hora: "", actividad: "INICIO DE LA PARTICIPACIÓN", lugar: "" },
+    { hora: "", actividad: "ALMUERZO", lugar: "" },
+    { hora: "", actividad: "CLAUSURA DEL EVENTO", lugar: "" },
+    { hora: "", actividad: "SALIDA DE REGRESO", lugar: "" },
+    { hora: "", actividad: "LLEGADA APROXIMADA", lugar: "" },
+];
+
 // ─── Componente ───────────────────────────────────
 export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props) {
+    // Estado del módulo
+    const [moduloActivo, setModuloActivo] = useState<boolean | null>(null); // null = cargando
+    const [loadingConfig, setLoadingConfig] = useState(true);
+
     // Estado del checklist
     const [checks, setChecks] = useState<boolean[]>(new Array(CHECKLIST_ITEMS.length).fill(false));
     const [showOrden, setShowOrden] = useState(false);
@@ -83,17 +99,9 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
 
     // Proyecto
     const [objetivoEducativo, setObjetivoEducativo] = useState("");
-    const [itinerario, setItinerario] = useState<Itinerario[]>([
-        { hora: "", actividad: "REUNIÓN DE LOS ASISTENTES", lugar: "" },
-        { hora: "", actividad: "SALIDA", lugar: "" },
-        { hora: "", actividad: "LLEGADA APROXIMADA A LA SEDE", lugar: "" },
-        { hora: "", actividad: "DESAYUNO", lugar: "" },
-        { hora: "", actividad: "INICIO DE LA PARTICIPACIÓN", lugar: "" },
-        { hora: "", actividad: "ALMUERZO", lugar: "" },
-        { hora: "", actividad: "CLAUSURA DEL EVENTO", lugar: "" },
-        { hora: "", actividad: "SALIDA DE REGRESO", lugar: "" },
-        { hora: "", actividad: "LLEGADA APROXIMADA", lugar: "" },
-    ]);
+    const [itinerario, setItinerario] = useState<Itinerario[]>(
+        ITINERARIO_INICIAL.map(it => ({ ...it }))
+    );
 
     // Gastos
     const [gastoTransporteIda, setGastoTransporteIda] = useState("");
@@ -124,17 +132,61 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [seccionActiva, setSeccionActiva] = useState<string>("checklist");
 
-    // Cargar config
+    // Cargar config y verificar si el módulo está activo
     useEffect(() => {
+        setLoadingConfig(true);
         fetch("/api/circular05/config")
             .then((r) => r.json())
             .then((c) => {
+                setModuloActivo(c.activo === true);
                 setDestinatario(c.destinatario || "");
                 setCargoDestinatario(c.cargoDestinatario || "");
                 setZonaDestinatario(c.zonaDestinatario || "");
             })
-            .catch(() => { });
+            .catch(() => {
+                setModuloActivo(false);
+            })
+            .finally(() => {
+                setLoadingConfig(false);
+            });
     }, []);
+
+    // ─── Función para limpiar formulario ───
+    const limpiarFormulario = () => {
+        // Mantener datos precargados de escuela
+        setDirectorNombre(escuela.director || "");
+        setBachilleratoNombre(escuela.nombre || "");
+        setCct(escuela.cct || "");
+        setMunicipio(escuela.municipio || "");
+        setLocalidad(escuela.localidad || "");
+        setZonaEscolar(escuela.zonaEscolar || "004");
+
+        // Limpiar campos editables
+        setSupervisorNombre("");
+        setNombreEvento("");
+        setDisciplinaRama("");
+        setSede("");
+        setDomicilioSede("");
+        setFechaEvento("");
+        setHoraInicio("");
+        setHoraTermino("");
+        setObjetivoEducativo("");
+        setItinerario(ITINERARIO_INICIAL.map(it => ({ ...it })));
+        setGastoTransporteIda("");
+        setGastoAlimentos("");
+        setGastoTransporteRegreso("");
+        setFinanciamiento("Comité de APF");
+        setTipoTransporte("");
+        setDescripcionVehiculo("");
+        setNombreConductor("");
+        setAseguradora("");
+        setNumeroPóliza("");
+        setDocentesResponsables([{ nombre: "", cargo: "Docente" }]);
+        setPersonaPrimerosAuxilios("");
+        setAlumnos([{ nombre: "", curp: "", nia: "", nss: "", disciplina: "" }]);
+        setChecks(new Array(CHECKLIST_ITEMS.length).fill(false));
+        setMessage({ type: "success", text: "Formulario limpiado. Los datos precargados se mantienen." });
+    };
 
     // Helpers para tablas dinámicas
     const agregarItinerario = () => setItinerario([...itinerario, { hora: "", actividad: "", lugar: "" }]);
@@ -281,6 +333,40 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
         </div>
     );
 
+    // ═══ ESTADO DE CARGA ═══
+    if (loadingConfig) {
+        return (
+            <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem", gap: "0.75rem" }}>
+                <Loader2 size={24} className="spin" /> Cargando módulo Circular 05...
+            </div>
+        );
+    }
+
+    // ═══ MÓDULO DESACTIVADO ═══
+    if (!moduloActivo) {
+        return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div className="card" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)", color: "white", border: "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                        <FileText size={28} />
+                        <h2 style={{ margin: 0 }}>Proyecto Circular 05</h2>
+                    </div>
+                    <p style={{ opacity: 0.85, fontSize: "0.875rem", margin: 0 }}>
+                        Generador automático del expediente para autorización de salidas extraescolares (Circular No. 05/2017 SEP)
+                    </p>
+                </div>
+                <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
+                    <XCircle size={48} style={{ color: "#ef4444", marginBottom: "1rem" }} />
+                    <h3 style={{ margin: "0 0 0.5rem", color: "var(--text)" }}>Módulo Desactivado</h3>
+                    <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9375rem" }}>
+                        Este módulo no está habilitado actualmente. Contacte al Administrador ATP para que lo active.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // ═══ MÓDULO ACTIVO - MOSTRAR FORMULARIO ═══
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {/* Header */}
@@ -626,26 +712,44 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                 )}
             </div>
 
-            {/* ═══ BOTÓN DESCARGAR ═══ */}
-            <button
-                className="btn btn-primary"
-                onClick={handleDescargar}
-                disabled={loading}
-                style={{
-                    padding: "1rem 2rem", fontSize: "1.125rem", fontWeight: 800,
-                    background: loading ? "var(--text-muted)" : "linear-gradient(135deg, #059669 0%, #0d9488 100%)",
-                    border: "none", borderRadius: "12px", color: "white",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem",
-                    boxShadow: "0 4px 14px rgba(5, 150, 105, 0.4)",
-                    transition: "all 0.3s",
-                }}
-            >
-                {loading ? (
-                    <><Loader2 size={22} className="spin" /> Generando documento...</>
-                ) : (
-                    <><Download size={22} /> Descargar Proyecto Circular 05</>
-                )}
-            </button>
+            {/* ═══ BOTONES DE ACCIÓN ═══ */}
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                {/* Botón Limpiar */}
+                <button
+                    className="btn btn-outline"
+                    onClick={limpiarFormulario}
+                    disabled={loading}
+                    style={{
+                        padding: "1rem 1.5rem", fontSize: "1rem", fontWeight: 700,
+                        borderRadius: "12px", display: "flex", alignItems: "center",
+                        justifyContent: "center", gap: "0.5rem", flex: "0 0 auto",
+                        border: "2px solid #ef4444", color: "#ef4444",
+                    }}
+                >
+                    <RotateCcw size={20} /> Limpiar Formulario
+                </button>
+
+                {/* Botón Descargar */}
+                <button
+                    className="btn btn-primary"
+                    onClick={handleDescargar}
+                    disabled={loading}
+                    style={{
+                        padding: "1rem 2rem", fontSize: "1.125rem", fontWeight: 800,
+                        background: loading ? "var(--text-muted)" : "linear-gradient(135deg, #059669 0%, #0d9488 100%)",
+                        border: "none", borderRadius: "12px", color: "white",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem",
+                        boxShadow: "0 4px 14px rgba(5, 150, 105, 0.4)",
+                        transition: "all 0.3s", flex: 1,
+                    }}
+                >
+                    {loading ? (
+                        <><Loader2 size={22} className="spin" /> Generando documento...</>
+                    ) : (
+                        <><Download size={22} /> Descargar Proyecto Circular 05</>
+                    )}
+                </button>
+            </div>
         </div>
     );
 }
