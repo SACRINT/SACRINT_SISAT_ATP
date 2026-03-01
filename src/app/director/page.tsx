@@ -97,7 +97,7 @@ export default async function DirectorPage() {
 
     // Fetch configs globales para los tabs
     const [eventosConfig, circularConfig] = await Promise.all([
-        prisma.configuracionBoton.findUnique({ where: { id: "eventosCulturales" } }),
+        prisma.eventosConfig.findUnique({ where: { id: "singleton" } }),
         prisma.circular05Config.findUnique({ where: { id: "singleton" } })
     ]);
 

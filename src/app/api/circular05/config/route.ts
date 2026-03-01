@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // GET - Obtener configuración de Circular 05
+export const dynamic = "force-dynamic";
+
 export async function GET() {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -25,14 +27,15 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
+    const updateData: any = {};
+    if (body.activo !== undefined) updateData.activo = body.activo;
+    if (body.destinatario !== undefined) updateData.destinatario = body.destinatario;
+    if (body.cargoDestinatario !== undefined) updateData.cargoDestinatario = body.cargoDestinatario;
+    if (body.zonaDestinatario !== undefined) updateData.zonaDestinatario = body.zonaDestinatario;
+
     const config = await prisma.circular05Config.upsert({
         where: { id: "singleton" },
-        update: {
-            ...(body.activo !== undefined && { activo: body.activo }),
-            ...(body.destinatario !== undefined && { destinatario: body.destinatario }),
-            ...(body.cargoDestinatario !== undefined && { cargoDestinatario: body.cargoDestinatario }),
-            ...(body.zonaDestinatario !== undefined && { zonaDestinatario: body.zonaDestinatario }),
-        },
+        update: updateData,
         create: {
             id: "singleton",
             activo: body.activo ?? false,
