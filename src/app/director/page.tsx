@@ -95,12 +95,23 @@ export default async function DirectorPage() {
 
     const programasAgrupados = Object.values(programasMap);
 
+    // Fetch configs globales para los tabs
+    const [eventosConfig, circularConfig] = await Promise.all([
+        prisma.configuracionBoton.findUnique({ where: { id: "eventosCulturales" } }),
+        prisma.circular05Config.findUnique({ where: { id: "singleton" } })
+    ]);
+
+    const isEventosActive = eventosConfig?.activo ?? false;
+    const isCircularActive = circularConfig?.activo ?? false;
+
     return (
         <DirectorPortal
             escuela={JSON.parse(JSON.stringify(escuela))}
             programas={JSON.parse(JSON.stringify(programasAgrupados))}
             ciclo={ciclo.nombre}
             recursos={JSON.parse(JSON.stringify(recursos))}
+            isEventosActive={isEventosActive}
+            isCircularActive={isCircularActive}
         />
     );
 }

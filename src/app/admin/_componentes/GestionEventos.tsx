@@ -239,23 +239,20 @@ export default function GestionEventos() {
                         onClick={handleToggle}
                         disabled={toggling}
                         style={{
-                            background: "none", border: "none", cursor: toggling ? "wait" : "pointer",
                             display: "flex", alignItems: "center", gap: "0.5rem",
-                            transition: "transform 0.2s",
+                            padding: "0.75rem 1.5rem", borderRadius: "10px", border: "none",
+                            background: activo ? "var(--success)" : "#ef4444",
+                            color: "white", fontWeight: 700, fontSize: "0.9375rem",
+                            cursor: toggling ? "wait" : "pointer",
+                            transition: "all 0.3s",
                         }}
                     >
                         {activo ? (
-                            <ToggleRight size={48} style={{ color: "var(--success)" }} />
+                            <><ToggleRight size={24} /> Activado</>
                         ) : (
-                            <ToggleLeft size={48} style={{ color: "var(--text-muted)" }} />
+                            <><ToggleLeft size={24} /> Desactivado</>
                         )}
                     </button>
-                    <div style={{
-                        marginTop: "0.5rem", fontSize: "0.875rem", fontWeight: 700,
-                        color: activo ? "var(--success)" : "var(--text-muted)",
-                    }}>
-                        {activo ? "ACTIVO" : "INACTIVO"}
-                    </div>
                 </div>
 
                 {/* Inscriptions Count */}

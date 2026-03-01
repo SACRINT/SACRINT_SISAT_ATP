@@ -25,12 +25,16 @@ export default function DirectorPortal({
     ciclo,
     anuncioGlobal,
     recursos,
+    isEventosActive = true,
+    isCircularActive = true,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null };
     programas: ProgramaGroup[];
     ciclo: string;
     anuncioGlobal?: string;
     recursos: RecursoDirector[];
+    isEventosActive?: boolean;
+    isCircularActive?: boolean;
 }) {
     const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05">("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -115,18 +119,22 @@ export default function DirectorPortal({
                         <Upload size={18} />
                         Mis Entregas
                     </button>
-                    <button className={`btn ${tab === "eventos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("eventos")} style={{ flex: 1 }}>
-                        <Trophy size={18} />
-                        Eventos Culturales 2026
-                    </button>
+                    {isEventosActive && (
+                        <button className={`btn ${tab === "eventos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("eventos")} style={{ flex: 1 }}>
+                            <Trophy size={18} />
+                            Eventos Culturales 2026
+                        </button>
+                    )}
                     <button className={`btn ${tab === "recursos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("recursos")} style={{ flex: 1 }}>
                         <BookOpen size={18} />
                         Recursos
                     </button>
-                    <button className={`btn ${tab === "circular05" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("circular05")} style={{ flex: 1 }}>
-                        <FileText size={18} />
-                        Circular 05
-                    </button>
+                    {isCircularActive && (
+                        <button className={`btn ${tab === "circular05" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("circular05")} style={{ flex: 1 }}>
+                            <FileText size={18} />
+                            Circular 05
+                        </button>
+                    )}
                 </div>
 
                 {/* Tab Content */}
@@ -143,11 +151,11 @@ export default function DirectorPortal({
                     />
                 )}
 
-                {tab === "eventos" && (
+                {tab === "eventos" && isEventosActive && (
                     <InscripcionEventos />
                 )}
 
-                {tab === "circular05" && (
+                {tab === "circular05" && isCircularActive && (
                     <ProyectoCircular05 escuela={escuela} />
                 )}
             </div>
