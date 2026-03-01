@@ -68,6 +68,7 @@ export default function GestionCircular05() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ activo: !config.activo }),
             });
+            if (!res.ok) throw new Error("No autorizado o error del servidor");
             const data = await res.json();
             setConfig(data);
             setMessage({ type: "success", text: `Módulo ${data.activo ? "ACTIVADO" : "DESACTIVADO"} correctamente.` });
@@ -87,6 +88,7 @@ export default function GestionCircular05() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ destinatario, cargoDestinatario, zonaDestinatario }),
             });
+            if (!res.ok) throw new Error("No autorizado o error del servidor");
             const data = await res.json();
             setConfig(data);
             setMessage({ type: "success", text: "Datos del destinatario actualizados correctamente." });
