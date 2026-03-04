@@ -96,13 +96,17 @@ export default async function DirectorPage() {
     const programasAgrupados = Object.values(programasMap);
 
     // Fetch configs globales para los tabs
-    const [eventosConfig, circularConfig] = await Promise.all([
+    const [eventosConfig, circularConfig, olimpiadaConfig, paecConfig] = await Promise.all([
         prisma.eventosConfig.findUnique({ where: { id: "singleton" } }),
-        prisma.circular05Config.findUnique({ where: { id: "singleton" } })
+        prisma.circular05Config.findUnique({ where: { id: "singleton" } }),
+        prisma.olimpiadaConfig.findUnique({ where: { id: "singleton" } }),
+        prisma.encuentroPAECConfig.findUnique({ where: { id: "singleton" } }),
     ]);
 
     const isEventosActive = eventosConfig?.activo ?? false;
     const isCircularActive = circularConfig?.activo ?? false;
+    const isOlimpiadaActive = olimpiadaConfig?.activo ?? false;
+    const isPAECActive = paecConfig?.activo ?? false;
 
     return (
         <DirectorPortal
@@ -112,6 +116,8 @@ export default async function DirectorPage() {
             recursos={JSON.parse(JSON.stringify(recursos))}
             isEventosActive={isEventosActive}
             isCircularActive={isCircularActive}
+            isOlimpiadaActive={isOlimpiadaActive}
+            isPAECActive={isPAECActive}
         />
     );
 }

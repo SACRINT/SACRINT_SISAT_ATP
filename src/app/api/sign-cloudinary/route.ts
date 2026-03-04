@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
             where: { id: entregaId },
             include: {
                 escuela: true,
-                periodoEntrega: { include: { programa: true } },
+                periodoEntrega: { include: { programa: true, cicloEscolar: true } },
             },
         });
 
@@ -37,17 +37,37 @@ export async function POST(req: NextRequest) {
 
         let publicId: string | undefined = undefined;
         if (originalFilename) {
-            // Formato solicitado: CCT_Nombre_Programa_Documento
-            const docName = etiqueta ? etiqueta : originalFilename.split('.').slice(0, -1).join('.');
-            const prefix = `${entrega.escuela.cct}_${entrega.escuela.nombre}_${entrega.periodoEntrega.programa.nombre}`;
+            const programaNombre = entrega.periodoEntrega.programa.nombre;
+            const isAcosoEscolar = programaNombre.toUpperCase().includes("ACOSO ESCOLAR");
 
-            let finalName = `${prefix}_${docName}`;
-            if (subfolder === "_correcciones") {
-                finalName = `${prefix}_Correccion_${docName}`;
+            let finalName: string;
+
+            if (isAcosoEscolar) {
+                // Nomenclatura especial: CCT_ACOSO ESCOLAR_AÑO_MES_NOMBRE DE LA ESCUELA
+                const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+                const periodo = entrega.periodoEntrega;
+                const cicloNombre = periodo.cicloEscolar?.nombre || "2025-2026";
+                // Extract year: take second year from cycle (e.g. "2025-2026" -> "2026")
+                const anio = cicloNombre.split("-").pop() || new Date().getFullYear().toString();
+                const mes = periodo.mes ? MESES[periodo.mes] : (periodo.semestre ? `Semestre${periodo.semestre}` : "CicloCompleto");
+
+                finalName = `${entrega.escuela.cct}_ACOSO ESCOLAR_${anio}_${mes}_${entrega.escuela.nombre}`;
+                if (subfolder === "_correcciones") {
+                    finalName = `${entrega.escuela.cct}_ACOSO ESCOLAR_${anio}_${mes}_${entrega.escuela.nombre}_Correccion`;
+                }
+            } else {
+                // Formato default: CCT_Nombre_Programa_Documento
+                const docName = etiqueta ? etiqueta : originalFilename.split('.').slice(0, -1).join('.');
+                const prefix = `${entrega.escuela.cct}_${entrega.escuela.nombre}_${programaNombre}`;
+                finalName = `${prefix}_${docName}`;
+                if (subfolder === "_correcciones") {
+                    finalName = `${prefix}_Correccion_${docName}`;
+                }
             }
 
             // Cloudinary public_id cannot contain ? & # \ % < >
-            publicId = finalName.replace(/[\?&#\\%<>]/g, '').trim();
+            publicId = finalName.replace(/[\?\&#\\%<>]/g, '').trim();
         }
 
         // Configure cloudinary using env vars

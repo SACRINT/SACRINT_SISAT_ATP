@@ -9,6 +9,8 @@ import {
     MessageSquare,
     Trophy,
     FileText,
+    GraduationCap,
+    Lightbulb,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -16,6 +18,8 @@ import EntregasListado from "./_componentes/EntregasListado";
 import RecursosListado from "./_componentes/RecursosListado";
 import InscripcionEventos from "./_componentes/InscripcionEventos";
 import ProyectoCircular05 from "./_componentes/ProyectoCircular05";
+import OlimpiadaMatematicas from "./_componentes/OlimpiadaMatematicas";
+import EncuentroPAEC from "./_componentes/EncuentroPAEC";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
@@ -27,6 +31,8 @@ export default function DirectorPortal({
     recursos,
     isEventosActive = true,
     isCircularActive = true,
+    isOlimpiadaActive = false,
+    isPAECActive = false,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null };
     programas: ProgramaGroup[];
@@ -35,8 +41,10 @@ export default function DirectorPortal({
     recursos: RecursoDirector[];
     isEventosActive?: boolean;
     isCircularActive?: boolean;
+    isOlimpiadaActive?: boolean;
+    isPAECActive?: boolean;
 }) {
-    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05">("entregas");
+    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec">("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Stats
@@ -135,6 +143,18 @@ export default function DirectorPortal({
                             Circular 05
                         </button>
                     )}
+                    {isOlimpiadaActive && (
+                        <button className={`btn ${tab === "olimpiada" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("olimpiada")} style={{ flex: 1 }}>
+                            <GraduationCap size={18} />
+                            Olimpiada Matemáticas
+                        </button>
+                    )}
+                    {isPAECActive && (
+                        <button className={`btn ${tab === "paec" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("paec")} style={{ flex: 1 }}>
+                            <Lightbulb size={18} />
+                            Encuentro PAEC
+                        </button>
+                    )}
                 </div>
 
                 {/* Tab Content */}
@@ -157,6 +177,14 @@ export default function DirectorPortal({
 
                 {tab === "circular05" && isCircularActive && (
                     <ProyectoCircular05 escuela={escuela} />
+                )}
+
+                {tab === "olimpiada" && isOlimpiadaActive && (
+                    <OlimpiadaMatematicas />
+                )}
+
+                {tab === "paec" && isPAECActive && (
+                    <EncuentroPAEC />
                 )}
             </div>
         </>

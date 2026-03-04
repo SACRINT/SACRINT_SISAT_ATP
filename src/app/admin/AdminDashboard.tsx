@@ -38,6 +38,8 @@ import ListadoEscuelas from "./_componentes/ListadoEscuelas";
 import ListadoProgramas from "./_componentes/ListadoProgramas";
 import GestionPeriodos from "./_componentes/GestionPeriodos";
 import GestionEventos from "./_componentes/GestionEventos";
+import GestionOlimpiada from "./_componentes/GestionOlimpiada";
+import GestionEncuentroPAEC from "./_componentes/GestionEncuentroPAEC";
 import GestionCircular05 from "./_componentes/GestionCircular05";
 
 import { ProgramaAdmin, EscuelaAdmin, Stats } from "@/types";
@@ -66,7 +68,7 @@ export default function AdminDashboard({
     cicloId: string;
     anuncioGlobal: string | null;
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec">("general");
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
@@ -252,6 +254,12 @@ export default function AdminDashboard({
                     <button className={`sidebar-link ${vista === "circular05" ? "active" : ""}`} onClick={() => setVista("circular05")}>
                         <FileText size={18} /> Circular 05
                     </button>
+                    <button className={`sidebar-link ${vista === "olimpiada" ? "active" : ""}`} onClick={() => setVista("olimpiada")}>
+                        <FileText size={18} /> Olimpiada Matemáticas
+                    </button>
+                    <button className={`sidebar-link ${vista === "paec" ? "active" : ""}`} onClick={() => setVista("paec")}>
+                        <FileText size={18} /> Encuentro PAEC
+                    </button>
                     {dbRole === "SUPER_ADMIN" && (
                         <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => setVista("gestion-atps")}>
                             <UserCog size={18} /> Accesos y Seguridad
@@ -368,6 +376,20 @@ export default function AdminDashboard({
                 {
                     vista === "circular05" && (
                         <GestionCircular05 />
+                    )
+                }
+
+                {/* ========= VISTA: OLIMPIADA MATEMÁTICAS ========= */}
+                {
+                    vista === "olimpiada" && (
+                        <GestionOlimpiada />
+                    )
+                }
+
+                {/* ========= VISTA: ENCUENTRO PAEC ========= */}
+                {
+                    vista === "paec" && (
+                        <GestionEncuentroPAEC />
                     )
                 }
             </main >
