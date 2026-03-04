@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 export async function GET(req: NextRequest) {
     const session = await auth();
     const user = session?.user as { role?: string } | undefined;
-    if (!session || !["ATP", "ATP_ADMIN", "SUPER_ADMIN", "ATP_LECTOR"].includes(user?.role || "")) {
+    if (!session || user?.role !== "admin") {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     const session = await auth();
     const user = session?.user as { role?: string } | undefined;
-    if (!session || !["ATP", "ATP_ADMIN", "SUPER_ADMIN"].includes(user?.role || "")) {
+    if (!session || user?.role !== "admin") {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 

@@ -158,7 +158,7 @@ export default function GestionOlimpiada() {
                             display: "flex", alignItems: "center", gap: "0.5rem",
                             background: "none", border: "none", cursor: "pointer",
                             fontSize: "1rem", fontWeight: 600,
-                            color: activo ? "var(--success)" : "var(--text-muted)",
+                            color: activo ? "var(--success)" : "var(--danger)",
                         }}
                     >
                         {toggling ? <Loader2 size={24} className="spin" /> : activo ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}

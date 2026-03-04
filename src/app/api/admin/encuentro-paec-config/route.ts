@@ -16,7 +16,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     const session = await auth();
     const user = session?.user as { role?: string } | undefined;
-    if (!session || !["ATP", "ATP_ADMIN", "SUPER_ADMIN"].includes(user?.role || "")) {
+    if (!session || user?.role !== "admin") {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
