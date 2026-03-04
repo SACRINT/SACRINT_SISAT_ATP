@@ -20,97 +20,98 @@ export async function PUT(
         const data = await request.json();
         const { nombre, descripcion, tipo, numArchivos, orden } = data;
 
-        // Fetch existing program to check if 'tipo' is changing
-        const existingPrograma = await prisma.programa.findUnique({
-            where: { id: programaId }
-        });
+        // Use a single transaction to ensure atomicity and speed
+        const result = await prisma.$transaction(async (tx) => {
+            // Fetch existing program to check if 'tipo' is changing
+            const existingPrograma = await tx.programa.findUnique({
+                where: { id: programaId }
+            });
 
-        if (!existingPrograma) {
-            return NextResponse.json({ error: "Programa no encontrado" }, { status: 404 });
-        }
+            if (!existingPrograma) {
+                throw new Error("PROGRAMA_NOT_FOUND");
+            }
 
-        const isTipoChanging = tipo !== undefined && tipo !== existingPrograma.tipo;
+            const isTipoChanging = tipo !== undefined && tipo !== existingPrograma.tipo;
 
-        const updatedPrograma = await prisma.programa.update({
-            where: { id: programaId },
-            data: {
-                nombre: nombre !== undefined ? nombre : undefined,
-                descripcion: descripcion !== undefined ? descripcion : undefined,
-                tipo: tipo !== undefined ? tipo : undefined,
-                numArchivos: numArchivos !== undefined ? parseInt(numArchivos) : undefined,
-                orden: orden !== undefined ? parseInt(orden) : undefined,
-            },
-        });
+            // Update the program
+            const updatedPrograma = await tx.programa.update({
+                where: { id: programaId },
+                data: {
+                    nombre: nombre !== undefined ? nombre : undefined,
+                    descripcion: descripcion !== undefined ? descripcion : undefined,
+                    tipo: tipo !== undefined ? tipo : undefined,
+                    numArchivos: numArchivos !== undefined ? parseInt(numArchivos) : undefined,
+                    orden: orden !== undefined ? parseInt(orden) : undefined,
+                },
+            });
 
-        // If 'tipo' has changed, we must recreate the periods and deliveries
-        if (isTipoChanging) {
-            // Delete existing entregas and periodos for this program
-            const periodos = await prisma.periodoEntrega.findMany({ where: { programaId } });
-            const periodoIds = periodos.map(p => p.id);
-
-            if (periodoIds.length > 0) {
-                await prisma.entrega.deleteMany({
-                    where: { periodoEntregaId: { in: periodoIds } }
+            // If 'tipo' has changed, recreate periods and deliveries
+            if (isTipoChanging) {
+                // Delete all entregas for this program's periods in one query
+                await tx.entrega.deleteMany({
+                    where: {
+                        periodoEntrega: { programaId }
+                    }
                 });
-                await prisma.periodoEntrega.deleteMany({
+
+                // Delete all periods for this program in one query
+                await tx.periodoEntrega.deleteMany({
                     where: { programaId }
                 });
-            }
 
-            // Recreate new periods and deliveries based on the new 'tipo'
-            const cicloActivo = await prisma.cicloEscolar.findFirst({ where: { activo: true } });
-            const escuelas = await prisma.escuela.findMany();
+                // Get active school cycle and all schools
+                const cicloActivo = await tx.cicloEscolar.findFirst({ where: { activo: true } });
+                const escuelas = await tx.escuela.findMany({ select: { id: true } });
 
-            if (cicloActivo && escuelas.length > 0) {
-                const MESES_CICLO = [
-                    { mes: 8, año: 2025 }, { mes: 9, año: 2025 }, { mes: 10, año: 2025 }, { mes: 11, año: 2025 }, { mes: 12, año: 2025 },
-                    { mes: 1, año: 2026 }, { mes: 2, año: 2026 }, { mes: 3, año: 2026 }, { mes: 4, año: 2026 }, { mes: 5, año: 2026 }, { mes: 6, año: 2026 }, { mes: 7, año: 2026 }
-                ];
+                if (cicloActivo && escuelas.length > 0) {
+                    // Create the new periods based on the new tipo
+                    let periodosToCreate: { cicloEscolarId: string; programaId: string; activo: boolean; mes?: number; semestre?: number }[] = [];
 
-                // Optimization: Prepare bulk creations to avoid sequential delays
-                const newEntregas: { escuelaId: string, periodoEntregaId: string }[] = [];
-
-                if (tipo === "ANUAL") {
-                    const periodo = await prisma.periodoEntrega.create({
-                        data: { cicloEscolarId: cicloActivo.id, programaId: updatedPrograma.id, activo: false }
-                    });
-                    for (const esc of escuelas) {
-                        newEntregas.push({ escuelaId: esc.id, periodoEntregaId: periodo.id });
+                    if (tipo === "ANUAL") {
+                        periodosToCreate = [{ cicloEscolarId: cicloActivo.id, programaId, activo: false }];
+                    } else if (tipo === "SEMESTRAL") {
+                        periodosToCreate = [
+                            { cicloEscolarId: cicloActivo.id, programaId, activo: false, semestre: 1 },
+                            { cicloEscolarId: cicloActivo.id, programaId, activo: false, semestre: 2 },
+                        ];
+                    } else if (tipo === "MENSUAL") {
+                        const meses = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
+                        periodosToCreate = meses.map(mes => ({
+                            cicloEscolarId: cicloActivo.id,
+                            programaId,
+                            activo: false,
+                            mes,
+                        }));
                     }
-                } else if (tipo === "SEMESTRAL") {
-                    for (const sem of [1, 2]) {
-                        const periodo = await prisma.periodoEntrega.create({
-                            data: { cicloEscolarId: cicloActivo.id, programaId: updatedPrograma.id, semestre: sem, activo: false }
+
+                    // Create ALL periods in one batch, then fetch their IDs
+                    for (const periodoData of periodosToCreate) {
+                        const periodo = await tx.periodoEntrega.create({ data: periodoData });
+
+                        // Bulk-create entregas for this period
+                        await tx.entrega.createMany({
+                            data: escuelas.map(esc => ({
+                                escuelaId: esc.id,
+                                periodoEntregaId: periodo.id,
+                            })),
                         });
-                        for (const esc of escuelas) {
-                            newEntregas.push({ escuelaId: esc.id, periodoEntregaId: periodo.id });
-                        }
-                    }
-                } else if (tipo === "MENSUAL") {
-                    for (const { mes } of MESES_CICLO) {
-                        const periodo = await prisma.periodoEntrega.create({
-                            data: { cicloEscolarId: cicloActivo.id, programaId: updatedPrograma.id, mes, activo: false }
-                        });
-                        for (const esc of escuelas) {
-                            newEntregas.push({ escuelaId: esc.id, periodoEntregaId: periodo.id });
-                        }
                     }
                 }
-
-                // Bulk insert all entregas
-                if (newEntregas.length > 0) {
-                    await prisma.entrega.createMany({
-                        data: newEntregas
-                    });
-                }
             }
-        }
+
+            return updatedPrograma;
+        }, {
+            timeout: 30000, // 30 second timeout for the transaction
+        });
 
         revalidatePath("/admin");
         revalidatePath("/director");
-        return NextResponse.json(updatedPrograma);
+        return NextResponse.json(result);
     } catch (error: unknown) {
         console.error("Error updating programa:", error);
+        if (error instanceof Error && error.message === "PROGRAMA_NOT_FOUND") {
+            return NextResponse.json({ error: "Programa no encontrado" }, { status: 404 });
+        }
         return NextResponse.json({ error: "Error al actualizar el programa. Verifique datos." }, { status: 500 });
     }
 }
@@ -129,21 +130,23 @@ export async function DELETE(
         const params = await context.params;
         const programaId = params.id;
 
-        // Check if there are periodos connected and delete their deliveries and the periods themselves
-        const periodos = await prisma.periodoEntrega.findMany({ where: { programaId } });
-        const periodoIds = periodos.map(p => p.id);
-
-        if (periodoIds.length > 0) {
-            await prisma.entrega.deleteMany({
-                where: { periodoEntregaId: { in: periodoIds } }
+        await prisma.$transaction(async (tx) => {
+            // Delete all entregas for this program's periods
+            await tx.entrega.deleteMany({
+                where: {
+                    periodoEntrega: { programaId }
+                }
             });
-            await prisma.periodoEntrega.deleteMany({
+
+            // Delete all periods
+            await tx.periodoEntrega.deleteMany({
                 where: { programaId }
             });
-        }
 
-        await prisma.programa.delete({
-            where: { id: programaId }
+            // Delete the program
+            await tx.programa.delete({
+                where: { id: programaId }
+            });
         });
 
         revalidatePath("/admin");
