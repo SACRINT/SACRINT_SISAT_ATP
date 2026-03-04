@@ -19,6 +19,7 @@ export async function PUT(
 
         const data = await request.json();
         const { nombre, descripcion, tipo, numArchivos, orden } = data;
+        console.log("[PUT /api/programas] Received data:", { nombre, tipo, numArchivos, programaId });
 
         // Step 1: Fetch existing program to check if 'tipo' is changing
         const existingPrograma = await prisma.programa.findUnique({
@@ -30,6 +31,7 @@ export async function PUT(
         }
 
         const isTipoChanging = tipo !== undefined && tipo !== existingPrograma.tipo;
+        console.log("[PUT /api/programas] Tipo check:", { receivedTipo: tipo, existingTipo: existingPrograma.tipo, isTipoChanging });
 
         // Step 2: Update the program immediately (fast operation)
         const updatedPrograma = await prisma.programa.update({
@@ -46,17 +48,20 @@ export async function PUT(
         // Step 3: If 'tipo' changed, recreate periods and deliveries
         // This is done AFTER the program update is already committed
         if (isTipoChanging) {
+            console.log("[PUT /api/programas] TIPO IS CHANGING - deleting old periods...");
             // Delete all entregas linked to this program's periods (single query using relation filter)
-            await prisma.entrega.deleteMany({
+            const deletedEntregas = await prisma.entrega.deleteMany({
                 where: {
                     periodoEntrega: { programaId }
                 }
             });
+            console.log("[PUT /api/programas] Deleted entregas:", deletedEntregas.count);
 
             // Delete all periods for this program (single query)
-            await prisma.periodoEntrega.deleteMany({
+            const deletedPeriods = await prisma.periodoEntrega.deleteMany({
                 where: { programaId }
             });
+            console.log("[PUT /api/programas] Deleted periods:", deletedPeriods.count);
 
             // Get active school cycle and all schools
             const cicloActivo = await prisma.cicloEscolar.findFirst({ where: { activo: true } });
@@ -94,7 +99,12 @@ export async function PUT(
                         })),
                     });
                 }
+                console.log("[PUT /api/programas] Created", periodConfigs.length, "new periods for tipo:", tipo);
+            } else {
+                console.log("[PUT /api/programas] WARNING: No cicloActivo or no escuelas found!", { cicloActivo: !!cicloActivo, escuelasCount: escuelas.length });
             }
+        } else {
+            console.log("[PUT /api/programas] Tipo NOT changing, skipping period recreation.");
         }
 
         // Re-fetch the complete programa with all periods and entregas
