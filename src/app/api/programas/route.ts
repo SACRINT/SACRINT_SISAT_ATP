@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -67,6 +68,8 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        revalidatePath("/admin");
+        revalidatePath("/director");
         return NextResponse.json(newPrograma, { status: 201 });
     } catch (error: unknown) {
         console.error("Error creating programa:", error);

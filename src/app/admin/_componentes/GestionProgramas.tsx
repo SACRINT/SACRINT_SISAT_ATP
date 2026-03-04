@@ -1,7 +1,7 @@
 "use strict";
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Edit2, Save, Trash2, X, FileText, Settings, AlignLeft, Layers, Bell, ToggleLeft, ToggleRight, Send } from "lucide-react";
 
@@ -22,6 +22,11 @@ interface ProgramaAdmin {
 
 export default function GestionProgramas({ inicialProgramas }: { inicialProgramas: ProgramaAdmin[] }) {
     const [programas, setProgramas] = useState<ProgramaAdmin[]>(inicialProgramas);
+
+    useEffect(() => {
+        setProgramas(inicialProgramas);
+    }, [inicialProgramas]);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -105,6 +106,8 @@ export async function PUT(
             }
         }
 
+        revalidatePath("/admin");
+        revalidatePath("/director");
         return NextResponse.json(updatedPrograma);
     } catch (error: unknown) {
         console.error("Error updating programa:", error);
@@ -143,6 +146,8 @@ export async function DELETE(
             where: { id: programaId }
         });
 
+        revalidatePath("/admin");
+        revalidatePath("/director");
         return NextResponse.json({ success: true });
     } catch (error: unknown) {
         console.error("Error deleting programa:", error);
