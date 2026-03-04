@@ -66,12 +66,15 @@ export async function PUT(
                     { mes: 1, año: 2026 }, { mes: 2, año: 2026 }, { mes: 3, año: 2026 }, { mes: 4, año: 2026 }, { mes: 5, año: 2026 }, { mes: 6, año: 2026 }, { mes: 7, año: 2026 }
                 ];
 
+                // Optimization: Prepare bulk creations to avoid sequential delays
+                const newEntregas: { escuelaId: string, periodoEntregaId: string }[] = [];
+
                 if (tipo === "ANUAL") {
                     const periodo = await prisma.periodoEntrega.create({
                         data: { cicloEscolarId: cicloActivo.id, programaId: updatedPrograma.id, activo: false }
                     });
                     for (const esc of escuelas) {
-                        await prisma.entrega.create({ data: { escuelaId: esc.id, periodoEntregaId: periodo.id } });
+                        newEntregas.push({ escuelaId: esc.id, periodoEntregaId: periodo.id });
                     }
                 } else if (tipo === "SEMESTRAL") {
                     for (const sem of [1, 2]) {
@@ -79,7 +82,7 @@ export async function PUT(
                             data: { cicloEscolarId: cicloActivo.id, programaId: updatedPrograma.id, semestre: sem, activo: false }
                         });
                         for (const esc of escuelas) {
-                            await prisma.entrega.create({ data: { escuelaId: esc.id, periodoEntregaId: periodo.id } });
+                            newEntregas.push({ escuelaId: esc.id, periodoEntregaId: periodo.id });
                         }
                     }
                 } else if (tipo === "MENSUAL") {
@@ -88,9 +91,16 @@ export async function PUT(
                             data: { cicloEscolarId: cicloActivo.id, programaId: updatedPrograma.id, mes, activo: false }
                         });
                         for (const esc of escuelas) {
-                            await prisma.entrega.create({ data: { escuelaId: esc.id, periodoEntregaId: periodo.id } });
+                            newEntregas.push({ escuelaId: esc.id, periodoEntregaId: periodo.id });
                         }
                     }
+                }
+
+                // Bulk insert all entregas
+                if (newEntregas.length > 0) {
+                    await prisma.entrega.createMany({
+                        data: newEntregas
+                    });
                 }
             }
         }
