@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
     ToggleLeft,
     ToggleRight,
@@ -11,6 +11,10 @@ import {
     Trash2,
     RefreshCw,
     Download,
+    Upload,
+    FileText,
+    ExternalLink,
+    CheckCircle2,
 } from "lucide-react";
 
 interface EscuelaOlimpiada {
@@ -25,8 +29,11 @@ export default function GestionOlimpiada() {
     const [loading, setLoading] = useState(true);
     const [activo, setActivo] = useState(false);
     const [toggling, setToggling] = useState(false);
+    const [convocatoriaUrl, setConvocatoriaUrl] = useState<string | null>(null);
     const [escuelas, setEscuelas] = useState<EscuelaOlimpiada[]>([]);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchData = useCallback(async () => {
         try {
@@ -36,6 +43,7 @@ export default function GestionOlimpiada() {
             ]);
             const config = await configRes.json();
             setActivo(config.activo ?? false);
+            setConvocatoriaUrl(config.convocatoriaUrl ?? null);
 
             if (inscRes.ok) {
                 const inscData = await inscRes.json();
@@ -66,6 +74,31 @@ export default function GestionOlimpiada() {
             setMessage({ type: "error", text: "Error al cambiar estado" });
         } finally {
             setToggling(false);
+        }
+    };
+
+    const handleUploadConvocatoria = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        setMessage(null);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("field", "convocatoria");
+            const res = await fetch("/api/admin/olimpiada-config", { method: "POST", body: formData });
+            if (res.ok) {
+                const config = await res.json();
+                setConvocatoriaUrl(config.convocatoriaUrl);
+                setMessage({ type: "success", text: "Convocatoria subida correctamente" });
+            } else {
+                throw new Error("Error al subir");
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error al subir la convocatoria" });
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         }
     };
 
@@ -115,11 +148,7 @@ export default function GestionOlimpiada() {
                     <GraduationCap size={24} /> Olimpiada de Matemáticas 2026
                 </h2>
                 <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-                    <button
-                        className="btn btn-outline"
-                        onClick={() => fetchData()}
-                        style={{ fontSize: "0.8125rem" }}
-                    >
+                    <button className="btn btn-outline" onClick={() => fetchData()} style={{ fontSize: "0.8125rem" }}>
                         <RefreshCw size={16} /> Actualizar
                     </button>
                     <button
@@ -132,13 +161,7 @@ export default function GestionOlimpiada() {
                             color: activo ? "var(--success)" : "var(--text-muted)",
                         }}
                     >
-                        {toggling ? (
-                            <Loader2 size={24} className="spin" />
-                        ) : activo ? (
-                            <ToggleRight size={32} />
-                        ) : (
-                            <ToggleLeft size={32} />
-                        )}
+                        {toggling ? <Loader2 size={24} className="spin" /> : activo ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
                         {activo ? "Activo" : "Inactivo"}
                     </button>
                 </div>
@@ -151,6 +174,48 @@ export default function GestionOlimpiada() {
                     <button onClick={() => setMessage(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>×</button>
                 </div>
             )}
+
+            {/* Convocatoria Upload */}
+            <div className="card" style={{ marginBottom: "1.5rem" }}>
+                <h3 style={{ margin: "0 0 1rem", fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <FileText size={18} /> Convocatoria
+                </h3>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                    {convocatoriaUrl ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1 }}>
+                            <CheckCircle2 size={18} style={{ color: "var(--success)", flexShrink: 0 }} />
+                            <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>Documento cargado</span>
+                            <a
+                                href={convocatoriaUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-outline"
+                                style={{ fontSize: "0.8125rem", padding: "0.3rem 0.75rem" }}
+                            >
+                                <ExternalLink size={14} /> Ver
+                            </a>
+                        </div>
+                    ) : (
+                        <span style={{ fontSize: "0.875rem", color: "var(--text-muted)", flex: 1 }}>
+                            No se ha subido la convocatoria aún
+                        </span>
+                    )}
+                    <label
+                        className="btn btn-primary"
+                        style={{ fontSize: "0.8125rem", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }}
+                    >
+                        {uploading ? <><Loader2 size={16} className="spin" /> Subiendo...</> : <><Upload size={16} /> {convocatoriaUrl ? "Reemplazar" : "Subir Convocatoria"}</>}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={handleUploadConvocatoria}
+                            disabled={uploading}
+                            style={{ display: "none" }}
+                        />
+                    </label>
+                </div>
+            </div>
 
             {/* Stats */}
             <div className="card" style={{ marginBottom: "1.5rem" }}>

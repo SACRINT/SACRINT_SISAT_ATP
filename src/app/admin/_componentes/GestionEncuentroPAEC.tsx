@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
     ToggleLeft,
     ToggleRight,
@@ -11,6 +11,10 @@ import {
     Trash2,
     RefreshCw,
     Download,
+    Upload,
+    FileText,
+    ExternalLink,
+    CheckCircle2,
 } from "lucide-react";
 
 interface AlumnoPAEC {
@@ -33,9 +37,15 @@ export default function GestionEncuentroPAEC() {
     const [loading, setLoading] = useState(true);
     const [activo, setActivo] = useState(false);
     const [toggling, setToggling] = useState(false);
+    const [convocatoriaUrl, setConvocatoriaUrl] = useState<string | null>(null);
+    const [encuentroUrl, setEncuentroUrl] = useState<string | null>(null);
     const [escuelas, setEscuelas] = useState<EscuelaPAEC[]>([]);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const [uploadingConv, setUploadingConv] = useState(false);
+    const [uploadingEnc, setUploadingEnc] = useState(false);
+    const convFileRef = useRef<HTMLInputElement>(null);
+    const encFileRef = useRef<HTMLInputElement>(null);
 
     const fetchData = useCallback(async () => {
         try {
@@ -45,6 +55,8 @@ export default function GestionEncuentroPAEC() {
             ]);
             const config = await configRes.json();
             setActivo(config.activo ?? false);
+            setConvocatoriaUrl(config.convocatoriaUrl ?? null);
+            setEncuentroUrl(config.encuentroUrl ?? null);
 
             if (inscRes.ok) {
                 const inscData = await inscRes.json();
@@ -75,6 +87,36 @@ export default function GestionEncuentroPAEC() {
             setMessage({ type: "error", text: "Error al cambiar estado" });
         } finally {
             setToggling(false);
+        }
+    };
+
+    const handleUploadFile = async (file: File, field: "convocatoria" | "encuentro") => {
+        if (field === "convocatoria") setUploadingConv(true);
+        else setUploadingEnc(true);
+        setMessage(null);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("field", field);
+            const res = await fetch("/api/admin/encuentro-paec-config", { method: "POST", body: formData });
+            if (res.ok) {
+                const config = await res.json();
+                setConvocatoriaUrl(config.convocatoriaUrl ?? convocatoriaUrl);
+                setEncuentroUrl(config.encuentroUrl ?? encuentroUrl);
+                setMessage({ type: "success", text: `${field === "convocatoria" ? "Convocatoria" : "Documento Encuentro PAEC"} subido correctamente` });
+            } else {
+                throw new Error("Error al subir");
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error al subir el documento" });
+        } finally {
+            if (field === "convocatoria") {
+                setUploadingConv(false);
+                if (convFileRef.current) convFileRef.current.value = "";
+            } else {
+                setUploadingEnc(false);
+                if (encFileRef.current) encFileRef.current.value = "";
+            }
         }
     };
 
@@ -118,6 +160,34 @@ export default function GestionEncuentroPAEC() {
         );
     }
 
+    const renderUploadRow = (label: string, url: string | null, field: "convocatoria" | "encuentro", uploading: boolean, ref: React.RefObject<HTMLInputElement | null>) => (
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", padding: "0.75rem 0", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontSize: "0.875rem", fontWeight: 600, minWidth: "120px" }}>{label}</span>
+            {url ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1 }}>
+                    <CheckCircle2 size={18} style={{ color: "var(--success)", flexShrink: 0 }} />
+                    <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>Cargado</span>
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ fontSize: "0.8125rem", padding: "0.3rem 0.75rem" }}>
+                        <ExternalLink size={14} /> Ver
+                    </a>
+                </div>
+            ) : (
+                <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)", flex: 1 }}>No cargado</span>
+            )}
+            <label className="btn btn-primary" style={{ fontSize: "0.8125rem", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }}>
+                {uploading ? <><Loader2 size={16} className="spin" /> Subiendo...</> : <><Upload size={16} /> {url ? "Reemplazar" : "Subir"}</>}
+                <input
+                    ref={ref}
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadFile(f, field); }}
+                    disabled={uploading}
+                    style={{ display: "none" }}
+                />
+            </label>
+        </div>
+    );
+
     return (
         <div>
             {/* Header */}
@@ -152,6 +222,15 @@ export default function GestionEncuentroPAEC() {
                     <button onClick={() => setMessage(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>×</button>
                 </div>
             )}
+
+            {/* Document Uploads */}
+            <div className="card" style={{ marginBottom: "1.5rem" }}>
+                <h3 style={{ margin: "0 0 0.5rem", fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <FileText size={18} /> Documentos
+                </h3>
+                {renderUploadRow("Convocatoria", convocatoriaUrl, "convocatoria", uploadingConv, convFileRef)}
+                {renderUploadRow("Encuentro PAEC", encuentroUrl, "encuentro", uploadingEnc, encFileRef)}
+            </div>
 
             {/* Stats */}
             <div className="card" style={{ marginBottom: "1.5rem" }}>
