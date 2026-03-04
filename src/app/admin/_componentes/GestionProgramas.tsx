@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Edit2, Save, Trash2, X, FileText, Settings, AlignLeft, Layers, Bell, ToggleLeft, ToggleRight, Send } from "lucide-react";
 
 interface PeriodoAdmin {
@@ -25,6 +26,7 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const router = useRouter();
 
     // Modal de Recordatorios
     const [isSendModalOpen, setIsSendModalOpen] = useState(false);
@@ -107,6 +109,7 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
             setTimeout(() => {
                 handleCloseModal();
                 setMessage(null);
+                router.refresh(); // Sync state with parent components via server refetch
             }, 1500);
 
         } catch (error: any) {
@@ -136,7 +139,10 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
 
             setProgramas(prev => prev.filter(p => p.id !== id));
             setMessage({ type: "success", text: "Programa eliminado." });
-            setTimeout(() => setMessage(null), 3000);
+            setTimeout(() => {
+                setMessage(null);
+                router.refresh(); // Sync state with parent components
+            }, 3000);
         } catch (error: any) {
             setMessage({ type: "error", text: error.message });
         } finally {
