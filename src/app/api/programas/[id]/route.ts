@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+// Deployment trigger: 2026-03-04T09:22:00
 export async function PUT(
     request: NextRequest,
     context: { params: Promise<{ id: string }> }
