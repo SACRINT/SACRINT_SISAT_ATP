@@ -104,18 +104,28 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
             const savedPrograma = await res.json();
 
             if (editingId) {
-                // Use the complete response (now includes periods) to update local state
+                // Check if tipo changed - this means periods were recreated
+                const originalProg = programas.find(p => p.id === editingId);
+                const tipoChanged = originalProg && originalProg.tipo !== formData.tipo;
+
                 setProgramas(prev => prev.map(p => p.id === editingId ? savedPrograma : p));
                 setMessage({ type: "success", text: "Programa actualizado exitosamente." });
+                handleCloseModal();
+
+                if (tipoChanged) {
+                    // Force hard reload when tipo changes to ensure ALL sections get fresh data
+                    setTimeout(() => window.location.reload(), 500);
+                } else {
+                    router.refresh();
+                    setTimeout(() => setMessage(null), 3000);
+                }
             } else {
                 setProgramas(prev => [...prev, savedPrograma]);
                 setMessage({ type: "success", text: "Programa creado exitosamente." });
+                handleCloseModal();
+                router.refresh();
+                setTimeout(() => setMessage(null), 3000);
             }
-
-            // Close modal and immediately trigger server refresh to sync all sibling components
-            handleCloseModal();
-            router.refresh();
-            setTimeout(() => setMessage(null), 3000);
 
         } catch (error: any) {
             setMessage({ type: "error", text: error.message });
