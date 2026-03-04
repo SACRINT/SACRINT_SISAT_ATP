@@ -97,9 +97,37 @@ export async function PUT(
             }
         }
 
+        // Re-fetch the complete programa with all periods and entregas
+        // so the frontend gets accurate data immediately
+        const cicloActivoForQuery = await prisma.cicloEscolar.findFirst({ where: { activo: true } });
+        const completePrograma = await prisma.programa.findUnique({
+            where: { id: programaId },
+            include: {
+                periodos: {
+                    ...(cicloActivoForQuery ? { where: { cicloEscolarId: cicloActivoForQuery.id } } : {}),
+                    orderBy: [{ mes: "asc" }, { semestre: "asc" }],
+                    include: {
+                        entregas: {
+                            include: {
+                                escuela: true,
+                                archivos: { where: { tipo: "ENTREGA" } },
+                                correcciones: {
+                                    include: {
+                                        admin: { select: { id: true, nombre: true } },
+                                        archivo: true,
+                                    },
+                                    orderBy: { createdAt: "desc" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
         revalidatePath("/admin");
         revalidatePath("/director");
-        return NextResponse.json(updatedPrograma);
+        return NextResponse.json(completePrograma);
     } catch (error: unknown) {
         console.error("Error updating programa:", error);
         return NextResponse.json({ error: "Error al actualizar el programa. Verifique datos." }, { status: 500 });

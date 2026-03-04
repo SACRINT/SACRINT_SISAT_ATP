@@ -104,18 +104,18 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
             const savedPrograma = await res.json();
 
             if (editingId) {
-                setProgramas(prev => prev.map(p => p.id === editingId ? { ...p, ...savedPrograma } : p));
+                // Use the complete response (now includes periods) to update local state
+                setProgramas(prev => prev.map(p => p.id === editingId ? savedPrograma : p));
                 setMessage({ type: "success", text: "Programa actualizado exitosamente." });
             } else {
-                setProgramas(prev => [...prev, { ...savedPrograma, periodos: [] }]);
+                setProgramas(prev => [...prev, savedPrograma]);
                 setMessage({ type: "success", text: "Programa creado exitosamente." });
             }
 
-            setTimeout(() => {
-                handleCloseModal();
-                setMessage(null);
-                router.refresh(); // Sync state with parent components via server refetch
-            }, 1500);
+            // Close modal and immediately trigger server refresh to sync all sibling components
+            handleCloseModal();
+            router.refresh();
+            setTimeout(() => setMessage(null), 3000);
 
         } catch (error: any) {
             setMessage({ type: "error", text: error.message });

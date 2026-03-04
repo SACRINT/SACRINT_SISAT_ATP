@@ -68,9 +68,35 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Re-fetch the complete programa with periods so frontend gets accurate data
+        const completePrograma = await prisma.programa.findUnique({
+            where: { id: newPrograma.id },
+            include: {
+                periodos: {
+                    ...(cicloActivo ? { where: { cicloEscolarId: cicloActivo.id } } : {}),
+                    orderBy: [{ mes: "asc" }, { semestre: "asc" }],
+                    include: {
+                        entregas: {
+                            include: {
+                                escuela: true,
+                                archivos: { where: { tipo: "ENTREGA" } },
+                                correcciones: {
+                                    include: {
+                                        admin: { select: { id: true, nombre: true } },
+                                        archivo: true,
+                                    },
+                                    orderBy: { createdAt: "desc" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
         revalidatePath("/admin");
         revalidatePath("/director");
-        return NextResponse.json(newPrograma, { status: 201 });
+        return NextResponse.json(completePrograma, { status: 201 });
     } catch (error: unknown) {
         console.error("Error creating programa:", error);
         return NextResponse.json({ error: "No se pudo crear el programa. Verifique que el nombre no esté duplicado." }, { status: 500 });
