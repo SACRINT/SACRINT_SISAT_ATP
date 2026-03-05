@@ -139,6 +139,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
     const [alumnos, setAlumnos] = useState<Alumno[]>([
         { nombre: "", curp: "", nia: "", nss: "", disciplina: "" },
     ]);
+    const [catalogoDisciplinas, setCatalogoDisciplinas] = useState<string[]>([]);
 
     // ── RESPONSABLES POR DISCIPLINA (se asignan después de alumnos) ──
     const [responsablesPorDisciplina, setResponsablesPorDisciplina] = useState<
@@ -178,19 +179,40 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
         });
     }, [disciplinasAgrupadas]);
 
-    // Cargar config
+    // Cargar configuración y catálogo de disciplinas
     useEffect(() => {
         setLoadingConfig(true);
-        fetch("/api/circular05/config")
-            .then((r) => r.json())
-            .then((c) => {
-                setModuloActivo(c.activo === true);
-                setDestinatario(c.destinatario || "");
-                setCargoDestinatario(c.cargoDestinatario || "");
-                setZonaDestinatario(c.zonaDestinatario || "");
-            })
-            .catch(() => { setModuloActivo(false); })
-            .finally(() => { setLoadingConfig(false); });
+        const cargarDatosIniciales = async () => {
+            let configActivo = false;
+            try {
+                const [configRes, discRes] = await Promise.all([
+                    fetch("/api/circular05/config"),
+                    fetch("/api/circular05/disciplinas"),
+                ]);
+
+                if (configRes.ok) {
+                    const c = await configRes.json();
+                    configActivo = c.activo === true;
+                    setDestinatario(c.destinatario || "");
+                    setCargoDestinatario(c.cargoDestinatario || "");
+                    setZonaDestinatario(c.zonaDestinatario || "");
+                } else {
+                    configActivo = false;
+                }
+
+                if (discRes.ok) {
+                    const discs = await discRes.json();
+                    setCatalogoDisciplinas(Array.isArray(discs) ? discs.map((d: any) => d.nombre) : []);
+                }
+            } catch (error) {
+                console.error("Error loading initial data:", error);
+                configActivo = false; // Ensure module is not active on error
+            } finally {
+                setModuloActivo(configActivo);
+                setLoadingConfig(false);
+            }
+        };
+        cargarDatosIniciales();
     }, []);
 
     // ─── Función para limpiar formulario ───
@@ -697,7 +719,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                         <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "0.6rem 0.75rem", marginBottom: "0.75rem", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
                             <Info size={16} style={{ color: "#3b82f6", flexShrink: 0, marginTop: "2px" }} />
                             <p style={{ margin: 0, fontSize: "0.75rem", color: "#1e40af" }}>
-                                <strong>Importante:</strong> Escriba la disciplina de cada alumno (ej: CANTO, BAILE, DANZA). El sistema agrupará automáticamente los alumnos por disciplina y calculará cuántos responsables se necesitan según la Circular 05 (2 docentes por cada 40 o menos alumnos).
+                                <strong>Importante:</strong> Seleccione la disciplina de cada alumno del catálogo. Si no aparece la disciplina deseada, seleccione &quot;Otra...&quot; para escribirla manualmente. El sistema agrupará automáticamente los alumnos por disciplina y calculará cuántos responsables se necesitan según la Circular 05 (2 docentes por cada 40 o menos alumnos).
                             </p>
                         </div>
 
@@ -722,7 +744,39 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                             <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem", textTransform: "uppercase" }} value={alumno.curp} onChange={(e) => updateAlumno(i, "curp", e.target.value.toUpperCase())} placeholder="CURP" maxLength={18} /></td>
                                             <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.nia} onChange={(e) => updateAlumno(i, "nia", e.target.value)} placeholder="NIA" /></td>
                                             <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.nss} onChange={(e) => updateAlumno(i, "nss", e.target.value)} placeholder="NSS" /></td>
-                                            <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem", textTransform: "uppercase", fontWeight: 600 }} value={alumno.disciplina} onChange={(e) => updateAlumno(i, "disciplina", e.target.value)} placeholder="Ej: CANTO" /></td>
+                                            <td style={{ padding: "0.3rem" }}>
+                                                {catalogoDisciplinas.length > 0 ? (
+                                                    alumno.disciplina && !catalogoDisciplinas.includes(alumno.disciplina.toUpperCase()) && alumno.disciplina !== "" ? (
+                                                        /* Si eligió "Otra" y escribió un valor personalizado */
+                                                        <div style={{ display: "flex", gap: "0.25rem" }}>
+                                                            <input style={{ ...inputStyle, padding: "0.3rem", textTransform: "uppercase", fontWeight: 600, flex: 1 }} value={alumno.disciplina} onChange={(e) => updateAlumno(i, "disciplina", e.target.value)} placeholder="Disciplina" />
+                                                            <button onClick={() => updateAlumno(i, "disciplina", "")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "0.75rem" }} title="Volver al catálogo">✕</button>
+                                                        </div>
+                                                    ) : (
+                                                        <select
+                                                            style={{ ...inputStyle, padding: "0.3rem", fontWeight: 600 }}
+                                                            value={catalogoDisciplinas.includes(alumno.disciplina.toUpperCase()) ? alumno.disciplina.toUpperCase() : alumno.disciplina === "" ? "" : "__otra__"}
+                                                            onChange={(e) => {
+                                                                if (e.target.value === "__otra__") {
+                                                                    updateAlumno(i, "disciplina", " ");
+                                                                    /* ponemos espacio para activar el modo input, el usuario borrará */
+                                                                } else {
+                                                                    updateAlumno(i, "disciplina", e.target.value);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <option value="">— Seleccione —</option>
+                                                            {catalogoDisciplinas.map((d) => (
+                                                                <option key={d} value={d}>{d}</option>
+                                                            ))}
+                                                            <option value="__otra__">Otra...</option>
+                                                        </select>
+                                                    )
+                                                ) : (
+                                                    /* Fallback: input libre si no hay catálogo */
+                                                    <input style={{ ...inputStyle, padding: "0.3rem", textTransform: "uppercase", fontWeight: 600 }} value={alumno.disciplina} onChange={(e) => updateAlumno(i, "disciplina", e.target.value)} placeholder="EJ: CANTO" />
+                                                )}
+                                            </td>
                                             <td style={{ padding: "0.3rem", textAlign: "center" }}>
                                                 <button onClick={() => removerAlumno(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)" }}>
                                                     <Trash2 size={14} />

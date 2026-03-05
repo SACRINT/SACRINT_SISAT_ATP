@@ -237,6 +237,14 @@ model Circular05Descarga {
   escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
 }
 
+model Circular05Disciplina {
+  id     String  @id @default(cuid())
+  nombre String  @unique
+  area   String  @default("")
+  activo Boolean @default(true)
+  orden  Int     @default(0)
+}
+
 // ─── Olimpiada de Matemáticas 2026 ───────────────
 
 model OlimpiadaConfig {

@@ -3,8 +3,16 @@
 import { useState, useEffect, useCallback } from "react";
 import {
     Settings, ToggleLeft, ToggleRight, Download, RefreshCw, Loader2,
-    CheckCircle2, XCircle, FileText, School,
+    CheckCircle2, XCircle, FileText, School, Plus, Trash2, Edit3, Save, X, List,
 } from "lucide-react";
+
+interface Disciplina {
+    id: string;
+    nombre: string;
+    area: string;
+    activo: boolean;
+    orden: number;
+}
 
 interface DescargaInfo {
     escuelaId: string;
@@ -30,6 +38,13 @@ export default function GestionCircular05() {
     const [updating, setUpdating] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+    // Disciplinas CRUD
+    const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
+    const [nuevaDisc, setNuevaDisc] = useState({ nombre: "", area: "" });
+    const [editandoId, setEditandoId] = useState<string | null>(null);
+    const [editData, setEditData] = useState({ nombre: "", area: "" });
+    const [discLoading, setDiscLoading] = useState(false);
+
     // Editable fields
     const [destinatario, setDestinatario] = useState("");
     const [cargoDestinatario, setCargoDestinatario] = useState("");
@@ -38,17 +53,20 @@ export default function GestionCircular05() {
     const cargarDatos = useCallback(async () => {
         setLoading(true);
         try {
-            const [configRes, descargasRes] = await Promise.all([
+            const [configRes, descargasRes, discRes] = await Promise.all([
                 fetch("/api/circular05/config"),
                 fetch("/api/circular05/descargas"),
+                fetch("/api/circular05/disciplinas"),
             ]);
             const configData = await configRes.json();
             const descargasData = await descargasRes.json();
+            const discData = await discRes.json();
             setConfig(configData);
             setDestinatario(configData.destinatario || "");
             setCargoDestinatario(configData.cargoDestinatario || "");
             setZonaDestinatario(configData.zonaDestinatario || "");
             setDescargas(Array.isArray(descargasData) ? descargasData : []);
+            setDisciplinas(Array.isArray(discData) ? discData : []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -97,6 +115,67 @@ export default function GestionCircular05() {
         } finally {
             setUpdating(false);
         }
+    };
+
+    // ─── Disciplinas CRUD ───
+    const agregarDisciplina = async () => {
+        if (!nuevaDisc.nombre.trim()) return;
+        setDiscLoading(true);
+        try {
+            const res = await fetch("/api/circular05/disciplinas", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(nuevaDisc),
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+            const disc = await res.json();
+            setDisciplinas(prev => [...prev, disc]);
+            setNuevaDisc({ nombre: "", area: "" });
+            setMessage({ type: "success", text: `Disciplina "${disc.nombre}" creada.` });
+        } catch (err: any) {
+            setMessage({ type: "error", text: err.message || "Error al crear disciplina" });
+        } finally { setDiscLoading(false); }
+    };
+
+    const toggleDisciplina = async (disc: Disciplina) => {
+        try {
+            const res = await fetch("/api/circular05/disciplinas", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: disc.id, activo: !disc.activo }),
+            });
+            if (!res.ok) throw new Error();
+            const updated = await res.json();
+            setDisciplinas(prev => prev.map(d => d.id === updated.id ? updated : d));
+        } catch { setMessage({ type: "error", text: "Error al toggle disciplina" }); }
+    };
+
+    const guardarEdicion = async () => {
+        if (!editandoId || !editData.nombre.trim()) return;
+        try {
+            const res = await fetch("/api/circular05/disciplinas", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: editandoId, ...editData }),
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+            const updated = await res.json();
+            setDisciplinas(prev => prev.map(d => d.id === updated.id ? updated : d));
+            setEditandoId(null);
+            setMessage({ type: "success", text: "Disciplina actualizada." });
+        } catch (err: any) {
+            setMessage({ type: "error", text: err.message || "Error al editar" });
+        }
+    };
+
+    const eliminarDisciplina = async (id: string, nombre: string) => {
+        if (!confirm(`¿Eliminar la disciplina "${nombre}"? Esta acción no se puede deshacer.`)) return;
+        try {
+            const res = await fetch(`/api/circular05/disciplinas?id=${id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error();
+            setDisciplinas(prev => prev.filter(d => d.id !== id));
+            setMessage({ type: "success", text: `Disciplina "${nombre}" eliminada.` });
+        } catch { setMessage({ type: "error", text: "Error al eliminar" }); }
     };
 
     const inputStyle: React.CSSProperties = {
@@ -203,6 +282,108 @@ export default function GestionCircular05() {
                 >
                     {updating ? "Guardando..." : "💾 Guardar Cambios"}
                 </button>
+            </div>
+
+            {/* ═══ Catálogo de Disciplinas ═══ */}
+            <div className="card">
+                <h3 style={{ margin: "0 0 0.5rem" }}>
+                    <List size={18} style={{ verticalAlign: "middle", marginRight: "0.5rem" }} />
+                    Catálogo de Disciplinas
+                </h3>
+                <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
+                    Las disciplinas aquí configuradas aparecerán como opciones en el formulario del director.
+                </p>
+
+                {/* Formulario agregar */}
+                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+                    <input
+                        style={{ ...inputStyle, flex: 2, minWidth: "200px" }}
+                        value={nuevaDisc.nombre}
+                        onChange={(e) => setNuevaDisc(p => ({ ...p, nombre: e.target.value }))}
+                        placeholder="Nombre de la disciplina (ej: CANTO SOLISTA)"
+                        onKeyDown={(e) => e.key === "Enter" && agregarDisciplina()}
+                    />
+                    <input
+                        style={{ ...inputStyle, flex: 1, minWidth: "150px" }}
+                        value={nuevaDisc.area}
+                        onChange={(e) => setNuevaDisc(p => ({ ...p, area: e.target.value }))}
+                        placeholder="Área (ej: Cultural)"
+                        onKeyDown={(e) => e.key === "Enter" && agregarDisciplina()}
+                    />
+                    <button
+                        className="btn btn-primary"
+                        onClick={agregarDisciplina}
+                        disabled={discLoading || !nuevaDisc.nombre.trim()}
+                        style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem", whiteSpace: "nowrap" }}
+                    >
+                        <Plus size={14} /> Agregar
+                    </button>
+                </div>
+
+                {/* Tabla de disciplinas */}
+                {disciplinas.length > 0 ? (
+                    <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+                            <thead>
+                                <tr style={{ background: "var(--bg-secondary)" }}>
+                                    <th style={{ padding: "0.5rem 0.75rem", textAlign: "left", borderBottom: "2px solid var(--border)" }}>Nombre</th>
+                                    <th style={{ padding: "0.5rem 0.75rem", textAlign: "left", borderBottom: "2px solid var(--border)" }}>Área</th>
+                                    <th style={{ padding: "0.5rem 0.75rem", textAlign: "center", borderBottom: "2px solid var(--border)", width: "80px" }}>Estado</th>
+                                    <th style={{ padding: "0.5rem 0.75rem", textAlign: "center", borderBottom: "2px solid var(--border)", width: "100px" }}>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {disciplinas.map((disc) => (
+                                    <tr key={disc.id} style={{ borderBottom: "1px solid var(--border)", opacity: disc.activo ? 1 : 0.5 }}>
+                                        <td style={{ padding: "0.5rem 0.75rem" }}>
+                                            {editandoId === disc.id ? (
+                                                <input style={{ ...inputStyle, padding: "0.3rem 0.5rem" }} value={editData.nombre} onChange={(e) => setEditData(p => ({ ...p, nombre: e.target.value }))} />
+                                            ) : (
+                                                <span style={{ fontWeight: 600 }}>{disc.nombre}</span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: "0.5rem 0.75rem" }}>
+                                            {editandoId === disc.id ? (
+                                                <input style={{ ...inputStyle, padding: "0.3rem 0.5rem" }} value={editData.area} onChange={(e) => setEditData(p => ({ ...p, area: e.target.value }))} />
+                                            ) : (
+                                                <span style={{ color: disc.area ? "var(--text)" : "var(--text-muted)" }}>{disc.area || "—"}</span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                                            <button
+                                                onClick={() => toggleDisciplina(disc)}
+                                                style={{ background: "none", border: "none", cursor: "pointer" }}
+                                                title={disc.activo ? "Desactivar" : "Activar"}
+                                            >
+                                                {disc.activo
+                                                    ? <CheckCircle2 size={18} style={{ color: "var(--success)" }} />
+                                                    : <XCircle size={18} style={{ color: "#ef4444" }} />}
+                                            </button>
+                                        </td>
+                                        <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                                            {editandoId === disc.id ? (
+                                                <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
+                                                    <button onClick={guardarEdicion} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--success)" }} title="Guardar"><Save size={16} /></button>
+                                                    <button onClick={() => setEditandoId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }} title="Cancelar"><X size={16} /></button>
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
+                                                    <button onClick={() => { setEditandoId(disc.id); setEditData({ nombre: disc.nombre, area: disc.area }); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }} title="Editar"><Edit3 size={16} /></button>
+                                                    <button onClick={() => eliminarDisciplina(disc.id, disc.nombre)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444" }} title="Eliminar"><Trash2 size={16} /></button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-muted)" }}>
+                        <List size={32} style={{ opacity: 0.3, marginBottom: "0.5rem" }} />
+                        <p style={{ margin: 0 }}>No hay disciplinas configuradas. Agregue la primera arriba.</p>
+                    </div>
+                )}
             </div>
 
             {/* ═══ Estadísticas ═══ */}
