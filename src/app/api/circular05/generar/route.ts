@@ -49,7 +49,12 @@ export async function POST(req: Request) {
         });
 
         // Devolver el archivo .docx
-        const nombreArchivo = `Proyecto_Circular05_${escuela.cct}_${datos.disciplinaRama.replace(/\s+/g, "_")}.docx`;
+        const discLabel = datos.gruposPorDisciplina && datos.gruposPorDisciplina.length > 0
+            ? (datos.gruposPorDisciplina.length === 1
+                ? datos.gruposPorDisciplina[0].disciplina.replace(/\s+/g, "_")
+                : "MultiDisciplinas")
+            : (datos.disciplinaRama || "General").replace(/\s+/g, "_");
+        const nombreArchivo = `Proyecto_Circular05_${escuela.cct}_${discLabel}.docx`;
 
         return new NextResponse(new Uint8Array(buffer), {
             status: 200,

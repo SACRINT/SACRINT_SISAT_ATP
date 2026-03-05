@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     FileText, Download, Plus, Trash2, ClipboardCheck, ChevronDown, ChevronUp,
-    AlertTriangle, CheckCircle2, Info, Loader2, RotateCcw, XCircle,
+    AlertTriangle, CheckCircle2, Info, Loader2, RotateCcw, XCircle, Users, Shield,
 } from "lucide-react";
 
 // ─── Tipos ────────────────────────────────────────
@@ -13,7 +13,7 @@ interface Alumno {
 interface Itinerario {
     hora: string; actividad: string; lugar: string;
 }
-interface Docente {
+interface ResponsableDisciplina {
     nombre: string; cargo: string;
 }
 
@@ -64,10 +64,16 @@ const ITINERARIO_INICIAL: Itinerario[] = [
     { hora: "", actividad: "LLEGADA APROXIMADA", lugar: "" },
 ];
 
+// Ratio Circular 05: 2 docentes por cada 40 o menos alumnos (Media Superior)
+function calcularDocentesRequeridos(numAlumnos: number): number {
+    if (numAlumnos <= 0) return 0;
+    return Math.ceil(numAlumnos / 40) * 2;
+}
+
 // ─── Componente ───────────────────────────────────
 export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props) {
     // Estado del módulo
-    const [moduloActivo, setModuloActivo] = useState<boolean | null>(null); // null = cargando
+    const [moduloActivo, setModuloActivo] = useState<boolean | null>(null);
     const [loadingConfig, setLoadingConfig] = useState(true);
 
     // Estado del checklist
@@ -84,20 +90,16 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
     const [localidad, setLocalidad] = useState(escuela.localidad || "");
     const [lemaInstitucional, setLemaInstitucional] = useState("");
 
-    // Ciclo escolar (auto-calculado: si estamos entre sept-dic → año actual - año siguiente, si ene-jul → año anterior - año actual)
     const calcularCiclo = () => {
         const now = new Date();
-        const month = now.getMonth(); // 0=ene, 7=ago, 8=sep
+        const month = now.getMonth();
         const year = now.getFullYear();
-        if (month >= 8) { // Sep-Dic
-            return `${year}-${year + 1}`;
-        } else { // Ene-Ago
-            return `${year - 1}-${year}`;
-        }
+        if (month >= 8) return `${year}-${year + 1}`;
+        else return `${year - 1}-${year}`;
     };
     const [cicloEscolar, setCicloEscolar] = useState(calcularCiclo());
 
-    // Destinatario (se carga desde config)
+    // Destinatario
     const [destinatario, setDestinatario] = useState("");
     const [cargoDestinatario, setCargoDestinatario] = useState("");
     const [zonaDestinatario, setZonaDestinatario] = useState("");
@@ -130,23 +132,53 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
     const [aseguradora, setAseguradora] = useState("");
     const [numeroPóliza, setNumeroPóliza] = useState("");
 
-    // Custodia
-    const [docentesResponsables, setDocentesResponsables] = useState<Docente[]>([
-        { nombre: "", cargo: "Docente" },
-    ]);
+    // Persona de primeros auxilios
     const [personaPrimerosAuxilios, setPersonaPrimerosAuxilios] = useState("");
 
-    // Alumnos
+    // ── ALUMNOS (se capturan primero) ──
     const [alumnos, setAlumnos] = useState<Alumno[]>([
         { nombre: "", curp: "", nia: "", nss: "", disciplina: "" },
     ]);
+
+    // ── RESPONSABLES POR DISCIPLINA (se asignan después de alumnos) ──
+    const [responsablesPorDisciplina, setResponsablesPorDisciplina] = useState<
+        Record<string, ResponsableDisciplina[]>
+    >({});
 
     // UI State
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [seccionActiva, setSeccionActiva] = useState<string>("checklist");
 
-    // Cargar config y verificar si el módulo está activo
+    // ── Agrupación automática por disciplina ──
+    const disciplinasAgrupadas = useMemo(() => {
+        const mapa = new Map<string, Alumno[]>();
+        for (const a of alumnos) {
+            if (!a.nombre || !a.disciplina) continue;
+            const disc = a.disciplina.trim().toUpperCase();
+            if (!mapa.has(disc)) mapa.set(disc, []);
+            mapa.get(disc)!.push(a);
+        }
+        return mapa;
+    }, [alumnos]);
+
+    // Sincronizar responsables cuando cambian las disciplinas detectadas
+    useEffect(() => {
+        setResponsablesPorDisciplina(prev => {
+            const next: Record<string, ResponsableDisciplina[]> = {};
+            for (const disc of disciplinasAgrupadas.keys()) {
+                if (prev[disc]) {
+                    next[disc] = prev[disc];
+                } else {
+                    // Inicializar con al menos 1 responsable vacío
+                    next[disc] = [{ nombre: "", cargo: "Docente responsable" }];
+                }
+            }
+            return next;
+        });
+    }, [disciplinasAgrupadas]);
+
+    // Cargar config
     useEffect(() => {
         setLoadingConfig(true);
         fetch("/api/circular05/config")
@@ -157,25 +189,18 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                 setCargoDestinatario(c.cargoDestinatario || "");
                 setZonaDestinatario(c.zonaDestinatario || "");
             })
-            .catch(() => {
-                setModuloActivo(false);
-            })
-            .finally(() => {
-                setLoadingConfig(false);
-            });
+            .catch(() => { setModuloActivo(false); })
+            .finally(() => { setLoadingConfig(false); });
     }, []);
 
     // ─── Función para limpiar formulario ───
     const limpiarFormulario = () => {
-        // Mantener datos precargados de escuela
         setDirectorNombre(escuela.director || "");
         setBachilleratoNombre(escuela.nombre || "");
         setCct(escuela.cct || "");
         setMunicipio(escuela.municipio || "");
         setLocalidad(escuela.localidad || "");
         setZonaEscolar(escuela.zonaEscolar || "004");
-
-        // Limpiar campos editables
         setSupervisorNombre("");
         setLemaInstitucional("");
         setCicloEscolar(calcularCiclo());
@@ -197,9 +222,9 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
         setNombreConductor("");
         setAseguradora("");
         setNumeroPóliza("");
-        setDocentesResponsables([{ nombre: "", cargo: "Docente" }]);
         setPersonaPrimerosAuxilios("");
         setAlumnos([{ nombre: "", curp: "", nia: "", nss: "", disciplina: "" }]);
+        setResponsablesPorDisciplina({});
         setChecks(new Array(CHECKLIST_ITEMS.length).fill(false));
         setMessage({ type: "success", text: "Formulario limpiado. Los datos precargados se mantienen." });
     };
@@ -221,12 +246,25 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
         setAlumnos(arr);
     };
 
-    const agregarDocente = () => setDocentesResponsables([...docentesResponsables, { nombre: "", cargo: "Docente" }]);
-    const removerDocente = (i: number) => setDocentesResponsables(docentesResponsables.filter((_, idx) => idx !== i));
-    const updateDocente = (i: number, field: keyof Docente, value: string) => {
-        const arr = [...docentesResponsables];
-        arr[i] = { ...arr[i], [field]: value };
-        setDocentesResponsables(arr);
+    // Responsables por disciplina
+    const agregarResponsable = (disc: string) => {
+        setResponsablesPorDisciplina(prev => ({
+            ...prev,
+            [disc]: [...(prev[disc] || []), { nombre: "", cargo: "Docente de apoyo" }],
+        }));
+    };
+    const removerResponsable = (disc: string, i: number) => {
+        setResponsablesPorDisciplina(prev => ({
+            ...prev,
+            [disc]: (prev[disc] || []).filter((_, idx) => idx !== i),
+        }));
+    };
+    const updateResponsable = (disc: string, i: number, field: "nombre" | "cargo", value: string) => {
+        setResponsablesPorDisciplina(prev => {
+            const arr = [...(prev[disc] || [])];
+            arr[i] = { ...arr[i], [field]: value };
+            return { ...prev, [disc]: arr };
+        });
     };
 
     // Formatear fecha
@@ -239,20 +277,36 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
 
     // Generar y descargar
     const handleDescargar = async () => {
-        // Validaciones básicas
-        if (!nombreEvento || !disciplinaRama || !sede || !fechaEvento || !directorNombre) {
-            setMessage({ type: "error", text: "Por favor complete los campos obligatorios: Evento, Disciplina, Sede, Fecha y Director." });
+        if (!nombreEvento || !sede || !fechaEvento || !directorNombre) {
+            setMessage({ type: "error", text: "Por favor complete los campos obligatorios: Evento, Sede, Fecha y Director." });
             return;
         }
-        if (alumnos.length === 0 || !alumnos[0].nombre) {
-            setMessage({ type: "error", text: "Debe agregar al menos un alumno." });
+        const alumnosValidos = alumnos.filter(a => a.nombre && a.disciplina);
+        if (alumnosValidos.length === 0) {
+            setMessage({ type: "error", text: "Debe agregar al menos un alumno con nombre y disciplina." });
             return;
+        }
+
+        // Validar que cada disciplina tenga al menos un responsable
+        for (const [disc, als] of disciplinasAgrupadas) {
+            const resps = (responsablesPorDisciplina[disc] || []).filter(r => r.nombre);
+            if (resps.length === 0) {
+                setMessage({ type: "error", text: `La disciplina "${disc}" necesita al menos 1 docente responsable asignado.` });
+                return;
+            }
         }
 
         setLoading(true);
         setMessage(null);
 
         try {
+            // Construir grupos por disciplina
+            const gruposPorDisciplina = Array.from(disciplinasAgrupadas.entries()).map(([disc, als]) => ({
+                disciplina: disc,
+                responsables: (responsablesPorDisciplina[disc] || []).filter(r => r.nombre),
+                alumnos: als,
+            }));
+
             const payload = {
                 supervisorNombre,
                 zonaEscolar,
@@ -282,9 +336,8 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                 nombreConductor,
                 aseguradora,
                 "numeroPóliza": numeroPóliza,
-                docentesResponsables: docentesResponsables.filter(d => d.nombre),
                 personaPrimerosAuxilios,
-                alumnos: alumnos.filter(a => a.nombre),
+                gruposPorDisciplina,
                 lemaInstitucional,
                 cicloEscolar,
             };
@@ -304,7 +357,10 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `Proyecto_Circular05_${cct}_${disciplinaRama.replace(/\s+/g, "_")}.docx`;
+            const discNombre = disciplinasAgrupadas.size === 1
+                ? Array.from(disciplinasAgrupadas.keys())[0].replace(/\s+/g, "_")
+                : "MultiDisciplinas";
+            a.download = `Proyecto_Circular05_${cct}_${discNombre}.docx`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -318,7 +374,6 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
         }
     };
 
-    // Toggle checklist
     const toggleCheck = (index: number) => {
         const arr = [...checks];
         arr[index] = !arr[index];
@@ -351,7 +406,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
         </div>
     );
 
-    // ═══ ESTADO DE CARGA ═══
+    // ═══ CARGA ═══
     if (loadingConfig) {
         return (
             <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem", gap: "0.75rem" }}>
@@ -360,7 +415,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
         );
     }
 
-    // ═══ MÓDULO DESACTIVADO ═══
+    // ═══ DESACTIVADO ═══
     if (!moduloActivo) {
         return (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -384,7 +439,12 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
         );
     }
 
-    // ═══ MÓDULO ACTIVO - MOSTRAR FORMULARIO ═══
+    // Total de alumnos válidos
+    const alumnosValidos = alumnos.filter(a => a.nombre && a.disciplina);
+    const totalAlumnos = alumnosValidos.length;
+    const totalDisc = disciplinasAgrupadas.size;
+
+    // ═══ FORMULARIO ACTIVO ═══
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {/* Header */}
@@ -414,10 +474,9 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                         <div style={{ background: "#fff8e1", border: "1px solid #ffcc02", borderRadius: "8px", padding: "0.75rem", marginBottom: "1rem", display: "flex", gap: "0.5rem" }}>
                             <AlertTriangle size={18} style={{ color: "#f59e0b", flexShrink: 0, marginTop: "2px" }} />
                             <p style={{ margin: 0, fontSize: "0.8125rem", color: "#92400e" }}>
-                                <strong>Importante:</strong> Antes de generar el documento, asegúrese de contar con todos estos requisitos físicos. El documento Word generado aquí es solo una parte del expediente completo.
+                                <strong>Importante:</strong> Antes de generar el documento, asegúrese de contar con todos estos requisitos físicos.
                             </p>
                         </div>
-
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
                             {CHECKLIST_ITEMS.map((item, i) => (
                                 <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", padding: "0.5rem 0.75rem", borderRadius: "8px", background: checks[i] ? "#f0fdf4" : "var(--bg-secondary)", border: checks[i] ? "1px solid #86efac" : "1px solid var(--border)", cursor: "pointer", transition: "all 0.2s" }}>
@@ -426,8 +485,6 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                 </label>
                             ))}
                         </div>
-
-                        {/* Orden de integración */}
                         <div style={{ marginTop: "1rem" }}>
                             <div onClick={() => setShowOrden(!showOrden)} style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.875rem", fontWeight: 600, color: "var(--primary)" }}>
                                 <Info size={16} />
@@ -503,11 +560,12 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                             <div style={{ gridColumn: "span 2" }}>
                                 <label style={labelStyle}>Nombre del Evento *</label>
-                                <input style={inputStyle} value={nombreEvento} onChange={(e) => setNombreEvento(e.target.value)} placeholder="Ej: Juegos Deportivos Estudiantiles 2025" />
+                                <input style={inputStyle} value={nombreEvento} onChange={(e) => setNombreEvento(e.target.value)} placeholder="Ej: Eventos Culturales 2026" />
                             </div>
                             <div>
-                                <label style={labelStyle}>Disciplina y Rama *</label>
-                                <input style={inputStyle} value={disciplinaRama} onChange={(e) => setDisciplinaRama(e.target.value)} placeholder="Ej: Basquetbol Varonil y Femenil" />
+                                <label style={labelStyle}>Disciplina y Rama <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(general, opcional)</span></label>
+                                <input style={inputStyle} value={disciplinaRama} onChange={(e) => setDisciplinaRama(e.target.value)} placeholder="Ej: Arte y Cultura (se autodetecta de alumnos)" />
+                                <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>Las disciplinas específicas se detectan automáticamente de la relación de alumnos.</p>
                             </div>
                             <div>
                                 <label style={labelStyle}>Sede (Escuela destino) *</label>
@@ -547,10 +605,9 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                 style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
                                 value={objetivoEducativo}
                                 onChange={(e) => setObjetivoEducativo(e.target.value)}
-                                placeholder="Fomentar el desarrollo integral de los estudiantes a través de la participación en actividades deportivas..."
+                                placeholder="Fomentar el desarrollo integral de los estudiantes..."
                             />
                         </div>
-
                         {/* Itinerario */}
                         <div style={{ marginBottom: "1rem" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
@@ -572,27 +629,16 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                     <tbody>
                                         {itinerario.map((item, i) => (
                                             <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                                                <td style={{ padding: "0.35rem" }}>
-                                                    <input type="time" style={{ ...inputStyle, padding: "0.35rem" }} value={item.hora} onChange={(e) => updateItinerario(i, "hora", e.target.value)} />
-                                                </td>
-                                                <td style={{ padding: "0.35rem" }}>
-                                                    <input style={{ ...inputStyle, padding: "0.35rem" }} value={item.actividad} onChange={(e) => updateItinerario(i, "actividad", e.target.value)} />
-                                                </td>
-                                                <td style={{ padding: "0.35rem" }}>
-                                                    <input style={{ ...inputStyle, padding: "0.35rem" }} value={item.lugar} onChange={(e) => updateItinerario(i, "lugar", e.target.value)} />
-                                                </td>
-                                                <td style={{ padding: "0.35rem", textAlign: "center" }}>
-                                                    <button onClick={() => removerItinerario(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)" }}>
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </td>
+                                                <td style={{ padding: "0.35rem" }}><input type="time" style={{ ...inputStyle, padding: "0.35rem" }} value={item.hora} onChange={(e) => updateItinerario(i, "hora", e.target.value)} /></td>
+                                                <td style={{ padding: "0.35rem" }}><input style={{ ...inputStyle, padding: "0.35rem" }} value={item.actividad} onChange={(e) => updateItinerario(i, "actividad", e.target.value)} /></td>
+                                                <td style={{ padding: "0.35rem" }}><input style={{ ...inputStyle, padding: "0.35rem" }} value={item.lugar} onChange={(e) => updateItinerario(i, "lugar", e.target.value)} /></td>
+                                                <td style={{ padding: "0.35rem", textAlign: "center" }}><button onClick={() => removerItinerario(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)" }}><Trash2 size={14} /></button></td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-
                         {/* Gastos */}
                         <label style={{ ...labelStyle, marginTop: "1rem" }}>Gastos</label>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
@@ -623,108 +669,60 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                 {seccionActiva === "transporte" && (
                     <div style={{ padding: "1rem" }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                            <div>
-                                <label style={labelStyle}>Tipo de Transporte</label>
-                                <input style={inputStyle} value={tipoTransporte} onChange={(e) => setTipoTransporte(e.target.value)} placeholder="Ej: Nissan Urvan, 18 pasajeros" />
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Descripción (Marca, modelo, placas)</label>
-                                <input style={inputStyle} value={descripcionVehiculo} onChange={(e) => setDescripcionVehiculo(e.target.value)} placeholder="Ej: Nissan Urvan 2020, placas ABC123" />
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Nombre del Conductor</label>
-                                <input style={inputStyle} value={nombreConductor} onChange={(e) => setNombreConductor(e.target.value)} />
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Aseguradora</label>
-                                <input style={inputStyle} value={aseguradora} onChange={(e) => setAseguradora(e.target.value)} />
-                            </div>
-                            <div>
-                                <label style={labelStyle}>No. de Póliza</label>
-                                <input style={inputStyle} value={numeroPóliza} onChange={(e) => setNumeroPóliza(e.target.value)} />
-                            </div>
+                            <div><label style={labelStyle}>Tipo de Transporte</label><input style={inputStyle} value={tipoTransporte} onChange={(e) => setTipoTransporte(e.target.value)} placeholder="Ej: Nissan Urvan, 18 pasajeros" /></div>
+                            <div><label style={labelStyle}>Descripción (Marca, modelo, placas)</label><input style={inputStyle} value={descripcionVehiculo} onChange={(e) => setDescripcionVehiculo(e.target.value)} placeholder="Ej: Nissan Urvan 2020, placas ABC123" /></div>
+                            <div><label style={labelStyle}>Nombre del Conductor</label><input style={inputStyle} value={nombreConductor} onChange={(e) => setNombreConductor(e.target.value)} /></div>
+                            <div><label style={labelStyle}>Aseguradora</label><input style={inputStyle} value={aseguradora} onChange={(e) => setAseguradora(e.target.value)} /></div>
+                            <div><label style={labelStyle}>No. de Póliza</label><input style={inputStyle} value={numeroPóliza} onChange={(e) => setNumeroPóliza(e.target.value)} /></div>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* ═══ SECCIÓN 6: CUSTODIA ═══ */}
+            {/* ═══ SECCIÓN 6: RELACIÓN DE ALUMNOS (PRIMERO) ═══ */}
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-                <SectionToggle id="custodia" icon={<FileText size={20} />} label="Personal de Custodia" />
-                {seccionActiva === "custodia" && (
-                    <div style={{ padding: "1rem" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                            <label style={{ ...labelStyle, marginBottom: 0 }}>Docentes Responsables</label>
-                            <button className="btn btn-outline" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8125rem" }} onClick={agregarDocente}>
-                                <Plus size={14} /> Agregar
-                            </button>
-                        </div>
-                        <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 0.75rem" }}>
-                            Se generará un Oficio de Comisión por cada docente registrado aquí.
-                        </p>
-                        {docentesResponsables.map((doc, i) => (
-                            <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", alignItems: "center" }}>
-                                <input style={{ ...inputStyle, flex: 2 }} value={doc.nombre} onChange={(e) => updateDocente(i, "nombre", e.target.value)} placeholder="Nombre completo" />
-                                <input style={{ ...inputStyle, flex: 1 }} value={doc.cargo} onChange={(e) => updateDocente(i, "cargo", e.target.value)} placeholder="Cargo" />
-                                <button onClick={() => removerDocente(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", flexShrink: 0 }}>
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        ))}
-
-                        <div style={{ marginTop: "1rem" }}>
-                            <label style={labelStyle}>Persona encargada de Primeros Auxilios</label>
-                            <input style={inputStyle} value={personaPrimerosAuxilios} onChange={(e) => setPersonaPrimerosAuxilios(e.target.value)} placeholder="Nombre completo" />
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* ═══ SECCIÓN 7: ALUMNOS ═══ */}
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-                <SectionToggle id="alumnos" icon={<FileText size={20} />} label={`Relación de Alumnos (${alumnos.filter(a => a.nombre).length})`} />
+                <SectionToggle id="alumnos" icon={<Users size={20} />} label={`Relación de Alumnos (${totalAlumnos})`} />
                 {seccionActiva === "alumnos" && (
                     <div style={{ padding: "1rem" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
                             <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                                {alumnos.filter(a => a.nombre).length} alumno(s) registrado(s)
+                                {totalAlumnos} alumno(s) registrado(s) en {totalDisc} disciplina(s)
                             </span>
                             <button className="btn btn-outline" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8125rem" }} onClick={agregarAlumno}>
                                 <Plus size={14} /> Agregar Alumno
                             </button>
                         </div>
+
+                        {/* Info box */}
+                        <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "0.6rem 0.75rem", marginBottom: "0.75rem", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                            <Info size={16} style={{ color: "#3b82f6", flexShrink: 0, marginTop: "2px" }} />
+                            <p style={{ margin: 0, fontSize: "0.75rem", color: "#1e40af" }}>
+                                <strong>Importante:</strong> Escriba la disciplina de cada alumno (ej: CANTO, BAILE, DANZA). El sistema agrupará automáticamente los alumnos por disciplina y calculará cuántos responsables se necesitan según la Circular 05 (2 docentes por cada 40 o menos alumnos).
+                            </p>
+                        </div>
+
                         <div style={{ overflowX: "auto" }}>
                             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem", minWidth: "700px" }}>
                                 <thead>
                                     <tr style={{ background: "var(--bg-secondary)" }}>
                                         <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "5%" }}>#</th>
                                         <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "25%" }}>Nombre Completo</th>
-                                        <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "25%" }}>CURP</th>
-                                        <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "15%" }}>NIA</th>
-                                        <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "15%" }}>NSS</th>
-                                        <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "12%" }}>Disciplina</th>
-                                        <th style={{ padding: "0.5rem", borderBottom: "2px solid var(--border)", width: "3%" }}></th>
+                                        <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "22%" }}>CURP</th>
+                                        <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "13%" }}>NIA</th>
+                                        <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "13%" }}>NSS</th>
+                                        <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "2px solid var(--border)", width: "17%" }}>Disciplina *</th>
+                                        <th style={{ padding: "0.5rem", borderBottom: "2px solid var(--border)", width: "5%" }}></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {alumnos.map((alumno, i) => (
                                         <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
                                             <td style={{ padding: "0.3rem", color: "var(--text-muted)", fontSize: "0.75rem" }}>{i + 1}</td>
-                                            <td style={{ padding: "0.3rem" }}>
-                                                <input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.nombre} onChange={(e) => updateAlumno(i, "nombre", e.target.value)} placeholder="Nombre" />
-                                            </td>
-                                            <td style={{ padding: "0.3rem" }}>
-                                                <input style={{ ...inputStyle, padding: "0.3rem", textTransform: "uppercase" }} value={alumno.curp} onChange={(e) => updateAlumno(i, "curp", e.target.value.toUpperCase())} placeholder="CURP" maxLength={18} />
-                                            </td>
-                                            <td style={{ padding: "0.3rem" }}>
-                                                <input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.nia} onChange={(e) => updateAlumno(i, "nia", e.target.value)} placeholder="NIA" />
-                                            </td>
-                                            <td style={{ padding: "0.3rem" }}>
-                                                <input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.nss} onChange={(e) => updateAlumno(i, "nss", e.target.value)} placeholder="NSS" />
-                                            </td>
-                                            <td style={{ padding: "0.3rem" }}>
-                                                <input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.disciplina} onChange={(e) => updateAlumno(i, "disciplina", e.target.value)} placeholder="Disc." />
-                                            </td>
+                                            <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.nombre} onChange={(e) => updateAlumno(i, "nombre", e.target.value)} placeholder="Nombre" /></td>
+                                            <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem", textTransform: "uppercase" }} value={alumno.curp} onChange={(e) => updateAlumno(i, "curp", e.target.value.toUpperCase())} placeholder="CURP" maxLength={18} /></td>
+                                            <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.nia} onChange={(e) => updateAlumno(i, "nia", e.target.value)} placeholder="NIA" /></td>
+                                            <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem" }} value={alumno.nss} onChange={(e) => updateAlumno(i, "nss", e.target.value)} placeholder="NSS" /></td>
+                                            <td style={{ padding: "0.3rem" }}><input style={{ ...inputStyle, padding: "0.3rem", textTransform: "uppercase", fontWeight: 600 }} value={alumno.disciplina} onChange={(e) => updateAlumno(i, "disciplina", e.target.value)} placeholder="Ej: CANTO" /></td>
                                             <td style={{ padding: "0.3rem", textAlign: "center" }}>
                                                 <button onClick={() => removerAlumno(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)" }}>
                                                     <Trash2 size={14} />
@@ -735,13 +733,136 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Resumen de disciplinas detectadas */}
+                        {totalDisc > 0 && (
+                            <div style={{ marginTop: "1rem", padding: "0.75rem", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "8px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                                    <CheckCircle2 size={16} style={{ color: "#16a34a" }} />
+                                    <strong style={{ fontSize: "0.8125rem", color: "#166534" }}>Disciplinas detectadas ({totalDisc}):</strong>
+                                </div>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                                    {Array.from(disciplinasAgrupadas.entries()).map(([disc, als]) => {
+                                        const requeridos = calcularDocentesRequeridos(als.length);
+                                        return (
+                                            <span key={disc} style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.3rem 0.75rem", borderRadius: "20px", background: "#dcfce7", color: "#166534", fontSize: "0.75rem", fontWeight: 600 }}>
+                                                {disc}: {als.length} alumno(s) → mín. {requeridos} docente(s)
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* ═══ SECCIÓN 7: RESPONSABLES POR DISCIPLINA (DESPUÉS DE ALUMNOS) ═══ */}
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                <SectionToggle id="custodia" icon={<Shield size={20} />} label={`Personal de Custodia por Disciplina (${totalDisc} disciplina${totalDisc !== 1 ? "s" : ""})`} />
+                {seccionActiva === "custodia" && (
+                    <div style={{ padding: "1rem" }}>
+                        {totalDisc === 0 ? (
+                            <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+                                <Users size={40} style={{ opacity: 0.3, marginBottom: "0.75rem" }} />
+                                <p style={{ fontSize: "0.9375rem", fontWeight: 600, margin: "0 0 0.25rem" }}>No hay disciplinas detectadas</p>
+                                <p style={{ fontSize: "0.8125rem", margin: 0 }}>Primero agregue alumnos con su disciplina en la sección &quot;Relación de Alumnos&quot;.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "0.6rem 0.75rem", marginBottom: "1rem", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                                    <Info size={16} style={{ color: "#3b82f6", flexShrink: 0, marginTop: "2px" }} />
+                                    <p style={{ margin: 0, fontSize: "0.75rem", color: "#1e40af" }}>
+                                        <strong>Circular 05 (Media Superior):</strong> Se requieren <strong>2 docentes por cada 40 o menos alumnos</strong> por disciplina. Un mismo docente no puede ser responsable de 2 disciplinas al mismo tiempo. Se generará un Oficio de Comisión por cada docente.
+                                    </p>
+                                </div>
+
+                                {Array.from(disciplinasAgrupadas.entries()).map(([disc, als]) => {
+                                    const requeridos = calcularDocentesRequeridos(als.length);
+                                    const asignados = (responsablesPorDisciplina[disc] || []).filter(r => r.nombre).length;
+                                    const cumple = asignados >= requeridos;
+
+                                    return (
+                                        <div key={disc} style={{ marginBottom: "1rem", border: `2px solid ${cumple ? "#86efac" : "#fca5a5"}`, borderRadius: "10px", overflow: "hidden" }}>
+                                            {/* Header de disciplina */}
+                                            <div style={{ background: cumple ? "#f0fdf4" : "#fef2f2", padding: "0.6rem 0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                <div>
+                                                    <strong style={{ fontSize: "0.9375rem", color: cumple ? "#166534" : "#991b1b" }}>
+                                                        {disc}
+                                                    </strong>
+                                                    <span style={{ fontSize: "0.75rem", marginLeft: "0.5rem", color: "var(--text-muted)" }}>
+                                                        ({als.length} alumno{als.length !== 1 ? "s" : ""})
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                    <span style={{
+                                                        padding: "0.2rem 0.6rem",
+                                                        borderRadius: "12px",
+                                                        fontSize: "0.7rem",
+                                                        fontWeight: 700,
+                                                        background: cumple ? "#dcfce7" : "#fee2e2",
+                                                        color: cumple ? "#166534" : "#991b1b",
+                                                    }}>
+                                                        {asignados}/{requeridos} docente(s)
+                                                    </span>
+                                                    {cumple ? <CheckCircle2 size={16} style={{ color: "#16a34a" }} /> : <AlertTriangle size={16} style={{ color: "#ef4444" }} />}
+                                                </div>
+                                            </div>
+
+                                            {/* Lista de responsables */}
+                                            <div style={{ padding: "0.75rem" }}>
+                                                {(responsablesPorDisciplina[disc] || []).map((resp, i) => (
+                                                    <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", alignItems: "center" }}>
+                                                        <input
+                                                            style={{ ...inputStyle, flex: 2 }}
+                                                            value={resp.nombre}
+                                                            onChange={(e) => updateResponsable(disc, i, "nombre", e.target.value)}
+                                                            placeholder="Nombre completo del docente"
+                                                        />
+                                                        <select
+                                                            style={{ ...inputStyle, flex: 1 }}
+                                                            value={resp.cargo}
+                                                            onChange={(e) => updateResponsable(disc, i, "cargo", e.target.value)}
+                                                        >
+                                                            <option value="Docente responsable">Docente responsable</option>
+                                                            <option value="Docente de apoyo">Docente de apoyo</option>
+                                                            <option value="Director">Director</option>
+                                                            <option value="Subdirector">Subdirector</option>
+                                                            <option value="Orientador">Orientador</option>
+                                                        </select>
+                                                        <button
+                                                            onClick={() => removerResponsable(disc, i)}
+                                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", flexShrink: 0 }}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    className="btn btn-outline"
+                                                    style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem" }}
+                                                    onClick={() => agregarResponsable(disc)}
+                                                >
+                                                    <Plus size={12} /> Agregar docente a {disc}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Primeros auxilios (general) */}
+                                <div style={{ marginTop: "1rem", padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: "8px" }}>
+                                    <label style={labelStyle}>Persona encargada de Primeros Auxilios</label>
+                                    <input style={inputStyle} value={personaPrimerosAuxilios} onChange={(e) => setPersonaPrimerosAuxilios(e.target.value)} placeholder="Nombre completo" />
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
 
             {/* ═══ BOTONES DE ACCIÓN ═══ */}
             <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                {/* Botón Limpiar */}
                 <button
                     className="btn btn-outline"
                     onClick={limpiarFormulario}
@@ -756,7 +877,6 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                     <RotateCcw size={20} /> Limpiar Formulario
                 </button>
 
-                {/* Botón Descargar */}
                 <button
                     className="btn btn-primary"
                     onClick={handleDescargar}
