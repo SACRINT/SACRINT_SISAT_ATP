@@ -82,6 +82,20 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
     const [cct, setCct] = useState(escuela.cct || "");
     const [municipio, setMunicipio] = useState(escuela.municipio || "");
     const [localidad, setLocalidad] = useState(escuela.localidad || "");
+    const [lemaInstitucional, setLemaInstitucional] = useState("");
+
+    // Ciclo escolar (auto-calculado: si estamos entre sept-dic → año actual - año siguiente, si ene-jul → año anterior - año actual)
+    const calcularCiclo = () => {
+        const now = new Date();
+        const month = now.getMonth(); // 0=ene, 7=ago, 8=sep
+        const year = now.getFullYear();
+        if (month >= 8) { // Sep-Dic
+            return `${year}-${year + 1}`;
+        } else { // Ene-Ago
+            return `${year - 1}-${year}`;
+        }
+    };
+    const [cicloEscolar, setCicloEscolar] = useState(calcularCiclo());
 
     // Destinatario (se carga desde config)
     const [destinatario, setDestinatario] = useState("");
@@ -163,6 +177,8 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
 
         // Limpiar campos editables
         setSupervisorNombre("");
+        setLemaInstitucional("");
+        setCicloEscolar(calcularCiclo());
         setNombreEvento("");
         setDisciplinaRama("");
         setSede("");
@@ -269,6 +285,8 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                 docentesResponsables: docentesResponsables.filter(d => d.nombre),
                 personaPrimerosAuxilios,
                 alumnos: alumnos.filter(a => a.nombre),
+                lemaInstitucional,
+                cicloEscolar,
             };
 
             const res = await fetch("/api/circular05/generar", {
@@ -461,6 +479,15 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                             <div>
                                 <label style={labelStyle}>Localidad ✦</label>
                                 <input style={{ ...inputStyle, background: "#f0fdf4" }} value={localidad} onChange={(e) => setLocalidad(e.target.value)} />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Ciclo Escolar</label>
+                                <input style={inputStyle} value={cicloEscolar} onChange={(e) => setCicloEscolar(e.target.value)} placeholder="Ej: 2025-2026" />
+                            </div>
+                            <div style={{ gridColumn: "span 2" }}>
+                                <label style={labelStyle}>Lema Institucional <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(opcional)</span></label>
+                                <input style={inputStyle} value={lemaInstitucional} onChange={(e) => setLemaInstitucional(e.target.value)} placeholder="Ej: SUFRAGIO EFECTIVO. NO REELECCIÓN" />
+                                <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>Este lema aparecerá al final de cada firma en el documento. Si se deja vacío, no se incluirá.</p>
                             </div>
                         </div>
                         <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>✦ Datos precargados de la base de datos.</p>

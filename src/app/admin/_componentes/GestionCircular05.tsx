@@ -187,12 +187,12 @@ export default function GestionCircular05() {
                         <input style={inputStyle} value={destinatario} onChange={(e) => setDestinatario(e.target.value)} />
                     </div>
                     <div>
-                        <label style={labelStyle}>Cargo</label>
-                        <input style={inputStyle} value={cargoDestinatario} onChange={(e) => setCargoDestinatario(e.target.value)} />
+                        <label style={labelStyle}>Cargo/Zona</label>
+                        <input style={inputStyle} value={cargoDestinatario} onChange={(e) => setCargoDestinatario(e.target.value)} placeholder="Ej: SUPERVISOR ESCOLAR DE LA ZONA 004 DE BACHILLERATOS GENERALES" />
                     </div>
                     <div>
-                        <label style={labelStyle}>Zona</label>
-                        <input style={inputStyle} value={zonaDestinatario} onChange={(e) => setZonaDestinatario(e.target.value)} />
+                        <label style={labelStyle}>Ubicado en</label>
+                        <input style={inputStyle} value={zonaDestinatario} onChange={(e) => setZonaDestinatario(e.target.value)} placeholder="Ej: VENUSTIANO CARRANZA, PUEBLA." />
                     </div>
                 </div>
                 <button

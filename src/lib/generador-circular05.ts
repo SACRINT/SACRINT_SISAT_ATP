@@ -16,8 +16,8 @@ export interface DatosCircular05 {
     localidad: string;
     // Destinatario
     destinatario: string;
-    cargoDestinatario: string;
-    zonaDestinatario: string;
+    cargoDestinatario: string;   // Ahora "Cargo/Zona"
+    zonaDestinatario: string;    // Ahora "Ubicado en"
     // Evento
     nombreEvento: string;
     disciplinaRama: string;
@@ -51,6 +51,10 @@ export interface DatosCircular05 {
         nss: string;
         disciplina: string;
     }[];
+    // Lema institucional personalizable
+    lemaInstitucional?: string;
+    // Ciclo escolar editable
+    cicloEscolar?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────
@@ -129,15 +133,26 @@ function lineaFirma(nombre: string, cargo: string): Paragraph[] {
     ];
 }
 
-function crearCeldaTexto(text: string, opts?: { bold?: boolean; width?: number }): TableCell {
+function crearCeldaTexto(text: string, opts?: { bold?: boolean; width?: number; size?: number }): TableCell {
     return new TableCell({
         width: opts?.width ? { size: opts.width, type: WidthType.PERCENTAGE } : undefined,
         children: [
             new Paragraph({
                 children: [
-                    new TextRun({ text, bold: opts?.bold ?? false, size: 20, font: "Arial" }),
+                    new TextRun({ text, bold: opts?.bold ?? false, size: opts?.size ?? 20, font: "Arial" }),
                 ],
             }),
+        ],
+    });
+}
+
+// Helper: línea c.c.p. con tamaño 12 (~6pt) y sin espaciado
+function lineaCcp(text: string): Paragraph {
+    return new Paragraph({
+        alignment: AlignmentType.LEFT,
+        spacing: { after: 0, before: 0 },
+        children: [
+            new TextRun({ text, size: 12, font: "Arial" }),
         ],
     });
 }
@@ -147,6 +162,14 @@ function crearCeldaTexto(text: string, opts?: { bold?: boolean; width?: number }
 export function generarDocumentoCircular05(datos: DatosCircular05): Document {
     const children: Paragraph[] = [];
 
+    // Lema: usar el personalizado o vacío
+    const lema = datos.lemaInstitucional
+        ? `"${datos.lemaInstitucional}"`
+        : "";
+
+    // Ciclo escolar
+    const ciclo = datos.cicloEscolar || "2025-2026";
+
     // ════════ PÁGINA 1: OFICIO DE SOLICITUD ════════
     children.push(...encabezado());
     children.push(zonaEscolarParagraph(datos.zonaEscolar));
@@ -154,14 +177,14 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
     // Espaciado
     children.push(new Paragraph({ spacing: { after: 200 }, children: [] }));
 
-    // Asunto
+    // Asunto – ALINEADO A LA DERECHA
     children.push(
-        parrafo(`Asunto: Solicitud para participar en ${datos.nombreEvento}`, { bold: true, alignment: AlignmentType.LEFT })
+        parrafo(`Asunto: Solicitud para participar en ${datos.nombreEvento}`, { bold: true, alignment: AlignmentType.RIGHT })
     );
 
-    // Lugar y fecha
+    // Lugar y fecha – ALINEADO A LA DERECHA
     children.push(
-        parrafo(`${datos.localidad.toUpperCase()}, PUE; a ${datos.fechaEvento}.`, { alignment: AlignmentType.LEFT })
+        parrafo(`${datos.localidad.toUpperCase()}, PUE; a ${datos.fechaEvento}.`, { alignment: AlignmentType.RIGHT })
     );
 
     // Destinatario
@@ -208,26 +231,30 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
     children.push(new Paragraph({ spacing: { after: 100 }, children: [] }));
     children.push(parrafo("Sin más por el momento y en espera de una favorable respuesta, le reiteramos nuestro más sincero agradecimiento."));
     children.push(parrafo("A T E N T A M E N T E", { bold: true, alignment: AlignmentType.CENTER }));
-    children.push(parrafo('"POR UNA EDUCACION DE CALIDAD A LA VANGUARDIA POBLANA."', { alignment: AlignmentType.CENTER, size: 20 }));
+    // Lema personalizable (solo si se proporcionó)
+    if (lema) {
+        children.push(parrafo(lema, { alignment: AlignmentType.CENTER, size: 20 }));
+    }
     children.push(...lineaFirma(datos.directorNombre, "DIRECTOR"));
 
-    // Copias para
-    children.push(new Paragraph({ spacing: { after: 40 }, children: [] }));
-    children.push(parrafo(`c.c.p. ${datos.destinatario}, ${datos.cargoDestinatario}, ${datos.zonaDestinatario}. Para su conocimiento`, { size: 18 }));
-    children.push(parrafo("c.c.p. Comité de APF. Para su conocimiento", { size: 18 }));
-    children.push(parrafo("c.c.p. Archivo del plantel.", { size: 18 }));
+    // Copias para – tamaño 6pt (~12 halfpoints) y sin espaciado
+    children.push(new Paragraph({ spacing: { after: 20 }, children: [] }));
+    children.push(lineaCcp(`c.c.p. ${datos.destinatario}, ${datos.cargoDestinatario}, ${datos.zonaDestinatario}. Para su conocimiento`));
+    children.push(lineaCcp("c.c.p. Comité de APF. Para su conocimiento"));
+    children.push(lineaCcp("c.c.p. Archivo del plantel."));
 
     // ════════ PÁGINA 2: PROYECTO OPERATIVO ════════
     children.push(new Paragraph({ children: [new PageBreak()] }));
     children.push(...encabezado());
     children.push(zonaEscolarParagraph(datos.zonaEscolar));
 
-    // Asunto del proyecto
+    // Asunto del proyecto – ALINEADO A LA DERECHA
     children.push(
-        parrafo(`Asunto: Proyecto para participar en ${datos.nombreEvento} - ${datos.disciplinaRama}`, { bold: true, alignment: AlignmentType.LEFT })
+        parrafo(`Asunto: Proyecto para participar en ${datos.nombreEvento} - ${datos.disciplinaRama}`, { bold: true, alignment: AlignmentType.RIGHT })
     );
+    // Fecha – ALINEADA A LA DERECHA
     children.push(
-        parrafo(`${datos.localidad.toUpperCase()}, PUE; a ${datos.fechaEvento}.`, { alignment: AlignmentType.LEFT })
+        parrafo(`${datos.localidad.toUpperCase()}, PUE; a ${datos.fechaEvento}.`, { alignment: AlignmentType.RIGHT })
     );
 
     // Destinatario nuevamente
@@ -343,6 +370,53 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
     });
     children.push(tablaAlumnos as unknown as Paragraph);
 
+    // ── RESPONSABLES OFICIALES ──
+    children.push(new Paragraph({ spacing: { after: 80 }, children: [] }));
+    children.push(tituloSeccion("RESPONSABLES OFICIALES"));
+    children.push(parrafo("Personal designado oficialmente para acompañar y ser responsable de los estudiantes durante el evento:", { size: 20 }));
+
+    const filasResponsables = [
+        new TableRow({
+            children: [
+                crearCeldaTexto("N°", { bold: true, width: 8 }),
+                crearCeldaTexto("NOMBRE COMPLETO", { bold: true, width: 42 }),
+                crearCeldaTexto("CARGO / FUNCIÓN", { bold: true, width: 50 }),
+            ],
+        }),
+        // Director como responsable del plantel
+        new TableRow({
+            children: [
+                crearCeldaTexto("1", { width: 8 }),
+                crearCeldaTexto(datos.directorNombre, { width: 42 }),
+                crearCeldaTexto("Responsable del plantel", { width: 50 }),
+            ],
+        }),
+        // Docentes responsables
+        ...datos.docentesResponsables.map(
+            (doc, i) =>
+                new TableRow({
+                    children: [
+                        crearCeldaTexto((i + 2).toString(), { width: 8 }),
+                        crearCeldaTexto(doc.nombre, { width: 42 }),
+                        crearCeldaTexto(doc.cargo, { width: 50 }),
+                    ],
+                })
+        ),
+        // Persona de primeros auxilios
+        new TableRow({
+            children: [
+                crearCeldaTexto((datos.docentesResponsables.length + 2).toString(), { width: 8 }),
+                crearCeldaTexto(datos.personaPrimerosAuxilios, { width: 42 }),
+                crearCeldaTexto("Persona capacitada en primeros auxilios", { width: 50 }),
+            ],
+        }),
+    ];
+    const tablaResponsables = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: filasResponsables,
+    });
+    children.push(tablaResponsables as unknown as Paragraph);
+
     // Gastos
     children.push(tituloSeccion("GASTOS"));
     children.push(parrafo(`*TRASLADO DIRECTO A LA SEDE: $${datos.gastoTransporteIda}`));
@@ -423,7 +497,7 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
 
     const totalViajeros = datos.alumnos.length + datos.docentesResponsables.length + 2; // +director +primeros auxilios
     children.push(new Paragraph({ spacing: { after: 80 }, children: [] }));
-    children.push(parrafo(`El total de viajeros son ${totalViajeros}, de los cuales ${datos.alumnos.length} son aprendientes, ${datos.docentesResponsables.length} son personal docente/administrativo, 1 es el responsable del plantel y 1 es la persona capacitada en primeros auxilios. Ciclo escolar 2024-2025.`));
+    children.push(parrafo(`El total de viajeros son ${totalViajeros}, de los cuales ${datos.alumnos.length} son aprendientes, ${datos.docentesResponsables.length} son personal docente/administrativo, 1 es el responsable del plantel y 1 es la persona capacitada en primeros auxilios. Ciclo escolar ${ciclo}.`));
 
     // ════════ PÁGINA 4: SEGURO, AUTORIZACIÓN Y CIERRE ════════
     children.push(new Paragraph({ children: [new PageBreak()] }));
@@ -445,7 +519,9 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
     // Cierre
     children.push(new Paragraph({ spacing: { after: 100 }, children: [] }));
     children.push(parrafo("A T E N T A M E N T E", { bold: true, alignment: AlignmentType.CENTER }));
-    children.push(parrafo('"POR UNA EDUCACION DE CALIDAD A LA VANGUARDIA POBLANA."', { alignment: AlignmentType.CENTER, size: 20 }));
+    if (lema) {
+        children.push(parrafo(lema, { alignment: AlignmentType.CENTER, size: 20 }));
+    }
     children.push(...lineaFirma(datos.directorNombre, "RESPONSABLE DEL BACHILLERATO"));
 
     // ════════ PÁGINAS ADICIONALES: OFICIOS DE COMISIÓN ════════
@@ -454,21 +530,71 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
         children.push(...encabezado());
         children.push(zonaEscolarParagraph(datos.zonaEscolar));
 
+        // Asunto y Fecha – ALINEADOS A LA DERECHA
         children.push(
-            parrafo("Asunto: OFICIO DE COMISIÓN", { bold: true, alignment: AlignmentType.LEFT })
+            parrafo("Asunto: OFICIO DE COMISIÓN", { bold: true, alignment: AlignmentType.RIGHT })
         );
         children.push(
-            parrafo(`${datos.localidad.toUpperCase()}, PUE; a ${datos.fechaEvento}.`, { alignment: AlignmentType.LEFT })
+            parrafo(`${datos.localidad.toUpperCase()}, PUE; a ${datos.fechaEvento}.`, { alignment: AlignmentType.RIGHT })
         );
 
         children.push(new Paragraph({ spacing: { after: 80 }, children: [] }));
         children.push(parrafo(docente.nombre.toUpperCase(), { bold: true, alignment: AlignmentType.LEFT }));
         children.push(parrafo(docente.cargo.toUpperCase(), { alignment: AlignmentType.LEFT }));
+        children.push(parrafo(`BACHILLERATO GENERAL ESTATAL "${datos.bachilleratoNombre}"`, { alignment: AlignmentType.LEFT, size: 20 }));
         children.push(parrafo("PRESENTE", { bold: true, alignment: AlignmentType.LEFT }));
         children.push(new Paragraph({ spacing: { after: 80 }, children: [] }));
 
+        // Texto de comisión mejorado
         const textoComision = `Por medio del presente, y en atención a las necesidades del servicio educativo, se le comisiona para acompañar y ser responsable del grupo de alumnos del Bachillerato General Estatal "${datos.bachilleratoNombre}", C.C.T. ${datos.cct}, durante su participación en ${datos.nombreEvento} - ${datos.disciplinaRama}, a realizarse el día ${datos.fechaEvento} en ${datos.sede}, ${datos.domicilioSede}.`;
         children.push(parrafo(textoComision));
+
+        // Datos de la comisión
+        children.push(new Paragraph({ spacing: { after: 60 }, children: [] }));
+        children.push(parrafo("Datos de la comisión:", { bold: true, size: 20 }));
+
+        const tablaComision = new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+                new TableRow({
+                    children: [
+                        crearCeldaTexto("TIPO", { bold: true, width: 30 }),
+                        crearCeldaTexto("COMISIÓN", { width: 70 }),
+                    ],
+                }),
+                new TableRow({
+                    children: [
+                        crearCeldaTexto("COMISIONADO", { bold: true, width: 30 }),
+                        crearCeldaTexto(docente.nombre.toUpperCase(), { width: 70 }),
+                    ],
+                }),
+                new TableRow({
+                    children: [
+                        crearCeldaTexto("CARGO", { bold: true, width: 30 }),
+                        crearCeldaTexto(docente.cargo, { width: 70 }),
+                    ],
+                }),
+                new TableRow({
+                    children: [
+                        crearCeldaTexto("ADSCRIPCIÓN", { bold: true, width: 30 }),
+                        crearCeldaTexto(`BGE "${datos.bachilleratoNombre}", C.C.T. ${datos.cct}`, { width: 70 }),
+                    ],
+                }),
+                new TableRow({
+                    children: [
+                        crearCeldaTexto("PERÍODO", { bold: true, width: 30 }),
+                        crearCeldaTexto(datos.fechaEvento, { width: 70 }),
+                    ],
+                }),
+                new TableRow({
+                    children: [
+                        crearCeldaTexto("MOTIVO", { bold: true, width: 30 }),
+                        crearCeldaTexto(`Acompañar y custodiar al grupo de alumnos en ${datos.nombreEvento} - ${datos.disciplinaRama}`, { width: 70 }),
+                    ],
+                }),
+            ],
+        });
+        children.push(tablaComision as unknown as Paragraph);
 
         children.push(new Paragraph({ spacing: { after: 80 }, children: [] }));
         children.push(parrafo("Se le encomienda la custodia, salvaguardar la integridad física y velar por el bienestar de los alumnos a su cargo durante todo el trayecto y la estancia en la sede del evento."));
@@ -477,13 +603,41 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
         children.push(parrafo("Sin más por el momento, le envío un cordial saludo."));
         children.push(new Paragraph({ spacing: { after: 100 }, children: [] }));
         children.push(parrafo("A T E N T A M E N T E", { bold: true, alignment: AlignmentType.CENTER }));
-        children.push(parrafo('"POR UNA EDUCACION DE CALIDAD A LA VANGUARDIA POBLANA."', { alignment: AlignmentType.CENTER, size: 20 }));
+        if (lema) {
+            children.push(parrafo(lema, { alignment: AlignmentType.CENTER, size: 20 }));
+        }
         children.push(...lineaFirma(datos.directorNombre, "DIRECTOR"));
 
-        // Copias oficiales
-        children.push(parrafo(`c.c.p. ${datos.destinatario}, ${datos.cargoDestinatario}. Para su conocimiento`, { size: 18 }));
-        children.push(parrafo("c.c.p. Comité de APF. Para su conocimiento", { size: 18 }));
-        children.push(parrafo("c.c.p. Archivo del plantel.", { size: 18 }));
+        // Firmas adicionales
+        children.push(new Paragraph({ spacing: { after: 40 }, children: [] }));
+
+        // Vo.Bo. del Supervisor
+        children.push(new Paragraph({ spacing: { before: 400 }, children: [] }));
+        children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: "__________________________", size: 22, font: "Arial" })],
+        }));
+        children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 20 },
+            children: [new TextRun({ text: "Vo.Bo.", bold: true, size: 20, font: "Arial" })],
+        }));
+        children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 20 },
+            children: [new TextRun({ text: datos.supervisorNombre || datos.destinatario, bold: true, size: 20, font: "Arial" })],
+        }));
+        children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 },
+            children: [new TextRun({ text: "SUPERVISOR ESCOLAR", size: 18, font: "Arial" })],
+        }));
+
+        // Copias oficiales – tamaño 6pt y sin espaciado
+        children.push(new Paragraph({ spacing: { after: 20 }, children: [] }));
+        children.push(lineaCcp(`c.c.p. ${datos.destinatario}, ${datos.cargoDestinatario}. Para su conocimiento`));
+        children.push(lineaCcp("c.c.p. Comité de APF. Para su conocimiento"));
+        children.push(lineaCcp("c.c.p. Archivo del plantel."));
     }
 
     // ═══ Crear Documento ═══
