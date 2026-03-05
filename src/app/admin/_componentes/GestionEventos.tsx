@@ -14,6 +14,11 @@ import {
     XCircle,
     Trash2,
     School,
+    Pencil,
+    Plus,
+    Check,
+    X,
+    Save,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────
@@ -62,6 +67,19 @@ export default function GestionEventos() {
     const [cancellingId, setCancellingId] = useState<string | null>(null);
     const [filtroEscuelas, setFiltroEscuelas] = useState<"todas" | "inscritas" | "pendientes">("todas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+    // ─── CRUD state ──────────────────────────────
+    const [editingCatId, setEditingCatId] = useState<string | null>(null);
+    const [editCatNombre, setEditCatNombre] = useState("");
+    const [editCatColor, setEditCatColor] = useState("");
+    const [editingDiscId, setEditingDiscId] = useState<string | null>(null);
+    const [editDisc, setEditDisc] = useState({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" });
+    const [addingCat, setAddingCat] = useState(false);
+    const [newCatNombre, setNewCatNombre] = useState("");
+    const [newCatColor, setNewCatColor] = useState("#2e75b6");
+    const [addingDiscToCat, setAddingDiscToCat] = useState<string | null>(null);
+    const [newDisc, setNewDisc] = useState({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" });
+    const [savingCrud, setSavingCrud] = useState(false);
 
     const fetchConfig = useCallback(async () => {
         try {
@@ -155,6 +173,108 @@ export default function GestionEventos() {
         } finally {
             setCancellingId(null);
         }
+    }
+
+    // ─── CRUD handlers ──────────────────────────
+
+    async function handleSaveCategoria(id: string) {
+        setSavingCrud(true);
+        try {
+            const res = await fetch("/api/admin/eventos-disciplinas", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "editarCategoria", id, nombre: editCatNombre, color: editCatColor }),
+            });
+            if (!res.ok) throw new Error();
+            setEditingCatId(null);
+            setMessage({ type: "success", text: "Categoría actualizada" });
+            setLoading(true); await fetchConfig();
+        } catch { setMessage({ type: "error", text: "Error al guardar categoría" }); }
+        finally { setSavingCrud(false); }
+    }
+
+    async function handleDeleteCategoria(id: string, nombre: string) {
+        if (!confirm(`¿Eliminar la categoría "${nombre}" y TODAS sus disciplinas?\n\nEsta acción no se puede deshacer.`)) return;
+        setSavingCrud(true);
+        try {
+            const res = await fetch(`/api/admin/eventos-disciplinas?tipo=categoria&id=${id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error();
+            setMessage({ type: "success", text: `Categoría "${nombre}" eliminada` });
+            setLoading(true); await fetchConfig();
+        } catch { setMessage({ type: "error", text: "Error al eliminar categoría" }); }
+        finally { setSavingCrud(false); }
+    }
+
+    async function handleAddCategoria() {
+        if (!newCatNombre.trim()) return;
+        setSavingCrud(true);
+        try {
+            const res = await fetch("/api/admin/eventos-disciplinas", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "crearCategoria", nombre: newCatNombre.trim(), color: newCatColor }),
+            });
+            if (!res.ok) throw new Error();
+            setNewCatNombre(""); setNewCatColor("#2e75b6"); setAddingCat(false);
+            setMessage({ type: "success", text: "Categoría creada" });
+            setLoading(true); await fetchConfig();
+        } catch { setMessage({ type: "error", text: "Error al crear categoría" }); }
+        finally { setSavingCrud(false); }
+    }
+
+    async function handleSaveDisciplina(id: string) {
+        setSavingCrud(true);
+        try {
+            const res = await fetch("/api/admin/eventos-disciplinas", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "editarDisciplina", id,
+                    nombre: editDisc.nombre, tipo: editDisc.tipo,
+                    minParticipantes: editDisc.min, maxParticipantes: editDisc.max,
+                    grupoExclusion: editDisc.grupo,
+                }),
+            });
+            if (!res.ok) throw new Error();
+            setEditingDiscId(null);
+            setMessage({ type: "success", text: "Disciplina actualizada" });
+            setLoading(true); await fetchConfig();
+        } catch { setMessage({ type: "error", text: "Error al guardar disciplina" }); }
+        finally { setSavingCrud(false); }
+    }
+
+    async function handleDeleteDisciplina(id: string, nombre: string) {
+        if (!confirm(`¿Eliminar la disciplina "${nombre}"?`)) return;
+        setSavingCrud(true);
+        try {
+            const res = await fetch(`/api/admin/eventos-disciplinas?tipo=disciplina&id=${id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error();
+            setMessage({ type: "success", text: `Disciplina "${nombre}" eliminada` });
+            setLoading(true); await fetchConfig();
+        } catch { setMessage({ type: "error", text: "Error al eliminar disciplina" }); }
+        finally { setSavingCrud(false); }
+    }
+
+    async function handleAddDisciplina(categoriaId: string) {
+        if (!newDisc.nombre.trim()) return;
+        setSavingCrud(true);
+        try {
+            const res = await fetch("/api/admin/eventos-disciplinas", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "crearDisciplina", categoriaId,
+                    nombre: newDisc.nombre.trim(), tipo: newDisc.tipo,
+                    minParticipantes: newDisc.min, maxParticipantes: newDisc.max,
+                    grupoExclusion: newDisc.grupo,
+                }),
+            });
+            if (!res.ok) throw new Error();
+            setNewDisc({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" }); setAddingDiscToCat(null);
+            setMessage({ type: "success", text: "Disciplina creada" });
+            setLoading(true); await fetchConfig();
+        } catch { setMessage({ type: "error", text: "Error al crear disciplina" }); }
+        finally { setSavingCrud(false); }
     }
 
     // ─── Computed values ─────────────────────
@@ -434,49 +554,176 @@ export default function GestionEventos() {
 
                 {categorias.map(cat => (
                     <div key={cat.id}>
+                        {/* ── Category header ── */}
                         <div style={{
                             display: "flex", alignItems: "center", gap: "0.5rem",
                             padding: "0.75rem 1.25rem",
                             background: `${cat.color}12`,
                             borderBottom: "1px solid var(--border)",
                         }}>
-                            <div style={{
-                                width: "10px", height: "10px", borderRadius: "50%",
-                                background: cat.color, flexShrink: 0,
-                            }} />
-                            <span style={{ fontWeight: 700, fontSize: "0.8125rem" }}>{cat.nombre}</span>
-                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "auto" }}>
-                                {cat.disciplinas.length} disciplinas
-                            </span>
+                            {editingCatId === cat.id ? (
+                                /* inline edit */
+                                <>
+                                    <input type="color" value={editCatColor}
+                                        onChange={e => setEditCatColor(e.target.value)}
+                                        style={{ width: 24, height: 24, border: "none", padding: 0, cursor: "pointer" }} />
+                                    <input value={editCatNombre}
+                                        onChange={e => setEditCatNombre(e.target.value)}
+                                        style={{ flex: 1, fontWeight: 700, fontSize: "0.8125rem", border: "1px solid var(--border)", borderRadius: 4, padding: "0.25rem 0.5rem" }} />
+                                    <button onClick={() => handleSaveCategoria(cat.id)} disabled={savingCrud}
+                                        title="Guardar" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--success)" }}>
+                                        <Check size={16} />
+                                    </button>
+                                    <button onClick={() => setEditingCatId(null)}
+                                        title="Cancelar" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                                        <X size={16} />
+                                    </button>
+                                </>
+                            ) : (
+                                /* normal view */
+                                <>
+                                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
+                                    <span style={{ fontWeight: 700, fontSize: "0.8125rem" }}>{cat.nombre}</span>
+                                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "auto" }}>
+                                        {cat.disciplinas.length} disciplinas
+                                    </span>
+                                    <button onClick={() => { setEditingCatId(cat.id); setEditCatNombre(cat.nombre); setEditCatColor(cat.color); }}
+                                        title="Editar categoría" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.15rem" }}>
+                                        <Pencil size={14} />
+                                    </button>
+                                    <button onClick={() => handleDeleteCategoria(cat.id, cat.nombre)}
+                                        title="Eliminar categoría" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.15rem" }}>
+                                        <Trash2 size={14} />
+                                    </button>
+                                </>
+                            )}
                         </div>
+
+                        {/* ── Discipline rows ── */}
                         {cat.disciplinas.map(disc => (
                             <div key={disc.id} style={{
                                 display: "flex", justifyContent: "space-between", alignItems: "center",
                                 padding: "0.5rem 1.25rem 0.5rem 2.5rem",
                                 borderBottom: "1px solid var(--border)",
-                                fontSize: "0.8125rem",
+                                fontSize: "0.8125rem", gap: "0.5rem",
                             }}>
-                                <span>{disc.nombre}</span>
-                                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", gap: "0.75rem" }}>
-                                    <span style={{
-                                        padding: "0.15rem 0.5rem", borderRadius: "4px",
-                                        background: disc.tipo === "simple" ? "#e8f5e9" : disc.tipo === "grupo" ? "#e3f2fd" : disc.tipo === "individual" ? "#fff3e0" : "#fce4ec",
-                                        fontSize: "0.6875rem", fontWeight: 600,
-                                    }}>
-                                        {disc.tipo}
-                                    </span>
-                                    <span>
-                                        <Users size={12} style={{ display: "inline", verticalAlign: "text-bottom", marginRight: "0.2rem" }} />
-                                        {disc.minParticipantes === disc.maxParticipantes
-                                            ? disc.minParticipantes
-                                            : `${disc.minParticipantes}-${disc.maxParticipantes}`
-                                        }
-                                    </span>
-                                </span>
+                                {editingDiscId === disc.id ? (
+                                    /* inline edit discipline */
+                                    <>
+                                        <input value={editDisc.nombre} onChange={e => setEditDisc(p => ({ ...p, nombre: e.target.value }))}
+                                            placeholder="Nombre" style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem 0.4rem", fontSize: "0.8rem" }} />
+                                        <select value={editDisc.tipo} onChange={e => setEditDisc(p => ({ ...p, tipo: e.target.value }))}
+                                            style={{ border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}>
+                                            <option value="simple">simple</option>
+                                            <option value="individual">individual</option>
+                                            <option value="equipo">equipo</option>
+                                            <option value="grupo">grupo</option>
+                                        </select>
+                                        <input type="number" value={editDisc.min} onChange={e => setEditDisc(p => ({ ...p, min: +e.target.value }))} min={1}
+                                            style={{ width: 45, textAlign: "center", border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}
+                                            title="Mín participantes" />
+                                        <span style={{ fontSize: "0.7rem" }}>-</span>
+                                        <input type="number" value={editDisc.max} onChange={e => setEditDisc(p => ({ ...p, max: +e.target.value }))} min={1}
+                                            style={{ width: 45, textAlign: "center", border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}
+                                            title="Máx participantes" />
+                                        <button onClick={() => handleSaveDisciplina(disc.id)} disabled={savingCrud}
+                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--success)" }}><Check size={14} /></button>
+                                        <button onClick={() => setEditingDiscId(null)}
+                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={14} /></button>
+                                    </>
+                                ) : (
+                                    /* normal view discipline */
+                                    <>
+                                        <span style={{ flex: 1 }}>{disc.nombre}</span>
+                                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                                            <span style={{
+                                                padding: "0.15rem 0.5rem", borderRadius: "4px",
+                                                background: disc.tipo === "simple" ? "#e8f5e9" : disc.tipo === "grupo" ? "#e3f2fd" : disc.tipo === "individual" ? "#fff3e0" : "#fce4ec",
+                                                fontSize: "0.6875rem", fontWeight: 600,
+                                            }}>{disc.tipo}</span>
+                                            <span>
+                                                <Users size={12} style={{ display: "inline", verticalAlign: "text-bottom", marginRight: "0.2rem" }} />
+                                                {disc.minParticipantes === disc.maxParticipantes ? disc.minParticipantes : `${disc.minParticipantes}-${disc.maxParticipantes}`}
+                                            </span>
+                                            <button onClick={() => {
+                                                setEditingDiscId(disc.id);
+                                                setEditDisc({ nombre: disc.nombre, tipo: disc.tipo, min: disc.minParticipantes, max: disc.maxParticipantes, grupo: disc.grupoExclusion || "" });
+                                            }} title="Editar" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.1rem" }}>
+                                                <Pencil size={13} />
+                                            </button>
+                                            <button onClick={() => handleDeleteDisciplina(disc.id, disc.nombre)}
+                                                title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.1rem" }}>
+                                                <Trash2 size={13} />
+                                            </button>
+                                        </span>
+                                    </>
+                                )}
                             </div>
                         ))}
+
+                        {/* ── Add discipline to this category ── */}
+                        {addingDiscToCat === cat.id ? (
+                            <div style={{ display: "flex", gap: "0.4rem", padding: "0.5rem 1.25rem 0.5rem 2.5rem", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
+                                <input value={newDisc.nombre} onChange={e => setNewDisc(p => ({ ...p, nombre: e.target.value }))}
+                                    placeholder="Nombre disciplina" style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 4, padding: "0.25rem 0.5rem", fontSize: "0.8rem" }} />
+                                <select value={newDisc.tipo} onChange={e => setNewDisc(p => ({ ...p, tipo: e.target.value }))}
+                                    style={{ border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}>
+                                    <option value="simple">simple</option>
+                                    <option value="individual">individual</option>
+                                    <option value="equipo">equipo</option>
+                                    <option value="grupo">grupo</option>
+                                </select>
+                                <input type="number" value={newDisc.min} onChange={e => setNewDisc(p => ({ ...p, min: +e.target.value }))} min={1}
+                                    style={{ width: 45, textAlign: "center", border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}
+                                    title="Mín" />
+                                <span style={{ fontSize: "0.7rem" }}>-</span>
+                                <input type="number" value={newDisc.max} onChange={e => setNewDisc(p => ({ ...p, max: +e.target.value }))} min={1}
+                                    style={{ width: 45, textAlign: "center", border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}
+                                    title="Máx" />
+                                <button onClick={() => handleAddDisciplina(cat.id)} disabled={savingCrud || !newDisc.nombre.trim()}
+                                    style={{ background: "var(--success)", color: "white", border: "none", borderRadius: 4, padding: "0.25rem 0.6rem", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                    <Save size={12} /> Guardar
+                                </button>
+                                <button onClick={() => { setAddingDiscToCat(null); setNewDisc({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" }); }}
+                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{ padding: "0.4rem 1.25rem 0.4rem 2.5rem", borderBottom: "1px solid var(--border)" }}>
+                                <button onClick={() => { setAddingDiscToCat(cat.id); setNewDisc({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" }); }}
+                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "0.75rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                    <Plus size={13} /> Agregar disciplina
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ))}
+
+                {/* ── Add category ── */}
+                {addingCat ? (
+                    <div style={{ display: "flex", gap: "0.5rem", padding: "0.75rem 1.25rem", alignItems: "center", borderTop: "2px solid var(--border)" }}>
+                        <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)}
+                            style={{ width: 28, height: 28, border: "none", padding: 0, cursor: "pointer" }} />
+                        <input value={newCatNombre} onChange={e => setNewCatNombre(e.target.value)}
+                            placeholder="Nombre de nueva categoría" style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 4, padding: "0.3rem 0.6rem", fontSize: "0.8125rem" }} />
+                        <button onClick={handleAddCategoria} disabled={savingCrud || !newCatNombre.trim()}
+                            style={{ background: "var(--success)", color: "white", border: "none", borderRadius: 6, padding: "0.4rem 1rem", fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                            <Save size={14} /> Guardar
+                        </button>
+                        <button onClick={() => { setAddingCat(false); setNewCatNombre(""); }}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ padding: "0.75rem 1.25rem", borderTop: "2px solid var(--border)" }}>
+                        <button onClick={() => setAddingCat(true)}
+                            style={{ background: "none", border: "1px dashed var(--border)", borderRadius: 6, padding: "0.5rem 1rem", cursor: "pointer", color: "var(--primary)", fontWeight: 600, fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "0.3rem", width: "100%", justifyContent: "center" }}>
+                            <Plus size={16} /> Agregar nueva categoría
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Spin animation */}
