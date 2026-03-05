@@ -204,8 +204,9 @@ model DisciplinaEvento {
 }
 
 model EventosConfig {
-  id     String  @id @default("singleton")
-  activo Boolean @default(false)
+  id          String    @id @default("singleton")
+  activo      Boolean   @default(false)
+  fechaLimite DateTime?
 }
 
 model InscripcionEvento2026 {
@@ -248,9 +249,10 @@ model Circular05Disciplina {
 // ─── Olimpiada de Matemáticas 2026 ───────────────
 
 model OlimpiadaConfig {
-  id              String  @id @default("singleton")
-  activo          Boolean @default(false)
+  id              String    @id @default("singleton")
+  activo          Boolean   @default(false)
   convocatoriaUrl String?
+  fechaLimite     DateTime?
 }
 
 model InscripcionOlimpiada {
@@ -266,10 +268,11 @@ model InscripcionOlimpiada {
 // ─── Encuentro PAEC 2026 ────────────────────────
 
 model EncuentroPAECConfig {
-  id               String  @id @default("singleton")
-  activo           Boolean @default(false)
+  id               String    @id @default("singleton")
+  activo           Boolean   @default(false)
   convocatoriaUrl  String?
   encuentroUrl     String?
+  fechaLimite      DateTime?
 }
 
 model InscripcionEncuentroPAEC {

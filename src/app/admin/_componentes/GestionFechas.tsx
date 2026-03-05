@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar, PlusCircle, Save, X, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, PlusCircle, Save, X, RefreshCw, Trophy } from "lucide-react";
 
 export default function GestionFechas({
     programas,
@@ -19,6 +19,19 @@ export default function GestionFechas({
     const [newTaskDate, setNewTaskDate] = useState("");
     const [newTaskFiles, setNewTaskFiles] = useState(1);
     const [creatingTask, setCreatingTask] = useState(false);
+
+    // Special modules (Eventos, Olimpiada, PAEC)
+    type ModuloFecha = { id: string; nombre: string; fechaLimite: string | null };
+    const [modulos, setModulos] = useState<ModuloFecha[]>([]);
+    const [moduloFechas, setModuloFechas] = useState<Record<string, string>>({});
+    const [savingModulo, setSavingModulo] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch("/api/admin/modulos-fechas")
+            .then(r => r.json())
+            .then(data => { if (data.modulos) setModulos(data.modulos); })
+            .catch(() => { });
+    }, []);
 
     const handleDateChange = (periodoId: string, dateStr: string) => {
         setFechas((prev) => ({ ...prev, [periodoId]: dateStr }));
@@ -107,6 +120,30 @@ export default function GestionFechas({
         return new Date(isoDate).toISOString().split('T')[0];
     };
 
+    const handleSaveModuloFecha = async (moduloId: string) => {
+        const fecha = moduloFechas[moduloId];
+        if (fecha === undefined) return;
+        setSavingModulo(moduloId);
+        setMessage(null);
+        try {
+            const res = await fetch("/api/admin/modulos-fechas", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ modulo: moduloId, fechaLimite: fecha || null }),
+            });
+            if (!res.ok) throw new Error("No se pudo guardar");
+            // Update local state
+            setModulos(prev => prev.map(m => m.id === moduloId ? { ...m, fechaLimite: fecha || null } : m));
+            setModuloFechas(prev => { const n = { ...prev }; delete n[moduloId]; return n; });
+            setMessage({ type: "success", text: "Fecha límite de inscripción actualizada" });
+            setTimeout(() => setMessage(null), 3000);
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message });
+        } finally {
+            setSavingModulo(null);
+        }
+    };
+
     return (
         <div className="fade-in">
             <div className="page-header" style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
@@ -190,6 +227,66 @@ export default function GestionFechas({
                     </div>
                 ))}
             </div>
+
+            {/* ─── Módulos especiales: Eventos, Olimpiada, PAEC ─── */}
+            {modulos.length > 0 && (
+                <>
+                    <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginTop: "1.5rem", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Trophy size={20} /> Módulos de Inscripción
+                    </h2>
+                    <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: "1rem" }}>
+                        Configura las fechas límite de inscripción para eventos y competencias.
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                        {modulos.map(mod => {
+                            const initialVal = formatDateForInput(mod.fechaLimite);
+                            const currentVal = moduloFechas[mod.id] !== undefined ? moduloFechas[mod.id] : initialVal;
+                            const isDirty = currentVal !== initialVal;
+                            return (
+                                <div key={mod.id} className="card" style={{ padding: 0 }}>
+                                    <div style={{ padding: "1rem", fontWeight: 700, borderBottom: "1px solid var(--border)", background: "var(--bg)", display: "flex", justifyContent: "space-between" }}>
+                                        <span>{mod.nombre}</span>
+                                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "normal", background: "white", padding: "2px 8px", borderRadius: "12px", border: "1px solid var(--border)" }}>
+                                            INSCRIPCIÓN
+                                        </span>
+                                    </div>
+                                    <div style={{
+                                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                                        padding: "1rem", flexWrap: "wrap", gap: "1rem"
+                                    }}>
+                                        <div style={{ minWidth: "200px" }}>
+                                            <span style={{ fontWeight: 500, display: "block" }}>Fecha Límite de Inscripción</span>
+                                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                                {mod.fechaLimite ? `Fijada: ${new Date(mod.fechaLimite).toLocaleDateString()}` : "Sin fecha límite"}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                            <Calendar size={16} color="var(--text-muted)" />
+                                            <input
+                                                type="date"
+                                                className="form-control"
+                                                style={{ width: "150px" }}
+                                                value={currentVal}
+                                                onChange={(e) => setModuloFechas(prev => ({ ...prev, [mod.id]: e.target.value }))}
+                                            />
+                                            {isDirty && (
+                                                <button
+                                                    className="btn btn-primary"
+                                                    style={{ padding: "0.5rem 0.75rem" }}
+                                                    onClick={() => handleSaveModuloFecha(mod.id)}
+                                                    disabled={savingModulo === mod.id}
+                                                >
+                                                    {savingModulo === mod.id ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
 
             {/* Modal Crear Tarea */}
             {isModalOpen && (
