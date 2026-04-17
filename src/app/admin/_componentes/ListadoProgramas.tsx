@@ -32,7 +32,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                 const periodLabel = getPeriodoLabel(p).replace(/[/\\?%*:|"<>]/g, '-');
                 for (const ent of p.entregas) {
                     if (ent.archivos && ent.archivos.length > 0) {
-                        const schoolName = ent.escuela.nombre.replace(/[/\\?%*:|"<>]/g, '-');
+                        const cct = ent.escuela.cct;
                         for (let i = 0; i < ent.archivos.length; i++) {
                             const arch = ent.archivos[i];
                             if (arch.driveUrl) {
@@ -42,8 +42,9 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                     if (!response.ok) throw new Error("HTTP error");
                                     const blob = await response.blob();
                                     const ext = arch.nombre.split('.').pop() || 'pdf';
-                                    const fileName = `${arch.etiqueta || `Archivo_${i + 1}`}.${ext}`;
-                                    zip.file(`${schoolName}/${periodLabel}/${fileName}`, blob);
+                                    const etiquetaLimpia = (arch.etiqueta || `Archivo_${i + 1}`).replace(/[/\\?%*:|"<>]/g, '-');
+                                    const fileName = `${cct}_${etiquetaLimpia}.${ext}`;
+                                    zip.file(`${periodLabel}/${fileName}`, blob);
                                     fileCount++;
                                 } catch (e) {
                                     console.error(`Error descargando ${arch.nombre}`, e);
