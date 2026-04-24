@@ -18,6 +18,9 @@ import {
     ToggleRight,
     Search,
     Loader2,
+    ArrowUp,
+    ArrowDown,
+    FolderDown,
 } from "lucide-react";
 import { getDownloadUrl } from "@/lib/download-url";
 
@@ -67,11 +70,14 @@ export default function GestionCapems() {
 
     // Capems state
     const [newCapemName, setNewCapemName] = useState("");
+    const [editingCapem, setEditingCapem] = useState<string | null>(null);
+    const [editCapemName, setEditCapemName] = useState("");
 
     // Resumen state
     const [expandedEscuela, setExpandedEscuela] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterCapem, setFilterCapem] = useState<string>("");
+    const [downloadingZip, setDownloadingZip] = useState(false);
 
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [busy, setBusy] = useState(false);
@@ -214,6 +220,125 @@ export default function GestionCapems() {
             setMessage({ type: "error", text: "Error de conexión" });
         } finally {
             setBusy(false);
+        }
+    }
+
+    async function handleUpdateCapem(id: string, data: Partial<Capem>) {
+        setBusy(true);
+        try {
+            const res = await fetch(`/api/admin/capems/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+            });
+            if (res.ok) {
+                setMessage({ type: "success", text: "CAPEM actualizado" });
+                setEditingCapem(null);
+                fetchData();
+            } else {
+                const d = await res.json();
+                setMessage({ type: "error", text: d.error || "Error al actualizar" });
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function handleDeleteCapem(id: string) {
+        if (!confirm("¿Eliminar este CAPEM? Solo es posible si no tiene registros asociados.")) return;
+        setBusy(true);
+        try {
+            const res = await fetch(`/api/admin/capems/${id}`, { method: "DELETE" });
+            if (res.ok) {
+                setMessage({ type: "success", text: "CAPEM eliminado" });
+                fetchData();
+            } else {
+                const d = await res.json();
+                setMessage({ type: "error", text: d.error || "Error al eliminar" });
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    // ─── Reordenar ───
+
+    async function handleReorderFichas(index: number, direction: "up" | "down") {
+        const newList = [...fichas];
+        const swapIndex = direction === "up" ? index - 1 : index + 1;
+        if (swapIndex < 0 || swapIndex >= newList.length) return;
+        [newList[index], newList[swapIndex]] = [newList[swapIndex], newList[index]];
+        const items = newList.map((f, i) => ({ id: f.id, orden: i + 1 }));
+        setFichas(newList.map((f, i) => ({ ...f, orden: i + 1 })));
+        try {
+            const res = await fetch("/api/admin/fichas/reorder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items }),
+            });
+            if (!res.ok) {
+                setMessage({ type: "error", text: "Error al reordenar fichas" });
+                fetchData();
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+            fetchData();
+        }
+    }
+
+    async function handleReorderCapems(index: number, direction: "up" | "down") {
+        const newList = [...capems];
+        const swapIndex = direction === "up" ? index - 1 : index + 1;
+        if (swapIndex < 0 || swapIndex >= newList.length) return;
+        [newList[index], newList[swapIndex]] = [newList[swapIndex], newList[index]];
+        const items = newList.map((c, i) => ({ id: c.id, orden: i + 1 }));
+        setCapems(newList.map((c, i) => ({ ...c, orden: i + 1 })));
+        try {
+            const res = await fetch("/api/admin/capems/reorder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items }),
+            });
+            if (!res.ok) {
+                setMessage({ type: "error", text: "Error al reordenar CAPEMS" });
+                fetchData();
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+            fetchData();
+        }
+    }
+
+    // ─── Descarga masiva ZIP ───
+
+    async function handleDownloadZip(capemId?: string) {
+        setDownloadingZip(true);
+        try {
+            const url = capemId
+                ? `/api/capems/registros/descargar?capemId=${capemId}`
+                : "/api/capems/registros/descargar";
+            const res = await fetch(url);
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({ error: "Error" }));
+                setMessage({ type: "error", text: d.error || "Error al descargar" });
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            const disposition = res.headers.get("content-disposition");
+            const nameMatch = disposition?.match(/filename="(.+)"/);
+            a.download = nameMatch?.[1] || "CAPEMS.zip";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setDownloadingZip(false);
         }
     }
 
@@ -363,6 +488,23 @@ export default function GestionCapems() {
                                         </span>
                                         <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
                                             <button
+                                                onClick={() => handleReorderFichas(i, "up")}
+                                                disabled={i === 0}
+                                                style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
+                                                title="Mover arriba"
+                                            >
+                                                <ArrowUp size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleReorderFichas(i, "down")}
+                                                disabled={i === fichas.length - 1}
+                                                style={{ background: "none", border: "none", cursor: i === fichas.length - 1 ? "default" : "pointer", color: i === fichas.length - 1 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
+                                                title="Mover abajo"
+                                            >
+                                                <ArrowDown size={16} />
+                                            </button>
+                                            <span style={{ width: "1px", height: "18px", background: "var(--border)", margin: "0 0.125rem" }} />
+                                            <button
                                                 onClick={() => handleUpdateFicha(ficha.id, { activo: !ficha.activo })}
                                                 style={{ background: "none", border: "none", cursor: "pointer", color: ficha.activo ? "var(--success)" : "var(--text-muted)" }}
                                                 title={ficha.activo ? "Desactivar" : "Activar"}
@@ -420,11 +562,75 @@ export default function GestionCapems() {
                                 display: "flex", justifyContent: "space-between", alignItems: "center",
                                 padding: "0.75rem 0.5rem",
                                 borderBottom: i < capems.length - 1 ? "1px solid var(--border)" : "none",
+                                opacity: capem.activo ? 1 : 0.5,
                             }}>
-                                <span style={{ fontWeight: 600 }}>{capem.nombre}</span>
-                                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                    {registros.filter(r => r.capemId === capem.id).length} registros
-                                </span>
+                                {editingCapem === capem.id ? (
+                                    <div style={{ display: "flex", gap: "0.5rem", flex: 1 }}>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            value={editCapemName}
+                                            onChange={e => setEditCapemName(e.target.value)}
+                                            style={{ flex: 1, padding: "0.25rem 0.5rem" }}
+                                        />
+                                        <button className="btn btn-primary" onClick={() => handleUpdateCapem(capem.id, { nombre: editCapemName })} disabled={busy} style={{ padding: "0.25rem 0.5rem", minHeight: "auto" }}>
+                                            <Save size={14} />
+                                        </button>
+                                        <button className="btn btn-outline" onClick={() => setEditingCapem(null)} style={{ padding: "0.25rem 0.5rem", minHeight: "auto" }}>
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                                            <span style={{ color: "var(--text-muted)", marginRight: "0.5rem" }}>{capem.orden}.</span>
+                                            {capem.nombre}
+                                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "0.75rem" }}>
+                                                {registros.filter(r => r.capemId === capem.id).length} registros
+                                            </span>
+                                        </span>
+                                        <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+                                            <button
+                                                onClick={() => handleReorderCapems(i, "up")}
+                                                disabled={i === 0}
+                                                style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
+                                                title="Mover arriba"
+                                            >
+                                                <ArrowUp size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleReorderCapems(i, "down")}
+                                                disabled={i === capems.length - 1}
+                                                style={{ background: "none", border: "none", cursor: i === capems.length - 1 ? "default" : "pointer", color: i === capems.length - 1 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
+                                                title="Mover abajo"
+                                            >
+                                                <ArrowDown size={16} />
+                                            </button>
+                                            <span style={{ width: "1px", height: "18px", background: "var(--border)", margin: "0 0.125rem" }} />
+                                            <button
+                                                onClick={() => handleUpdateCapem(capem.id, { activo: !capem.activo })}
+                                                style={{ background: "none", border: "none", cursor: "pointer", color: capem.activo ? "var(--success)" : "var(--text-muted)" }}
+                                                title={capem.activo ? "Desactivar" : "Activar"}
+                                            >
+                                                {capem.activo ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                                            </button>
+                                            <button
+                                                onClick={() => { setEditingCapem(capem.id); setEditCapemName(capem.nombre); }}
+                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }}
+                                                title="Editar nombre"
+                                            >
+                                                <Edit3 size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteCapem(capem.id)}
+                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)" }}
+                                                title="Eliminar"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -460,11 +666,22 @@ export default function GestionCapems() {
                         </div>
                     </div>
 
-                    {/* Info */}
-                    <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7", padding: "0.75rem" }}>
+                    {/* Info + Descarga masiva */}
+                    <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7", padding: "0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                         <p style={{ margin: 0, fontSize: "0.875rem", color: "#0c5a8e" }}>
                             <strong>{escuelasArray.length}</strong> escuelas con registros • <strong>{registros.length}</strong> fichas subidas en total
                         </p>
+                        {registros.some(r => r.archivoDriveUrl) && (
+                            <button
+                                className="btn btn-primary"
+                                onClick={() => handleDownloadZip(filterCapem || undefined)}
+                                disabled={downloadingZip}
+                                style={{ padding: "0.375rem 0.75rem", fontSize: "0.8125rem" }}
+                            >
+                                {downloadingZip ? <Loader2 className="spin" size={16} /> : <FolderDown size={16} />}
+                                {" "}{filterCapem ? "Descargar este CAPEM" : "Descargar Todo (ZIP)"}
+                            </button>
+                        )}
                     </div>
 
                     {/* Tabla de escuelas */}
