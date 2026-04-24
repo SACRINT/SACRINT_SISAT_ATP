@@ -20,6 +20,7 @@ import InscripcionEventos from "./_componentes/InscripcionEventos";
 import ProyectoCircular05 from "./_componentes/ProyectoCircular05";
 import OlimpiadaMatematicas from "./_componentes/OlimpiadaMatematicas";
 import EncuentroPAEC from "./_componentes/EncuentroPAEC";
+import CapemsPanel from "./_componentes/CapemsPanel";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
@@ -33,6 +34,7 @@ export default function DirectorPortal({
     isCircularActive = true,
     isOlimpiadaActive = false,
     isPAECActive = false,
+    isCapemsActive = false,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null };
     programas: ProgramaGroup[];
@@ -43,8 +45,9 @@ export default function DirectorPortal({
     isCircularActive?: boolean;
     isOlimpiadaActive?: boolean;
     isPAECActive?: boolean;
+    isCapemsActive?: boolean;
 }) {
-    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec">("entregas");
+    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems">("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Stats
@@ -155,6 +158,12 @@ export default function DirectorPortal({
                             Encuentro PAEC
                         </button>
                     )}
+                    {isCapemsActive && (
+                        <button className={`btn ${tab === "capems" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("capems")} style={{ flex: 1 }}>
+                            <FileText size={18} />
+                            Fichas CAPEMS
+                        </button>
+                    )}
                 </div>
 
                 {/* Tab Content */}
@@ -185,6 +194,10 @@ export default function DirectorPortal({
 
                 {tab === "paec" && isPAECActive && (
                     <EncuentroPAEC />
+                )}
+
+                {tab === "capems" && isCapemsActive && (
+                    <CapemsPanel escuela={escuela} />
                 )}
             </div>
         </>

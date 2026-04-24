@@ -59,6 +59,7 @@ model Escuela {
   inscripcionOlimpiada InscripcionOlimpiada?
   inscripcionPAEC InscripcionEncuentroPAEC?
   descargasCircular05 Circular05Descarga[]
+  capemRegistros CapemFichaRegistro[]
 }
 
 model CicloEscolar {
@@ -70,6 +71,7 @@ model CicloEscolar {
   anuncioGlobal String?
 
   periodos PeriodoEntrega[]
+  capems   Capem[]
 }
 
 model Programa {
@@ -283,4 +285,64 @@ model InscripcionEncuentroPAEC {
   createdAt DateTime @default(now())
 
   escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+}
+
+// ─── Configuración de Visibilidad del Sidebar Admin ──
+
+model AdminSidebarConfig {
+  id              String  @id @default("singleton")
+  showRecursos    Boolean @default(true)
+  showEventos     Boolean @default(true)
+  showCircular05  Boolean @default(true)
+  showOlimpiada   Boolean @default(true)
+  showPAEC        Boolean @default(true)
+  showCapems      Boolean @default(true)
+}
+
+// ─── CAPEMS ─────────────────────────────────────────
+
+model Ficha {
+  id        String   @id @default(cuid())
+  nombre    String   @unique
+  activo    Boolean  @default(true)
+  orden     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  registros CapemFichaRegistro[]
+}
+
+model Capem {
+  id             String   @id @default(cuid())
+  nombre         String
+  orden          Int      @default(0)
+  activo         Boolean  @default(true)
+  cicloEscolarId String
+  createdAt      DateTime @default(now())
+
+  cicloEscolar CicloEscolar        @relation(fields: [cicloEscolarId], references: [id])
+  registros    CapemFichaRegistro[]
+
+  @@unique([cicloEscolarId, nombre])
+}
+
+model CapemsConfig {
+  id     String  @id @default("singleton")
+  activo Boolean @default(false)
+}
+
+model CapemFichaRegistro {
+  id              String   @id @default(cuid())
+  escuelaId       String
+  capemId         String
+  fichaId         String
+  archivoNombre   String?
+  archivoDriveId  String?
+  archivoDriveUrl String?
+  bloqueado       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  escuela Escuela @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  capem   Capem   @relation(fields: [capemId], references: [id], onDelete: Cascade)
+  ficha   Ficha   @relation(fields: [fichaId], references: [id])
 }

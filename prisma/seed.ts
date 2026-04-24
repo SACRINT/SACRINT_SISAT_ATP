@@ -57,6 +57,11 @@ const MESES_CICLO = [
 
 async function main() {
     console.log("🗑️  Limpiando base de datos...");
+    await prisma.capemFichaRegistro.deleteMany();
+    await prisma.capem.deleteMany();
+    await prisma.ficha.deleteMany();
+    await prisma.capemsConfig.deleteMany();
+    await prisma.adminSidebarConfig.deleteMany();
     await prisma.correccion.deleteMany();
     await prisma.archivo.deleteMany();
     await prisma.entrega.deleteMany();
@@ -200,12 +205,101 @@ async function main() {
         }
     }
 
+    // ─── Fichas CAPEMS (45 fichas) ─────────────────
+    console.log("📚 Creando 45 fichas para CAPEMS...");
+    const fichasData = [
+        "Ficha 1: Diagnóstico institucional",
+        "Ficha 2: Plan de acción tutorial",
+        "Ficha 3: Estrategias de enseñanza",
+        "Ficha 4: Evaluación formativa",
+        "Ficha 5: Aprendizaje colaborativo",
+        "Ficha 6: Planeación didáctica",
+        "Ficha 7: Inclusión educativa",
+        "Ficha 8: Gestión del aula",
+        "Ficha 9: Liderazgo escolar",
+        "Ficha 10: Comunicación efectiva",
+        "Ficha 11: Trabajo colegiado",
+        "Ficha 12: Habilidades socioemocionales",
+        "Ficha 13: Convivencia escolar",
+        "Ficha 14: Participación de padres",
+        "Ficha 15: Uso de tecnología",
+        "Ficha 16: Lectura y escritura",
+        "Ficha 17: Pensamiento matemático",
+        "Ficha 18: Ciencias experimentales",
+        "Ficha 19: Educación ambiental",
+        "Ficha 20: Cultura de paz",
+        "Ficha 21: Derechos humanos",
+        "Ficha 22: Equidad de género",
+        "Ficha 23: Prevención de violencia",
+        "Ficha 24: Salud escolar",
+        "Ficha 25: Educación física",
+        "Ficha 26: Educación artística",
+        "Ficha 27: Proyectos transversales",
+        "Ficha 28: Tutoría y acompañamiento",
+        "Ficha 29: Orientación educativa",
+        "Ficha 30: Evaluación institucional",
+        "Ficha 31: Mejora continua",
+        "Ficha 32: Rendición de cuentas",
+        "Ficha 33: Autonomía curricular",
+        "Ficha 34: Materiales educativos",
+        "Ficha 35: Infraestructura escolar",
+        "Ficha 36: Seguridad escolar",
+        "Ficha 37: Protección civil",
+        "Ficha 38: Alimentación saludable",
+        "Ficha 39: Prevención de adicciones",
+        "Ficha 40: Educación para la vida",
+        "Ficha 41: Servicio comunitario",
+        "Ficha 42: Emprendimiento",
+        "Ficha 43: Formación docente continua",
+        "Ficha 44: Investigación educativa",
+        "Ficha 45: Vinculación interinstitucional",
+    ];
+
+    for (let i = 0; i < fichasData.length; i++) {
+        await prisma.ficha.create({
+            data: { nombre: fichasData[i], orden: i + 1 },
+        });
+    }
+
+    // ─── 6 CAPEMS ─────────────────────────────────
+    console.log("📝 Creando 6 CAPEMS...");
+    for (let i = 1; i <= 6; i++) {
+        await prisma.capem.create({
+            data: {
+                nombre: `CAPEM ${i}`,
+                orden: i,
+                activo: true,
+                cicloEscolarId: ciclo.id,
+            },
+        });
+    }
+
+    // ─── Configuraciones singleton ────────────────
+    console.log("⚙️  Creando configuraciones singleton...");
+    await prisma.adminSidebarConfig.create({
+        data: {
+            showRecursos: true,
+            showEventos: true,
+            showCircular05: true,
+            showOlimpiada: true,
+            showPAEC: true,
+            showCapems: true,
+        },
+    });
+
+    await prisma.capemsConfig.create({
+        data: { activo: false },
+    });
+
     console.log(`\n✅ Seed completado:`);
     console.log(`   - 1 admin`);
     console.log(`   - ${createdEscuelas.length} escuelas`);
     console.log(`   - ${createdProgramas.length} programas`);
     console.log(`   - ${totalPeriodos} periodos de entrega`);
     console.log(`   - ${totalEntregas} entregas creadas`);
+    console.log(`   - 45 fichas CAPEMS`);
+    console.log(`   - 6 CAPEMS`);
+    console.log(`   - Configuraciones admin sidebar y CAPEMS`);
 }
 
 main()

@@ -67,6 +67,17 @@ export default async function AdminPage() {
         include: { programa: true }
     });
 
+    // Fetch admin sidebar config (singleton)
+    const sidebarConfigRaw = await prisma.adminSidebarConfig.findFirst();
+    const sidebarConfig = {
+        showRecursos: sidebarConfigRaw?.showRecursos ?? true,
+        showEventos: sidebarConfigRaw?.showEventos ?? true,
+        showCircular05: sidebarConfigRaw?.showCircular05 ?? true,
+        showOlimpiada: sidebarConfigRaw?.showOlimpiada ?? true,
+        showPAEC: sidebarConfigRaw?.showPAEC ?? true,
+        showCapems: sidebarConfigRaw?.showCapems ?? true,
+    };
+
     // Calculate stats from active periods only
     const activeEntregas = programas.flatMap((p) =>
         p.periodos.filter((per) => per.activo).flatMap((per) => per.entregas)
@@ -93,6 +104,7 @@ export default async function AdminPage() {
             anuncioGlobal={ciclo.anuncioGlobal || ""}
             userName={(session.user as any)?.name || "Admin"}
             dbRole={(session.user as any)?.dbRole || "ATP_LECTOR"}
+            sidebarConfig={sidebarConfig}
         />
     );
 }

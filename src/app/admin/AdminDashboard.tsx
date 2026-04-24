@@ -41,6 +41,7 @@ import GestionEventos from "./_componentes/GestionEventos";
 import GestionOlimpiada from "./_componentes/GestionOlimpiada";
 import GestionEncuentroPAEC from "./_componentes/GestionEncuentroPAEC";
 import GestionCircular05 from "./_componentes/GestionCircular05";
+import GestionCapems from "./_componentes/GestionCapems";
 
 import { ProgramaAdmin, EscuelaAdmin, Stats } from "@/types";
 
@@ -57,6 +58,7 @@ export default function AdminDashboard({
     anuncioGlobal,
     userName,
     dbRole,
+    sidebarConfig,
 }: {
     programas: ProgramaAdmin[];
     escuelas: EscuelaAdmin[];
@@ -67,8 +69,16 @@ export default function AdminDashboard({
     dbRole: string;
     cicloId: string;
     anuncioGlobal: string | null;
+    sidebarConfig: {
+        showRecursos: boolean;
+        showEventos: boolean;
+        showCircular05: boolean;
+        showOlimpiada: boolean;
+        showPAEC: boolean;
+        showCapems: boolean;
+    };
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems">("general");
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
@@ -245,21 +255,36 @@ export default function AdminDashboard({
                     <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => setVista("gestion-fechas")}>
                         <Calendar size={18} /> Fechas y Tareas
                     </button>
-                    <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => setVista("recursos")}>
-                        <Upload size={18} /> Formatos y Plantillas
-                    </button>
-                    <button className={`sidebar-link ${vista === "eventos" ? "active" : ""}`} onClick={() => setVista("eventos")}>
-                        <Trophy size={18} /> Eventos Culturales
-                    </button>
-                    <button className={`sidebar-link ${vista === "circular05" ? "active" : ""}`} onClick={() => setVista("circular05")}>
-                        <FileText size={18} /> Circular 05
-                    </button>
-                    <button className={`sidebar-link ${vista === "olimpiada" ? "active" : ""}`} onClick={() => setVista("olimpiada")}>
-                        <FileText size={18} /> Olimpiada Matemáticas
-                    </button>
-                    <button className={`sidebar-link ${vista === "paec" ? "active" : ""}`} onClick={() => setVista("paec")}>
-                        <FileText size={18} /> Encuentro PAEC
-                    </button>
+                    {sidebarConfig.showRecursos && (
+                        <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => setVista("recursos")}>
+                            <Upload size={18} /> Formatos y Plantillas
+                        </button>
+                    )}
+                    {sidebarConfig.showEventos && (
+                        <button className={`sidebar-link ${vista === "eventos" ? "active" : ""}`} onClick={() => setVista("eventos")}>
+                            <Trophy size={18} /> Eventos Culturales
+                        </button>
+                    )}
+                    {sidebarConfig.showCircular05 && (
+                        <button className={`sidebar-link ${vista === "circular05" ? "active" : ""}`} onClick={() => setVista("circular05")}>
+                            <FileText size={18} /> Circular 05
+                        </button>
+                    )}
+                    {sidebarConfig.showOlimpiada && (
+                        <button className={`sidebar-link ${vista === "olimpiada" ? "active" : ""}`} onClick={() => setVista("olimpiada")}>
+                            <FileText size={18} /> Olimpiada Matemáticas
+                        </button>
+                    )}
+                    {sidebarConfig.showPAEC && (
+                        <button className={`sidebar-link ${vista === "paec" ? "active" : ""}`} onClick={() => setVista("paec")}>
+                            <FileText size={18} /> Encuentro PAEC
+                        </button>
+                    )}
+                    {sidebarConfig.showCapems && (
+                        <button className={`sidebar-link ${vista === "capems" ? "active" : ""}`} onClick={() => setVista("capems")}>
+                            <FileText size={18} /> Fichas CAPEMS
+                        </button>
+                    )}
                     {dbRole === "SUPER_ADMIN" && (
                         <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => setVista("gestion-atps")}>
                             <UserCog size={18} /> Accesos y Seguridad
@@ -321,7 +346,7 @@ export default function AdminDashboard({
 
                 {/* ========= VISTA: GESTIÓN DE PERIODOS ========= */}
                 {vista === "gestion-periodos" && (
-                    <GestionPeriodos programas={programas} />
+                    <GestionPeriodos programas={programas} sidebarConfig={sidebarConfig} />
                 )}
                 {/* ========= VISTA: GESTIÓN DE FECHAS Y TAREAS EXTRAORDINARIAS ========= */}
                 {vista === "gestion-fechas" && (
@@ -390,6 +415,13 @@ export default function AdminDashboard({
                 {
                     vista === "paec" && (
                         <GestionEncuentroPAEC />
+                    )
+                }
+
+                {/* ========= VISTA: FICHAS CAPEMS ========= */}
+                {
+                    vista === "capems" && (
+                        <GestionCapems />
                     )
                 }
             </main >

@@ -11,55 +11,79 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
-        const { entregaId, originalFilename, etiqueta, subfolder } = await req.json();
+        const { entregaId, originalFilename, etiqueta, subfolder, programa, cct, escuelaNombre } = await req.json();
 
-        if (!entregaId) {
-            return NextResponse.json({ error: "EntregaId es requerido" }, { status: 400 });
+        let folder: string;
+        let escuelaCct: string = "";
+        let escuelaNombreResolved: string = "";
+        let programaNombre: string = "";
+
+        // ─── CAPEMS mode: no entregaId needed ───
+        if (programa === "CAPEMS" && cct && escuelaNombre) {
+            escuelaCct = cct;
+            escuelaNombreResolved = escuelaNombre;
+            programaNombre = "CAPEMS";
+            let folderPath = buildFolderPath(cct, escuelaNombre, "CAPEMS");
+            if (subfolder) {
+                folderPath += `/${subfolder.replace(/^\/+/, '')}`;
+            }
+            folder = `SISAT-ATP/${folderPath}`;
+        } else {
+            // ─── Standard mode: requires entregaId ───
+            if (!entregaId) {
+                return NextResponse.json({ error: "EntregaId es requerido" }, { status: 400 });
+            }
+
+            const entrega = await prisma.entrega.findUnique({
+                where: { id: entregaId },
+                include: {
+                    escuela: true,
+                    periodoEntrega: { include: { programa: true, cicloEscolar: true } },
+                },
+            });
+
+            if (!entrega) {
+                return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
+            }
+
+            escuelaCct = entrega.escuela.cct;
+            escuelaNombreResolved = entrega.escuela.nombre;
+            programaNombre = entrega.periodoEntrega.programa.nombre;
+
+            let folderPath = buildFolderPath(entrega.escuela.cct, entrega.escuela.nombre, entrega.periodoEntrega.programa.nombre);
+            if (subfolder) {
+                folderPath += `/${subfolder.replace(/^\/+/, '')}`;
+            }
+            folder = `SISAT-ATP/${folderPath}`;
         }
-
-        const entrega = await prisma.entrega.findUnique({
-            where: { id: entregaId },
-            include: {
-                escuela: true,
-                periodoEntrega: { include: { programa: true, cicloEscolar: true } },
-            },
-        });
-
-        if (!entrega) {
-            return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
-        }
-
-        let folderPath = buildFolderPath(entrega.escuela.cct, entrega.escuela.nombre, entrega.periodoEntrega.programa.nombre);
-        if (subfolder) {
-            folderPath += `/${subfolder.replace(/^\/+/, '')}`;
-        }
-        const folder = `SISAT-ATP/${folderPath}`;
 
         let publicId: string | undefined = undefined;
         if (originalFilename) {
-            const programaNombre = entrega.periodoEntrega.programa.nombre;
             const isAcosoEscolar = programaNombre.toUpperCase().includes("ACOSO ESCOLAR");
 
             let finalName: string;
 
-            if (isAcosoEscolar) {
-                // Nomenclatura especial: CCT_ACOSO ESCOLAR_AÑO_MES_NOMBRE DE LA ESCUELA
+            if (isAcosoEscolar && entregaId) {
+                // Nomenclatura especial para Acoso Escolar (solo en modo standard)
+                const entrega = await prisma.entrega.findUnique({
+                    where: { id: entregaId },
+                    include: { periodoEntrega: { include: { cicloEscolar: true } } },
+                });
                 const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-                const periodo = entrega.periodoEntrega;
-                const cicloNombre = periodo.cicloEscolar?.nombre || "2025-2026";
-                // Extract year: take second year from cycle (e.g. "2025-2026" -> "2026")
+                const periodo = entrega?.periodoEntrega;
+                const cicloNombre = periodo?.cicloEscolar?.nombre || "2025-2026";
                 const anio = cicloNombre.split("-").pop() || new Date().getFullYear().toString();
-                const mes = periodo.mes ? MESES[periodo.mes] : (periodo.semestre ? `Semestre${periodo.semestre}` : "CicloCompleto");
+                const mes = periodo?.mes ? MESES[periodo.mes] : (periodo?.semestre ? `Semestre${periodo.semestre}` : "CicloCompleto");
 
-                finalName = `${entrega.escuela.cct}_ACOSO ESCOLAR_${anio}_${mes}_${entrega.escuela.nombre}`;
+                finalName = `${escuelaCct}_ACOSO ESCOLAR_${anio}_${mes}_${escuelaNombreResolved}`;
                 if (subfolder === "_correcciones") {
-                    finalName = `${entrega.escuela.cct}_ACOSO ESCOLAR_${anio}_${mes}_${entrega.escuela.nombre}_Correccion`;
+                    finalName = `${escuelaCct}_ACOSO ESCOLAR_${anio}_${mes}_${escuelaNombreResolved}_Correccion`;
                 }
             } else {
                 // Formato default: CCT_Nombre_Programa_Documento
                 const docName = etiqueta ? etiqueta : originalFilename.split('.').slice(0, -1).join('.');
-                const prefix = `${entrega.escuela.cct}_${entrega.escuela.nombre}_${programaNombre}`;
+                const prefix = `${escuelaCct}_${escuelaNombreResolved}_${programaNombre}`;
                 finalName = `${prefix}_${docName}`;
                 if (subfolder === "_correcciones") {
                     finalName = `${prefix}_Correccion_${docName}`;
@@ -67,7 +91,7 @@ export async function POST(req: NextRequest) {
             }
 
             // Cloudinary public_id cannot contain ? & # \ % < >
-            publicId = finalName.replace(/[\?\&#\\%<>]/g, '').trim();
+            publicId = finalName.replace(/[?\&#\\%<>]/g, '').trim();
         }
 
         // Configure cloudinary using env vars
