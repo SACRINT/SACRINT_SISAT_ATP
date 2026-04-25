@@ -344,7 +344,10 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                         const f = fichas.find(ficha => ficha.id === s.fichaId);
                         return f && (f.nombre.includes("00 ") || f.nombre.includes("00 ACTIVIDADES"));
                     });
-                    const requiredFiles = hasFicha00 ? 1 : 2;
+                    
+                    // Si seleccionaron la Ficha 00 y es la ÚNICA ficha en la lista, requiere 1. 
+                    // Si hay 2 o más fichas, requiere al menos 2 (o la cantidad de slots que hayan agregado).
+                    const requiredFiles = (hasFicha00 && capemSlots.length === 1) ? 1 : Math.max(2, capemSlots.length);
                     const isCompleted = filesCount >= requiredFiles;
 
                     return (
