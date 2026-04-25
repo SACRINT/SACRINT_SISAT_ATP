@@ -340,6 +340,13 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                     const capemSlots = slots[capem.id] || [];
                     const filesCount = capemSlots.filter(s => s.archivoDriveUrl).length;
 
+                    const hasFicha00 = capemSlots.some(s => {
+                        const f = fichas.find(ficha => ficha.id === s.fichaId);
+                        return f && (f.nombre.includes("00 ") || f.nombre.includes("00 ACTIVIDADES"));
+                    });
+                    const requiredFiles = hasFicha00 ? 1 : 2;
+                    const isCompleted = filesCount >= requiredFiles;
+
                     return (
                         <div key={capem.id} className="card" style={{ padding: 0 }}>
                             {/* Header */}
@@ -373,6 +380,22 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                             {/* Content */}
                             {isExpanded && (
                                 <div style={{ borderTop: "1px solid var(--border)", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                                    
+                                    {/* Indicador de progreso */}
+                                    <div style={{
+                                        display: "flex", alignItems: "center", gap: "0.5rem",
+                                        padding: "0.5rem 0.75rem", borderRadius: "6px",
+                                        background: isCompleted ? "#e6f4ea" : "#fef7e0",
+                                        color: isCompleted ? "#1e8e3e" : "#b06000",
+                                        fontSize: "0.875rem", fontWeight: 600, border: `1px solid ${isCompleted ? "#ceead6" : "#fde293"}`
+                                    }}>
+                                        {isCompleted ? (
+                                            <>✅ Has completado los requisitos para este CAPEM.</>
+                                        ) : (
+                                            <>⚠️ Requiere subir {requiredFiles} ficha{requiredFiles !== 1 ? "s" : ""} para completar este CAPEM ({filesCount}/{requiredFiles}).</>
+                                        )}
+                                    </div>
+
                                     {capemSlots.map((slot, idx) => {
                                         const usedFichas = getUsedFichaIds(capem.id);
                                         const availableFichas = fichas.filter(f => f.id === slot.fichaId || !usedFichas.has(f.id));
