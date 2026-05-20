@@ -72,7 +72,7 @@ export default async function DirectorPage() {
 
     // Group entregas by programa
     const programasMap: Record<string, {
-        programa: { id: string; nombre: string; numArchivos: number; tipo: string };
+        programa: { id: string; nombre: string; numArchivos: number; tipo: string; etiquetasArchivos?: string[] };
         entregas: typeof entregas;
     }> = {};
 
@@ -85,7 +85,8 @@ export default async function DirectorPage() {
                     id: prog.id,
                     nombre: prog.nombre,
                     numArchivos: customNumArchivos !== undefined ? customNumArchivos : prog.numArchivos,
-                    tipo: prog.tipo
+                    tipo: prog.tipo,
+                    etiquetasArchivos: (prog.etiquetasArchivos as string[]) || []
                 },
                 entregas: [],
             };

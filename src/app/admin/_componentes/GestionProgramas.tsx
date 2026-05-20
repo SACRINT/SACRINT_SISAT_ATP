@@ -16,6 +16,7 @@ interface ProgramaAdmin {
     tipo: string;
     numArchivos: number;
     orden: number;
+    etiquetasArchivos?: string[];
     recordatorioAuto?: boolean;
     periodos: PeriodoAdmin[];
 }
@@ -44,12 +45,14 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
         tipo: string;
         numArchivos: number;
         orden: number;
+        etiquetasArchivos: string[];
     }>({
         nombre: "",
         descripcion: "",
         tipo: "ANUAL",
         numArchivos: 1,
         orden: 0,
+        etiquetasArchivos: [],
     });
 
     const handleOpenModal = (prog?: ProgramaAdmin) => {
@@ -62,6 +65,7 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                 tipo: prog.tipo,
                 numArchivos: prog.numArchivos,
                 orden: prog.orden,
+                etiquetasArchivos: prog.etiquetasArchivos || [],
             });
         } else {
             setEditingId(null);
@@ -71,6 +75,7 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                 tipo: "ANUAL",
                 numArchivos: 1,
                 orden: 0,
+                etiquetasArchivos: [],
             });
         }
         setIsModalOpen(true);
@@ -397,12 +402,46 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                                         min={1}
                                         className="form-control"
                                         value={formData.numArchivos}
-                                        onChange={(e) => setFormData({ ...formData, numArchivos: parseInt(e.target.value) || 1 })}
+                                        onChange={(e) => {
+                                            const newNum = parseInt(e.target.value) || 1;
+                                            const newLabels = [...formData.etiquetasArchivos];
+                                            // Trim if reducing, pad if increasing
+                                            while (newLabels.length > newNum) newLabels.pop();
+                                            setFormData({ ...formData, numArchivos: newNum, etiquetasArchivos: newLabels });
+                                        }}
                                         disabled={isLoading}
                                     />
                                     <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "0.25rem", display: "block" }}>¿Cúantos PDFs deben adjuntar en la entrega?</small>
                                 </div>
                             </div>
+
+                            {formData.numArchivos > 1 && (
+                                <div>
+                                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>Etiquetas de Archivos</label>
+                                    <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "block", marginBottom: "0.5rem" }}>
+                                        Nombra cada archivo para que los directores sepan qué subir (ej. &quot;Registro&quot;, &quot;Evidencias&quot;).
+                                    </small>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                                        {Array.from({ length: formData.numArchivos }).map((_, i) => (
+                                            <input
+                                                key={i}
+                                                type="text"
+                                                className="form-control"
+                                                placeholder={`Archivo ${i + 1}`}
+                                                value={formData.etiquetasArchivos[i] || ""}
+                                                onChange={(e) => {
+                                                    const newLabels = [...formData.etiquetasArchivos];
+                                                    // Ensure array is long enough
+                                                    while (newLabels.length <= i) newLabels.push("");
+                                                    newLabels[i] = e.target.value;
+                                                    setFormData({ ...formData, etiquetasArchivos: newLabels });
+                                                }}
+                                                disabled={isLoading}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>Orden de Aparición</label>

@@ -329,10 +329,9 @@ export default function EntregasListado({
                                                 {canUpload(ent.estado) && (
                                                     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", width: "100%" }}>
                                                         {Array.from({ length: group.programa.numArchivos }).map((_, i) => {
-                                                            // Mantenemos retrocompatibilidad con Día Naranja si son 2 archivos
-                                                            const isDianaranja = group.programa.nombre === "Día Naranja" && group.programa.numArchivos === 2;
-                                                            let defaultLabel = `Archivo ${i + 1}`;
-                                                            if (isDianaranja) defaultLabel = i === 0 ? "Registro" : "Evidencias";
+                                                            // Use dynamic labels from admin config, fallback to generic
+                                                            const etiquetas = group.programa.etiquetasArchivos || [];
+                                                            let defaultLabel = etiquetas[i] && etiquetas[i].trim() !== "" ? etiquetas[i] : `Archivo ${i + 1}`;
 
                                                             // Si solo es 1 archivo general, lo usualmente no usa etiqueta en la UI original
                                                             if (group.programa.numArchivos === 1) defaultLabel = "";

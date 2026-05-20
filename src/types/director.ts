@@ -23,7 +23,7 @@ export interface PeriodoEntregaDirector {
     mes: number | null;
     semestre: number | null;
     fechaLimite?: string | null;
-    programa: { id: string; nombre: string; numArchivos: number; tipo: string };
+    programa: { id: string; nombre: string; numArchivos: number; tipo: string; etiquetasArchivos?: string[] };
 }
 
 export interface EntregaDirector {
@@ -37,7 +37,7 @@ export interface EntregaDirector {
 }
 
 export interface ProgramaGroup {
-    programa: { id: string; nombre: string; numArchivos: number; tipo: string };
+    programa: { id: string; nombre: string; numArchivos: number; tipo: string; etiquetasArchivos?: string[] };
     entregas: EntregaDirector[];
 }
 
