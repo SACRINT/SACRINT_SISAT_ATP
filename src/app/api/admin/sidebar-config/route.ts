@@ -32,7 +32,7 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const updateData: Record<string, boolean> = {};
 
-    const fields = ["showRecursos", "showEventos", "showCircular05", "showOlimpiada", "showPAEC", "showCapems"];
+    const fields = ["showRecursos", "showEventos", "showCircular05", "showOlimpiada", "showPAEC", "showCapems", "showExpedientes"];
     for (const field of fields) {
         if (body[field] !== undefined) {
             updateData[field] = body[field];

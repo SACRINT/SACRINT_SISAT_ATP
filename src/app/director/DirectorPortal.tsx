@@ -11,6 +11,7 @@ import {
     FileText,
     GraduationCap,
     Lightbulb,
+    FolderOpen,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -21,6 +22,7 @@ import ProyectoCircular05 from "./_componentes/ProyectoCircular05";
 import OlimpiadaMatematicas from "./_componentes/OlimpiadaMatematicas";
 import EncuentroPAEC from "./_componentes/EncuentroPAEC";
 import CapemsPanel from "./_componentes/CapemsPanel";
+import ExpedientesPanel from "./_componentes/ExpedientesPanel";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
@@ -35,6 +37,7 @@ export default function DirectorPortal({
     isOlimpiadaActive = false,
     isPAECActive = false,
     isCapemsActive = false,
+    isExpedientesActive = false,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null };
     programas: ProgramaGroup[];
@@ -46,8 +49,9 @@ export default function DirectorPortal({
     isOlimpiadaActive?: boolean;
     isPAECActive?: boolean;
     isCapemsActive?: boolean;
+    isExpedientesActive?: boolean;
 }) {
-    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems">("entregas");
+    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes">("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Stats
@@ -164,6 +168,12 @@ export default function DirectorPortal({
                             Fichas CAPEMS
                         </button>
                     )}
+                    {isExpedientesActive && (
+                        <button className={`btn ${tab === "expedientes" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("expedientes")} style={{ flex: 1 }}>
+                            <FolderOpen size={18} />
+                            Expedientes
+                        </button>
+                    )}
                 </div>
 
                 {/* Tab Content */}
@@ -198,6 +208,10 @@ export default function DirectorPortal({
 
                 {tab === "capems" && isCapemsActive && (
                     <CapemsPanel escuela={escuela} />
+                )}
+
+                {tab === "expedientes" && isExpedientesActive && (
+                    <ExpedientesPanel escuela={escuela} />
                 )}
             </div>
         </>

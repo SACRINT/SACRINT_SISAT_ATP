@@ -19,3 +19,38 @@ export const ESTADO_COLORS: Record<string, string> = {
     NO_APROBADO: "var(--danger)",
     NO_ENTREGADO: "var(--text-muted)",
 };
+
+// ─── Expedientes de Personal ──────────────────────────
+
+export const DOCUMENTOS_PREDETERMINADOS = [
+    { tipo: "TITULO", label: "Título", multiple: true },
+    { tipo: "CEDULA", label: "Cédula", multiple: true },
+    { tipo: "ACTA_NACIMIENTO", label: "Acta de Nacimiento", multiple: false },
+    { tipo: "CURP_DOC", label: "CURP", multiple: false },
+    { tipo: "ORDEN_ADSCRIPCION", label: "Orden de Adscripción", multiple: true },
+    { tipo: "MOVIMIENTO_PERSONAL", label: "Movimiento de Personal", multiple: true },
+    { tipo: "COMPROBANTE_PAGO", label: "Comprobante de Pago", multiple: false },
+    { tipo: "COMPROBANTE_FISCAL", label: "Comprobante Fiscal", multiple: false },
+    { tipo: "INE", label: "INE", multiple: false },
+    { tipo: "COMPROBANTE_DOMICILIO", label: "Comprobante de Domicilio", multiple: false },
+] as const;
+
+export const CARGOS_PERSONAL = [
+    { value: "RESPONSABLE", label: "Responsable del Plantel" },
+    { value: "DOCENTE", label: "Docente" },
+    { value: "ADMINISTRATIVO", label: "Administrativo" },
+    { value: "APOYO", label: "Personal de Apoyo" },
+] as const;
+
+export const GRADOS_ACADEMICOS = [
+    { value: "BACHILLERATO", label: "Bachillerato" },
+    { value: "LICENCIATURA", label: "Licenciatura" },
+    { value: "MAESTRIA", label: "Maestría" },
+    { value: "DOCTORADO", label: "Doctorado" },
+    { value: "OTRO", label: "Otro" },
+] as const;
+
+export const SEXOS = [
+    { value: "MASCULINO", label: "Masculino" },
+    { value: "FEMENINO", label: "Femenino" },
+] as const;

@@ -1,0 +1,673 @@
+"use client";
+
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+    ToggleLeft,
+    ToggleRight,
+    Lock,
+    Unlock,
+    Download,
+    ChevronDown,
+    ChevronUp,
+    Search,
+    Loader2,
+    FileText,
+    Users,
+    AlertCircle,
+} from "lucide-react";
+import { getDownloadUrl } from "@/lib/download-url";
+import {
+    DOCUMENTOS_PREDETERMINADOS,
+    CARGOS_PERSONAL,
+    GRADOS_ACADEMICOS,
+    SEXOS,
+} from "@/lib/constants";
+
+// ─── Types ──────────────────────────────────────────────
+
+interface Documento {
+    id: string;
+    tipoDocumento: string;
+    etiqueta: string | null;
+    archivoNombre: string | null;
+    archivoDriveId: string | null;
+    archivoDriveUrl: string | null;
+    bloqueado: boolean;
+    createdAt: string;
+}
+
+interface Personal {
+    id: string;
+    nombre: string;
+    apellidoPaterno: string;
+    apellidoMaterno: string;
+    cargo: string;
+    sexo: string;
+    curp: string | null;
+    rfc: string | null;
+    gradoAcademico: string | null;
+    escuelaId: string;
+    escuela: { id: string; cct: string; nombre: string };
+    documentos: Documento[];
+}
+
+interface EscuelaGroup {
+    id: string;
+    cct: string;
+    nombre: string;
+    personal: Personal[];
+}
+
+// ─── Helpers ────────────────────────────────────────────
+
+const TOTAL_REQUIRED_DOCS = DOCUMENTOS_PREDETERMINADOS.length; // 10
+
+function getCargoLabel(value: string): string {
+    return CARGOS_PERSONAL.find(c => c.value === value)?.label || value;
+}
+
+function getGradoLabel(value: string): string {
+    return GRADOS_ACADEMICOS.find(g => g.value === value)?.label || value;
+}
+
+function getSexoLabel(value: string): string {
+    return SEXOS.find(s => s.value === value)?.label || value;
+}
+
+/** Count how many of the 10 required document types have at least one uploaded file */
+function countCompleteDocs(documentos: Documento[]): number {
+    const uploadedTypes = new Set(
+        documentos
+            .filter(d => d.archivoDriveUrl)
+            .map(d => d.tipoDocumento)
+    );
+    return DOCUMENTOS_PREDETERMINADOS.filter(dp => uploadedTypes.has(dp.tipo)).length;
+}
+
+function completenessColor(complete: number, total: number): string {
+    if (complete >= total) return "var(--success)";
+    if (complete < total / 2) return "var(--error)";
+    return "var(--warning, #e67e22)";
+}
+
+// ─── Component ──────────────────────────────────────────
+
+export default function GestionExpedientes() {
+    const [personalList, setPersonalList] = useState<Personal[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [moduleActive, setModuleActive] = useState(false);
+
+    const [expandedEscuela, setExpandedEscuela] = useState<string | null>(null);
+    const [expandedPersonal, setExpandedPersonal] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterCargo, setFilterCargo] = useState<string>("");
+
+    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [downloadingZip, setDownloadingZip] = useState(false);
+
+    // ─── Data Fetching ─────────────────────────────────
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [configRes, personalRes] = await Promise.all([
+                fetch("/api/expedientes/config"),
+                fetch("/api/expedientes/personal"),
+            ]);
+            if (configRes.ok) {
+                const configData = await configRes.json();
+                setModuleActive(configData.activo ?? false);
+            }
+            if (personalRes.ok) {
+                setPersonalList(await personalRes.json());
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error cargando datos" });
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ─── Toggle Module ─────────────────────────────────
+
+    async function handleToggleModule() {
+        const newValue = !moduleActive;
+        setBusy(true);
+        try {
+            const res = await fetch("/api/expedientes/config", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ activo: newValue }),
+            });
+            if (res.ok) {
+                setModuleActive(newValue);
+                setMessage({
+                    type: "success",
+                    text: newValue
+                        ? "Expedientes activado para directores"
+                        : "Expedientes desactivado para directores",
+                });
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    // ─── Toggle Document Lock ──────────────────────────
+
+    async function handleToggleBloqueo(docId: string, bloqueado: boolean) {
+        setBusy(true);
+        try {
+            const res = await fetch(`/api/expedientes/documentos/${docId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ bloqueado }),
+            });
+            if (res.ok) {
+                setPersonalList(prev =>
+                    prev.map(p => ({
+                        ...p,
+                        documentos: p.documentos.map(d =>
+                            d.id === docId ? { ...d, bloqueado } : d
+                        ),
+                    }))
+                );
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    // ─── Descarga masiva ZIP ───────────────────────────
+
+    async function handleDownloadZip(escuelaId?: string) {
+        setDownloadingZip(true);
+        try {
+            const url = escuelaId
+                ? `/api/expedientes/descargar?escuelaId=${escuelaId}`
+                : "/api/expedientes/descargar";
+            const res = await fetch(url);
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({ error: "No se encontraron archivos para descargar" }));
+                setMessage({ type: "error", text: d.error || "Error al descargar" });
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            const disposition = res.headers.get("content-disposition");
+            const nameMatch = disposition?.match(/filename="(.+)"/);
+            a.download = nameMatch?.[1] || "Expedientes.zip";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setDownloadingZip(false);
+        }
+    }
+
+    // ─── Group by School ───────────────────────────────
+
+    const escuelasArray = useMemo<EscuelaGroup[]>(() => {
+        const map = new Map<string, EscuelaGroup>();
+        personalList.forEach(p => {
+            if (!map.has(p.escuelaId)) {
+                map.set(p.escuelaId, {
+                    id: p.escuelaId,
+                    cct: p.escuela.cct,
+                    nombre: p.escuela.nombre,
+                    personal: [],
+                });
+            }
+            map.get(p.escuelaId)!.personal.push(p);
+        });
+
+        return Array.from(map.values())
+            .filter(e => {
+                if (!searchTerm) return true;
+                const term = searchTerm.toLowerCase();
+                return (
+                    e.cct.toLowerCase().includes(term) ||
+                    e.nombre.toLowerCase().includes(term)
+                );
+            })
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    }, [personalList, searchTerm]);
+
+    // ─── Loading ───────────────────────────────────────
+
+    if (loading) {
+        return (
+            <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}>
+                <Loader2 className="spin" size={32} />
+            </div>
+        );
+    }
+
+    // ─── Render ────────────────────────────────────────
+
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {/* Message */}
+            {message && (
+                <div className={`alert ${message.type === "success" ? "alert-success" : "alert-error"}`}>
+                    {message.text}
+                    <button onClick={() => setMessage(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>×</button>
+                </div>
+            )}
+
+            {/* Toggle para directores */}
+            <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                    <strong>Módulo Expedientes para Directores</strong>
+                    <p style={{ margin: "0.25rem 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                        {moduleActive
+                            ? "Los directores pueden ver y gestionar expedientes de personal"
+                            : "Expedientes está oculto para los directores"}
+                    </p>
+                </div>
+                <button
+                    onClick={handleToggleModule}
+                    disabled={busy}
+                    style={{
+                        background: "none", border: "none", cursor: "pointer",
+                        color: moduleActive ? "var(--success)" : "var(--text-muted)",
+                    }}
+                    title={moduleActive ? "Desactivar" : "Activar"}
+                >
+                    {moduleActive ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
+                </button>
+            </div>
+
+            {/* ════════ RESUMEN DE ESCUELAS ════════ */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {/* Filtros */}
+                <div className="card" style={{ padding: "0.75rem" }}>
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: "200px", position: "relative" }}>
+                            <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Buscar por CCT o nombre..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                style={{ paddingLeft: "2.25rem" }}
+                            />
+                        </div>
+                        <select
+                            className="form-control"
+                            value={filterCargo}
+                            onChange={e => setFilterCargo(e.target.value)}
+                            style={{ width: "200px" }}
+                        >
+                            <option value="">Todos los cargos</option>
+                            {CARGOS_PERSONAL.map(c => (
+                                <option key={c.value} value={c.value}>{c.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {/* Info summary */}
+                <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7", padding: "0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <p style={{ margin: 0, fontSize: "0.875rem", color: "#0c5a8e" }}>
+                        <Users size={16} style={{ verticalAlign: "middle", marginRight: "0.375rem" }} />
+                        <strong>{escuelasArray.length}</strong> escuelas con personal •{" "}
+                        <strong>{personalList.length}</strong> empleados registrados
+                    </p>
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => handleDownloadZip()}
+                        disabled={downloadingZip || personalList.length === 0}
+                        style={{ minHeight: "auto", padding: "0.375rem 0.75rem", fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "0.375rem" }}
+                    >
+                        <Download size={14} /> Descargar Todos los Expedientes
+                    </button>
+                </div>
+
+                {/* School list */}
+                {escuelasArray.length === 0 ? (
+                    <div className="card" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                        <AlertCircle size={24} style={{ marginBottom: "0.5rem" }} />
+                        <p style={{ margin: 0 }}>No hay registros de personal aún</p>
+                    </div>
+                ) : (
+                    escuelasArray.map(escuela => {
+                        const isExpanded = expandedEscuela === escuela.id;
+                        const filteredPersonal = filterCargo
+                            ? escuela.personal.filter(p => p.cargo === filterCargo)
+                            : escuela.personal;
+                        const totalPersonnel = escuela.personal.length;
+                        const completeCount = escuela.personal.filter(
+                            p => countCompleteDocs(p.documentos) >= TOTAL_REQUIRED_DOCS
+                        ).length;
+
+                        return (
+                            <div key={escuela.id} className="card" style={{ padding: 0 }}>
+                                <div
+                                    onClick={() => setExpandedEscuela(isExpanded ? null : escuela.id)}
+                                    style={{
+                                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                                        width: "100%", padding: "0.875rem 1rem",
+                                        cursor: "pointer",
+                                        fontWeight: 600,
+                                        userSelect: "none",
+                                    }}
+                                >
+                                    <div>
+                                        <span style={{ color: "var(--text-muted)", marginRight: "0.5rem", fontSize: "0.8125rem" }}>{escuela.cct}</span>
+                                        {escuela.nombre}
+                                        <span style={{ marginLeft: "0.75rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                            {totalPersonnel} empleado{totalPersonnel !== 1 ? "s" : ""}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }} onClick={e => e.stopPropagation()}>
+                                        {/* Completeness chip */}
+                                        <span style={{
+                                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                            background: completenessColor(completeCount, totalPersonnel),
+                                            color: "white",
+                                            borderRadius: "9999px", padding: "0.125rem 0.625rem",
+                                            fontSize: "0.6875rem", fontWeight: 700,
+                                        }} title={`${completeCount} de ${totalPersonnel} con expediente completo`}>
+                                            {completeCount}/{totalPersonnel} completos
+                                        </span>
+                                        {totalPersonnel > 0 && (
+                                            <button
+                                                onClick={() => handleDownloadZip(escuela.id)}
+                                                disabled={downloadingZip}
+                                                className="btn btn-outline"
+                                                style={{
+                                                    minHeight: "auto",
+                                                    padding: "0.25rem 0.5rem",
+                                                    fontSize: "0.75rem",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "0.25rem",
+                                                }}
+                                                title="Descargar expediente escolar (ZIP)"
+                                            >
+                                                <Download size={14} /> ZIP
+                                            </button>
+                                        )}
+                                        <div 
+                                            onClick={() => setExpandedEscuela(isExpanded ? null : escuela.id)}
+                                            style={{ cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}
+                                        >
+                                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {isExpanded && (
+                                    <div style={{ borderTop: "1px solid var(--border)" }}>
+                                        {filteredPersonal.length === 0 ? (
+                                            <p style={{ padding: "1rem", color: "var(--text-muted)", textAlign: "center", margin: 0 }}>
+                                                Sin personal {filterCargo ? "con este cargo" : ""}
+                                            </p>
+                                        ) : (
+                                            <div style={{ overflowX: "auto" }}>
+                                                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+                                                    <thead>
+                                                        <tr style={{ background: "var(--bg-secondary)" }}>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>Nombre</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>Cargo</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Sexo</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>CURP</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>RFC</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>Grado</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Documentos</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Detalle</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {filteredPersonal.map(persona => {
+                                                            const complete = countCompleteDocs(persona.documentos);
+                                                            const isPersonExpanded = expandedPersonal === persona.id;
+
+                                                            return (
+                                                                <PersonRow
+                                                                    key={persona.id}
+                                                                    persona={persona}
+                                                                    complete={complete}
+                                                                    isExpanded={isPersonExpanded}
+                                                                    onToggleExpand={() => setExpandedPersonal(isPersonExpanded ? null : persona.id)}
+                                                                    onToggleBloqueo={handleToggleBloqueo}
+                                                                    busy={busy}
+                                                                />
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── Person Row Sub-component ───────────────────────────
+
+function PersonRow({
+    persona,
+    complete,
+    isExpanded,
+    onToggleExpand,
+    onToggleBloqueo,
+    busy,
+}: {
+    persona: Personal;
+    complete: number;
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+    onToggleBloqueo: (docId: string, bloqueado: boolean) => Promise<void>;
+    busy: boolean;
+}) {
+    const fullName = `${persona.apellidoPaterno} ${persona.apellidoMaterno} ${persona.nombre}`;
+    const docColor = completenessColor(complete, TOTAL_REQUIRED_DOCS);
+
+    // Build a map of uploaded documents by type
+    const docsByType = useMemo(() => {
+        const map = new Map<string, Documento[]>();
+        persona.documentos.forEach(d => {
+            if (!map.has(d.tipoDocumento)) map.set(d.tipoDocumento, []);
+            map.get(d.tipoDocumento)!.push(d);
+        });
+        return map;
+    }, [persona.documentos]);
+
+    // Custom docs (not in predefined list)
+    const predefinedTypes: Set<string> = new Set(DOCUMENTOS_PREDETERMINADOS.map(dp => dp.tipo));
+    const customDocs = persona.documentos.filter(d => !predefinedTypes.has(d.tipoDocumento));
+
+    return (
+        <>
+            <tr style={{ borderTop: "1px solid var(--border)" }}>
+                <td style={{ padding: "0.5rem 0.75rem", fontWeight: 600 }}>{fullName}</td>
+                <td style={{ padding: "0.5rem 0.75rem" }}>{getCargoLabel(persona.cargo)}</td>
+                <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>{getSexoLabel(persona.sexo)}</td>
+                <td style={{ padding: "0.5rem 0.75rem", fontFamily: "monospace", fontSize: "0.75rem" }}>
+                    {persona.curp || <span style={{ color: "var(--text-muted)" }}>—</span>}
+                </td>
+                <td style={{ padding: "0.5rem 0.75rem", fontFamily: "monospace", fontSize: "0.75rem" }}>
+                    {persona.rfc || <span style={{ color: "var(--text-muted)" }}>—</span>}
+                </td>
+                <td style={{ padding: "0.5rem 0.75rem" }}>
+                    {persona.gradoAcademico ? getGradoLabel(persona.gradoAcademico) : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                </td>
+                <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                    <span style={{
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        background: docColor, color: "white",
+                        borderRadius: "9999px", padding: "0.125rem 0.5rem",
+                        fontSize: "0.6875rem", fontWeight: 700,
+                    }}>
+                        {complete}/{TOTAL_REQUIRED_DOCS} documentos
+                    </span>
+                </td>
+                <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                    <button
+                        onClick={onToggleExpand}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }}
+                        title={isExpanded ? "Ocultar documentos" : "Ver documentos"}
+                    >
+                        {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    </button>
+                </td>
+            </tr>
+
+            {/* Expanded sub-row: document details */}
+            {isExpanded && (
+                <tr>
+                    <td colSpan={8} style={{ padding: 0 }}>
+                        <div style={{
+                            background: "var(--bg-secondary)",
+                            padding: "0.75rem 1rem",
+                            borderTop: "1px solid var(--border)",
+                        }}>
+                            <p style={{ margin: "0 0 0.5rem", fontWeight: 600, fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                <FileText size={14} /> Documentos de {persona.nombre}
+                            </p>
+
+                            {/* Required documents grid */}
+                            <div style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                                gap: "0.5rem",
+                                marginBottom: customDocs.length > 0 ? "0.75rem" : 0,
+                            }}>
+                                {DOCUMENTOS_PREDETERMINADOS.map(dp => {
+                                    const docs = docsByType.get(dp.tipo) || [];
+                                    const hasFile = docs.some(d => d.archivoDriveUrl);
+
+                                    return (
+                                        <div key={dp.tipo} style={{
+                                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                                            padding: "0.375rem 0.625rem",
+                                            borderRadius: "6px",
+                                            background: "var(--bg-primary, white)",
+                                            border: "1px solid var(--border)",
+                                            fontSize: "0.8125rem",
+                                        }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                                <span style={{ color: hasFile ? "var(--success)" : "var(--error)", fontSize: "0.875rem" }}>
+                                                    {hasFile ? "✅" : "❌"}
+                                                </span>
+                                                <span>{dp.label}</span>
+                                            </div>
+
+                                            {docs.length > 0 && (
+                                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                    {docs.map(doc => (
+                                                        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
+                                                            {doc.archivoDriveUrl && (
+                                                                <a
+                                                                    href={getDownloadUrl(doc.archivoDriveUrl, doc.archivoNombre || "archivo", doc.archivoDriveId) || "#"}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
+                                                                    title={doc.archivoNombre || "Descargar"}
+                                                                >
+                                                                    <Download size={14} />
+                                                                </a>
+                                                            )}
+                                                            <button
+                                                                onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
+                                                                disabled={busy}
+                                                                style={{
+                                                                    background: "none", border: "none", cursor: "pointer",
+                                                                    color: doc.bloqueado ? "var(--error)" : "var(--success)",
+                                                                    padding: "2px",
+                                                                }}
+                                                                title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
+                                                            >
+                                                                {doc.bloqueado ? <Lock size={14} /> : <Unlock size={14} />}
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Custom documents */}
+                            {customDocs.length > 0 && (
+                                <>
+                                    <p style={{ margin: "0 0 0.375rem", fontWeight: 600, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                        Documentos adicionales
+                                    </p>
+                                    <div style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                                        gap: "0.5rem",
+                                    }}>
+                                        {customDocs.map(doc => (
+                                            <div key={doc.id} style={{
+                                                display: "flex", alignItems: "center", justifyContent: "space-between",
+                                                padding: "0.375rem 0.625rem",
+                                                borderRadius: "6px",
+                                                background: "var(--bg-primary, white)",
+                                                border: "1px dashed var(--border)",
+                                                fontSize: "0.8125rem",
+                                            }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                                    <span style={{ color: doc.archivoDriveUrl ? "var(--success)" : "var(--error)", fontSize: "0.875rem" }}>
+                                                        {doc.archivoDriveUrl ? "✅" : "❌"}
+                                                    </span>
+                                                    <span>{doc.etiqueta || doc.tipoDocumento}</span>
+                                                </div>
+
+                                                <div style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
+                                                    {doc.archivoDriveUrl && (
+                                                        <a
+                                                            href={getDownloadUrl(doc.archivoDriveUrl, doc.archivoNombre || "archivo", doc.archivoDriveId) || "#"}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
+                                                            title={doc.archivoNombre || "Descargar"}
+                                                        >
+                                                            <Download size={14} />
+                                                        </a>
+                                                    )}
+                                                    <button
+                                                        onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
+                                                        disabled={busy}
+                                                        style={{
+                                                            background: "none", border: "none", cursor: "pointer",
+                                                            color: doc.bloqueado ? "var(--error)" : "var(--success)",
+                                                            padding: "2px",
+                                                        }}
+                                                        title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
+                                                    >
+                                                        {doc.bloqueado ? <Lock size={14} /> : <Unlock size={14} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </td>
+                </tr>
+            )}
+        </>
+    );
+}

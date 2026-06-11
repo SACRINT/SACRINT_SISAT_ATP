@@ -13,6 +13,7 @@ interface SidebarConfig {
     showOlimpiada: boolean;
     showPAEC: boolean;
     showCapems: boolean;
+    showExpedientes: boolean;
 }
 
 interface GestionPeriodosProps {
@@ -33,6 +34,7 @@ export default function GestionPeriodos({ programas, sidebarConfig }: GestionPer
         { key: "showOlimpiada", label: "Olimpiada Matemáticas" },
         { key: "showPAEC", label: "Encuentro PAEC" },
         { key: "showCapems", label: "Fichas CAPEMS" },
+        { key: "showExpedientes", label: "Expedientes de Personal" },
     ] as const;
 
     async function handleToggleVisibility(field: string, value: boolean) {

@@ -76,6 +76,7 @@ export default async function AdminPage() {
         showOlimpiada: sidebarConfigRaw?.showOlimpiada ?? true,
         showPAEC: sidebarConfigRaw?.showPAEC ?? true,
         showCapems: sidebarConfigRaw?.showCapems ?? true,
+        showExpedientes: sidebarConfigRaw?.showExpedientes ?? true,
     };
 
     // Calculate stats from active periods only

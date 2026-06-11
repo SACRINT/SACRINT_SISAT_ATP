@@ -24,6 +24,7 @@ import {
     Search,
     UserCog,
     Trophy,
+    Users,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -42,6 +43,7 @@ import GestionOlimpiada from "./_componentes/GestionOlimpiada";
 import GestionEncuentroPAEC from "./_componentes/GestionEncuentroPAEC";
 import GestionCircular05 from "./_componentes/GestionCircular05";
 import GestionCapems from "./_componentes/GestionCapems";
+import GestionExpedientes from "./_componentes/GestionExpedientes";
 
 import { ProgramaAdmin, EscuelaAdmin, Stats } from "@/types";
 
@@ -76,9 +78,10 @@ export default function AdminDashboard({
         showOlimpiada: boolean;
         showPAEC: boolean;
         showCapems: boolean;
+        showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes">("general");
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
@@ -285,6 +288,11 @@ export default function AdminDashboard({
                             <FileText size={18} /> Fichas CAPEMS
                         </button>
                     )}
+                    {sidebarConfig.showExpedientes && (
+                        <button className={`sidebar-link ${vista === "expedientes" ? "active" : ""}`} onClick={() => setVista("expedientes")}>
+                            <Users size={18} /> Expedientes de Personal
+                        </button>
+                    )}
                     {dbRole === "SUPER_ADMIN" && (
                         <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => setVista("gestion-atps")}>
                             <UserCog size={18} /> Accesos y Seguridad
@@ -422,6 +430,13 @@ export default function AdminDashboard({
                 {
                     vista === "capems" && (
                         <GestionCapems />
+                    )
+                }
+
+                {/* ========= VISTA: EXPEDIENTES DE PERSONAL ========= */}
+                {
+                    vista === "expedientes" && (
+                        <GestionExpedientes />
                     )
                 }
             </main >

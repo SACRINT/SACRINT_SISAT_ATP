@@ -60,6 +60,7 @@ model Escuela {
   inscripcionPAEC InscripcionEncuentroPAEC?
   descargasCircular05 Circular05Descarga[]
   capemRegistros CapemFichaRegistro[]
+  personal Personal[]
 }
 
 model CicloEscolar {
@@ -298,6 +299,7 @@ model AdminSidebarConfig {
   showOlimpiada   Boolean @default(true)
   showPAEC        Boolean @default(true)
   showCapems      Boolean @default(true)
+  showExpedientes Boolean @default(true)
 }
 
 // ─── CAPEMS ─────────────────────────────────────────
@@ -346,4 +348,49 @@ model CapemFichaRegistro {
   escuela Escuela @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
   capem   Capem   @relation(fields: [capemId], references: [id], onDelete: Cascade)
   ficha   Ficha   @relation(fields: [fichaId], references: [id])
+}
+
+// ─── Expedientes de Personal ──────────────────────────
+
+model ExpedientesConfig {
+  id     String  @id @default("singleton")
+  activo Boolean @default(false)
+}
+
+model Personal {
+  id               String   @id @default(cuid())
+  escuelaId        String
+  nombre           String   // Nombre(s)
+  apellidoPaterno  String
+  apellidoMaterno  String
+  sexo             String   // "MASCULINO" | "FEMENINO"
+  cargo            String   // "RESPONSABLE" | "DOCENTE" | "ADMINISTRATIVO" | "APOYO"
+  curp             String?
+  rfc              String?
+  telefono         String?
+  correoElectronico String?
+  gradoAcademico   String?  // "LICENCIATURA" | "MAESTRIA" | "DOCTORADO" | "OTRO"
+  fechaIngreso     DateTime?
+  orden            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  escuela    Escuela             @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  documentos DocumentoPersonal[]
+}
+
+model DocumentoPersonal {
+  id               String   @id @default(cuid())
+  personalId       String
+  tipoDocumento    String   // "TITULO", "CEDULA", "ACTA_NACIMIENTO", "CURP", etc. o "CUSTOM"
+  etiqueta         String?  // Nombre personalizado para documentos extra
+  archivoNombre    String?
+  archivoDriveId   String?
+  archivoDriveUrl  String?
+  bloqueado        Boolean  @default(false)
+  orden            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  personal         Personal @relation(fields: [personalId], references: [id], onDelete: Cascade)
 }
