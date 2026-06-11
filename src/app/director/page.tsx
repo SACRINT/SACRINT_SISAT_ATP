@@ -97,7 +97,8 @@ export default async function DirectorPage() {
     const programasAgrupados = Object.values(programasMap);
 
     // Fetch configs globales para los tabs
-    const [eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig] = await Promise.all([
+    const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig] = await Promise.all([
+        prisma.adminSidebarConfig.findUnique({ where: { id: "singleton" } }),
         prisma.eventosConfig.findUnique({ where: { id: "singleton" } }),
         prisma.circular05Config.findUnique({ where: { id: "singleton" } }),
         prisma.olimpiadaConfig.findUnique({ where: { id: "singleton" } }),
@@ -106,12 +107,12 @@ export default async function DirectorPage() {
         prisma.expedientesConfig.findUnique({ where: { id: "singleton" } }),
     ]);
 
-    const isEventosActive = eventosConfig?.activo ?? false;
-    const isCircularActive = circularConfig?.activo ?? false;
-    const isOlimpiadaActive = olimpiadaConfig?.activo ?? false;
-    const isPAECActive = paecConfig?.activo ?? false;
-    const isCapemsActive = capemsConfig?.activo ?? false;
-    const isExpedientesActive = expedientesConfig?.activo ?? false;
+    const isEventosActive = (eventosConfig?.activo ?? false) && (sidebarConfig?.showEventos ?? true);
+    const isCircularActive = (circularConfig?.activo ?? false) && (sidebarConfig?.showCircular05 ?? true);
+    const isOlimpiadaActive = (olimpiadaConfig?.activo ?? false) && (sidebarConfig?.showOlimpiada ?? true);
+    const isPAECActive = (paecConfig?.activo ?? false) && (sidebarConfig?.showPAEC ?? true);
+    const isCapemsActive = (capemsConfig?.activo ?? false) && (sidebarConfig?.showCapems ?? true);
+    const isExpedientesActive = (expedientesConfig?.activo ?? false) && (sidebarConfig?.showExpedientes ?? true);
 
     return (
         <DirectorPortal
