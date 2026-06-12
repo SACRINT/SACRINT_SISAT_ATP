@@ -28,6 +28,16 @@ export async function POST(req: NextRequest) {
                 folderPath += `/${subfolder.replace(/^\/+/, '')}`;
             }
             folder = `SISAT-ATP/${folderPath}`;
+        } else if (programa === "Expedientes" && cct && escuelaNombre) {
+            // ─── Expedientes de Personal mode: no entregaId needed ───
+            escuelaCct = cct;
+            escuelaNombreResolved = escuelaNombre;
+            programaNombre = "Expedientes";
+            let folderPath = buildFolderPath(cct, escuelaNombre, "Expedientes");
+            if (subfolder) {
+                folderPath += `/${subfolder.replace(/^\/+/, '')}`;
+            }
+            folder = `SISAT-ATP/${folderPath}`;
         } else {
             // ─── Standard mode: requires entregaId ───
             if (!entregaId) {
