@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { obtenerCicloActual } from "@/lib/ciclo";
 
 /**
  * GET /api/inscripciones-eventos
@@ -22,6 +23,9 @@ export async function GET() {
         const escuela = await prisma.escuela.findUnique({ where: { cct } });
         if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
 
+        const ciclo = await obtenerCicloActual();
+        if (!ciclo) return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+
         // Get global config
         const config = await prisma.eventosConfig.findUnique({ where: { id: "singleton" } });
 
@@ -33,13 +37,18 @@ export async function GET() {
             orderBy: { orden: "asc" },
         });
 
-        // Get existing inscription for this school
-        const inscripcion = await prisma.inscripcionEvento2026.findUnique({
-            where: { escuelaId: escuela.id },
+        // Get existing inscription for this school and cycle
+        const inscripcion = await prisma.inscripcionEvento.findUnique({
+            where: {
+                escuelaId_cicloEscolarId: {
+                    escuelaId: escuela.id,
+                    cicloEscolarId: ciclo.id,
+                },
+            },
         });
 
         return NextResponse.json({
-            activo: config?.activo ?? false,
+            activo: (config?.activo ?? false) && ciclo.activo, // only active if config is active AND cycle is active
             categorias,
             inscripcion: inscripcion?.datos ?? null,
             updatedAt: inscripcion?.updatedAt ?? null,
@@ -69,6 +78,14 @@ export async function POST(req: Request) {
 
         const escuela = await prisma.escuela.findUnique({ where: { cct } });
         if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
+
+        const ciclo = await obtenerCicloActual();
+        if (!ciclo) return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+
+        // If cycle is not active, it's read-only
+        if (!ciclo.activo) {
+            return NextResponse.json({ error: "No se permiten modificaciones en ciclos escolares pasados o inactivos" }, { status: 403 });
+        }
 
         // Check if the feature is active
         const config = await prisma.eventosConfig.findUnique({ where: { id: "singleton" } });
@@ -124,10 +141,15 @@ export async function POST(req: Request) {
         }
 
         // Upsert inscription
-        await prisma.inscripcionEvento2026.upsert({
-            where: { escuelaId: escuela.id },
+        await prisma.inscripcionEvento.upsert({
+            where: {
+                escuelaId_cicloEscolarId: {
+                    escuelaId: escuela.id,
+                    cicloEscolarId: ciclo.id,
+                },
+            },
             update: { datos },
-            create: { escuelaId: escuela.id, datos },
+            create: { escuelaId: escuela.id, cicloEscolarId: ciclo.id, datos },
         });
 
         return NextResponse.json({ ok: true });
@@ -156,8 +178,19 @@ export async function DELETE() {
         const escuela = await prisma.escuela.findUnique({ where: { cct } });
         if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
 
-        await prisma.inscripcionEvento2026.deleteMany({
-            where: { escuelaId: escuela.id },
+        const ciclo = await obtenerCicloActual();
+        if (!ciclo) return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+
+        // If cycle is not active, it's read-only
+        if (!ciclo.activo) {
+            return NextResponse.json({ error: "No se permiten modificaciones en ciclos escolares pasados o inactivos" }, { status: 403 });
+        }
+
+        await prisma.inscripcionEvento.deleteMany({
+            where: {
+                escuelaId: escuela.id,
+                cicloEscolarId: ciclo.id,
+            },
         });
 
         return NextResponse.json({ ok: true });

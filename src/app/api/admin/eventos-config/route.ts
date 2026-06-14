@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { obtenerCicloActual } from "@/lib/ciclo";
 
 /**
  * GET /api/admin/eventos-config
@@ -12,6 +13,11 @@ export async function GET() {
         const user = session?.user as { role?: string } | undefined;
         if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        }
+
+        const ciclo = await obtenerCicloActual();
+        if (!ciclo) {
+            return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
         }
 
         const config = await prisma.eventosConfig.upsert({
@@ -27,14 +33,15 @@ export async function GET() {
             orderBy: { orden: "asc" },
         });
 
-        // Get all schools
+        // Get all schools with their events registrations for this cycle
         const escuelas = await prisma.escuela.findMany({
             select: {
                 id: true,
                 cct: true,
                 nombre: true,
                 email: true,
-                inscripcionEvento: {
+                inscripcionesEventos: {
+                    where: { cicloEscolarId: ciclo.id },
                     select: {
                         id: true,
                         datos: true,
@@ -47,7 +54,7 @@ export async function GET() {
 
         // Build school list with status
         const escuelasConEstado = escuelas.map(esc => {
-            const inscripcion = esc.inscripcionEvento;
+            const inscripcion = esc.inscripcionesEventos[0] || null;
             const datos = (inscripcion?.datos as Record<string, { participa: boolean; numParticipantes: number }>) || {};
             const disciplinasActivas = Object.values(datos).filter(d => d.participa).length;
             const totalParticipantes = Object.values(datos)
@@ -136,8 +143,16 @@ export async function DELETE(req: NextRequest) {
             return NextResponse.json({ error: "escuelaId requerido" }, { status: 400 });
         }
 
-        await prisma.inscripcionEvento2026.deleteMany({
-            where: { escuelaId },
+        const ciclo = await obtenerCicloActual();
+        if (!ciclo) {
+            return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+        }
+
+        await prisma.inscripcionEvento.deleteMany({
+            where: {
+                escuelaId,
+                cicloEscolarId: ciclo.id,
+            },
         });
 
         return NextResponse.json({ ok: true });

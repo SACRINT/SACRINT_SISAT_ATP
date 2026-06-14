@@ -89,6 +89,12 @@ export default function GestionEscuelas({ inicialEscuelas, programas }: { inicia
 
     const handleSave = async () => {
         if (!isCreating && !selectedId) return;
+        
+        if (formData.cct && !/^\d{2}[A-Z]{3}\d{4}[A-Z]$/.test(formData.cct.toUpperCase().trim())) {
+            setMessage({ type: "error", text: "El formato de CCT es inválido. Debe tener 10 caracteres en formato oficial SEP (ej. 21EBH0088T)." });
+            return;
+        }
+
         setSaving(true);
         setMessage(null);
 
@@ -251,7 +257,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas }: { inicia
                                 type="text"
                                 className="form-control"
                                 value={isEditingMode ? formData.cct : selectedEscuela?.cct}
-                                onChange={(e) => setFormData({ ...formData, cct: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, cct: e.target.value.toUpperCase() })}
                                 disabled={!isCreating}
                                 placeholder="Ej: 21EBH0000Z"
                                 style={{

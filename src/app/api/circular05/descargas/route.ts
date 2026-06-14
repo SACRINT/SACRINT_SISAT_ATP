@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { obtenerCicloActual } from "@/lib/ciclo";
 
 // GET - Obtener descargas agrupadas por escuela
 export async function GET() {
@@ -10,7 +11,11 @@ export async function GET() {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    const ciclo = await obtenerCicloActual();
+    if (!ciclo) return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+
     const descargas = await prisma.circular05Descarga.findMany({
+        where: { cicloEscolarId: ciclo.id },
         include: {
             escuela: {
                 select: { id: true, cct: true, nombre: true, localidad: true },

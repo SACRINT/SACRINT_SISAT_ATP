@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import ExcelJS from "exceljs";
+import { obtenerCicloActual } from "@/lib/ciclo";
 
 /**
  * GET /api/admin/exportar-excel-eventos
@@ -16,15 +17,24 @@ export async function GET() {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
+        const ciclo = await obtenerCicloActual();
+        if (!ciclo) {
+            return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+        }
+
         // Fetch discipline catalog
         const categorias = await prisma.categoriaEvento.findMany({
             include: { disciplinas: { orderBy: { orden: "asc" } } },
             orderBy: { orden: "asc" },
         });
 
-        // Fetch all schools with their inscriptions
+        // Fetch all schools with their inscriptions for this cycle
         const escuelas = await prisma.escuela.findMany({
-            include: { inscripcionEvento: true },
+            include: {
+                inscripcionesEventos: {
+                    where: { cicloEscolarId: ciclo.id },
+                },
+            },
             orderBy: { nombre: "asc" },
         });
 
@@ -161,7 +171,8 @@ export async function GET() {
             }
 
             // Discipline columns
-            const datos = (esc.inscripcionEvento?.datos as Record<string, { participa: boolean; numParticipantes: number }>) || {};
+            const inscripcion = esc.inscripcionesEventos[0] || null;
+            const datos = (inscripcion?.datos as Record<string, { participa: boolean; numParticipantes: number }>) || {};
 
             colOffset = 4;
             for (const disc of allDisciplinas) {
@@ -232,7 +243,8 @@ export async function GET() {
 
             for (const disc of cat.disciplinas) {
                 const count = escuelas.filter(esc => {
-                    const datos = (esc.inscripcionEvento?.datos as Record<string, { participa: boolean }>) || {};
+                    const inscripcion = esc.inscripcionesEventos[0] || null;
+                    const datos = (inscripcion?.datos as Record<string, { participa: boolean }>) || {};
                     return datos[disc.id]?.participa === true;
                 }).length;
 

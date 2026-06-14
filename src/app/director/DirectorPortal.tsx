@@ -18,8 +18,10 @@ import {
     Menu,
     X as XIcon,
     CheckCircle2,
+    Search,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
 
 import EntregasListado from "./_componentes/EntregasListado";
 import RecursosListado from "./_componentes/RecursosListado";
@@ -38,6 +40,9 @@ export default function DirectorPortal({
     escuela,
     programas,
     ciclo,
+    cicloId,
+    cicloObj,
+    todosCiclos = [],
     anuncioGlobal,
     recursos,
     isEventosActive = true,
@@ -50,6 +55,9 @@ export default function DirectorPortal({
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null };
     programas: ProgramaGroup[];
     ciclo: string;
+    cicloId: string;
+    cicloObj: { id: string; nombre: string; activo: boolean; anuncioGlobal: string | null };
+    todosCiclos: { id: string; nombre: string; activo: boolean }[];
     anuncioGlobal?: string;
     recursos: RecursoDirector[];
     isEventosActive?: boolean;
@@ -62,6 +70,19 @@ export default function DirectorPortal({
     const [tab, setTab] = useState<TabType>("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [expedientesHighlightId, setExpedientesHighlightId] = useState<string>("");
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key?.toLowerCase() === "k") {
+                e.preventDefault();
+                setSearchOpen(prev => !prev);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, []);
 
     // Stats
     const allEntregas = programas.flatMap((p) => p.entregas);
@@ -117,7 +138,7 @@ export default function DirectorPortal({
             {/* Sidebar */}
             <aside className={`admin-sidebar ${sidebarOpen ? "sidebar-mobile-open" : ""}`}>
                 {/* Header */}
-                <div className="admin-sidebar-header">
+                <div className="admin-sidebar-header" style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.5rem", width: "100%" }}>
                     <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
@@ -146,8 +167,53 @@ export default function DirectorPortal({
                         <div style={{ fontSize: "0.75rem", color: "var(--text)", fontWeight: 600, lineHeight: 1.3, marginTop: "0.125rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {escuela.nombre}
                         </div>
-                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "0.125rem" }}>
-                            Ciclo {ciclo}
+                        <div style={{ marginTop: "0.5rem", position: "relative", width: "100%" }}>
+                            <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                <span>Ciclo Escolar:</span>
+                                {cicloObj && !cicloObj.activo && (
+                                    <span style={{ background: "var(--danger-bg, #fee2e2)", color: "var(--danger, #ef4444)", padding: "1px 6px", borderRadius: "4px", fontSize: "0.55rem", fontWeight: 700 }}>
+                                        Lector
+                                    </span>
+                                )}
+                            </div>
+                            <select
+                                value={cicloId}
+                                onChange={async (e) => {
+                                    const selectedId = e.target.value;
+                                    try {
+                                        const res = await fetch("/api/ciclos/seleccionar", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ cicloId: selectedId }),
+                                        });
+                                        if (res.ok) {
+                                            window.location.reload();
+                                        } else {
+                                            console.error("Error al seleccionar ciclo");
+                                        }
+                                    } catch (err) {
+                                        console.error(err);
+                                    }
+                                }}
+                                style={{
+                                    width: "100%",
+                                    padding: "0.25rem 0.375rem",
+                                    borderRadius: "6px",
+                                    border: "1px solid var(--border)",
+                                    background: "var(--bg-secondary, #f1f5f9)",
+                                    color: "var(--text)",
+                                    fontSize: "0.7rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    outline: "none",
+                                }}
+                            >
+                                {todosCiclos.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.nombre} {c.activo ? "(Activo)" : ""}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
@@ -172,6 +238,32 @@ export default function DirectorPortal({
                             {aprobadas} de {allEntregas.length} entregas aprobadas
                         </div>
                     </div>
+                    
+                    {/* Search Trigger Button */}
+                    <button
+                        onClick={() => setSearchOpen(true)}
+                        style={{
+                            marginTop: "0.75rem",
+                            width: "100%",
+                            padding: "0.5rem 0.75rem",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border)",
+                            background: "var(--bg-secondary, #f1f5f9)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            fontSize: "0.75rem",
+                            color: "var(--text-secondary)",
+                            cursor: "pointer",
+                            outline: "none",
+                        }}
+                    >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Search size={14} />
+                            <span>Buscar...</span>
+                        </div>
+                        <kbd style={{ border: "1px solid var(--border)", borderRadius: "3px", padding: "0 4px", fontSize: "0.65rem", background: "white", boxShadow: "0 1px 0 rgba(0,0,0,0.05)" }}>Ctrl K</kbd>
+                    </button>
                     </div>{/* end column wrapper */}
                 </div>
 
@@ -288,6 +380,7 @@ export default function DirectorPortal({
                     <EntregasListado
                         programas={programas}
                         onSetMessage={setMessage}
+                        readOnly={!cicloObj?.activo}
                     />
                 )}
 
@@ -318,9 +411,20 @@ export default function DirectorPortal({
                 )}
 
                 {tab === "expedientes" && isExpedientesActive && (
-                    <ExpedientesPanel escuela={escuela} />
+                    <ExpedientesPanel escuela={escuela} highlightPersonId={expedientesHighlightId} />
                 )}
             </main>
+            <BuscadorGlobal
+                isOpen={searchOpen}
+                onClose={() => setSearchOpen(false)}
+                onNavigate={(view, targetId) => {
+                    setTab(view as any);
+                    if (view === "expedientes" && targetId) {
+                        setExpedientesHighlightId(targetId);
+                    }
+                }}
+                role="director"
+            />
         </div>
     );
 }

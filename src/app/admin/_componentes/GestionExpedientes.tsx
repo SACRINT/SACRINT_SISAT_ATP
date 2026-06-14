@@ -22,6 +22,7 @@ import {
     GRADOS_ACADEMICOS,
     SEXOS,
 } from "@/lib/constants";
+import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -92,7 +93,7 @@ function completenessColor(complete: number, total: number): string {
 
 // ─── Component ──────────────────────────────────────────
 
-export default function GestionExpedientes() {
+export default function GestionExpedientes({ highlightId }: { highlightId?: string }) {
     const [personalList, setPersonalList] = useState<Personal[]>([]);
     const [loading, setLoading] = useState(true);
     const [moduleActive, setModuleActive] = useState(false);
@@ -106,6 +107,7 @@ export default function GestionExpedientes() {
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [busy, setBusy] = useState(false);
     const [downloadingZip, setDownloadingZip] = useState(false);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
 
     // ─── Data Fetching ─────────────────────────────────
 
@@ -135,6 +137,31 @@ export default function GestionExpedientes() {
     }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    useEffect(() => {
+        if (highlightId && personalList.length > 0) {
+            const found = personalList.find(p => p.id === highlightId);
+            if (found) {
+                // Set local search filter to match teacher's name
+                const name = `${found.nombre} ${found.apellidoPaterno}`;
+                setSearchTerm(name);
+                setExpandedEscuela(found.escuelaId);
+                setExpandedPersonal(highlightId);
+
+                setTimeout(() => {
+                    const el = document.getElementById(`person-row-${highlightId}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        el.style.backgroundColor = "var(--primary-bg)";
+                        setTimeout(() => {
+                            el.style.transition = "background-color 1s ease";
+                            el.style.backgroundColor = "";
+                        }, 2000);
+                    }
+                }, 300);
+            }
+        }
+    }, [highlightId, personalList]);
 
     // ─── Toggle Module ─────────────────────────────────
 
@@ -273,17 +300,44 @@ export default function GestionExpedientes() {
                 });
             }
             const entry = map.get(p.escuelaId)!;
-            entry.personal.push(p);
-            entry.tienePersonal = true;
+
+            if (searchTerm) {
+                const tokens = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
+                const matches = tokens.every(token => {
+                    const matchPerson =
+                        p.nombre.toLowerCase().includes(token) ||
+                        p.apellidoPaterno.toLowerCase().includes(token) ||
+                        p.apellidoMaterno.toLowerCase().includes(token) ||
+                        (p.curp && p.curp.toLowerCase().includes(token)) ||
+                        (p.rfc && p.rfc.toLowerCase().includes(token));
+
+                    const matchSchool =
+                        entry.cct.toLowerCase().includes(token) ||
+                        entry.nombre.toLowerCase().includes(token);
+
+                    return matchPerson || matchSchool;
+                });
+
+                if (matches) {
+                    entry.personal.push(p);
+                    entry.tienePersonal = true;
+                }
+            } else {
+                entry.personal.push(p);
+                entry.tienePersonal = true;
+            }
         });
 
         return Array.from(map.values())
             .filter(e => {
                 if (!searchTerm) return true;
-                const term = searchTerm.toLowerCase();
+                const tokens = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
                 return (
-                    e.cct.toLowerCase().includes(term) ||
-                    e.nombre.toLowerCase().includes(term)
+                    e.personal.length > 0 ||
+                    tokens.every(token =>
+                        e.cct.toLowerCase().includes(token) ||
+                        e.nombre.toLowerCase().includes(token)
+                    )
                 );
             })
             .sort((a, b) => {
@@ -396,7 +450,7 @@ export default function GestionExpedientes() {
                     </div>
                 ) : (
                     escuelasArray.map(escuela => {
-                        const isExpanded = expandedEscuela === escuela.id;
+                        const isExpanded = expandedEscuela === escuela.id || (!!searchTerm && escuela.personal.length > 0);
                         const filteredPersonal = filterCargo
                             ? escuela.personal.filter(p => p.cargo === filterCargo)
                             : escuela.personal;
@@ -487,18 +541,18 @@ export default function GestionExpedientes() {
                                                             <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>CURP</th>
                                                             <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>RFC</th>
                                                             <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>Grado</th>
-                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Documentos</th>
-                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Detalle</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Expediente</th>
+                                                            <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Acciones</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {filteredPersonal.map(persona => {
-                                                            const complete = countCompleteDocs(persona.documentos);
                                                             const isPersonExpanded = expandedPersonal === persona.id;
-
+                                                            const complete = countCompleteDocs(persona.documentos);
                                                             return (
                                                                 <PersonRow
                                                                     key={persona.id}
+                                                                    id={`person-row-${persona.id}`}
                                                                     persona={persona}
                                                                     complete={complete}
                                                                     isExpanded={isPersonExpanded}
@@ -506,6 +560,7 @@ export default function GestionExpedientes() {
                                                                     onToggleBloqueo={handleToggleBloqueo}
                                                                     onDownloadZip={handleDownloadPersonZip}
                                                                     downloadingZip={downloadingPersonZip === persona.id}
+                                                                    onViewPdf={(url, title) => setViewingPdf({ url, title })}
                                                                     busy={busy}
                                                                 />
                                                             );
@@ -521,6 +576,12 @@ export default function GestionExpedientes() {
                     })
                 )}
             </div>
+            <PdfViewerModal
+                isOpen={!!viewingPdf}
+                onClose={() => setViewingPdf(null)}
+                url={viewingPdf?.url || ""}
+                title={viewingPdf?.title || ""}
+            />
         </div>
     );
 }
@@ -535,7 +596,9 @@ function PersonRow({
     onToggleBloqueo,
     onDownloadZip,
     downloadingZip,
+    onViewPdf,
     busy,
+    id,
 }: {
     persona: Personal;
     complete: number;
@@ -544,7 +607,9 @@ function PersonRow({
     onToggleBloqueo: (docId: string, bloqueado: boolean) => Promise<void>;
     onDownloadZip: (personalId: string) => Promise<void>;
     downloadingZip: boolean;
+    onViewPdf: (url: string, title: string) => void;
     busy: boolean;
+    id?: string;
 }) {
     const fullName = `${persona.apellidoPaterno} ${persona.apellidoMaterno} ${persona.nombre}`;
     const docColor = completenessColor(complete, TOTAL_REQUIRED_DOCS);
@@ -565,7 +630,7 @@ function PersonRow({
 
     return (
         <>
-            <tr style={{ borderTop: "1px solid var(--border)" }}>
+            <tr id={id} style={{ borderTop: "1px solid var(--border)" }}>
                 <td style={{ padding: "0.5rem 0.75rem", fontWeight: 600 }}>{fullName}</td>
                 <td style={{ padding: "0.5rem 0.75rem" }}>{getCargoLabel(persona.cargo)}</td>
                 <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>{getSexoLabel(persona.sexo)}</td>
@@ -681,6 +746,12 @@ function PersonRow({
                                                                     }) || "#"}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
+                                                                    onClick={e => {
+                                                                        if (doc.archivoNombre?.toLowerCase().endsWith(".pdf") && doc.archivoDriveUrl) {
+                                                                            e.preventDefault();
+                                                                            onViewPdf(doc.archivoDriveUrl, `${dp.label} - ${persona.nombre} ${persona.apellidoPaterno}`);
+                                                                        }
+                                                                    }}
                                                                     style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
                                                                     title={`${dp.label} - ${persona.apellidoPaterno} ${persona.apellidoMaterno}`}
                                                                 >
@@ -751,6 +822,12 @@ function PersonRow({
                                                             }) || "#"}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
+                                                            onClick={e => {
+                                                                if (doc.archivoNombre?.toLowerCase().endsWith(".pdf") && doc.archivoDriveUrl) {
+                                                                    e.preventDefault();
+                                                                    onViewPdf(doc.archivoDriveUrl, `${doc.etiqueta || doc.archivoNombre} - ${persona.nombre} ${persona.apellidoPaterno}`);
+                                                                }
+                                                            }}
                                                             style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
                                                             title={doc.etiqueta || doc.archivoNombre || "Descargar"}
                                                         >

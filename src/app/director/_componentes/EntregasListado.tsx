@@ -39,9 +39,11 @@ function getPeriodoLabel(ent: EntregaDirector): string {
 export default function EntregasListado({
     programas,
     onSetMessage,
+    readOnly = false,
 }: {
     programas: ProgramaGroup[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
+    readOnly?: boolean;
 }) {
     const [uploading, setUploading] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<string | null>(null);
@@ -159,7 +161,7 @@ export default function EntregasListado({
         }
     }
 
-    const canUpload = (estado: string) => estado !== "APROBADO";
+    const canUpload = (estado: string) => !readOnly && estado !== "APROBADO";
 
     return (
         <>

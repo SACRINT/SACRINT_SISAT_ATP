@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { generarBuffer, DatosCircular05 } from "@/lib/generador-circular05";
+import { obtenerCicloActual } from "@/lib/ciclo";
 
 // POST - Generar documento .docx y registrar descarga
 export async function POST(req: Request) {
@@ -20,6 +21,16 @@ export async function POST(req: Request) {
     const escuela = await prisma.escuela.findUnique({ where: { cct } });
     if (!escuela) {
         return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
+    }
+
+    const ciclo = await obtenerCicloActual();
+    if (!ciclo) {
+        return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+    }
+
+    // If cycle is not active, it's read-only
+    if (!ciclo.activo) {
+        return NextResponse.json({ error: "No se permiten modificaciones en ciclos escolares pasados o inactivos" }, { status: 403 });
     }
 
     // Verificar que el módulo esté activo (auto-crear config si no existe)
@@ -44,6 +55,7 @@ export async function POST(req: Request) {
         await prisma.circular05Descarga.create({
             data: {
                 escuelaId: escuela.id,
+                cicloEscolarId: ciclo.id,
                 datos: body,
             },
         });

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { obtenerCicloActual } from "@/lib/ciclo";
 import AdminDashboard from "./AdminDashboard";
 
 export default async function AdminPage() {
@@ -10,14 +11,16 @@ export default async function AdminPage() {
         redirect("/login");
     }
 
-    // Get active ciclo
-    const ciclo = await prisma.cicloEscolar.findFirst({
-        where: { activo: true },
-    });
+    // Get selected or active ciclo
+    const ciclo = await obtenerCicloActual();
 
     if (!ciclo) {
         return <div style={{ padding: "2rem", textAlign: "center" }}>No hay ciclo escolar activo</div>;
     }
+
+    const todosCiclos = await prisma.cicloEscolar.findMany({
+        orderBy: { inicio: "desc" },
+    });
 
     // Fetch programas with periodos and entregas
     const programas = await prisma.programa.findMany({
@@ -133,6 +136,8 @@ export default async function AdminPage() {
             zonaStats={zonaStats}
             ciclo={ciclo.nombre}
             cicloId={ciclo.id}
+            cicloObj={JSON.parse(JSON.stringify(ciclo))}
+            todosCiclos={JSON.parse(JSON.stringify(todosCiclos))}
             anuncioGlobal={ciclo.anuncioGlobal || ""}
             userName={(session.user as any)?.name || "Admin"}
             dbRole={(session.user as any)?.dbRole || "ATP_LECTOR"}

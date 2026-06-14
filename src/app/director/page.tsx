@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { obtenerCicloActual } from "@/lib/ciclo";
 import DirectorPortal from "./DirectorPortal";
 
 export default async function DirectorPage() {
@@ -21,14 +22,16 @@ export default async function DirectorPage() {
 
     if (!escuela) redirect("/login");
 
-    // Get active ciclo escolar
-    const ciclo = await prisma.cicloEscolar.findFirst({
-        where: { activo: true },
-    });
+    // Get selected or active ciclo escolar
+    const ciclo = await obtenerCicloActual();
 
     if (!ciclo) {
         return <div>No hay ciclo escolar activo</div>;
     }
+
+    const todosCiclos = await prisma.cicloEscolar.findMany({
+        orderBy: { inicio: "desc" },
+    });
 
     // Get all entregas for this school in the active ciclo, with periodos and archivos
     const entregas = await prisma.entrega.findMany({
@@ -119,6 +122,9 @@ export default async function DirectorPage() {
             escuela={JSON.parse(JSON.stringify(escuela))}
             programas={JSON.parse(JSON.stringify(programasAgrupados))}
             ciclo={ciclo.nombre}
+            cicloId={ciclo.id}
+            cicloObj={JSON.parse(JSON.stringify(ciclo))}
+            todosCiclos={JSON.parse(JSON.stringify(todosCiclos))}
             recursos={JSON.parse(JSON.stringify(recursos))}
             isEventosActive={isEventosActive}
             isCircularActive={isCircularActive}

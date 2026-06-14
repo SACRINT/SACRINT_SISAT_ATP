@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { obtenerCicloActual } from "@/lib/ciclo";
 
 // GET: List all PAEC inscriptions
 export async function GET(req: NextRequest) {
@@ -10,7 +11,13 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    const ciclo = await obtenerCicloActual();
+    if (!ciclo) {
+        return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+    }
+
     const inscripciones = await prisma.inscripcionEncuentroPAEC.findMany({
+        where: { cicloEscolarId: ciclo.id },
         include: { escuela: { select: { id: true, cct: true, nombre: true } } },
         orderBy: { createdAt: "desc" },
     });
@@ -61,6 +68,16 @@ export async function DELETE(req: NextRequest) {
     const escuelaId = req.nextUrl.searchParams.get("escuelaId");
     if (!escuelaId) return NextResponse.json({ error: "escuelaId requerido" }, { status: 400 });
 
-    await prisma.inscripcionEncuentroPAEC.deleteMany({ where: { escuelaId } });
+    const ciclo = await obtenerCicloActual();
+    if (!ciclo) {
+        return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 404 });
+    }
+
+    await prisma.inscripcionEncuentroPAEC.deleteMany({
+        where: {
+            escuelaId,
+            cicloEscolarId: ciclo.id,
+        },
+    });
     return NextResponse.json({ success: true });
 }

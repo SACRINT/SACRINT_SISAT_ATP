@@ -57,6 +57,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Nombre, apellidos, sexo y cargo son obligatorios" }, { status: 400 });
     }
 
+    if (curp?.trim() && !/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/.test(curp.trim().toUpperCase())) {
+        return NextResponse.json({ error: "El formato de CURP es inválido" }, { status: 400 });
+    }
+
+    if (rfc?.trim() && !/^[A-Z&Ñ]{4}\d{6}[A-Z0-9]{3}$/.test(rfc.trim().toUpperCase())) {
+        return NextResponse.json({ error: "El formato de RFC es inválido" }, { status: 400 });
+    }
+
     // Get next orden
     const lastPersonal = await prisma.personal.findFirst({
         where: { escuelaId: escuela.id },
@@ -71,8 +79,8 @@ export async function POST(req: Request) {
             apellidoMaterno: apellidoMaterno.trim(),
             sexo,
             cargo,
-            curp: curp?.trim() || null,
-            rfc: rfc?.trim() || null,
+            curp: curp?.trim()?.toUpperCase() || null,
+            rfc: rfc?.trim()?.toUpperCase() || null,
             telefono: telefono?.trim() || null,
             correoElectronico: correoElectronico?.trim() || null,
             gradoAcademico: gradoAcademico || null,

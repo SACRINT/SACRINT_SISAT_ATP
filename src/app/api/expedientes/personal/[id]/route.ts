@@ -32,7 +32,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json();
     const updateData: Record<string, unknown> = {};
 
-    const allowedFields = ["nombre", "apellidoPaterno", "apellidoMaterno", "sexo", "cargo", "curp", "rfc", "telefono", "correoElectronico", "gradoAcademico", "fechaIngreso"];
+    if (body.curp !== undefined && body.curp !== null && body.curp.trim() !== "") {
+        const cleanedCurp = body.curp.trim().toUpperCase();
+        if (!/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/.test(cleanedCurp)) {
+            return NextResponse.json({ error: "El formato de CURP es inválido" }, { status: 400 });
+        }
+        updateData.curp = cleanedCurp;
+    } else if (body.curp === null || body.curp === "") {
+        updateData.curp = null;
+    }
+
+    if (body.rfc !== undefined && body.rfc !== null && body.rfc.trim() !== "") {
+        const cleanedRfc = body.rfc.trim().toUpperCase();
+        if (!/^[A-Z&Ñ]{4}\d{6}[A-Z0-9]{3}$/.test(cleanedRfc)) {
+            return NextResponse.json({ error: "El formato de RFC es inválido" }, { status: 400 });
+        }
+        updateData.rfc = cleanedRfc;
+    } else if (body.rfc === null || body.rfc === "") {
+        updateData.rfc = null;
+    }
+
+    const allowedFields = ["nombre", "apellidoPaterno", "apellidoMaterno", "sexo", "cargo", "telefono", "correoElectronico", "gradoAcademico", "fechaIngreso"];
     for (const field of allowedFields) {
         if (body[field] !== undefined) {
             if (field === "fechaIngreso") {

@@ -35,7 +35,8 @@ import {
     Menu,
     X as XIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import GestionEscuelas from "./_componentes/GestionEscuelas";
@@ -54,6 +55,7 @@ import GestionCircular05 from "./_componentes/GestionCircular05";
 import GestionCapems from "./_componentes/GestionCapems";
 import GestionExpedientes from "./_componentes/GestionExpedientes";
 import PanelModulos from "./_componentes/PanelModulos";
+import GestionCiclos from "./_componentes/GestionCiclos";
 
 import { ProgramaAdmin, EscuelaAdmin, Stats, ZonaStat } from "@/types";
 
@@ -68,6 +70,8 @@ export default function AdminDashboard({
     zonaStats,
     ciclo,
     cicloId,
+    cicloObj,
+    todosCiclos = [],
     anuncioGlobal,
     userName,
     dbRole,
@@ -82,6 +86,8 @@ export default function AdminDashboard({
     userName: string;
     dbRole: string;
     cicloId: string;
+    cicloObj: { id: string; nombre: string; activo: boolean; anuncioGlobal: string | null };
+    todosCiclos: { id: string; nombre: string; activo: boolean; inicio: string; fin: string }[];
     anuncioGlobal: string | null;
     sidebarConfig: {
         showRecursos: boolean;
@@ -93,7 +99,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos">("general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -114,7 +120,20 @@ export default function AdminDashboard({
 
     const [sendingCorreccion, setSendingCorreccion] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [expedientesHighlightId, setExpedientesHighlightId] = useState<string>("");
     const router = useRouter();
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key?.toLowerCase() === "k") {
+                e.preventDefault();
+                setSearchOpen(prev => !prev);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, []);
 
     async function handleSaveAnuncio(nuevoAnuncio: string) {
         try {
@@ -257,7 +276,7 @@ export default function AdminDashboard({
     ].filter(Boolean).length;
 
     const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "capems", "expedientes"].includes(vista);
-    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control"].includes(vista);
+    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos"].includes(vista);
 
     return (
         <div className="admin-layout">
@@ -281,7 +300,7 @@ export default function AdminDashboard({
             {/* Sidebar */}
             <aside className={`admin-sidebar ${sidebarOpen ? "sidebar-mobile-open" : ""}`}>
                 {/* Sidebar Header */}
-                <div className="admin-sidebar-header">
+                <div className="admin-sidebar-header" style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.5rem", width: "100%" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
                             <div style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "10px", padding: "6px", display: "flex" }}>
@@ -300,11 +319,81 @@ export default function AdminDashboard({
                             <XIcon size={18} />
                         </button>
                     </div>
-                    {/* Ciclo badge */}
-                    <div style={{ marginTop: "0.75rem", background: "var(--primary-bg)", borderRadius: "8px", padding: "0.375rem 0.625rem", display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--primary)" }}>
-                        <Calendar size={13} />
-                        Ciclo {ciclo}
+                    {/* Ciclo dropdown */}
+                    <div style={{ marginTop: "0.75rem", position: "relative", width: "100%" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                            <Calendar size={13} />
+                            <span>Ciclo Escolar:</span>
+                            {cicloObj && !cicloObj.activo && (
+                                <span style={{ background: "var(--danger-bg, #fee2e2)", color: "var(--danger, #ef4444)", padding: "1px 6px", borderRadius: "4px", fontSize: "0.6rem", fontWeight: 700 }}>
+                                    Lector
+                                </span>
+                            )}
+                        </div>
+                        <select
+                            value={cicloId}
+                            onChange={async (e) => {
+                                const selectedId = e.target.value;
+                                try {
+                                    const res = await fetch("/api/ciclos/seleccionar", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ cicloId: selectedId }),
+                                    });
+                                    if (res.ok) {
+                                        window.location.reload();
+                                    } else {
+                                        console.error("Error al seleccionar ciclo");
+                                    }
+                                } catch (err) {
+                                    console.error(err);
+                                }
+                            }}
+                            style={{
+                                width: "100%",
+                                padding: "0.375rem 0.5rem",
+                                borderRadius: "8px",
+                                border: "1px solid var(--border)",
+                                background: "var(--bg-secondary, #f1f5f9)",
+                                color: "var(--text)",
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                outline: "none",
+                            }}
+                        >
+                            {todosCiclos.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.nombre} {c.activo ? "(Activo)" : ""}
+                                </option>
+                            ))}
+                        </select>
                     </div>
+                    {/* Search Trigger Button */}
+                    <button
+                        onClick={() => setSearchOpen(true)}
+                        style={{
+                            marginTop: "0.75rem",
+                            width: "100%",
+                            padding: "0.5rem 0.75rem",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border)",
+                            background: "var(--bg-secondary, #f1f5f9)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            fontSize: "0.75rem",
+                            color: "var(--text-secondary)",
+                            cursor: "pointer",
+                            outline: "none",
+                        }}
+                    >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Search size={14} />
+                            <span>Buscar...</span>
+                        </div>
+                        <kbd style={{ border: "1px solid var(--border)", borderRadius: "3px", padding: "0 4px", fontSize: "0.65rem", background: "white", boxShadow: "0 1px 0 rgba(0,0,0,0.05)" }}>Ctrl K</kbd>
+                    </button>
                 </div>
 
                 <div className="admin-sidebar-nav">
@@ -368,6 +457,10 @@ export default function AdminDashboard({
                                 <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => navigate("gestion-fechas")}>
                                     <Calendar size={17} />
                                     <span>Fechas y Tareas</span>
+                                </button>
+                                <button className={`sidebar-link ${vista === "gestion-ciclos" ? "active" : ""}`} onClick={() => navigate("gestion-ciclos")}>
+                                    <Calendar size={17} />
+                                    <span>Ciclos Escolares</span>
                                 </button>
                                 {sidebarConfig.showRecursos && (
                                     <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => navigate("recursos")}>
@@ -536,6 +629,10 @@ export default function AdminDashboard({
                 {vista === "gestion-fechas" && (
                     <GestionFechas programas={programas} />
                 )}
+                {/* ========= VISTA: GESTIÓN DE CICLOS ESCOLARES ========= */}
+                {vista === "gestion-ciclos" && (
+                    <GestionCiclos todosCiclos={todosCiclos} onSetMessage={setMessage} />
+                )}
                 {/* ========= VISTA: GESTIÓN DE ESCUELAS ========= */}
                 {
                     vista === "gestion-escuelas" && (
@@ -617,7 +714,7 @@ export default function AdminDashboard({
                 {/* ========= VISTA: EXPEDIENTES DE PERSONAL ========= */}
                 {
                     vista === "expedientes" && (
-                        <GestionExpedientes />
+                        <GestionExpedientes highlightId={expedientesHighlightId} />
                     )
                 }
             </main >
@@ -717,6 +814,17 @@ export default function AdminDashboard({
                     </div>
                 )
             }
+            <BuscadorGlobal
+                isOpen={searchOpen}
+                onClose={() => setSearchOpen(false)}
+                onNavigate={(view, targetId) => {
+                    setVista(view as any);
+                    if (view === "expedientes" && targetId) {
+                        setExpedientesHighlightId(targetId);
+                    }
+                }}
+                role="admin"
+            />
         </div >
     );
 }

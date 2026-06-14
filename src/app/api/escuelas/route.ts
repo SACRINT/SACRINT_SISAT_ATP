@@ -19,7 +19,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
         }
 
-        const existingCCT = await prisma.escuela.findUnique({ where: { cct } });
+        const cleanCct = cct.toUpperCase().trim();
+        if (!/^\d{2}[A-Z]{3}\d{4}[A-Z]$/.test(cleanCct)) {
+            return NextResponse.json({ error: "El formato de CCT es inválido" }, { status: 400 });
+        }
+
+        const existingCCT = await prisma.escuela.findUnique({ where: { cct: cleanCct } });
         if (existingCCT) {
             return NextResponse.json({ error: "La CCT ya está registrada" }, { status: 400 });
         }
@@ -33,7 +38,7 @@ export async function POST(req: NextRequest) {
 
         const nuevaEscuela = await prisma.escuela.create({
             data: {
-                cct,
+                cct: cleanCct,
                 nombre,
                 localidad,
                 email,

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { getDownloadUrl, getExpedienteDownloadUrl } from "@/lib/download-url";
 import { DOCUMENTOS_PREDETERMINADOS, CARGOS_PERSONAL, GRADOS_ACADEMICOS, SEXOS } from "@/lib/constants";
+import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 
 interface Documento {
     id: string;
@@ -53,6 +54,7 @@ interface PersonalRecord {
 
 interface Props {
     escuela: { id: string; cct: string; nombre: string };
+    highlightPersonId?: string;
 }
 
 const EMPTY_FORM = {
@@ -69,7 +71,7 @@ const EMPTY_FORM = {
     fechaIngreso: "",
 };
 
-export default function ExpedientesPanel({ escuela }: Props) {
+export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) {
     const [personal, setPersonal] = useState<PersonalRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -82,6 +84,7 @@ export default function ExpedientesPanel({ escuela }: Props) {
     const [editForm, setEditForm] = useState(EMPTY_FORM);
     const [customDocName, setCustomDocName] = useState<Record<string, string>>({});
     const [downloadingPersonZip, setDownloadingPersonZip] = useState<string | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -98,6 +101,30 @@ export default function ExpedientesPanel({ escuela }: Props) {
     }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    useEffect(() => {
+        if (highlightPersonId && personal.length > 0) {
+            const found = personal.find(p => p.id === highlightPersonId);
+            if (found) {
+                setExpandedPerson(highlightPersonId);
+                setTimeout(() => {
+                    const el = document.getElementById(`person-card-${highlightPersonId}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        const originalBorder = el.style.border;
+                        const originalBoxShadow = el.style.boxShadow;
+                        el.style.border = "2px solid var(--primary)";
+                        el.style.boxShadow = "0 0 12px var(--primary-bg)";
+                        setTimeout(() => {
+                            el.style.transition = "all 1s ease";
+                            el.style.border = originalBorder;
+                            el.style.boxShadow = originalBoxShadow;
+                        }, 2500);
+                    }
+                }, 300);
+            }
+        }
+    }, [highlightPersonId, personal]);
 
     // ─── Descarga ZIP de persona ───
     async function handleDownloadPersonZip(personalId: string) {
@@ -130,6 +157,14 @@ export default function ExpedientesPanel({ escuela }: Props) {
             setMessage({ type: "error", text: "Nombre, apellidos, sexo y cargo son obligatorios" });
             return;
         }
+        if (form.curp && !/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/.test(form.curp)) {
+            setMessage({ type: "error", text: "El formato de CURP es inválido (deben ser 18 caracteres en formato oficial)" });
+            return;
+        }
+        if (form.rfc && !/^[A-Z&Ñ]{4}\d{6}[A-Z0-9]{3}$/.test(form.rfc)) {
+            setMessage({ type: "error", text: "El formato de RFC es inválido (deben ser 13 caracteres en formato oficial)" });
+            return;
+        }
         setSaving(true);
         try {
             const res = await fetch("/api/expedientes/personal", {
@@ -155,6 +190,18 @@ export default function ExpedientesPanel({ escuela }: Props) {
 
     // ─── Editar personal ───
     async function handleUpdate(id: string) {
+        if (!editForm.nombre.trim() || !editForm.apellidoPaterno.trim() || !editForm.apellidoMaterno.trim() || !editForm.sexo || !editForm.cargo) {
+            setMessage({ type: "error", text: "Nombre, apellidos, sexo y cargo son obligatorios" });
+            return;
+        }
+        if (editForm.curp && !/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/.test(editForm.curp)) {
+            setMessage({ type: "error", text: "El formato de CURP es inválido (deben ser 18 caracteres en formato oficial)" });
+            return;
+        }
+        if (editForm.rfc && !/^[A-Z&Ñ]{4}\d{6}[A-Z0-9]{3}$/.test(editForm.rfc)) {
+            setMessage({ type: "error", text: "El formato de RFC es inválido (deben ser 13 caracteres en formato oficial)" });
+            return;
+        }
         setSaving(true);
         try {
             const res = await fetch(`/api/expedientes/personal/${id}`, {
@@ -441,7 +488,7 @@ export default function ExpedientesPanel({ escuela }: Props) {
                     const completionColor = uploaded === total ? "var(--success)" : uploaded >= 5 ? "#e6a817" : "var(--error)";
 
                     return (
-                        <div key={person.id} className="card" style={{ padding: 0 }}>
+                        <div key={person.id} id={`person-card-${person.id}`} className="card" style={{ padding: 0 }}>
                             {/* Header */}
                             <button
                                 onClick={() => setExpandedPerson(isExpanded ? null : person.id)}
@@ -647,6 +694,12 @@ export default function ExpedientesPanel({ escuela }: Props) {
                                                                         }) || "#"}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
+                                                                        onClick={e => {
+                                                                            if (d.archivoNombre?.toLowerCase().endsWith(".pdf") && d.archivoDriveUrl) {
+                                                                                e.preventDefault();
+                                                                                setViewingPdf({ url: d.archivoDriveUrl, title: `${docType.label} - ${person.nombre} ${person.apellidoPaterno}` });
+                                                                            }
+                                                                        }}
                                                                         style={{ display: "inline-flex", alignItems: "center", gap: "0.125rem", color: "var(--primary)", textDecoration: "none", fontSize: "0.75rem", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                                                                         title={`${docType.label} · ${person.apellidoPaterno} ${person.apellidoMaterno}`}
                                                                     >
@@ -726,6 +779,12 @@ export default function ExpedientesPanel({ escuela }: Props) {
                                                                 }) || "#"}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
+                                                                onClick={e => {
+                                                                    if (d.archivoNombre?.toLowerCase().endsWith(".pdf") && d.archivoDriveUrl) {
+                                                                        e.preventDefault();
+                                                                        setViewingPdf({ url: d.archivoDriveUrl, title: `${d.etiqueta || d.archivoNombre} - ${person.nombre} ${person.apellidoPaterno}` });
+                                                                    }
+                                                                }}
                                                                 style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", textDecoration: "none", fontSize: "0.8125rem" }}
                                                             >
                                                                 <Download size={14} /> {d.etiqueta || d.archivoNombre || "Descargar"}

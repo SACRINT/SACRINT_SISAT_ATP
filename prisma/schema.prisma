@@ -55,9 +55,9 @@ model Escuela {
 
   entregas Entrega[]
   configuraciones ConfiguracionPrograma[]
-  inscripcionEvento InscripcionEvento2026?
-  inscripcionOlimpiada InscripcionOlimpiada?
-  inscripcionPAEC InscripcionEncuentroPAEC?
+  inscripcionesEventos InscripcionEvento[]
+  inscripcionesOlimpiadas InscripcionOlimpiada[]
+  inscripcionesPAEC InscripcionEncuentroPAEC[]
   descargasCircular05 Circular05Descarga[]
   capemRegistros CapemFichaRegistro[]
   personal Personal[]
@@ -73,6 +73,10 @@ model CicloEscolar {
 
   periodos PeriodoEntrega[]
   capems   Capem[]
+  inscripcionesEventos     InscripcionEvento[]
+  inscripcionesOlimpiadas  InscripcionOlimpiada[]
+  inscripcionesPAEC        InscripcionEncuentroPAEC[]
+  descargasCircular05      Circular05Descarga[]
 }
 
 model Programa {
@@ -213,14 +217,19 @@ model EventosConfig {
   fechaLimite DateTime?
 }
 
-model InscripcionEvento2026 {
-  id        String   @id @default(cuid())
-  escuelaId String   @unique
-  datos     Json     // { [disciplinaId]: { participa: boolean, numParticipantes: number } }
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+model InscripcionEvento {
+  id             String   @id @default(cuid())
+  escuelaId      String
+  cicloEscolarId String
+  datos          Json     // { [disciplinaId]: { participa: boolean, numParticipantes: number } }
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
 
-  escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  escuela      Escuela      @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  cicloEscolar CicloEscolar @relation(fields: [cicloEscolarId], references: [id], onDelete: Cascade)
+
+  @@unique([escuelaId, cicloEscolarId])
+  @@map("InscripcionEvento2026")
 }
 
 // ─── Proyecto Circular 05 ────────────────────────
@@ -234,12 +243,14 @@ model Circular05Config {
 }
 
 model Circular05Descarga {
-  id        String   @id @default(cuid())
-  escuelaId String
-  datos     Json
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  escuelaId      String
+  cicloEscolarId String
+  datos          Json
+  createdAt      DateTime @default(now())
 
-  escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  escuela      Escuela      @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  cicloEscolar CicloEscolar @relation(fields: [cicloEscolarId], references: [id], onDelete: Cascade)
 }
 
 model Circular05Disciplina {
@@ -260,13 +271,17 @@ model OlimpiadaConfig {
 }
 
 model InscripcionOlimpiada {
-  id        String   @id @default(cuid())
-  escuelaId String   @unique
-  datos     Json     // { alumnos: [{nombre, grado, curp}] }
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  escuelaId      String
+  cicloEscolarId String
+  datos          Json     // { alumnos: [{nombre, grado, curp}] }
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
 
-  escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  escuela      Escuela      @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  cicloEscolar CicloEscolar @relation(fields: [cicloEscolarId], references: [id], onDelete: Cascade)
+
+  @@unique([escuelaId, cicloEscolarId])
 }
 
 // ─── Encuentro PAEC 2026 ────────────────────────
@@ -280,13 +295,17 @@ model EncuentroPAECConfig {
 }
 
 model InscripcionEncuentroPAEC {
-  id        String   @id @default(cuid())
-  escuelaId String   @unique
-  datos     Json     // { nombreProyecto, problematicaEntorno, alumnos: [{nombre, grado, curp}] }
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  escuelaId      String
+  cicloEscolarId String
+  datos          Json     // { nombreProyecto, problematicaEntorno, alumnos: [{nombre, grado, curp}] }
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
 
-  escuela   Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  escuela      Escuela      @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  cicloEscolar CicloEscolar @relation(fields: [cicloEscolarId], references: [id], onDelete: Cascade)
+
+  @@unique([escuelaId, cicloEscolarId])
 }
 
 // ─── Configuración de Visibilidad del Sidebar Admin ──

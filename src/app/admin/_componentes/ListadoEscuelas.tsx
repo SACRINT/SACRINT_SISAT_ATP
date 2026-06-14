@@ -5,14 +5,57 @@ import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Search, FileText, ChevronUp, ChevronDown, MessageSquare, Download, Mail } from "lucide-react";
-import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
+import { MESES, ESTADOS, ESTADO_LABELS } from "@/lib/constants";
 import { EscuelaAdmin } from "@/types";
 import { getEntregaDownloadUrl } from "@/lib/download-url";
+import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 
 interface ListadoEscuelasProps {
     escuelas: EscuelaAdmin[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
     onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[] } | null) => void;
+}
+
+function getEstadoStyles(estado: string) {
+    switch (estado) {
+        case "APROBADO":
+            return {
+                color: "var(--success)",
+                background: "var(--success-bg)",
+                borderColor: "#bbf7d0"
+            };
+        case "PENDIENTE":
+            return {
+                color: "var(--warning)",
+                background: "var(--warning-bg)",
+                borderColor: "#fef08a"
+            };
+        case "REQUIERE_CORRECCION":
+            return {
+                color: "#e67e22",
+                background: "#fff7ed",
+                borderColor: "#ffedd5"
+            };
+        case "EN_REVISION":
+            return {
+                color: "var(--primary)",
+                background: "var(--primary-bg)",
+                borderColor: "#bfdbfe"
+            };
+        case "NO_APROBADO":
+            return {
+                color: "var(--danger)",
+                background: "var(--danger-bg)",
+                borderColor: "#fecaca"
+            };
+        case "NO_ENTREGADO":
+        default:
+            return {
+                color: "var(--text-secondary)",
+                background: "#f1f5f9",
+                borderColor: "#cbd5e1"
+            };
+    }
 }
 
 export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccionModal }: ListadoEscuelasProps) {
@@ -22,6 +65,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
     const [expanded, setExpanded] = useState<string | null>(null);
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
     const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
 
     async function handleSendReminder(entregaId: string, escuelaNombre: string) {
         if (!confirm(`¿Seguro que deseas enviar un recordatorio por correo a ${escuelaNombre} para esta entrega?`)) return;
@@ -126,7 +170,9 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                 </div>
                 <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                     {["TODOS", ...ESTADOS].map((st) => {
-                        const color = st === "TODOS" ? "var(--text-muted)" : ESTADO_COLORS[st] || "var(--text-muted)";
+                        const styles = st === "TODOS" 
+                            ? { color: "var(--text-secondary)", background: "#f1f5f9", borderColor: "var(--border)" }
+                            : getEstadoStyles(st);
                         const isActive = statusFilter === st;
                         return (
                             <button
@@ -135,13 +181,14 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                 style={{
                                     padding: "0.4rem 0.75rem",
                                     borderRadius: "20px",
-                                    border: `1px solid ${color}`,
-                                    background: isActive ? color : "transparent",
-                                    color: isActive ? "#fff" : color,
+                                    border: `1px solid ${isActive ? styles.color : styles.borderColor}`,
+                                    background: isActive ? styles.background : "transparent",
+                                    color: isActive ? styles.color : "var(--text-secondary)",
                                     fontSize: "0.75rem",
                                     fontWeight: 600,
                                     cursor: "pointer",
-                                    transition: "all 0.2s"
+                                    transition: "all 0.2s",
+                                    boxShadow: isActive ? "inset 0 0 0 1px " + styles.color : "none"
                                 }}
                             >
                                 {st === "TODOS" ? "Mostrar Todos" : ESTADO_LABELS[st]}
@@ -161,12 +208,18 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                 const porcEsc = totalEsc > 0 ? Math.round((entregadosEsc / totalEsc) * 100) : 0;
                 const isExpanded = expanded === esc.id;
 
-                let borderColor = "var(--danger)";
-                if (porcEsc === 100) borderColor = "var(--success)";
-                else if (porcEsc > 0) borderColor = "var(--warning)";
+                let progressColor = "var(--danger)";
+                let cardBgGradient = "linear-gradient(to right, var(--danger-bg) 0%, var(--surface) 150px)";
+                if (porcEsc === 100) {
+                    progressColor = "var(--success)";
+                    cardBgGradient = "linear-gradient(to right, var(--success-bg) 0%, var(--surface) 150px)";
+                } else if (porcEsc > 0) {
+                    progressColor = "var(--warning)";
+                    cardBgGradient = "linear-gradient(to right, var(--warning-bg) 0%, var(--surface) 150px)";
+                }
 
                 return (
-                    <div key={esc.id} className="card" style={{ borderLeft: `4px solid ${borderColor}`, padding: 0 }}>
+                    <div key={esc.id} className="card" style={{ borderLeft: `5px solid ${progressColor}`, background: cardBgGradient, padding: 0 }}>
                         <button onClick={() => setExpanded(isExpanded ? null : esc.id)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "1rem", textAlign: "left" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <div>
@@ -176,7 +229,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                     </div>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                                    <span style={{ fontWeight: 700, color: borderColor }}>{porcEsc}%</span>
+                                    <span style={{ fontWeight: 700, color: progressColor }}>{porcEsc}%</span>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); exportEscuelaPDF(esc); }}
                                         style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem", display: "flex", alignItems: "center" }}
@@ -188,14 +241,14 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                 </div>
                             </div>
                             <div className="progress-bar" style={{ marginTop: "0.5rem", height: "6px" }}>
-                                <div className="progress-fill" style={{ width: `${porcEsc}%`, background: borderColor }} />
+                                <div className="progress-fill" style={{ width: `${porcEsc}%`, background: progressColor }} />
                             </div>
                         </button>
 
                         {isExpanded && (
                             <div style={{ padding: "0 1rem 1rem", borderTop: "1px solid var(--border)" }}>
                                 {esc.entregas.map((ent) => {
-                                    const color = ESTADO_COLORS[ent.estado] || "var(--text-muted)";
+                                    const styles = getEstadoStyles(ent.estado);
                                     const periodoLabel = ent.periodoEntrega.mes
                                         ? `${MESES[ent.periodoEntrega.mes]}`
                                         : ent.periodoEntrega.semestre
@@ -211,30 +264,43 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                 </div>
                                                 {ent.archivos.length > 0 && (
                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
-                                                        {ent.archivos.map((arch, index) => (
-                                                            <a
-                                                                key={arch.id}
-                                                                href={getEntregaDownloadUrl({
-                                                                    url: arch.driveUrl,
-                                                                    publicId: arch.driveId,
-                                                                    cct: esc.cct,
-                                                                    programa: ent.periodoEntrega.programa.nombre,
-                                                                    periodo: ent.periodoEntrega.mes
-                                                                        ? (MESES[ent.periodoEntrega.mes] ?? "")
-                                                                        : ent.periodoEntrega.semestre
-                                                                            ? `Semestre_${ent.periodoEntrega.semestre}`
-                                                                            : "Anual",
-                                                                    etiqueta: arch.etiqueta,
-                                                                    nombreOriginal: arch.nombre,
-                                                                }) || "#"}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
-                                                                title={`Descargar: ${esc.cct} - ${ent.periodoEntrega.programa.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`}
-                                                            >
-                                                                <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
-                                                            </a>
-                                                        ))}
+                                                        {ent.archivos.map((arch, index) => {
+                                                            const fileUrl = getEntregaDownloadUrl({
+                                                                url: arch.driveUrl,
+                                                                publicId: arch.driveId,
+                                                                cct: esc.cct,
+                                                                programa: ent.periodoEntrega.programa.nombre,
+                                                                periodo: ent.periodoEntrega.mes
+                                                                    ? (MESES[ent.periodoEntrega.mes] ?? "")
+                                                                    : ent.periodoEntrega.semestre
+                                                                        ? `Semestre_${ent.periodoEntrega.semestre}`
+                                                                        : "Anual",
+                                                                etiqueta: arch.etiqueta,
+                                                                nombreOriginal: arch.nombre,
+                                                            });
+
+                                                            return (
+                                                                <a
+                                                                    key={arch.id}
+                                                                    href={fileUrl || "#"}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    onClick={(e) => {
+                                                                        if (arch.nombre?.toLowerCase().endsWith(".pdf") && fileUrl) {
+                                                                            e.preventDefault();
+                                                                            setViewingPdf({
+                                                                                url: fileUrl,
+                                                                                title: `${esc.cct} - ${ent.periodoEntrega.programa.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
+                                                                    title={`Ver/Descargar: ${esc.cct} - ${ent.periodoEntrega.programa.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`}
+                                                                >
+                                                                    <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
+                                                                </a>
+                                                            );
+                                                        })}
                                                         <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "flex", alignItems: "center" }}>
                                                             • Subido: {new Date(ent.archivos[0].createdAt!).toLocaleDateString("es-MX")}
                                                         </span>
@@ -258,8 +324,9 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                     disabled={updatingEstado === ent.id}
                                                     style={{
                                                         padding: "0.25rem 0.5rem", borderRadius: "6px",
-                                                        border: `1px solid ${color}`, background: `${color}15`,
-                                                        color, fontWeight: 600, fontSize: "0.75rem", cursor: "pointer",
+                                                        border: `1px solid ${styles.borderColor}`, background: styles.background,
+                                                        color: styles.color, fontWeight: 600, fontSize: "0.75rem", cursor: "pointer",
+                                                        outline: "none", transition: "all 0.2s ease"
                                                     }}
                                                 >
                                                     {ESTADOS.map((e) => (
@@ -278,11 +345,16 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                     );
                                 })}
                             </div>
-                        )
-                        }
+                        )}
                     </div>
                 );
             })}
-        </div >
+            <PdfViewerModal
+                isOpen={!!viewingPdf}
+                onClose={() => setViewingPdf(null)}
+                url={viewingPdf?.url || ""}
+                title={viewingPdf?.title || ""}
+            />
+        </div>
     );
 }

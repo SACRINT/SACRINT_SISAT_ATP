@@ -4,14 +4,57 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronUp, ChevronDown, MessageSquare, Download } from "lucide-react";
 import JSZip from "jszip";
-import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
+import { MESES, ESTADOS, ESTADO_LABELS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
 import { getDownloadUrl } from "@/lib/download-url";
+import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 
 interface ListadoProgramasProps {
     programas: ProgramaAdmin[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
     onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[] } | null) => void;
+}
+
+function getEstadoStyles(estado: string) {
+    switch (estado) {
+        case "APROBADO":
+            return {
+                color: "var(--success)",
+                background: "var(--success-bg)",
+                borderColor: "#bbf7d0"
+            };
+        case "PENDIENTE":
+            return {
+                color: "var(--warning)",
+                background: "var(--warning-bg)",
+                borderColor: "#fef08a"
+            };
+        case "REQUIERE_CORRECCION":
+            return {
+                color: "#e67e22",
+                background: "#fff7ed",
+                borderColor: "#ffedd5"
+            };
+        case "EN_REVISION":
+            return {
+                color: "var(--primary)",
+                background: "var(--primary-bg)",
+                borderColor: "#bfdbfe"
+            };
+        case "NO_APROBADO":
+            return {
+                color: "var(--danger)",
+                background: "var(--danger-bg)",
+                borderColor: "#fecaca"
+            };
+        case "NO_ENTREGADO":
+        default:
+            return {
+                color: "var(--text-secondary)",
+                background: "#f1f5f9",
+                borderColor: "#cbd5e1"
+            };
+    }
 }
 
 export default function ListadoProgramas({ programas, onSetMessage, onSetCorreccionModal }: ListadoProgramasProps) {
@@ -20,6 +63,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
     const [downloadingZip, setDownloadingZip] = useState<string | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
 
     async function handleDownloadZip(prog: ProgramaAdmin) {
         setDownloadingZip(prog.id);
@@ -112,8 +156,18 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                 const porc = totalProg > 0 ? Math.round((entregadosProg / totalProg) * 100) : 0;
                 const isExpanded = expanded === prog.id;
 
+                let progressColor = "var(--danger)";
+                let cardBgGradient = "linear-gradient(to right, var(--danger-bg) 0%, var(--surface) 150px)";
+                if (porc === 100) {
+                    progressColor = "var(--success)";
+                    cardBgGradient = "linear-gradient(to right, var(--success-bg) 0%, var(--surface) 150px)";
+                } else if (porc > 0) {
+                    progressColor = "var(--primary)";
+                    cardBgGradient = "linear-gradient(to right, var(--primary-bg) 0%, var(--surface) 150px)";
+                }
+
                 return (
-                    <div key={prog.id} className="card" style={{ padding: 0 }}>
+                    <div key={prog.id} className="card" style={{ padding: 0, borderLeft: `5px solid ${progressColor}`, background: cardBgGradient }}>
                         <button onClick={() => setExpanded(isExpanded ? null : prog.id)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "1rem", textAlign: "left" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <div>
@@ -123,7 +177,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                     </div>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                                    <span style={{ fontWeight: 700, color: "var(--primary)" }}>{porc}%</span>
+                                    <span style={{ fontWeight: 700, color: progressColor }}>{porc}%</span>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDownloadZip(prog); }}
                                         disabled={downloadingZip === prog.id}
@@ -135,8 +189,8 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                     {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                 </div>
                             </div>
-                            <div className="progress-bar" style={{ marginTop: "0.5rem" }}>
-                                <div className="progress-fill" style={{ width: `${porc}%` }} />
+                            <div className="progress-bar" style={{ marginTop: "0.5rem", height: "6px" }}>
+                                <div className="progress-fill" style={{ width: `${porc}%`, background: progressColor }} />
                             </div>
                         </button>
 
@@ -155,7 +209,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                         {(prog.tipo === "ANUAL" || expandedPeriodo === periodo.id) && (
                                             <div style={{ padding: "0 1rem 0.5rem" }}>
                                                 {periodo.entregas.map((ent) => {
-                                                    const color = ESTADO_COLORS[ent.estado] || "var(--text-muted)";
+                                                    const styles = getEstadoStyles(ent.estado);
                                                     return (
                                                         <div key={ent.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)", gap: "0.5rem", flexWrap: "wrap" }}>
                                                             <div style={{ fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
@@ -165,18 +219,30 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                 </div>
                                                                 {ent.archivos.length > 0 && (
                                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
-                                                                        {ent.archivos.map((arch, index) => (
-                                                                            <a
-                                                                                key={arch.id}
-                                                                                href={getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId) || "#"}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
-                                                                                title={`Descargar ${arch.nombre}`}
-                                                                            >
-                                                                                <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
-                                                                            </a>
-                                                                        ))}
+                                                                        {ent.archivos.map((arch, index) => {
+                                                                            const fileUrl = getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId);
+                                                                            return (
+                                                                                <a
+                                                                                    key={arch.id}
+                                                                                    href={fileUrl || "#"}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    onClick={(e) => {
+                                                                                        if (arch.nombre?.toLowerCase().endsWith(".pdf") && fileUrl) {
+                                                                                            e.preventDefault();
+                                                                                            setViewingPdf({
+                                                                                                url: fileUrl,
+                                                                                                title: `${ent.escuela.cct} - ${prog.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`
+                                                                                            });
+                                                                                        }
+                                                                                    }}
+                                                                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
+                                                                                    title={`Ver/Descargar ${arch.nombre}`}
+                                                                                >
+                                                                                    <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
+                                                                                </a>
+                                                                            );
+                                                                        })}
                                                                         <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "flex", alignItems: "center" }}>
                                                                             • Subido: {new Date(ent.archivos[0].createdAt!).toLocaleDateString("es-MX")}
                                                                         </span>
@@ -190,8 +256,9 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                     disabled={updatingEstado === ent.id}
                                                                     style={{
                                                                         padding: "0.25rem 0.5rem", borderRadius: "6px",
-                                                                        border: `1px solid ${color}`, background: `${color}15`,
-                                                                        color, fontWeight: 600, fontSize: "0.75rem", cursor: "pointer",
+                                                                        border: `1px solid ${styles.borderColor}`, background: styles.background,
+                                                                        color: styles.color, fontWeight: 600, fontSize: "0.75rem", cursor: "pointer",
+                                                                        outline: "none", transition: "all 0.2s ease"
                                                                     }}
                                                                 >
                                                                     {ESTADOS.map((e) => (
@@ -218,6 +285,12 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                     </div>
                 );
             })}
+            <PdfViewerModal
+                isOpen={!!viewingPdf}
+                onClose={() => setViewingPdf(null)}
+                url={viewingPdf?.url || ""}
+                title={viewingPdf?.title || ""}
+            />
         </div>
     );
 }
