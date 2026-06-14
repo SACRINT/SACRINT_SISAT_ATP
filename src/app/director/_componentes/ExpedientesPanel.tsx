@@ -19,7 +19,7 @@ import {
     AlertCircle,
     CheckCircle2,
 } from "lucide-react";
-import { getDownloadUrl } from "@/lib/download-url";
+import { getDownloadUrl, getExpedienteDownloadUrl } from "@/lib/download-url";
 import { DOCUMENTOS_PREDETERMINADOS, CARGOS_PERSONAL, GRADOS_ACADEMICOS, SEXOS } from "@/lib/constants";
 
 interface Documento {
@@ -81,6 +81,7 @@ export default function ExpedientesPanel({ escuela }: Props) {
     const [editingPerson, setEditingPerson] = useState<string | null>(null);
     const [editForm, setEditForm] = useState(EMPTY_FORM);
     const [customDocName, setCustomDocName] = useState<Record<string, string>>({});
+    const [downloadingPersonZip, setDownloadingPersonZip] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -97,6 +98,31 @@ export default function ExpedientesPanel({ escuela }: Props) {
     }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ─── Descarga ZIP de persona ───
+    async function handleDownloadPersonZip(personalId: string) {
+        setDownloadingPersonZip(personalId);
+        try {
+            const res = await fetch(`/api/expedientes/descargar?personalId=${personalId}`);
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({ error: "Sin archivos subidos" }));
+                setMessage({ type: "error", text: d.error || "Error al descargar" });
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            const disposition = res.headers.get("content-disposition");
+            const nameMatch = disposition?.match(/filename="(.+)"/);
+            a.download = nameMatch?.[1] || "Expediente.zip";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setDownloadingPersonZip(null);
+        }
+    }
 
     // ─── Crear personal ───
     async function handleCreate() {
@@ -452,7 +478,7 @@ export default function ExpedientesPanel({ escuela }: Props) {
                                         </div>
                                     </div>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                     <div style={{ textAlign: "right" }}>
                                         <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: completionColor }}>
                                             {uploaded}/{total} documentos
@@ -461,6 +487,27 @@ export default function ExpedientesPanel({ escuela }: Props) {
                                             <div style={{ width: `${completePct}%`, height: "100%", background: completionColor, borderRadius: "2px", transition: "width 0.3s" }} />
                                         </div>
                                     </div>
+                                    {/* ZIP download button — only if files exist */}
+                                    {person.documentos.some(d => d.archivoDriveUrl) && (
+                                        <button
+                                            onClick={e => { e.stopPropagation(); handleDownloadPersonZip(person.id); }}
+                                            disabled={downloadingPersonZip === person.id}
+                                            style={{
+                                                background: "var(--bg-secondary)",
+                                                border: "1px solid var(--border)",
+                                                borderRadius: "6px", cursor: "pointer",
+                                                color: "var(--primary)", padding: "0.25rem 0.625rem",
+                                                display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                                fontSize: "0.75rem", fontWeight: 700, flexShrink: 0,
+                                            }}
+                                            title="Descargar expediente completo (ZIP)"
+                                        >
+                                            {downloadingPersonZip === person.id
+                                                ? <Loader2 size={13} className="spin" />
+                                                : <Download size={13} />}
+                                            ZIP
+                                        </button>
+                                    )}
                                     {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                 </div>
                             </button>
@@ -587,13 +634,23 @@ export default function ExpedientesPanel({ escuela }: Props) {
                                                             {docs.filter(d => d.archivoDriveUrl).map(d => (
                                                                 <div key={d.id} style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
                                                                     <a
-                                                                        href={getDownloadUrl(d.archivoDriveUrl, d.archivoNombre || "archivo", d.archivoDriveId) || "#"}
+                                                                        href={getExpedienteDownloadUrl({
+                                                                            url: d.archivoDriveUrl,
+                                                                            publicId: d.archivoDriveId,
+                                                                            cct: escuela.cct,
+                                                                            apellidoPaterno: person.apellidoPaterno,
+                                                                            apellidoMaterno: person.apellidoMaterno,
+                                                                            nombre: person.nombre,
+                                                                            tipoDocumento: docType.tipo,
+                                                                            etiqueta: null,
+                                                                            nombreOriginal: d.archivoNombre || "archivo",
+                                                                        }) || "#"}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         style={{ display: "inline-flex", alignItems: "center", gap: "0.125rem", color: "var(--primary)", textDecoration: "none", fontSize: "0.75rem", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                                                                        title={d.archivoNombre || "Descargar"}
+                                                                        title={`${docType.label} · ${person.apellidoPaterno} ${person.apellidoMaterno}`}
                                                                     >
-                                                                        <Download size={12} /> {d.archivoNombre || "Archivo"}
+                                                                        <Download size={12} /> {docType.label}
                                                                     </a>
                                                                     {!d.bloqueado && (
                                                                         <button
@@ -656,12 +713,22 @@ export default function ExpedientesPanel({ escuela }: Props) {
                                                     <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
                                                         {d.archivoDriveUrl ? (
                                                             <a
-                                                                href={getDownloadUrl(d.archivoDriveUrl, d.archivoNombre || "archivo", d.archivoDriveId) || "#"}
+                                                                href={getExpedienteDownloadUrl({
+                                                                    url: d.archivoDriveUrl,
+                                                                    publicId: d.archivoDriveId,
+                                                                    cct: escuela.cct,
+                                                                    apellidoPaterno: person.apellidoPaterno,
+                                                                    apellidoMaterno: person.apellidoMaterno,
+                                                                    nombre: person.nombre,
+                                                                    tipoDocumento: "CUSTOM",
+                                                                    etiqueta: d.etiqueta,
+                                                                    nombreOriginal: d.archivoNombre || "archivo",
+                                                                }) || "#"}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", textDecoration: "none", fontSize: "0.8125rem" }}
                                                             >
-                                                                <Download size={14} /> {d.archivoNombre || "Descargar"}
+                                                                <Download size={14} /> {d.etiqueta || d.archivoNombre || "Descargar"}
                                                             </a>
                                                         ) : (
                                                             <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>Sin archivo</span>

@@ -7,7 +7,7 @@ import autoTable from "jspdf-autotable";
 import { Search, FileText, ChevronUp, ChevronDown, MessageSquare, Download, Mail } from "lucide-react";
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
 import { EscuelaAdmin } from "@/types";
-import { getDownloadUrl } from "@/lib/download-url";
+import { getEntregaDownloadUrl } from "@/lib/download-url";
 
 interface ListadoEscuelasProps {
     escuelas: EscuelaAdmin[];
@@ -214,11 +214,23 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                         {ent.archivos.map((arch, index) => (
                                                             <a
                                                                 key={arch.id}
-                                                                href={getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId) || "#"}
+                                                                href={getEntregaDownloadUrl({
+                                                                    url: arch.driveUrl,
+                                                                    publicId: arch.driveId,
+                                                                    cct: esc.cct,
+                                                                    programa: ent.periodoEntrega.programa.nombre,
+                                                                    periodo: ent.periodoEntrega.mes
+                                                                        ? (MESES[ent.periodoEntrega.mes] ?? "")
+                                                                        : ent.periodoEntrega.semestre
+                                                                            ? `Semestre_${ent.periodoEntrega.semestre}`
+                                                                            : "Anual",
+                                                                    etiqueta: arch.etiqueta,
+                                                                    nombreOriginal: arch.nombre,
+                                                                }) || "#"}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
-                                                                title={`Descargar ${arch.nombre}`}
+                                                                title={`Descargar: ${esc.cct} - ${ent.periodoEntrega.programa.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`}
                                                             >
                                                                 <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
                                                             </a>

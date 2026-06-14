@@ -48,7 +48,17 @@ export default async function AdminPage() {
     // Fetch escuelas
     const escuelas = await prisma.escuela.findMany({
         orderBy: { nombre: "asc" },
-        include: {
+        select: {
+            id: true,
+            cct: true,
+            nombre: true,
+            localidad: true,
+            municipio: true,
+            zonaEscolar: true,
+            director: true,
+            email: true,
+            total: true,
+            ultimoIngreso: true,
             entregas: {
                 where: {
                     periodoEntrega: { cicloEscolarId: ciclo.id, activo: true },
@@ -56,10 +66,30 @@ export default async function AdminPage() {
                 include: {
                     periodoEntrega: { include: { programa: true } },
                     archivos: { where: { tipo: "ENTREGA" } },
+                    correcciones: {
+                        include: {
+                            admin: { select: { id: true, nombre: true } },
+                            archivo: true,
+                        },
+                        orderBy: { createdAt: "desc" },
+                    },
                 },
             },
         },
     });
+
+    // Compute zone statistics for the dashboard
+    const zonaMap = new Map<string, { zona: string; total: number; aprobadas: number; entregadas: number; escuelas: number }>();
+    for (const esc of escuelas) {
+        const zona = esc.zonaEscolar || "Sin Zona";
+        if (!zonaMap.has(zona)) zonaMap.set(zona, { zona, total: 0, aprobadas: 0, entregadas: 0, escuelas: 0 });
+        const entry = zonaMap.get(zona)!;
+        entry.escuelas += 1;
+        entry.total += esc.entregas.length;
+        entry.aprobadas += esc.entregas.filter(e => e.estado === "APROBADO").length;
+        entry.entregadas += esc.entregas.filter(e => e.estado !== "NO_ENTREGADO").length;
+    }
+    const zonaStats = Array.from(zonaMap.values()).sort((a, b) => a.zona.localeCompare(b.zona));
 
     // Fetch recursos
     const recursos = await prisma.recurso.findMany({
@@ -100,6 +130,7 @@ export default async function AdminPage() {
             escuelas={JSON.parse(JSON.stringify(escuelas))}
             recursos={JSON.parse(JSON.stringify(recursos))}
             stats={stats}
+            zonaStats={zonaStats}
             ciclo={ciclo.nombre}
             cicloId={ciclo.id}
             anuncioGlobal={ciclo.anuncioGlobal || ""}

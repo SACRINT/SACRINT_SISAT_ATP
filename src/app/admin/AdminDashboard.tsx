@@ -25,6 +25,15 @@ import {
     UserCog,
     Trophy,
     Users,
+    BookMarked,
+    GraduationCap,
+    Lightbulb,
+    FolderOpen,
+    ShieldCheck,
+    ListChecks,
+    Settings2,
+    Menu,
+    X as XIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -44,8 +53,9 @@ import GestionEncuentroPAEC from "./_componentes/GestionEncuentroPAEC";
 import GestionCircular05 from "./_componentes/GestionCircular05";
 import GestionCapems from "./_componentes/GestionCapems";
 import GestionExpedientes from "./_componentes/GestionExpedientes";
+import PanelModulos from "./_componentes/PanelModulos";
 
-import { ProgramaAdmin, EscuelaAdmin, Stats } from "@/types";
+import { ProgramaAdmin, EscuelaAdmin, Stats, ZonaStat } from "@/types";
 
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
 import { getDownloadUrl } from "@/lib/download-url";
@@ -55,6 +65,7 @@ export default function AdminDashboard({
     escuelas,
     recursos,
     stats,
+    zonaStats,
     ciclo,
     cicloId,
     anuncioGlobal,
@@ -66,6 +77,7 @@ export default function AdminDashboard({
     escuelas: EscuelaAdmin[];
     recursos: Record<string, unknown>[];
     stats: Stats;
+    zonaStats: ZonaStat[];
     ciclo: string;
     userName: string;
     dbRole: string;
@@ -81,7 +93,21 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control">("general");
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
+        monitoreo: true,
+        config: false,
+        modulos: true,
+    });
+
+    const toggleGroup = (key: string) =>
+        setGroupOpen(prev => ({ ...prev, [key]: !prev[key] }));
+
+    const navigate = (v: typeof vista) => {
+        setVista(v);
+        setSidebarOpen(false);
+    };
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
@@ -220,95 +246,230 @@ export default function AdminDashboard({
     }
 
 
+    // Count active special modules for badge
+    const activeModulesCount = [
+        sidebarConfig.showEventos,
+        sidebarConfig.showCircular05,
+        sidebarConfig.showOlimpiada,
+        sidebarConfig.showPAEC,
+        sidebarConfig.showCapems,
+        sidebarConfig.showExpedientes,
+    ].filter(Boolean).length;
+
+    const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "capems", "expedientes"].includes(vista);
+    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control"].includes(vista);
+
     return (
         <div className="admin-layout">
+            {/* Mobile overlay */}
+            {sidebarOpen && (
+                <div
+                    className="sidebar-overlay"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* Mobile hamburger */}
+            <button
+                className="sidebar-hamburger"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Abrir menú"
+            >
+                <Menu size={22} />
+            </button>
+
             {/* Sidebar */}
-            <aside className="admin-sidebar">
-                <div className="admin-sidebar-header" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.25rem", padding: "1.5rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <BarChart3 size={24} />
-                        <span style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>SISAT-ATP</span>
+            <aside className={`admin-sidebar ${sidebarOpen ? "sidebar-mobile-open" : ""}`}>
+                {/* Sidebar Header */}
+                <div className="admin-sidebar-header">
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+                            <div style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "10px", padding: "6px", display: "flex" }}>
+                                <BarChart3 size={20} color="white" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: "0.9375rem", fontWeight: 800, color: "var(--text)", lineHeight: 1.1 }}>SISAT-ATP</div>
+                                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", lineHeight: 1.2 }}>Supervisión · Automatización</div>
+                            </div>
+                        </div>
+                        <button
+                            className="sidebar-close-btn"
+                            onClick={() => setSidebarOpen(false)}
+                            aria-label="Cerrar menú"
+                        >
+                            <XIcon size={18} />
+                        </button>
                     </div>
-                    <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", lineHeight: 1.2 }}>
-                        Sistema Inteligente de Supervisión<br />y Automatización Técnica
-                    </span>
+                    {/* Ciclo badge */}
+                    <div style={{ marginTop: "0.75rem", background: "var(--primary-bg)", borderRadius: "8px", padding: "0.375rem 0.625rem", display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--primary)" }}>
+                        <Calendar size={13} />
+                        Ciclo {ciclo}
+                    </div>
                 </div>
+
                 <div className="admin-sidebar-nav">
-                    <button className={`sidebar-link ${vista === "general" ? "active" : ""}`} onClick={() => setVista("general")}>
-                        <BarChart3 size={18} /> Vista General
-                    </button>
-                    <button className={`sidebar-link ${vista === "escuelas" ? "active" : ""}`} onClick={() => setVista("escuelas")}>
-                        <CheckCircle2 size={18} /> Avance Escuelas
-                    </button>
-                    <button className={`sidebar-link ${vista === "programas" ? "active" : ""}`} onClick={() => setVista("programas")}>
-                        <FileText size={18} /> Avance Programas
-                    </button>
 
-                    <div style={{ margin: "1rem 0 0.5rem", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", paddingLeft: "0.5rem" }}>Administración</div>
+                    {/* ── GRUPO: MONITOREO ── */}
+                    <div className="sidebar-group">
+                        <button
+                            className="sidebar-group-header"
+                            onClick={() => toggleGroup("monitoreo")}
+                        >
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <BarChart3 size={14} />
+                                <span>Monitoreo</span>
+                            </div>
+                            {groupOpen.monitoreo ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                        {groupOpen.monitoreo && (
+                            <div className="sidebar-group-items">
+                                <button className={`sidebar-link ${vista === "general" ? "active" : ""}`} onClick={() => navigate("general")}>
+                                    <BarChart3 size={17} />
+                                    <span>Vista General</span>
+                                </button>
+                                <button className={`sidebar-link ${vista === "escuelas" ? "active" : ""}`} onClick={() => navigate("escuelas")}>
+                                    <School size={17} />
+                                    <span>Avance por Escuela</span>
+                                </button>
+                                <button className={`sidebar-link ${vista === "programas" ? "active" : ""}`} onClick={() => navigate("programas")}>
+                                    <ListChecks size={17} />
+                                    <span>Avance por Programa</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
-                    <button className={`sidebar-link ${vista === "gestion-escuelas" ? "active" : ""}`} onClick={() => setVista("gestion-escuelas")}>
-                        <School size={18} /> Gestión de Escuelas
-                    </button>
-                    <button className={`sidebar-link ${vista === "gestion-programas" ? "active" : ""}`} onClick={() => setVista("gestion-programas")}>
-                        <Layers size={18} /> Gestión de Programas
-                    </button>
-                    <button className={`sidebar-link ${vista === "gestion-periodos" ? "active" : ""}`} onClick={() => setVista("gestion-periodos")}>
-                        <Clock size={18} /> Activar Periodos
-                    </button>
-                    <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => setVista("gestion-fechas")}>
-                        <Calendar size={18} /> Fechas y Tareas
-                    </button>
-                    {sidebarConfig.showRecursos && (
-                        <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => setVista("recursos")}>
-                            <Upload size={18} /> Formatos y Plantillas
+                    {/* ── GRUPO: CONFIGURACIÓN ── */}
+                    <div className="sidebar-group">
+                        <button
+                            className={`sidebar-group-header ${configVistaActiva ? "sidebar-group-header-active" : ""}`}
+                            onClick={() => toggleGroup("config")}
+                        >
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Settings2 size={14} />
+                                <span>Configuración</span>
+                            </div>
+                            {groupOpen.config ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>
-                    )}
-                    {sidebarConfig.showEventos && (
-                        <button className={`sidebar-link ${vista === "eventos" ? "active" : ""}`} onClick={() => setVista("eventos")}>
-                            <Trophy size={18} /> Eventos Culturales
-                        </button>
-                    )}
-                    {sidebarConfig.showCircular05 && (
-                        <button className={`sidebar-link ${vista === "circular05" ? "active" : ""}`} onClick={() => setVista("circular05")}>
-                            <FileText size={18} /> Circular 05
-                        </button>
-                    )}
-                    {sidebarConfig.showOlimpiada && (
-                        <button className={`sidebar-link ${vista === "olimpiada" ? "active" : ""}`} onClick={() => setVista("olimpiada")}>
-                            <FileText size={18} /> Olimpiada Matemáticas
-                        </button>
-                    )}
-                    {sidebarConfig.showPAEC && (
-                        <button className={`sidebar-link ${vista === "paec" ? "active" : ""}`} onClick={() => setVista("paec")}>
-                            <FileText size={18} /> Encuentro PAEC
-                        </button>
-                    )}
-                    {sidebarConfig.showCapems && (
-                        <button className={`sidebar-link ${vista === "capems" ? "active" : ""}`} onClick={() => setVista("capems")}>
-                            <FileText size={18} /> Fichas CAPEMS
-                        </button>
-                    )}
-                    {sidebarConfig.showExpedientes && (
-                        <button className={`sidebar-link ${vista === "expedientes" ? "active" : ""}`} onClick={() => setVista("expedientes")}>
-                            <Users size={18} /> Expedientes de Personal
-                        </button>
-                    )}
-                    {dbRole === "SUPER_ADMIN" && (
-                        <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => setVista("gestion-atps")}>
-                            <UserCog size={18} /> Accesos y Seguridad
-                        </button>
+                        {groupOpen.config && (
+                            <div className="sidebar-group-items">
+                                <button className={`sidebar-link ${vista === "gestion-escuelas" ? "active" : ""}`} onClick={() => navigate("gestion-escuelas")}>
+                                    <School size={17} />
+                                    <span>Escuelas</span>
+                                </button>
+                                <button className={`sidebar-link ${vista === "gestion-programas" ? "active" : ""}`} onClick={() => navigate("gestion-programas")}>
+                                    <Layers size={17} />
+                                    <span>Programas</span>
+                                </button>
+                                <button className={`sidebar-link ${vista === "gestion-periodos" ? "active" : ""}`} onClick={() => navigate("gestion-periodos")}>
+                                    <Clock size={17} />
+                                    <span>Periodos</span>
+                                </button>
+                                <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => navigate("gestion-fechas")}>
+                                    <Calendar size={17} />
+                                    <span>Fechas y Tareas</span>
+                                </button>
+                                {sidebarConfig.showRecursos && (
+                                    <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => navigate("recursos")}>
+                                        <BookMarked size={17} />
+                                        <span>Formatos y Plantillas</span>
+                                    </button>
+                                )}
+                                {dbRole === "SUPER_ADMIN" && (
+                                    <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => navigate("gestion-atps")}>
+                                        <ShieldCheck size={17} />
+                                        <span>Accesos y Seguridad</span>
+                                    </button>
+                                )}
+                                {/* Panel de módulos — always visible in config */}
+                                <button className={`sidebar-link ${vista === "modulos-control" ? "active" : ""}`} onClick={() => navigate("modulos-control")}>
+                                    <FolderOpen size={17} />
+                                    <span>Módulos Especiales</span>
+                                    {activeModulesCount > 0 && (
+                                        <span className="sidebar-badge" style={{ marginLeft: "auto" }}>{activeModulesCount}</span>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── GRUPO: MÓDULOS ACTIVOS ── */}
+                    {activeModulesCount > 0 && (
+                        <div className="sidebar-group">
+                            <button
+                                className={`sidebar-group-header ${modulosVistaActiva ? "sidebar-group-header-active" : ""}`}
+                                onClick={() => toggleGroup("modulos")}
+                            >
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <FolderOpen size={14} />
+                                    <span>Módulos Activos</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                    <span className="sidebar-badge">{activeModulesCount}</span>
+                                    {groupOpen.modulos ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </div>
+                            </button>
+                            {groupOpen.modulos && (
+                                <div className="sidebar-group-items">
+                                    {sidebarConfig.showEventos && (
+                                        <button className={`sidebar-link ${vista === "eventos" ? "active" : ""}`} onClick={() => navigate("eventos")}>
+                                            <Trophy size={17} />
+                                            <span>Eventos Culturales</span>
+                                        </button>
+                                    )}
+                                    {sidebarConfig.showCircular05 && (
+                                        <button className={`sidebar-link ${vista === "circular05" ? "active" : ""}`} onClick={() => navigate("circular05")}>
+                                            <FileText size={17} />
+                                            <span>Circular 05</span>
+                                        </button>
+                                    )}
+                                    {sidebarConfig.showOlimpiada && (
+                                        <button className={`sidebar-link ${vista === "olimpiada" ? "active" : ""}`} onClick={() => navigate("olimpiada")}>
+                                            <GraduationCap size={17} />
+                                            <span>Olimpiada Matemáticas</span>
+                                        </button>
+                                    )}
+                                    {sidebarConfig.showPAEC && (
+                                        <button className={`sidebar-link ${vista === "paec" ? "active" : ""}`} onClick={() => navigate("paec")}>
+                                            <Lightbulb size={17} />
+                                            <span>Encuentro PAEC</span>
+                                        </button>
+                                    )}
+                                    {sidebarConfig.showCapems && (
+                                        <button className={`sidebar-link ${vista === "capems" ? "active" : ""}`} onClick={() => navigate("capems")}>
+                                            <BookMarked size={17} />
+                                            <span>Fichas CAPEMS</span>
+                                        </button>
+                                    )}
+                                    {sidebarConfig.showExpedientes && (
+                                        <button className={`sidebar-link ${vista === "expedientes" ? "active" : ""}`} onClick={() => navigate("expedientes")}>
+                                            <Users size={17} />
+                                            <span>Expedientes Personal</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
+
+                {/* Sidebar Footer */}
                 <div className="admin-sidebar-footer">
-                    <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem", paddingLeft: "0.25rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        Conectado como <br /><strong>{userName}</strong>
+                    <div className="sidebar-user-info">
+                        <div className="sidebar-user-avatar">
+                            {userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ overflow: "hidden" }}>
+                            <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userName}</div>
+                            <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{dbRole === "SUPER_ADMIN" ? "Super Admin" : "ATP Revisor"}</div>
+                        </div>
                     </div>
                     <button
                         className="btn btn-outline btn-block"
                         onClick={() => signOut({ callbackUrl: "/login" })}
-                        style={{ fontSize: "0.8125rem", padding: "0.5rem", minHeight: "auto", marginTop: "0.5rem" }}
+                        style={{ fontSize: "0.8125rem", padding: "0.5rem", minHeight: "auto", marginTop: "0.75rem" }}
                     >
-                        <LogOut size={16} /> Salir
+                        <LogOut size={16} /> Cerrar Sesión
                     </button>
                 </div>
             </aside>
@@ -325,14 +486,29 @@ export default function AdminDashboard({
                 {/* ========= VISTA: VISTA GENERAL ========= */}
                 {vista === "general" && (
                     <VistaGeneral
-                        stats={stats}
+                        stats={{
+                            ...stats,
+                            escuelas: escuelas.map(e => ({
+                                id: e.id,
+                                cct: e.cct,
+                                nombre: e.nombre,
+                                pendientes: e.entregas.filter(en => en.estado === "PENDIENTE").length,
+                                requiereCorreccion: e.entregas.filter(en => en.estado === "REQUIERE_CORRECCION").length,
+                                noEntregadas: e.entregas.filter(en => en.estado === "NO_ENTREGADO").length,
+                                aprobadas: e.entregas.filter(en => en.estado === "APROBADO").length,
+                                total: e.entregas.length,
+                            }))
+                        }}
+                        zonaStats={zonaStats}
                         ciclo={ciclo}
                         totalEscuelas={escuelas.length}
                         anuncioGlobal={anuncioGlobal}
                         onSaveAnuncio={handleSaveAnuncio}
                         onExportExcel={exportToExcel}
+                        onNavigateEscuelas={() => navigate("escuelas")}
                     />
                 )}
+
 
                 {/* ========= VISTA: ESCUELAS ========= */}
                 {vista === "escuelas" && (
@@ -398,7 +574,12 @@ export default function AdminDashboard({
                     )
                 }
 
-                {/* ========= VISTA: EVENTOS CULTURALES ========= */}
+                {/* ========= VISTA: PANEL DE MÓDULOS ESPECIALES ========= */}
+                {vista === "modulos-control" && (
+                    <PanelModulos sidebarConfig={sidebarConfig} />
+                )}
+
+
                 {
                     vista === "eventos" && (
                         <GestionEventos />

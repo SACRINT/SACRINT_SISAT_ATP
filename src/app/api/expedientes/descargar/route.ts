@@ -77,7 +77,9 @@ function safeName(name: string) {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "") // remove accents
         .replace(/[^a-zA-Z0-9_ -]/g, "")
-        .replace(/\s+/g, "_");
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .trim();
 }
 
 export async function GET(request: NextRequest) {
@@ -89,7 +91,70 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const escuelaId = searchParams.get("escuelaId");
+    const personalId = searchParams.get("personalId");
 
+    // ─── Mode 1: Single person ─────────────────────────────
+    if (personalId) {
+        const persona = await prisma.personal.findUnique({
+            where: { id: personalId },
+            include: {
+                escuela: { select: { cct: true, nombre: true } },
+                documentos: {
+                    where: { archivoDriveUrl: { not: null } },
+                    orderBy: { orden: "asc" },
+                },
+            },
+        });
+
+        if (!persona || persona.documentos.length === 0) {
+            return NextResponse.json({ error: "No hay archivos para esta persona" }, { status: 404 });
+        }
+
+        const zip = new JSZip();
+        let filesAdded = 0;
+
+        for (const doc of persona.documentos) {
+            if (!doc.archivoDriveUrl) continue;
+            const data = await downloadFile(doc.archivoDriveUrl);
+            if (!data) continue;
+
+            const ext = doc.archivoNombre?.split(".").pop() || "pdf";
+            const cleanLabel = safeName(doc.etiqueta || doc.tipoDocumento);
+            let filePath = `${cleanLabel}.${ext}`;
+
+            // Handle duplicates
+            let uniquePath = filePath;
+            let counter = 1;
+            while (zip.file(uniquePath)) {
+                uniquePath = filePath.replace(new RegExp(`\\.${ext}$`), `_(${counter}).${ext}`);
+                counter++;
+            }
+
+            zip.file(uniquePath, data);
+            filesAdded++;
+        }
+
+        if (filesAdded === 0) {
+            return NextResponse.json({ error: "No se pudieron descargar los archivos" }, { status: 502 });
+        }
+
+        const zipBuffer = await zip.generateAsync({ type: "arraybuffer" });
+        const personName = safeName(
+            `${persona.escuela.cct}_${persona.apellidoPaterno}_${persona.apellidoMaterno}_${persona.nombre}`
+        );
+        const zipName = `Expediente_${personName}.zip`;
+
+        return new NextResponse(zipBuffer, {
+            status: 200,
+            headers: {
+                "Content-Type": "application/zip",
+                "Content-Disposition": `attachment; filename="${zipName}"`,
+                "Content-Length": zipBuffer.byteLength.toString(),
+            },
+        });
+    }
+
+    // ─── Mode 2: By school or all schools ─────────────────
     const where: Record<string, any> = {
         archivoDriveUrl: { not: null },
     };
@@ -130,23 +195,24 @@ export async function GET(request: NextRequest) {
         if (!data) continue;
 
         const p = doc.personal;
-        const escuelaName = safeName(`${p.escuela.cct}_${p.escuela.nombre}`);
+        const escuelaCct = safeName(p.escuela.cct);
         const personalName = safeName(`${p.apellidoPaterno}_${p.apellidoMaterno}_${p.nombre}`);
-        
         const ext = doc.archivoNombre?.split(".").pop() || "pdf";
         const cleanDocLabel = safeName(doc.etiqueta || doc.tipoDocumento);
         const fileName = `${cleanDocLabel}.${ext}`;
 
+        // Folder structure: CCT_EscuelaNombre / ApellidoP_ApellidoM_Nombre / Documento.ext
+        const escuelaFolder = safeName(`${p.escuela.cct}_${p.escuela.nombre}`);
         let folderPath = "";
         if (escuelaId) {
-            // Downloading for single school: PersonalName/DocName.ext
+            // Single school: Person / Document
             folderPath = `${personalName}/${fileName}`;
         } else {
-            // Downloading for all schools: SchoolName/PersonalName/DocName.ext
-            folderPath = `${escuelaName}/${personalName}/${fileName}`;
+            // All schools: School / Person / Document
+            folderPath = `${escuelaFolder}/${personalName}/${fileName}`;
         }
 
-        // Handle duplicates in zip by adding a counter if needed
+        // Handle duplicates
         let uniquePath = folderPath;
         let counter = 1;
         while (zip.file(uniquePath)) {
@@ -163,8 +229,10 @@ export async function GET(request: NextRequest) {
     }
 
     const zipBuffer = await zip.generateAsync({ type: "arraybuffer" });
-    const label = escuelaId ? documentos[0]?.personal.escuela.nombre : "Todas_Las_Escuelas";
-    const zipName = `Expedientes_${safeName(label)}_${new Date().toISOString().slice(0, 10)}.zip`;
+    const labelRaw = escuelaId ? documentos[0]?.personal.escuela.nombre : "Todas_Las_Escuelas";
+    const cctRaw = escuelaId ? documentos[0]?.personal.escuela.cct : "";
+    const label = safeName(escuelaId ? `${cctRaw}_${labelRaw}` : labelRaw);
+    const zipName = `Expedientes_${label}_${new Date().toISOString().slice(0, 10)}.zip`;
 
     return new NextResponse(zipBuffer, {
         status: 200,

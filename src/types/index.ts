@@ -50,6 +50,8 @@ export interface EscuelaAdmin {
     cct: string;
     nombre: string;
     localidad: string;
+    municipio?: string | null;
+    zonaEscolar?: string | null;
     director?: string | null;
     email?: string | null;
     ultimoIngreso?: string | Date | null;
@@ -62,6 +64,14 @@ export interface EscuelaAdmin {
         correcciones: CorreccionAdmin[];
         periodoEntrega: { programa: { nombre: string }; mes: number | null; semestre: number | null };
     }[];
+}
+
+export interface ZonaStat {
+    zona: string;
+    total: number;
+    aprobadas: number;
+    entregadas: number;
+    escuelas: number;
 }
 
 export interface Stats {

@@ -47,5 +47,9 @@ export interface RecursoDirector {
     descripcion: string | null;
     archivoNombre: string;
     archivoDriveUrl: string | null;
-    programa: { nombre: string } | null;
+    archivoDriveId: string | null;
+    createdAt: string;
+    externalUrl?: string | null;
+    programaId?: string | null;
+    programa: { id: string; nombre: string } | null;
 }

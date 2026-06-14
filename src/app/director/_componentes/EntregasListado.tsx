@@ -45,6 +45,7 @@ export default function EntregasListado({
 }) {
     const [uploading, setUploading] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<string | null>(null);
+    // Auto-expand all single-period (annual) programs; start with first multi-period expanded
     const [expandedProg, setExpandedProg] = useState<string | null>(programas[0]?.programa.id ?? null);
     const [expandedCorrecciones, setExpandedCorrecciones] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -172,29 +173,63 @@ export default function EntregasListado({
 
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {programas.map((group) => {
-                    const isExpanded = expandedProg === group.programa.id;
+                    const isSinglePeriod = group.entregas.length === 1;
+                    // Single-period programs (annual) are always expanded
+                    const isExpanded = isSinglePeriod || expandedProg === group.programa.id;
                     const aprobProg = group.entregas.filter((e) => e.estado === "APROBADO").length;
                     const totalProg = group.entregas.length;
+                    const pct = totalProg > 0 ? Math.round((aprobProg / totalProg) * 100) : 0;
+
+                    // Border color by status
+                    const pendientesProg = group.entregas.filter(e =>
+                        e.estado === "REQUIERE_CORRECCION" || e.estado === "NO_APROBADO"
+                    ).length;
+                    const borderColor = aprobProg === totalProg
+                        ? "var(--success)"
+                        : pendientesProg > 0
+                            ? "var(--warning)"
+                            : "var(--border)";
 
                     return (
-                        <div key={group.programa.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                        <div key={group.programa.id} className="card" style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${borderColor}` }}>
                             {/* Programa header */}
-                            <button
-                                onClick={() => setExpandedProg(isExpanded ? null : group.programa.id)}
-                                style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "1rem", textAlign: "left" }}
+                            <div
+                                onClick={() => !isSinglePeriod && setExpandedProg(isExpanded ? null : group.programa.id)}
+                                style={{
+                                    padding: "0.875rem 1rem",
+                                    cursor: isSinglePeriod ? "default" : "pointer",
+                                    userSelect: "none",
+                                }}
                             >
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.375rem" }}>
                                     <div>
-                                        <div style={{ fontWeight: 700, fontSize: "1rem" }}>{group.programa.nombre}</div>
-                                        <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                                            {aprobProg}/{totalProg} aprobadas •{" "}
+                                        <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>{group.programa.nombre}</div>
+                                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.125rem" }}>
                                             {group.programa.tipo === "MENSUAL" ? "Mensual" : group.programa.tipo === "SEMESTRAL" ? "Semestral" : "Anual"}
-                                            {group.programa.numArchivos > 1 && ` • ${group.programa.numArchivos} archivos`}
+                                            {group.programa.numArchivos > 1 && ` · ${group.programa.numArchivos} archivos por entrega`}
                                         </div>
                                     </div>
-                                    {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                        <span style={{
+                                            fontSize: "0.75rem", fontWeight: 700,
+                                            color: aprobProg === totalProg ? "var(--success)" : "var(--text-muted)"
+                                        }}>
+                                            {aprobProg}/{totalProg}
+                                        </span>
+                                        {!isSinglePeriod && (
+                                            isExpanded ? <ChevronUp size={16} style={{ color: "var(--text-muted)" }} /> : <ChevronDown size={16} style={{ color: "var(--text-muted)" }} />
+                                        )}
+                                    </div>
                                 </div>
-                            </button>
+                                {/* Mini progress bar */}
+                                <div style={{ height: "3px", background: "var(--bg-secondary)", borderRadius: "2px" }}>
+                                    <div style={{
+                                        height: "100%", width: `${pct}%`,
+                                        background: borderColor,
+                                        borderRadius: "2px", transition: "width 0.4s ease",
+                                    }} />
+                                </div>
+                            </div>
 
                             {/* Entregas list per period */}
                             {isExpanded && (
