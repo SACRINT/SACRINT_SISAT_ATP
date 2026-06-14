@@ -61,6 +61,7 @@ export default function GestionCapems() {
     const [fichas, setFichas] = useState<Ficha[]>([]);
     const [capems, setCapems] = useState<Capem[]>([]);
     const [registros, setRegistros] = useState<Registro[]>([]);
+    const [todasEscuelas, setTodasEscuelas] = useState<{ id: string; cct: string; nombre: string }[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Fichas state
@@ -87,15 +88,17 @@ export default function GestionCapems() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [fichasRes, capemsRes, registrosRes, configRes] = await Promise.all([
+            const [fichasRes, capemsRes, registrosRes, configRes, escuelasRes] = await Promise.all([
                 fetch("/api/admin/fichas"),
                 fetch("/api/admin/capems"),
                 fetch("/api/capems/registros"),
                 fetch("/api/capems/config"),
+                fetch("/api/admin/escuelas"),
             ]);
             if (fichasRes.ok) setFichas(await fichasRes.json());
             if (capemsRes.ok) setCapems(await capemsRes.json());
             if (registrosRes.ok) setRegistros(await registrosRes.json());
+            if (escuelasRes.ok) setTodasEscuelas(await escuelasRes.json());
             if (configRes.ok) {
                 const configData = await configRes.json();
                 setCapemsActive(configData.activo ?? false);
@@ -364,8 +367,15 @@ export default function GestionCapems() {
 
     // ─── Agrupación para resumen ───
 
-    // Agrupar registros por escuela
+    // Combinar todas las escuelas con sus registros (incluye escuelas sin registros)
     const escuelasMap = new Map<string, { cct: string; nombre: string; registros: Registro[] }>();
+
+    // 1. Pre-populate with ALL schools (so schools without records also appear)
+    todasEscuelas.forEach(e => {
+        escuelasMap.set(e.id, { cct: e.cct, nombre: e.nombre, registros: [] });
+    });
+
+    // 2. Add registros to corresponding schools
     registros.forEach(r => {
         if (!escuelasMap.has(r.escuelaId)) {
             escuelasMap.set(r.escuelaId, { cct: r.escuela.cct, nombre: r.escuela.nombre, registros: [] });
@@ -373,14 +383,25 @@ export default function GestionCapems() {
         escuelasMap.get(r.escuelaId)!.registros.push(r);
     });
 
+    const escuelasConRegistros = registros.length > 0
+        ? new Set(registros.map(r => r.escuelaId))
+        : new Set<string>();
+
     const escuelasArray = Array.from(escuelasMap.entries())
-        .map(([id, data]) => ({ id, ...data }))
+        .map(([id, data]) => ({ id, ...data, tieneRegistros: escuelasConRegistros.has(id) }))
         .filter(e => {
+            // Filter by capem if selected — only show schools with records for that capem
+            if (filterCapem && !e.registros.some(r => r.capemId === filterCapem)) return false;
             if (!searchTerm) return true;
             const term = searchTerm.toLowerCase();
             return e.cct.toLowerCase().includes(term) || e.nombre.toLowerCase().includes(term);
         })
-        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+        .sort((a, b) => {
+            // Schools with records first, then alphabetical
+            if (a.tieneRegistros && !b.tieneRegistros) return -1;
+            if (!a.tieneRegistros && b.tieneRegistros) return 1;
+            return a.nombre.localeCompare(b.nombre);
+        });
 
     if (loading) {
         return (
@@ -669,7 +690,7 @@ export default function GestionCapems() {
                     {/* Info + Descarga masiva */}
                     <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7", padding: "0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                         <p style={{ margin: 0, fontSize: "0.875rem", color: "#0c5a8e" }}>
-                            <strong>{escuelasArray.length}</strong> escuelas con registros • <strong>{registros.length}</strong> fichas subidas en total
+                            <strong>{escuelasArray.filter(e => e.tieneRegistros).length}</strong> de <strong>{escuelasArray.length}</strong> escuelas han subido fichas • <strong>{registros.length}</strong> fichas en total
                         </p>
                         {registros.some(r => r.archivoDriveUrl) && (
                             <button
@@ -697,19 +718,22 @@ export default function GestionCapems() {
                                 : escuela.registros;
 
                             return (
-                                <div key={escuela.id} className="card" style={{ padding: 0 }}>
+                                <div key={escuela.id} className="card" style={{ padding: 0, opacity: escuela.tieneRegistros ? 1 : 0.65 }}>
                                     <button
                                         onClick={() => setExpandedEscuela(isExpanded ? null : escuela.id)}
                                         style={{
                                             display: "flex", justifyContent: "space-between", alignItems: "center",
                                             width: "100%", padding: "0.875rem 1rem",
-                                            background: "none", border: "none", cursor: "pointer",
+                                            background: "none", border: "none", cursor: escuela.tieneRegistros ? "pointer" : "default",
                                             textAlign: "left", fontWeight: 600,
                                         }}
                                     >
                                         <div>
                                             <span style={{ color: "var(--text-muted)", marginRight: "0.5rem", fontSize: "0.8125rem" }}>{escuela.cct}</span>
                                             {escuela.nombre}
+                                            {!escuela.tieneRegistros && (
+                                                <span style={{ marginLeft: "0.5rem", fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 400 }}>Sin registros</span>
+                                            )}
                                         </div>
                                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                                             {/* Chips por CAPEM */}
@@ -719,7 +743,7 @@ export default function GestionCapems() {
                                                     return (
                                                         <span key={c.id} style={{
                                                             display: "inline-flex", alignItems: "center", justifyContent: "center",
-                                                            background: count > 0 ? "var(--primary)" : "var(--bg-secondary)",
+                                                            background: count > 0 ? "var(--primary)" : "var(--bg-secondary, #f1f5f9)",
                                                             color: count > 0 ? "white" : "var(--text-muted)",
                                                             borderRadius: "9999px", padding: "0.125rem 0.5rem",
                                                             fontSize: "0.6875rem", fontWeight: 700, minWidth: "1.5rem",
@@ -729,7 +753,7 @@ export default function GestionCapems() {
                                                     );
                                                 })}
                                             </div>
-                                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                            {escuela.tieneRegistros && (isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />)}
                                         </div>
                                     </button>
 

@@ -12,6 +12,12 @@ import {
     GraduationCap,
     Lightbulb,
     FolderOpen,
+    BarChart3,
+    Users,
+    BookMarked,
+    Menu,
+    X as XIcon,
+    CheckCircle2,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -25,6 +31,8 @@ import CapemsPanel from "./_componentes/CapemsPanel";
 import ExpedientesPanel from "./_componentes/ExpedientesPanel";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
+
+type TabType = "entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes";
 
 export default function DirectorPortal({
     escuela,
@@ -51,63 +59,210 @@ export default function DirectorPortal({
     isCapemsActive?: boolean;
     isExpedientesActive?: boolean;
 }) {
-    const [tab, setTab] = useState<"entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes">("entregas");
+    const [tab, setTab] = useState<TabType>("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // Stats
     const allEntregas = programas.flatMap((p) => p.entregas);
     const aprobadas = allEntregas.filter((e) => e.estado === "APROBADO").length;
     const porcentaje = allEntregas.length > 0 ? Math.round((aprobadas / allEntregas.length) * 100) : 0;
 
-    return (
-        <>
-            {/* Navbar */}
-            <nav className="navbar">
-                <div className="navbar-brand" style={{ display: "flex", flexDirection: "column", gap: "0.15rem", justifyContent: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <School size={24} />
-                        <span style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>SISAT-ATP</span>
-                    </div>
-                    <span style={{ fontSize: "0.6rem", opacity: 0.8, lineHeight: 1 }}>
-                        Sistema Inteligente de Supervisión y Automatización Técnica
-                    </span>
-                </div>
-                <div className="navbar-user">
-                    <button
-                        className="btn btn-outline"
-                        onClick={() => signOut({ callbackUrl: "/login" })}
-                        style={{ fontSize: "0.8125rem", padding: "0.5rem 0.75rem", minHeight: "auto" }}
-                    >
-                        <LogOut size={16} />
-                        Salir
-                    </button>
-                </div>
-            </nav>
+    const navigate = (t: TabType) => {
+        setTab(t);
+        setSidebarOpen(false);
+    };
 
-            <div className="page-container fade-in">
+    // Count active special modules
+    const specialModules: { key: TabType; label: string; icon: React.ReactNode; active: boolean }[] = [
+        { key: "eventos", label: "Eventos Culturales", icon: <Trophy size={17} />, active: isEventosActive },
+        { key: "circular05", label: "Circular 05", icon: <FileText size={17} />, active: isCircularActive },
+        { key: "olimpiada", label: "Olimpiada Matemáticas", icon: <GraduationCap size={17} />, active: isOlimpiadaActive },
+        { key: "paec", label: "Encuentro PAEC", icon: <Lightbulb size={17} />, active: isPAECActive },
+        { key: "capems", label: "Fichas CAPEMS", icon: <BookMarked size={17} />, active: isCapemsActive },
+        { key: "expedientes", label: "Expedientes", icon: <Users size={17} />, active: isExpedientesActive },
+    ];
+    const activeSpecialModules = specialModules.filter(m => m.active);
+
+    const tabLabels: Record<TabType, string> = {
+        entregas: "Mis Entregas",
+        recursos: "Recursos",
+        eventos: "Eventos Culturales",
+        circular05: "Circular 05",
+        olimpiada: "Olimpiada Matemáticas",
+        paec: "Encuentro PAEC",
+        capems: "Fichas CAPEMS",
+        expedientes: "Expedientes",
+    };
+
+    return (
+        <div className="admin-layout">
+            {/* Mobile overlay */}
+            {sidebarOpen && (
+                <div
+                    className="sidebar-overlay"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* Mobile hamburger */}
+            <button
+                className="sidebar-hamburger"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Abrir menú"
+            >
+                <Menu size={22} />
+            </button>
+
+            {/* Sidebar */}
+            <aside className={`admin-sidebar ${sidebarOpen ? "sidebar-mobile-open" : ""}`}>
                 {/* Header */}
-                <div className="card" style={{ marginBottom: "1.5rem", background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)", color: "white", border: "none" }}>
-                    <h2 style={{ marginBottom: "0.25rem" }}>{escuela.nombre}</h2>
-                    <p style={{ opacity: 0.85, fontSize: "0.875rem", margin: 0 }}>
-                        {escuela.cct} • {escuela.localidad} • Ciclo {ciclo}
-                    </p>
-                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "1rem" }}>
-                        <div style={{ flex: 1 }}>
-                            <div className="progress-bar" style={{ background: "rgba(255,255,255,0.2)" }}>
-                                <div className="progress-fill" style={{ width: `${porcentaje}%`, background: "white" }} />
+                <div className="admin-sidebar-header">
+                    <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+                            <div style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "10px", padding: "6px", display: "flex" }}>
+                                <School size={20} color="white" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: "0.9375rem", fontWeight: 800, color: "var(--text)", lineHeight: 1.1 }}>Portal</div>
+                                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", lineHeight: 1.2 }}>Director</div>
                             </div>
                         </div>
-                        <span style={{ fontWeight: 800, fontSize: "1.25rem" }}>{porcentaje}%</span>
+                        <button
+                            className="sidebar-close-btn"
+                            onClick={() => setSidebarOpen(false)}
+                            aria-label="Cerrar menú"
+                        >
+                            <XIcon size={18} />
+                        </button>
                     </div>
-                    <p style={{ opacity: 0.7, fontSize: "0.75rem", margin: "0.25rem 0 0" }}>
-                        {aprobadas} de {allEntregas.length} entregas aprobadas
-                    </p>
+
+                    {/* School info badge */}
+                    <div style={{ marginTop: "0.75rem", background: "var(--primary-bg)", borderRadius: "8px", padding: "0.5rem 0.625rem" }}>
+                        <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                            {escuela.cct}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text)", fontWeight: 600, lineHeight: 1.3, marginTop: "0.125rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {escuela.nombre}
+                        </div>
+                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "0.125rem" }}>
+                            Ciclo {ciclo}
+                        </div>
+                    </div>
+
+                    {/* Progress mini */}
+                    <div style={{ marginTop: "0.75rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
+                            <span>Avance global</span>
+                            <span style={{ fontWeight: 700, color: porcentaje >= 80 ? "var(--success)" : porcentaje >= 50 ? "var(--warning)" : "var(--danger)" }}>
+                                {porcentaje}%
+                            </span>
+                        </div>
+                        <div className="progress-bar" style={{ height: "6px" }}>
+                            <div
+                                className="progress-fill"
+                                style={{
+                                    width: `${porcentaje}%`,
+                                    background: porcentaje >= 80 ? "var(--success)" : porcentaje >= 50 ? "var(--warning)" : "var(--danger)"
+                                }}
+                            />
+                        </div>
+                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                            {aprobadas} de {allEntregas.length} entregas aprobadas
+                        </div>
+                    </div>
+                    </div>{/* end column wrapper */}
+                </div>
+
+                {/* Navigation */}
+                <div className="admin-sidebar-nav">
+
+                    {/* Main sections - always visible */}
+                    <div style={{ marginBottom: "0.25rem" }}>
+                        <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem" }}>
+                            Principal
+                        </div>
+                        <button className={`sidebar-link ${tab === "entregas" ? "active" : ""}`} onClick={() => navigate("entregas")}>
+                            <Upload size={17} />
+                            <span>Mis Entregas</span>
+                            {/* Badge with pending count */}
+                            {allEntregas.filter(e => e.estado === "PENDIENTE" || e.estado === "REQUIERE_CORRECCION").length > 0 && (
+                                <span className="sidebar-badge" style={{ marginLeft: "auto", background: "var(--warning)", color: "white" }}>
+                                    {allEntregas.filter(e => e.estado === "PENDIENTE" || e.estado === "REQUIERE_CORRECCION").length}
+                                </span>
+                            )}
+                        </button>
+                        <button className={`sidebar-link ${tab === "recursos" ? "active" : ""}`} onClick={() => navigate("recursos")}>
+                            <BookOpen size={17} />
+                            <span>Recursos y Formatos</span>
+                        </button>
+                    </div>
+
+                    {/* Special modules - conditional */}
+                    {activeSpecialModules.length > 0 && (
+                        <div>
+                            <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem", marginTop: "1rem" }}>
+                                Módulos Activos
+                            </div>
+                            {activeSpecialModules.map(m => (
+                                <button
+                                    key={m.key}
+                                    className={`sidebar-link ${tab === m.key ? "active" : ""}`}
+                                    onClick={() => navigate(m.key)}
+                                >
+                                    {m.icon}
+                                    <span>{m.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="admin-sidebar-footer">
+                    {escuela.director && (
+                        <div className="sidebar-user-info" style={{ marginBottom: "0.75rem" }}>
+                            <div className="sidebar-user-avatar">
+                                {escuela.director.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ overflow: "hidden" }}>
+                                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {escuela.director}
+                                </div>
+                                <div style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>Director</div>
+                            </div>
+                        </div>
+                    )}
+                    <button
+                        className="btn btn-outline btn-block"
+                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        style={{ fontSize: "0.8125rem", padding: "0.5rem", minHeight: "auto" }}
+                    >
+                        <LogOut size={16} /> Cerrar Sesión
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="admin-content fade-in">
+                {/* Page header */}
+                <div style={{ marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--text)" }}>
+                        {tabLabels[tab]}
+                    </h2>
+                    {tab === "entregas" && (
+                        <span style={{ marginLeft: "auto", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                            {escuela.cct} · {escuela.localidad}
+                        </span>
+                    )}
                 </div>
 
                 {/* Message */}
                 {message && (
                     <div className={`alert ${message.type === "success" ? "alert-success" : "alert-error"}`} style={{ marginBottom: "1rem" }}>
                         {message.text}
+                        <button onClick={() => setMessage(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>×</button>
                     </div>
                 )}
 
@@ -127,54 +282,6 @@ export default function DirectorPortal({
                         </div>
                     </div>
                 )}
-
-                {/* Tab Toggle */}
-                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-                    <button className={`btn ${tab === "entregas" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("entregas")} style={{ flex: 1 }}>
-                        <Upload size={18} />
-                        Mis Entregas
-                    </button>
-                    {isEventosActive && (
-                        <button className={`btn ${tab === "eventos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("eventos")} style={{ flex: 1 }}>
-                            <Trophy size={18} />
-                            Eventos Culturales 2026
-                        </button>
-                    )}
-                    <button className={`btn ${tab === "recursos" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("recursos")} style={{ flex: 1 }}>
-                        <BookOpen size={18} />
-                        Recursos
-                    </button>
-                    {isCircularActive && (
-                        <button className={`btn ${tab === "circular05" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("circular05")} style={{ flex: 1 }}>
-                            <FileText size={18} />
-                            Circular 05
-                        </button>
-                    )}
-                    {isOlimpiadaActive && (
-                        <button className={`btn ${tab === "olimpiada" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("olimpiada")} style={{ flex: 1 }}>
-                            <GraduationCap size={18} />
-                            Olimpiada Matemáticas
-                        </button>
-                    )}
-                    {isPAECActive && (
-                        <button className={`btn ${tab === "paec" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("paec")} style={{ flex: 1 }}>
-                            <Lightbulb size={18} />
-                            Encuentro PAEC
-                        </button>
-                    )}
-                    {isCapemsActive && (
-                        <button className={`btn ${tab === "capems" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("capems")} style={{ flex: 1 }}>
-                            <FileText size={18} />
-                            Fichas CAPEMS
-                        </button>
-                    )}
-                    {isExpedientesActive && (
-                        <button className={`btn ${tab === "expedientes" ? "btn-primary" : "btn-outline"}`} onClick={() => setTab("expedientes")} style={{ flex: 1 }}>
-                            <FolderOpen size={18} />
-                            Expedientes
-                        </button>
-                    )}
-                </div>
 
                 {/* Tab Content */}
                 {tab === "entregas" && (
@@ -213,7 +320,7 @@ export default function DirectorPortal({
                 {tab === "expedientes" && isExpedientesActive && (
                     <ExpedientesPanel escuela={escuela} />
                 )}
-            </div>
-        </>
+            </main>
+        </div>
     );
 }

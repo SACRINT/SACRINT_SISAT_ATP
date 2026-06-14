@@ -15,7 +15,7 @@ import {
     Users,
     AlertCircle,
 } from "lucide-react";
-import { getDownloadUrl } from "@/lib/download-url";
+import { getDownloadUrl, getExpedienteDownloadUrl } from "@/lib/download-url";
 import {
     DOCUMENTOS_PREDETERMINADOS,
     CARGOS_PERSONAL,
@@ -96,6 +96,7 @@ export default function GestionExpedientes() {
     const [personalList, setPersonalList] = useState<Personal[]>([]);
     const [loading, setLoading] = useState(true);
     const [moduleActive, setModuleActive] = useState(false);
+    const [todasEscuelas, setTodasEscuelas] = useState<{ id: string; cct: string; nombre: string }[]>([]);
 
     const [expandedEscuela, setExpandedEscuela] = useState<string | null>(null);
     const [expandedPersonal, setExpandedPersonal] = useState<string | null>(null);
@@ -111,9 +112,10 @@ export default function GestionExpedientes() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [configRes, personalRes] = await Promise.all([
+            const [configRes, personalRes, escuelasRes] = await Promise.all([
                 fetch("/api/expedientes/config"),
                 fetch("/api/expedientes/personal"),
+                fetch("/api/admin/escuelas"),
             ]);
             if (configRes.ok) {
                 const configData = await configRes.json();
@@ -121,6 +123,9 @@ export default function GestionExpedientes() {
             }
             if (personalRes.ok) {
                 setPersonalList(await personalRes.json());
+            }
+            if (escuelasRes.ok) {
+                setTodasEscuelas(await escuelasRes.json());
             }
         } catch {
             setMessage({ type: "error", text: "Error cargando datos" });
@@ -187,6 +192,8 @@ export default function GestionExpedientes() {
 
     // ─── Descarga masiva ZIP ───────────────────────────
 
+    const [downloadingPersonZip, setDownloadingPersonZip] = useState<string | null>(null);
+
     async function handleDownloadZip(escuelaId?: string) {
         setDownloadingZip(true);
         try {
@@ -214,10 +221,47 @@ export default function GestionExpedientes() {
         }
     }
 
+    async function handleDownloadPersonZip(personalId: string) {
+        setDownloadingPersonZip(personalId);
+        try {
+            const res = await fetch(`/api/expedientes/descargar?personalId=${personalId}`);
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({ error: "Sin archivos subidos" }));
+                setMessage({ type: "error", text: d.error || "Error al descargar" });
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            const disposition = res.headers.get("content-disposition");
+            const nameMatch = disposition?.match(/filename="(.+)"/);
+            a.download = nameMatch?.[1] || "Expediente.zip";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setDownloadingPersonZip(null);
+        }
+    }
+
     // ─── Group by School ───────────────────────────────
 
     const escuelasArray = useMemo<EscuelaGroup[]>(() => {
-        const map = new Map<string, EscuelaGroup>();
+        const map = new Map<string, EscuelaGroup & { tienePersonal: boolean }>();
+
+        // 1. Pre-populate with ALL schools
+        todasEscuelas.forEach(e => {
+            map.set(e.id, {
+                id: e.id,
+                cct: e.cct,
+                nombre: e.nombre,
+                personal: [],
+                tienePersonal: false,
+            });
+        });
+
+        // 2. Add personal to corresponding schools
         personalList.forEach(p => {
             if (!map.has(p.escuelaId)) {
                 map.set(p.escuelaId, {
@@ -225,9 +269,12 @@ export default function GestionExpedientes() {
                     cct: p.escuela.cct,
                     nombre: p.escuela.nombre,
                     personal: [],
+                    tienePersonal: true,
                 });
             }
-            map.get(p.escuelaId)!.personal.push(p);
+            const entry = map.get(p.escuelaId)!;
+            entry.personal.push(p);
+            entry.tienePersonal = true;
         });
 
         return Array.from(map.values())
@@ -239,8 +286,15 @@ export default function GestionExpedientes() {
                     e.nombre.toLowerCase().includes(term)
                 );
             })
-            .sort((a, b) => a.nombre.localeCompare(b.nombre));
-    }, [personalList, searchTerm]);
+            .sort((a, b) => {
+                // Schools with records first, then alphabetical
+                const aHas = (a as any).tienePersonal;
+                const bHas = (b as any).tienePersonal;
+                if (aHas && !bHas) return -1;
+                if (!aHas && bHas) return 1;
+                return a.nombre.localeCompare(b.nombre);
+            });
+    }, [personalList, searchTerm, todasEscuelas]);
 
     // ─── Loading ───────────────────────────────────────
 
@@ -321,7 +375,7 @@ export default function GestionExpedientes() {
                 <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7", padding: "0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                     <p style={{ margin: 0, fontSize: "0.875rem", color: "#0c5a8e" }}>
                         <Users size={16} style={{ verticalAlign: "middle", marginRight: "0.375rem" }} />
-                        <strong>{escuelasArray.length}</strong> escuelas con personal •{" "}
+                        <strong>{escuelasArray.filter(e => (e as any).tienePersonal).length}</strong> de <strong>{escuelasArray.length}</strong> escuelas con personal •{" "}
                         <strong>{personalList.length}</strong> empleados registrados
                     </p>
                     <button
@@ -352,13 +406,13 @@ export default function GestionExpedientes() {
                         ).length;
 
                         return (
-                            <div key={escuela.id} className="card" style={{ padding: 0 }}>
+                            <div key={escuela.id} className="card" style={{ padding: 0, opacity: (escuela as any).tienePersonal ? 1 : 0.65 }}>
                                 <div
-                                    onClick={() => setExpandedEscuela(isExpanded ? null : escuela.id)}
+                                    onClick={() => (escuela as any).tienePersonal && setExpandedEscuela(isExpanded ? null : escuela.id)}
                                     style={{
                                         display: "flex", justifyContent: "space-between", alignItems: "center",
                                         width: "100%", padding: "0.875rem 1rem",
-                                        cursor: "pointer",
+                                        cursor: (escuela as any).tienePersonal ? "pointer" : "default",
                                         fontWeight: 600,
                                         userSelect: "none",
                                     }}
@@ -366,21 +420,27 @@ export default function GestionExpedientes() {
                                     <div>
                                         <span style={{ color: "var(--text-muted)", marginRight: "0.5rem", fontSize: "0.8125rem" }}>{escuela.cct}</span>
                                         {escuela.nombre}
-                                        <span style={{ marginLeft: "0.75rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                            {totalPersonnel} empleado{totalPersonnel !== 1 ? "s" : ""}
-                                        </span>
+                                        {(escuela as any).tienePersonal ? (
+                                            <span style={{ marginLeft: "0.75rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                                {totalPersonnel} empleado{totalPersonnel !== 1 ? "s" : ""}
+                                            </span>
+                                        ) : (
+                                            <span style={{ marginLeft: "0.5rem", fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 400 }}>Sin personal registrado</span>
+                                        )}
                                     </div>
                                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }} onClick={e => e.stopPropagation()}>
-                                        {/* Completeness chip */}
-                                        <span style={{
-                                            display: "inline-flex", alignItems: "center", justifyContent: "center",
-                                            background: completenessColor(completeCount, totalPersonnel),
-                                            color: "white",
-                                            borderRadius: "9999px", padding: "0.125rem 0.625rem",
-                                            fontSize: "0.6875rem", fontWeight: 700,
-                                        }} title={`${completeCount} de ${totalPersonnel} con expediente completo`}>
-                                            {completeCount}/{totalPersonnel} completos
-                                        </span>
+                                        {/* Completeness chip - only for schools with personnel */}
+                                        {(escuela as any).tienePersonal && (
+                                            <span style={{
+                                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                                background: completenessColor(completeCount, totalPersonnel),
+                                                color: "white",
+                                                borderRadius: "9999px", padding: "0.125rem 0.625rem",
+                                                fontSize: "0.6875rem", fontWeight: 700,
+                                            }} title={`${completeCount} de ${totalPersonnel} con expediente completo`}>
+                                                {completeCount}/{totalPersonnel} completos
+                                            </span>
+                                        )}
                                         {totalPersonnel > 0 && (
                                             <button
                                                 onClick={() => handleDownloadZip(escuela.id)}
@@ -399,12 +459,14 @@ export default function GestionExpedientes() {
                                                 <Download size={14} /> ZIP
                                             </button>
                                         )}
-                                        <div 
-                                            onClick={() => setExpandedEscuela(isExpanded ? null : escuela.id)}
-                                            style={{ cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}
-                                        >
-                                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                                        </div>
+                                        {(escuela as any).tienePersonal && (
+                                            <div 
+                                                onClick={() => setExpandedEscuela(isExpanded ? null : escuela.id)}
+                                                style={{ cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}
+                                            >
+                                                {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -442,6 +504,8 @@ export default function GestionExpedientes() {
                                                                     isExpanded={isPersonExpanded}
                                                                     onToggleExpand={() => setExpandedPersonal(isPersonExpanded ? null : persona.id)}
                                                                     onToggleBloqueo={handleToggleBloqueo}
+                                                                    onDownloadZip={handleDownloadPersonZip}
+                                                                    downloadingZip={downloadingPersonZip === persona.id}
                                                                     busy={busy}
                                                                 />
                                                             );
@@ -469,6 +533,8 @@ function PersonRow({
     isExpanded,
     onToggleExpand,
     onToggleBloqueo,
+    onDownloadZip,
+    downloadingZip,
     busy,
 }: {
     persona: Personal;
@@ -476,6 +542,8 @@ function PersonRow({
     isExpanded: boolean;
     onToggleExpand: () => void;
     onToggleBloqueo: (docId: string, bloqueado: boolean) => Promise<void>;
+    onDownloadZip: (personalId: string) => Promise<void>;
+    downloadingZip: boolean;
     busy: boolean;
 }) {
     const fullName = `${persona.apellidoPaterno} ${persona.apellidoMaterno} ${persona.nombre}`;
@@ -521,13 +589,36 @@ function PersonRow({
                     </span>
                 </td>
                 <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                    <button
-                        onClick={onToggleExpand}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }}
-                        title={isExpanded ? "Ocultar documentos" : "Ver documentos"}
-                    >
-                        {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                    </button>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                        {/* Per-person ZIP download */}
+                        {persona.documentos.some(d => d.archivoDriveUrl) && (
+                            <button
+                                onClick={() => onDownloadZip(persona.id)}
+                                disabled={downloadingZip || busy}
+                                style={{
+                                    background: "none", border: "1px solid var(--border)",
+                                    borderRadius: "4px", cursor: "pointer",
+                                    color: "var(--primary)", padding: "2px 6px",
+                                    display: "inline-flex", alignItems: "center", gap: "3px",
+                                    fontSize: "0.7rem", fontWeight: 700,
+                                }}
+                                title={`Descargar expediente de ${fullName} (ZIP)`}
+                            >
+                                {downloadingZip
+                                    ? <Loader2 size={12} className="spin" />
+                                    : <Download size={12} />}
+                                ZIP
+                            </button>
+                        )}
+                        {/* Expand / collapse */}
+                        <button
+                            onClick={onToggleExpand}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px" }}
+                            title={isExpanded ? "Ocultar documentos" : "Ver documentos"}
+                        >
+                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </button>
+                    </div>
                 </td>
             </tr>
 
@@ -577,11 +668,21 @@ function PersonRow({
                                                         <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
                                                             {doc.archivoDriveUrl && (
                                                                 <a
-                                                                    href={getDownloadUrl(doc.archivoDriveUrl, doc.archivoNombre || "archivo", doc.archivoDriveId) || "#"}
+                                                                    href={getExpedienteDownloadUrl({
+                                                                        url: doc.archivoDriveUrl,
+                                                                        publicId: doc.archivoDriveId,
+                                                                        cct: persona.escuela?.cct || "",
+                                                                        apellidoPaterno: persona.apellidoPaterno,
+                                                                        apellidoMaterno: persona.apellidoMaterno,
+                                                                        nombre: persona.nombre,
+                                                                        tipoDocumento: dp.tipo,
+                                                                        etiqueta: null,
+                                                                        nombreOriginal: doc.archivoNombre || "archivo",
+                                                                    }) || "#"}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
                                                                     style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
-                                                                    title={doc.archivoNombre || "Descargar"}
+                                                                    title={`${dp.label} - ${persona.apellidoPaterno} ${persona.apellidoMaterno}`}
                                                                 >
                                                                     <Download size={14} />
                                                                 </a>
@@ -637,11 +738,21 @@ function PersonRow({
                                                 <div style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
                                                     {doc.archivoDriveUrl && (
                                                         <a
-                                                            href={getDownloadUrl(doc.archivoDriveUrl, doc.archivoNombre || "archivo", doc.archivoDriveId) || "#"}
+                                                            href={getExpedienteDownloadUrl({
+                                                                url: doc.archivoDriveUrl,
+                                                                publicId: doc.archivoDriveId,
+                                                                cct: persona.escuela?.cct || "",
+                                                                apellidoPaterno: persona.apellidoPaterno,
+                                                                apellidoMaterno: persona.apellidoMaterno,
+                                                                nombre: persona.nombre,
+                                                                tipoDocumento: "CUSTOM",
+                                                                etiqueta: doc.etiqueta,
+                                                                nombreOriginal: doc.archivoNombre || "archivo",
+                                                            }) || "#"}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
-                                                            title={doc.archivoNombre || "Descargar"}
+                                                            title={doc.etiqueta || doc.archivoNombre || "Descargar"}
                                                         >
                                                             <Download size={14} />
                                                         </a>
