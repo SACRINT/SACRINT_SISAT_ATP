@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { ProgramaGroup, EntregaDirector } from "@/types/director";
 import { getDownloadUrl } from "@/lib/download-url";
+import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 
 const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -53,6 +54,7 @@ export default function EntregasListado({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedEntrega, setSelectedEntrega] = useState<string | null>(null);
     const [selectedEtiqueta, setSelectedEtiqueta] = useState<string | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string } | null>(null);
     const router = useRouter();
 
     async function handleUpload(entregaId: string, etiqueta?: string) {
@@ -276,7 +278,7 @@ export default function EntregasListado({
                                                                 padding: "0.375rem 0.5rem", background: "var(--bg-secondary)",
                                                                 borderRadius: "6px", marginBottom: "0.25rem", fontSize: "0.8125rem",
                                                             }}>
-                                                                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", minWidth: 0 }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", minWidth: 0, flex: 1 }}>
                                                                     <FileText size={14} style={{ flexShrink: 0 }} />
                                                                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                                                         {arch.etiqueta && <strong>{arch.etiqueta}: </strong>}
@@ -288,19 +290,36 @@ export default function EntregasListado({
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                {canUpload(ent.estado) && (
-                                                                    <button
-                                                                        onClick={() => handleDeleteFile(arch.id)}
-                                                                        disabled={deleting === arch.id}
-                                                                        style={{
-                                                                            background: "none", border: "none", cursor: "pointer",
-                                                                            color: "var(--danger)", padding: "0.25rem", flexShrink: 0,
-                                                                        }}
-                                                                        title="Eliminar archivo"
-                                                                    >
-                                                                        <Trash2 size={14} />
-                                                                    </button>
-                                                                )}
+                                                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", flexShrink: 0 }}>
+                                                                    {/* Ver documento */}
+                                                                    {arch.driveUrl && (
+                                                                        <button
+                                                                            onClick={() => setViewingPdf({
+                                                                                url: arch.driveUrl!,
+                                                                                title: `${group.programa.nombre}${arch.etiqueta ? ` — ${arch.etiqueta}` : ""} — ${arch.nombre}`,
+                                                                                downloadUrl: getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId),
+                                                                            })}
+                                                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem", display: "inline-flex", alignItems: "center" }}
+                                                                            title="Ver documento"
+                                                                        >
+                                                                            <Eye size={15} />
+                                                                        </button>
+                                                                    )}
+                                                                    {/* Eliminar */}
+                                                                    {canUpload(ent.estado) && (
+                                                                        <button
+                                                                            onClick={() => handleDeleteFile(arch.id)}
+                                                                            disabled={deleting === arch.id}
+                                                                            style={{
+                                                                                background: "none", border: "none", cursor: "pointer",
+                                                                                color: "var(--danger)", padding: "0.25rem", flexShrink: 0,
+                                                                            }}
+                                                                            title="Eliminar archivo"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -409,6 +428,17 @@ export default function EntregasListado({
                     );
                 })}
             </div>
+
+            {/* ── Visor de documentos ── */}
+            {viewingPdf && (
+                <PdfViewerModal
+                    isOpen={true}
+                    onClose={() => setViewingPdf(null)}
+                    url={viewingPdf.url}
+                    title={viewingPdf.title}
+                    downloadUrl={viewingPdf.downloadUrl}
+                />
+            )}
         </>
     );
 }

@@ -14,6 +14,7 @@ import {
     FileText,
     Users,
     AlertCircle,
+    Eye,
 } from "lucide-react";
 import { getDownloadUrl, getExpedienteDownloadUrl } from "@/lib/download-url";
 import {

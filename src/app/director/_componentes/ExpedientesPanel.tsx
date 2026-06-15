@@ -85,7 +85,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
     const [editForm, setEditForm] = useState(EMPTY_FORM);
     const [customDocName, setCustomDocName] = useState<Record<string, string>>({});
     const [downloadingPersonZip, setDownloadingPersonZip] = useState<string | null>(null);
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string } | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);

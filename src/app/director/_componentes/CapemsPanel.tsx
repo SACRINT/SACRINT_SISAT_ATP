@@ -11,8 +11,10 @@ import {
     Lock,
     Loader2,
     Download,
+    Eye,
     X,
 } from "lucide-react";
+import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 import { getDownloadUrl } from "@/lib/download-url";
 
 interface Ficha {
@@ -61,6 +63,7 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
 
     // Slots por capem: { [capemId]: SlotState[] }
     const [slots, setSlots] = useState<Record<string, SlotState[]>>({});
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string } | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -480,6 +483,18 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                                                         fontSize: "0.8125rem",
                                                     }}>
                                                         <FileText size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                                                        {/* Ver */}
+                                                        <button
+                                                            onClick={() => setViewingPdf({
+                                                                url: slot.archivoDriveUrl!,
+                                                                title: `${capem.nombre} — ${slot.archivoNombre || 'Archivo'}`,
+                                                                downloadUrl: getDownloadUrl(slot.archivoDriveUrl, slot.archivoNombre || "archivo", slot.archivoDriveId) || undefined,
+                                                            })}
+                                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", flexShrink: 0, display: "inline-flex", alignItems: "center" }}
+                                                            title="Ver"
+                                                        >
+                                                            <Eye size={15} />
+                                                        </button>
                                                         <a
                                                             href={getDownloadUrl(slot.archivoDriveUrl, slot.archivoNombre || "archivo", slot.archivoDriveId) || "#"}
                                                             target="_blank"
@@ -508,6 +523,17 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                     );
                 })
             )}
+
+        {/* Visor de documentos */}
+        {viewingPdf && (
+            <PdfViewerModal
+                isOpen={true}
+                onClose={() => setViewingPdf(null)}
+                url={viewingPdf.url}
+                title={viewingPdf.title}
+                downloadUrl={viewingPdf.downloadUrl}
+            />
+        )}
         </div>
     );
 }

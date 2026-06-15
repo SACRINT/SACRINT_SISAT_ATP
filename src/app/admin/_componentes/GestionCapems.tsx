@@ -11,6 +11,7 @@ import {
     Lock,
     Unlock,
     Download,
+    Eye,
     FileText,
     ChevronDown,
     ChevronUp,
@@ -22,6 +23,7 @@ import {
     ArrowDown,
     FolderDown,
 } from "lucide-react";
+import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 import { getDownloadUrl } from "@/lib/download-url";
 
 interface Ficha {
@@ -82,6 +84,7 @@ export default function GestionCapems() {
 
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [busy, setBusy] = useState(false);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string } | null>(null);
 
     const [capemsActive, setCapemsActive] = useState(false);
 
@@ -781,14 +784,27 @@ export default function GestionCapems() {
                                                                     <td style={{ padding: "0.5rem 0.75rem" }}>{reg.ficha.nombre}</td>
                                                                     <td style={{ padding: "0.5rem 0.75rem" }}>
                                                                         {reg.archivoDriveUrl ? (
+                                                                        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                                            <button
+                                                                                onClick={() => setViewingPdf({
+                                                                                    url: reg.archivoDriveUrl!,
+                                                                                    title: `${reg.capem?.nombre ?? ''} — ${reg.archivoNombre || 'Archivo'}`,
+                                                                                    downloadUrl: getDownloadUrl(reg.archivoDriveUrl, reg.archivoNombre || "archivo", reg.archivoDriveId) || undefined,
+                                                                                })}
+                                                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", display: "inline-flex", alignItems: "center" }}
+                                                                                title="Ver documento"
+                                                                            >
+                                                                                <Eye size={15} />
+                                                                            </button>
                                                                             <a
                                                                                 href={getDownloadUrl(reg.archivoDriveUrl, reg.archivoNombre || "archivo", reg.archivoDriveId) || "#"}
                                                                                 target="_blank"
                                                                                 rel="noopener noreferrer"
-                                                                                style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", textDecoration: "none" }}
+                                                                                style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--text-muted)", textDecoration: "none" }}
                                                                             >
                                                                                 <Download size={14} /> {reg.archivoNombre || "Descargar"}
                                                                             </a>
+                                                                        </div>
                                                                         ) : (
                                                                             <span style={{ color: "var(--text-muted)" }}>Sin archivo</span>
                                                                         )}
@@ -820,6 +836,17 @@ export default function GestionCapems() {
                     )}
                 </div>
             )}
+
+        {/* Visor de documentos */}
+        {viewingPdf && (
+            <PdfViewerModal
+                isOpen={true}
+                onClose={() => setViewingPdf(null)}
+                url={viewingPdf.url}
+                title={viewingPdf.title}
+                downloadUrl={viewingPdf.downloadUrl}
+            />
+        )}
         </div>
     );
 }
