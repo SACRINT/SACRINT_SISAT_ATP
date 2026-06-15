@@ -724,8 +724,10 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                         </div>
 
                                                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                                                            {/* Checkbox/Botón para marcar que no cuenta con el documento (en particular Cédula, pero habilitado para todos los predeterminados) */}
-                                                            {!hasFile && (
+                                                            {/* Botón "No cuenta con él": SOLO para Cédula, SOLO para administrativos/apoyo con bachillerato o sin grado especificado */}
+                                                            {!hasFile && docType.tipo === "CEDULA" &&
+                                                                (person.cargo === "ADMINISTRATIVO" || person.cargo === "APOYO") &&
+                                                                (!person.gradoAcademico || person.gradoAcademico === "BACHILLERATO") && (
                                                                 <button
                                                                     onClick={handleToggleNoTiene}
                                                                     className="btn btn-outline"
@@ -737,9 +739,9 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                                         color: noTieneDoc ? "var(--primary)" : "var(--text-muted)",
                                                                         background: noTieneDoc ? "var(--primary-bg, rgba(37,99,235,0.08))" : "none",
                                                                     }}
-                                                                    title={noTieneDoc ? "Indicar que sí cuenta con este documento" : "Indicar que no cuenta con este documento"}
+                                                                    title={noTieneDoc ? "Indicar que sí cuenta con Cédula" : "Indicar que no cuenta con Cédula (solo aplica para personal administrativo/apoyo con bachillerato)"}
                                                                 >
-                                                                    {noTieneDoc ? "Sí cuenta con él" : "No cuenta con él"}
+                                                                    {noTieneDoc ? "Sí cuenta con Cédula" : "No tiene Cédula"}
                                                                 </button>
                                                             )}
 
