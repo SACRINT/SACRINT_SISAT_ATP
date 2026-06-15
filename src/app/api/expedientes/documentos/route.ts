@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     return NextResponse.json(documentos);
 }
 
-// POST - Crear/subir un documento
+// POST - Crear/subir un documento o marcar que no tiene
 export async function POST(req: Request) {
     const session = await auth();
     const user = session?.user as { role?: string; cct?: string } | undefined;
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { personalId, tipoDocumento, etiqueta, archivoNombre, archivoDriveId, archivoDriveUrl } = body;
+    const { personalId, tipoDocumento, etiqueta, archivoNombre, archivoDriveId, archivoDriveUrl, noTiene } = body;
 
     if (!personalId || !tipoDocumento) {
         return NextResponse.json({ error: "personalId y tipoDocumento son obligatorios" }, { status: 400 });
@@ -63,6 +63,7 @@ export async function POST(req: Request) {
             archivoNombre: archivoNombre || null,
             archivoDriveId: archivoDriveId || null,
             archivoDriveUrl: archivoDriveUrl || null,
+            noTiene: !!noTiene,
             orden: (lastDoc?.orden ?? 0) + 1,
         },
     });

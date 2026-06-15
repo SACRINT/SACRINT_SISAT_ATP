@@ -407,6 +407,7 @@ model DocumentoPersonal {
   archivoDriveId   String?
   archivoDriveUrl  String?
   bloqueado        Boolean  @default(false)
+  noTiene          Boolean  @default(false)
   orden            Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

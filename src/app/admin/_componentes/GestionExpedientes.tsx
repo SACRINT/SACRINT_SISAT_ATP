@@ -34,6 +34,7 @@ interface Documento {
     archivoDriveId: string | null;
     archivoDriveUrl: string | null;
     bloqueado: boolean;
+    noTiene?: boolean;
     createdAt: string;
 }
 
@@ -75,14 +76,14 @@ function getSexoLabel(value: string): string {
     return SEXOS.find(s => s.value === value)?.label || value;
 }
 
-/** Count how many of the 10 required document types have at least one uploaded file */
+/** Count how many of the 10 required document types have at least one uploaded file or are marked as not owned */
 function countCompleteDocs(documentos: Documento[]): number {
-    const uploadedTypes = new Set(
+    const uploadedOrNotOwnedTypes = new Set(
         documentos
-            .filter(d => d.archivoDriveUrl)
+            .filter(d => d.archivoDriveUrl || d.noTiene)
             .map(d => d.tipoDocumento)
     );
-    return DOCUMENTOS_PREDETERMINADOS.filter(dp => uploadedTypes.has(dp.tipo)).length;
+    return DOCUMENTOS_PREDETERMINADOS.filter(dp => uploadedOrNotOwnedTypes.has(dp.tipo)).length;
 }
 
 function completenessColor(complete: number, total: number): string {
@@ -710,6 +711,17 @@ function PersonRow({
                                 {DOCUMENTOS_PREDETERMINADOS.map(dp => {
                                     const docs = docsByType.get(dp.tipo) || [];
                                     const hasFile = docs.some(d => d.archivoDriveUrl);
+                                    const noTieneDoc = docs.some(d => d.noTiene);
+
+                                    let statusIcon = "❌";
+                                    let statusColor = "var(--error)";
+                                    if (hasFile) {
+                                        statusIcon = "✅";
+                                        statusColor = "var(--success)";
+                                    } else if (noTieneDoc) {
+                                        statusIcon = "⚠️";
+                                        statusColor = "var(--warning, #e67e22)";
+                                    }
 
                                     return (
                                         <div key={dp.tipo} style={{
@@ -721,10 +733,12 @@ function PersonRow({
                                             fontSize: "0.8125rem",
                                         }}>
                                             <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                                                <span style={{ color: hasFile ? "var(--success)" : "var(--error)", fontSize: "0.875rem" }}>
-                                                    {hasFile ? "✅" : "❌"}
+                                                <span style={{ color: statusColor, fontSize: "0.875rem" }}>
+                                                    {statusIcon}
                                                 </span>
-                                                <span>{dp.label}</span>
+                                                <span style={{ color: noTieneDoc ? "var(--text-muted)" : "inherit" }}>
+                                                    {dp.label} {noTieneDoc && <span style={{ fontStyle: "italic", fontSize: "0.7rem", color: "var(--error)" }}>(No cuenta con él)</span>}
+                                                </span>
                                             </div>
 
                                             {docs.length > 0 && (

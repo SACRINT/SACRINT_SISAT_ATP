@@ -43,19 +43,37 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             return NextResponse.json({ error: "No autorizado" }, { status: 403 });
         }
 
-        // Delete old file from Cloudinary if replacing
-        if (doc.archivoDriveId && body.archivoDriveId && body.archivoDriveId !== doc.archivoDriveId) {
+        // Delete old file from Cloudinary if replacing or marking as noTiene=true
+        const shouldDeleteOldFile = (doc.archivoDriveId && body.archivoDriveId && body.archivoDriveId !== doc.archivoDriveId) ||
+                                    (doc.archivoDriveId && body.noTiene === true);
+        if (shouldDeleteOldFile && doc.archivoDriveId) {
             try { await deleteFileFromCloudinary(doc.archivoDriveId); } catch { /* ignore */ }
+        }
+
+        const updatedData: any = {
+            etiqueta: body.etiqueta !== undefined ? body.etiqueta : doc.etiqueta,
+        };
+
+        if (body.noTiene !== undefined) {
+            updatedData.noTiene = !!body.noTiene;
+            if (body.noTiene) {
+                updatedData.archivoNombre = null;
+                updatedData.archivoDriveId = null;
+                updatedData.archivoDriveUrl = null;
+            } else {
+                updatedData.archivoNombre = body.archivoNombre ?? doc.archivoNombre;
+                updatedData.archivoDriveId = body.archivoDriveId ?? doc.archivoDriveId;
+                updatedData.archivoDriveUrl = body.archivoDriveUrl ?? doc.archivoDriveUrl;
+            }
+        } else {
+            updatedData.archivoNombre = body.archivoNombre ?? doc.archivoNombre;
+            updatedData.archivoDriveId = body.archivoDriveId ?? doc.archivoDriveId;
+            updatedData.archivoDriveUrl = body.archivoDriveUrl ?? doc.archivoDriveUrl;
         }
 
         const updated = await prisma.documentoPersonal.update({
             where: { id },
-            data: {
-                archivoNombre: body.archivoNombre ?? doc.archivoNombre,
-                archivoDriveId: body.archivoDriveId ?? doc.archivoDriveId,
-                archivoDriveUrl: body.archivoDriveUrl ?? doc.archivoDriveUrl,
-                etiqueta: body.etiqueta !== undefined ? body.etiqueta : doc.etiqueta,
-            },
+            data: updatedData,
         });
         return NextResponse.json(updated);
     }

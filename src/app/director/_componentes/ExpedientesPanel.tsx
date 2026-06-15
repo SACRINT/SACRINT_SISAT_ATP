@@ -32,6 +32,7 @@ interface Documento {
     archivoDriveId: string | null;
     archivoDriveUrl: string | null;
     bloqueado: boolean;
+    noTiene?: boolean;
     orden: number;
 }
 
@@ -340,7 +341,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
         let uploaded = 0;
         for (const docType of DOCUMENTOS_PREDETERMINADOS) {
             const docs = getDocsForType(personDocs, docType.tipo);
-            if (docs.some(d => d.archivoDriveUrl)) uploaded++;
+            if (docs.some(d => d.archivoDriveUrl || d.noTiene)) uploaded++;
         }
         return { uploaded, total: DOCUMENTOS_PREDETERMINADOS.length };
     }
@@ -659,6 +660,52 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                         {DOCUMENTOS_PREDETERMINADOS.map((docType, idx) => {
                                             const docs = getDocsForType(person.documentos, docType.tipo);
                                             const hasFile = docs.some(d => d.archivoDriveUrl);
+                                            const noTieneDoc = docs.some(d => d.noTiene);
+                                            const docRecord = docs[0]; // primer registro si existe para modificar noTiene
+
+                                            // Manejar cambio de noTiene
+                                            const handleToggleNoTiene = async () => {
+                                                try {
+                                                    if (docRecord) {
+                                                        const res = await fetch(`/api/expedientes/documentos/${docRecord.id}`, {
+                                                            method: "PATCH",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ noTiene: !noTieneDoc }),
+                                                        });
+                                                        if (res.ok) {
+                                                            setMessage({ type: "success", text: `Estado de ${docType.label} actualizado` });
+                                                            fetchData();
+                                                        } else {
+                                                            const d = await res.json();
+                                                            setMessage({ type: "error", text: d.error || "Error al actualizar" });
+                                                        }
+                                                    } else {
+                                                        // Crear el registro de documento con noTiene = true
+                                                        const res = await fetch("/api/expedientes/documentos", {
+                                                            method: "POST",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({
+                                                                personalId: person.id,
+                                                                tipoDocumento: docType.tipo,
+                                                                noTiene: true,
+                                                            }),
+                                                        });
+                                                        if (res.ok) {
+                                                            setMessage({ type: "success", text: `Marcado que no cuenta con ${docType.label}` });
+                                                            fetchData();
+                                                        } else {
+                                                            const d = await res.json();
+                                                            setMessage({ type: "error", text: d.error || "Error al registrar" });
+                                                        }
+                                                    }
+                                                } catch {
+                                                    setMessage({ type: "error", text: "Error de conexión" });
+                                                }
+                                            };
+
+                                            let statusIcon = "❌";
+                                            if (hasFile) statusIcon = "✅";
+                                            else if (noTieneDoc) statusIcon = "⚠️";
 
                                             return (
                                                 <div key={docType.tipo}>
@@ -670,13 +717,32 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                         borderBottom: idx < DOCUMENTOS_PREDETERMINADOS.length - 1 ? "1px solid var(--border)" : "none",
                                                     }}>
                                                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1 }}>
-                                                            <span style={{ fontSize: "1rem" }}>{hasFile ? "✅" : "❌"}</span>
-                                                            <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                                                                {idx + 1}. {docType.label}
+                                                            <span style={{ fontSize: "1rem" }}>{statusIcon}</span>
+                                                            <span style={{ fontSize: "0.875rem", fontWeight: 600, color: noTieneDoc ? "var(--text-muted)" : "inherit" }}>
+                                                                {idx + 1}. {docType.label} {noTieneDoc && <span style={{ fontStyle: "italic", fontSize: "0.75rem", fontWeight: 400, color: "var(--error)" }}>(No cuenta con este documento)</span>}
                                                             </span>
                                                         </div>
 
-                                                        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", flexWrap: "wrap" }}>
+                                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                                                            {/* Checkbox/Botón para marcar que no cuenta con el documento (en particular Cédula, pero habilitado para todos los predeterminados) */}
+                                                            {!hasFile && (
+                                                                <button
+                                                                    onClick={handleToggleNoTiene}
+                                                                    className="btn btn-outline"
+                                                                    style={{
+                                                                        minHeight: "auto",
+                                                                        padding: "0.2rem 0.4rem",
+                                                                        fontSize: "0.7rem",
+                                                                        borderColor: noTieneDoc ? "var(--primary)" : "var(--border)",
+                                                                        color: noTieneDoc ? "var(--primary)" : "var(--text-muted)",
+                                                                        background: noTieneDoc ? "var(--primary-bg, rgba(37,99,235,0.08))" : "none",
+                                                                    }}
+                                                                    title={noTieneDoc ? "Indicar que sí cuenta con este documento" : "Indicar que no cuenta con este documento"}
+                                                                >
+                                                                    {noTieneDoc ? "Sí cuenta con él" : "No cuenta con él"}
+                                                                </button>
+                                                            )}
+
                                                             {/* Show uploaded files */}
                                                             {docs.filter(d => d.archivoDriveUrl).map(d => (
                                                                 <div key={d.id} style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
@@ -719,7 +785,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                             ))}
 
                                                             {/* Upload button */}
-                                                            {(!hasFile || docType.multiple) && (
+                                                            {(!hasFile || docType.multiple) && !noTieneDoc && (
                                                                 <label className="btn btn-primary" style={{
                                                                     cursor: uploadingDoc ? "not-allowed" : "pointer",
                                                                     opacity: uploadingDoc ? 0.6 : 1,

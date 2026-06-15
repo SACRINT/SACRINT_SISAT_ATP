@@ -36,6 +36,8 @@ export const DOCUMENTOS_PREDETERMINADOS = [
 ] as const;
 
 export const CARGOS_PERSONAL = [
+    { value: "SUPERVISOR", label: "Supervisor de Zona" },
+    { value: "ATP", label: "Apoyo Técnico Pedagógico (ATP)" },
     { value: "RESPONSABLE", label: "Responsable del Plantel" },
     { value: "DOCENTE", label: "Docente" },
     { value: "ADMINISTRATIVO", label: "Administrativo" },
