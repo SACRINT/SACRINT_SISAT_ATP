@@ -65,7 +65,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
     const [expanded, setExpanded] = useState<string | null>(null);
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
     const [sendingReminder, setSendingReminder] = useState<string | null>(null);
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
 
     async function handleSendReminder(entregaId: string, escuelaNombre: string) {
         if (!confirm(`¿Seguro que deseas enviar un recordatorio por correo a ${escuelaNombre} para esta entrega?`)) return;
@@ -289,8 +289,10 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                                         if (arch.nombre?.toLowerCase().endsWith(".pdf") && fileUrl) {
                                                                             e.preventDefault();
                                                                             setViewingPdf({
-                                                                                url: fileUrl,
-                                                                                title: `${esc.cct} - ${ent.periodoEntrega.programa.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`
+                                                                                url: arch.driveUrl || "",
+                                                                                title: `${esc.cct} - ${ent.periodoEntrega.programa.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`,
+                                                                                downloadUrl: fileUrl,
+                                                                                fileName: arch.nombre,
                                                                             });
                                                                         }
                                                                     }}
@@ -354,6 +356,8 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                 onClose={() => setViewingPdf(null)}
                 url={viewingPdf?.url || ""}
                 title={viewingPdf?.title || ""}
+                downloadUrl={viewingPdf?.downloadUrl}
+                fileName={viewingPdf?.fileName}
             />
         </div>
     );

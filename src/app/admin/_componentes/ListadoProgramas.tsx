@@ -63,7 +63,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
     const [downloadingZip, setDownloadingZip] = useState<string | null>(null);
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
 
     async function handleDownloadZip(prog: ProgramaAdmin) {
         setDownloadingZip(prog.id);
@@ -231,8 +231,10 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                                         if (arch.nombre?.toLowerCase().endsWith(".pdf") && fileUrl) {
                                                                                             e.preventDefault();
                                                                                             setViewingPdf({
-                                                                                                url: fileUrl,
-                                                                                                title: `${ent.escuela.cct} - ${prog.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`
+                                                                                                url: arch.driveUrl || "",
+                                                                                                title: `${ent.escuela.cct} - ${prog.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`,
+                                                                                                downloadUrl: fileUrl,
+                                                                                                fileName: arch.nombre,
                                                                                             });
                                                                                         }
                                                                                     }}
@@ -290,6 +292,8 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                 onClose={() => setViewingPdf(null)}
                 url={viewingPdf?.url || ""}
                 title={viewingPdf?.title || ""}
+                downloadUrl={viewingPdf?.downloadUrl}
+                fileName={viewingPdf?.fileName}
             />
         </div>
     );

@@ -16,7 +16,7 @@ import {
     AlertCircle,
     Eye,
 } from "lucide-react";
-import { getDownloadUrl, getExpedienteDownloadUrl } from "@/lib/download-url";
+import { getDownloadUrl, getExpedienteDownloadUrl, buildExpedienteFileName } from "@/lib/download-url";
 import {
     DOCUMENTOS_PREDETERMINADOS,
     CARGOS_PERSONAL,
@@ -109,7 +109,7 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [busy, setBusy] = useState(false);
     const [downloadingZip, setDownloadingZip] = useState(false);
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
 
     // ─── Data Fetching ─────────────────────────────────
 
@@ -562,7 +562,7 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                                                                     onToggleBloqueo={handleToggleBloqueo}
                                                                     onDownloadZip={handleDownloadPersonZip}
                                                                     downloadingZip={downloadingPersonZip === persona.id}
-                                                                    onViewPdf={(url, title) => setViewingPdf({ url, title })}
+                                                                    onViewPdf={(url, title, downloadUrl, fileName) => setViewingPdf({ url, title, downloadUrl, fileName })}
                                                                     busy={busy}
                                                                 />
                                                             );
@@ -583,6 +583,8 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                 onClose={() => setViewingPdf(null)}
                 url={viewingPdf?.url || ""}
                 title={viewingPdf?.title || ""}
+                downloadUrl={viewingPdf?.downloadUrl}
+                fileName={viewingPdf?.fileName}
             />
         </div>
     );
@@ -609,7 +611,7 @@ function PersonRow({
     onToggleBloqueo: (docId: string, bloqueado: boolean) => Promise<void>;
     onDownloadZip: (personalId: string) => Promise<void>;
     downloadingZip: boolean;
-    onViewPdf: (url: string, title: string) => void;
+    onViewPdf: (url: string, title: string, downloadUrl?: string, fileName?: string) => void;
     busy: boolean;
     id?: string;
 }) {
@@ -764,7 +766,30 @@ function PersonRow({
                                                                     onClick={e => {
                                                                         if (doc.archivoNombre?.toLowerCase().endsWith(".pdf") && doc.archivoDriveUrl) {
                                                                             e.preventDefault();
-                                                                            onViewPdf(doc.archivoDriveUrl, `${dp.label} - ${persona.nombre} ${persona.apellidoPaterno}`);
+                                                                            onViewPdf(
+                                                                                doc.archivoDriveUrl,
+                                                                                `${dp.label} - ${persona.nombre} ${persona.apellidoPaterno}`,
+                                                                                getExpedienteDownloadUrl({
+                                                                                    url: doc.archivoDriveUrl,
+                                                                                    publicId: doc.archivoDriveId,
+                                                                                    cct: persona.escuela?.cct || "",
+                                                                                    apellidoPaterno: persona.apellidoPaterno,
+                                                                                    apellidoMaterno: persona.apellidoMaterno,
+                                                                                    nombre: persona.nombre,
+                                                                                    tipoDocumento: dp.tipo,
+                                                                                    etiqueta: null,
+                                                                                    nombreOriginal: doc.archivoNombre || "archivo",
+                                                                                }) || undefined,
+                                                                                buildExpedienteFileName(
+                                                                                    persona.escuela?.cct || "",
+                                                                                    persona.apellidoPaterno,
+                                                                                    persona.apellidoMaterno,
+                                                                                    persona.nombre,
+                                                                                    dp.tipo,
+                                                                                    null,
+                                                                                    doc.archivoNombre || "archivo"
+                                                                                )
+                                                                            );
                                                                         }
                                                                     }}
                                                                     style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
@@ -840,7 +865,30 @@ function PersonRow({
                                                             onClick={e => {
                                                                 if (doc.archivoNombre?.toLowerCase().endsWith(".pdf") && doc.archivoDriveUrl) {
                                                                     e.preventDefault();
-                                                                    onViewPdf(doc.archivoDriveUrl, `${doc.etiqueta || doc.archivoNombre} - ${persona.nombre} ${persona.apellidoPaterno}`);
+                                                                    onViewPdf(
+                                                                        doc.archivoDriveUrl,
+                                                                        `${doc.etiqueta || doc.archivoNombre} - ${persona.nombre} ${persona.apellidoPaterno}`,
+                                                                        getExpedienteDownloadUrl({
+                                                                            url: doc.archivoDriveUrl,
+                                                                            publicId: doc.archivoDriveId,
+                                                                            cct: persona.escuela?.cct || "",
+                                                                            apellidoPaterno: persona.apellidoPaterno,
+                                                                            apellidoMaterno: persona.apellidoMaterno,
+                                                                            nombre: persona.nombre,
+                                                                            tipoDocumento: "CUSTOM",
+                                                                            etiqueta: doc.etiqueta,
+                                                                            nombreOriginal: doc.archivoNombre || "archivo",
+                                                                        }) || undefined,
+                                                                        buildExpedienteFileName(
+                                                                            persona.escuela?.cct || "",
+                                                                            persona.apellidoPaterno,
+                                                                            persona.apellidoMaterno,
+                                                                            persona.nombre,
+                                                                            "CUSTOM",
+                                                                            doc.etiqueta,
+                                                                            doc.archivoNombre || "archivo"
+                                                                        )
+                                                                    );
                                                                 }
                                                             }}
                                                             style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}

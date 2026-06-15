@@ -84,7 +84,7 @@ export default function GestionCapems() {
 
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [busy, setBusy] = useState(false);
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string } | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
 
     const [capemsActive, setCapemsActive] = useState(false);
 
@@ -790,6 +790,7 @@ export default function GestionCapems() {
                                                                                     url: reg.archivoDriveUrl!,
                                                                                     title: `${reg.capem?.nombre ?? ''} — ${reg.archivoNombre || 'Archivo'}`,
                                                                                     downloadUrl: getDownloadUrl(reg.archivoDriveUrl, reg.archivoNombre || "archivo", reg.archivoDriveId) || undefined,
+                                                                                    fileName: reg.archivoNombre || undefined,
                                                                                 })}
                                                                                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", display: "inline-flex", alignItems: "center" }}
                                                                                 title="Ver documento"
@@ -845,6 +846,7 @@ export default function GestionCapems() {
                 url={viewingPdf.url}
                 title={viewingPdf.title}
                 downloadUrl={viewingPdf.downloadUrl}
+                fileName={viewingPdf.fileName}
             />
         )}
         </div>

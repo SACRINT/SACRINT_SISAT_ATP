@@ -54,7 +54,7 @@ export default function EntregasListado({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedEntrega, setSelectedEntrega] = useState<string | null>(null);
     const [selectedEtiqueta, setSelectedEtiqueta] = useState<string | null>(null);
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string } | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
     const router = useRouter();
 
     async function handleUpload(entregaId: string, etiqueta?: string) {
@@ -298,6 +298,7 @@ export default function EntregasListado({
                                                                                 url: arch.driveUrl!,
                                                                                 title: `${group.programa.nombre}${arch.etiqueta ? ` — ${arch.etiqueta}` : ""} — ${arch.nombre}`,
                                                                                 downloadUrl: getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId),
+                                                                                fileName: arch.nombre,
                                                                             })}
                                                                             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem", display: "inline-flex", alignItems: "center" }}
                                                                             title="Ver documento"
@@ -437,6 +438,7 @@ export default function EntregasListado({
                     url={viewingPdf.url}
                     title={viewingPdf.title}
                     downloadUrl={viewingPdf.downloadUrl}
+                    fileName={viewingPdf.fileName}
                 />
             )}
         </>

@@ -19,7 +19,7 @@ import {
     AlertCircle,
     CheckCircle2,
 } from "lucide-react";
-import { getDownloadUrl, getExpedienteDownloadUrl } from "@/lib/download-url";
+import { getDownloadUrl, getExpedienteDownloadUrl, buildExpedienteFileName } from "@/lib/download-url";
 import { DOCUMENTOS_PREDETERMINADOS, CARGOS_PERSONAL, GRADOS_ACADEMICOS, SEXOS } from "@/lib/constants";
 import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 
@@ -85,7 +85,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
     const [editForm, setEditForm] = useState(EMPTY_FORM);
     const [customDocName, setCustomDocName] = useState<Record<string, string>>({});
     const [downloadingPersonZip, setDownloadingPersonZip] = useState<string | null>(null);
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string } | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -765,7 +765,30 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                                         onClick={e => {
                                                                             if (d.archivoNombre?.toLowerCase().endsWith(".pdf") && d.archivoDriveUrl) {
                                                                                 e.preventDefault();
-                                                                                setViewingPdf({ url: d.archivoDriveUrl, title: `${docType.label} - ${person.nombre} ${person.apellidoPaterno}` });
+                                                                                setViewingPdf({
+                                                                                    url: d.archivoDriveUrl,
+                                                                                    title: `${docType.label} - ${person.nombre} ${person.apellidoPaterno}`,
+                                                                                    downloadUrl: getExpedienteDownloadUrl({
+                                                                                        url: d.archivoDriveUrl,
+                                                                                        publicId: d.archivoDriveId,
+                                                                                        cct: escuela.cct,
+                                                                                        apellidoPaterno: person.apellidoPaterno,
+                                                                                        apellidoMaterno: person.apellidoMaterno,
+                                                                                        nombre: person.nombre,
+                                                                                        tipoDocumento: docType.tipo,
+                                                                                        etiqueta: null,
+                                                                                        nombreOriginal: d.archivoNombre || "archivo",
+                                                                                    }) || undefined,
+                                                                                    fileName: buildExpedienteFileName(
+                                                                                        escuela.cct,
+                                                                                        person.apellidoPaterno,
+                                                                                        person.apellidoMaterno,
+                                                                                        person.nombre,
+                                                                                        docType.tipo,
+                                                                                        null,
+                                                                                        d.archivoNombre || "archivo"
+                                                                                    )
+                                                                                });
                                                                             }
                                                                         }}
                                                                         style={{ display: "inline-flex", alignItems: "center", gap: "0.125rem", color: "var(--primary)", textDecoration: "none", fontSize: "0.75rem", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -850,7 +873,30 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                                 onClick={e => {
                                                                     if (d.archivoNombre?.toLowerCase().endsWith(".pdf") && d.archivoDriveUrl) {
                                                                         e.preventDefault();
-                                                                        setViewingPdf({ url: d.archivoDriveUrl, title: `${d.etiqueta || d.archivoNombre} - ${person.nombre} ${person.apellidoPaterno}` });
+                                                                        setViewingPdf({
+                                                                            url: d.archivoDriveUrl,
+                                                                            title: `${d.etiqueta || d.archivoNombre} - ${person.nombre} ${person.apellidoPaterno}`,
+                                                                            downloadUrl: getExpedienteDownloadUrl({
+                                                                                url: d.archivoDriveUrl,
+                                                                                publicId: d.archivoDriveId,
+                                                                                cct: escuela.cct,
+                                                                                apellidoPaterno: person.apellidoPaterno,
+                                                                                apellidoMaterno: person.apellidoMaterno,
+                                                                                nombre: person.nombre,
+                                                                                tipoDocumento: "CUSTOM",
+                                                                                etiqueta: d.etiqueta,
+                                                                                nombreOriginal: d.archivoNombre || "archivo",
+                                                                            }) || undefined,
+                                                                            fileName: buildExpedienteFileName(
+                                                                                escuela.cct,
+                                                                                person.apellidoPaterno,
+                                                                                person.apellidoMaterno,
+                                                                                person.nombre,
+                                                                                "CUSTOM",
+                                                                                d.etiqueta,
+                                                                                d.archivoNombre || "archivo"
+                                                                            )
+                                                                        });
                                                                     }
                                                                 }}
                                                                 style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", textDecoration: "none", fontSize: "0.8125rem" }}
@@ -909,6 +955,18 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                         </div>
                     );
                 })
+            )}
+
+            {/* Visor de documentos */}
+            {viewingPdf && (
+                <PdfViewerModal
+                    isOpen={true}
+                    onClose={() => setViewingPdf(null)}
+                    url={viewingPdf.url}
+                    title={viewingPdf.title}
+                    downloadUrl={viewingPdf.downloadUrl}
+                    fileName={viewingPdf.fileName}
+                />
             )}
         </div>
     );

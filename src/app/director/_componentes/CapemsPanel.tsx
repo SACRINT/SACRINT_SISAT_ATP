@@ -63,7 +63,7 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
 
     // Slots por capem: { [capemId]: SlotState[] }
     const [slots, setSlots] = useState<Record<string, SlotState[]>>({});
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string } | null>(null);
+    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -489,6 +489,7 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                                                                 url: slot.archivoDriveUrl!,
                                                                 title: `${capem.nombre} — ${slot.archivoNombre || 'Archivo'}`,
                                                                 downloadUrl: getDownloadUrl(slot.archivoDriveUrl, slot.archivoNombre || "archivo", slot.archivoDriveId) || undefined,
+                                                                fileName: slot.archivoNombre || undefined,
                                                             })}
                                                             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", flexShrink: 0, display: "inline-flex", alignItems: "center" }}
                                                             title="Ver"
@@ -532,6 +533,7 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                 url={viewingPdf.url}
                 title={viewingPdf.title}
                 downloadUrl={viewingPdf.downloadUrl}
+                fileName={viewingPdf.fileName}
             />
         )}
         </div>
