@@ -746,72 +746,69 @@ function PersonRow({
 
                                             {docs.length > 0 && (
                                                 <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                                                    {docs.map(doc => (
-                                                        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
-                                                            {doc.archivoDriveUrl && (
-                                                                <a
-                                                                    href={getExpedienteDownloadUrl({
-                                                                        url: doc.archivoDriveUrl,
-                                                                        publicId: doc.archivoDriveId,
-                                                                        cct: persona.escuela?.cct || "",
-                                                                        apellidoPaterno: persona.apellidoPaterno,
-                                                                        apellidoMaterno: persona.apellidoMaterno,
-                                                                        nombre: persona.nombre,
-                                                                        tipoDocumento: dp.tipo,
-                                                                        etiqueta: null,
-                                                                        nombreOriginal: doc.archivoNombre || "archivo",
-                                                                    }) || "#"}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    onClick={e => {
-                                                                        if (doc.archivoNombre?.toLowerCase().endsWith(".pdf") && doc.archivoDriveUrl) {
-                                                                            e.preventDefault();
-                                                                            onViewPdf(
-                                                                                doc.archivoDriveUrl,
-                                                                                `${dp.label} - ${persona.nombre} ${persona.apellidoPaterno}`,
-                                                                                getExpedienteDownloadUrl({
-                                                                                    url: doc.archivoDriveUrl,
-                                                                                    publicId: doc.archivoDriveId,
-                                                                                    cct: persona.escuela?.cct || "",
-                                                                                    apellidoPaterno: persona.apellidoPaterno,
-                                                                                    apellidoMaterno: persona.apellidoMaterno,
-                                                                                    nombre: persona.nombre,
-                                                                                    tipoDocumento: dp.tipo,
-                                                                                    etiqueta: null,
-                                                                                    nombreOriginal: doc.archivoNombre || "archivo",
-                                                                                }) || undefined,
-                                                                                buildExpedienteFileName(
-                                                                                    persona.escuela?.cct || "",
-                                                                                    persona.apellidoPaterno,
-                                                                                    persona.apellidoMaterno,
-                                                                                    persona.nombre,
-                                                                                    dp.tipo,
-                                                                                    null,
-                                                                                    doc.archivoNombre || "archivo"
-                                                                                )
-                                                                            );
-                                                                        }
+                                                    {docs.map(doc => {
+                                                        const dlUrl = getExpedienteDownloadUrl({
+                                                            url: doc.archivoDriveUrl!,
+                                                            publicId: doc.archivoDriveId,
+                                                            cct: persona.escuela?.cct || "",
+                                                            apellidoPaterno: persona.apellidoPaterno,
+                                                            apellidoMaterno: persona.apellidoMaterno,
+                                                            nombre: persona.nombre,
+                                                            tipoDocumento: dp.tipo,
+                                                            etiqueta: null,
+                                                            nombreOriginal: doc.archivoNombre || "archivo",
+                                                        });
+                                                        const fileTitle = buildExpedienteFileName(
+                                                            persona.escuela?.cct || "",
+                                                            persona.apellidoPaterno,
+                                                            persona.apellidoMaterno,
+                                                            persona.nombre,
+                                                            dp.tipo,
+                                                            null,
+                                                            doc.archivoNombre || "archivo"
+                                                        );
+                                                        return (
+                                                            <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
+                                                                {doc.archivoDriveUrl && (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={() => onViewPdf(
+                                                                                doc.archivoDriveUrl!,
+                                                                                `${dp.label} — ${persona.apellidoPaterno} ${persona.nombre}`,
+                                                                                dlUrl || undefined,
+                                                                                fileTitle
+                                                                            )}
+                                                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", display: "inline-flex" }}
+                                                                            title={`Ver ${dp.label}`}
+                                                                        >
+                                                                            <Eye size={14} />
+                                                                        </button>
+                                                                        <a
+                                                                            href={dlUrl || "#"}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            style={{ color: "var(--text-secondary)", display: "inline-flex", padding: "2px" }}
+                                                                            title={`Descargar ${dp.label}`}
+                                                                        >
+                                                                            <Download size={14} />
+                                                                        </a>
+                                                                    </>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
+                                                                    disabled={busy}
+                                                                    style={{
+                                                                        background: "none", border: "none", cursor: "pointer",
+                                                                        color: doc.bloqueado ? "var(--error)" : "var(--success)",
+                                                                        padding: "2px",
                                                                     }}
-                                                                    style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
-                                                                    title={`${dp.label} - ${persona.apellidoPaterno} ${persona.apellidoMaterno}`}
+                                                                    title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
                                                                 >
-                                                                    <Download size={14} />
-                                                                </a>
-                                                            )}
-                                                            <button
-                                                                onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
-                                                                disabled={busy}
-                                                                style={{
-                                                                    background: "none", border: "none", cursor: "pointer",
-                                                                    color: doc.bloqueado ? "var(--error)" : "var(--success)",
-                                                                    padding: "2px",
-                                                                }}
-                                                                title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
-                                                            >
-                                                                {doc.bloqueado ? <Lock size={14} /> : <Unlock size={14} />}
-                                                            </button>
-                                                        </div>
-                                                    ))}
+                                                                    {doc.bloqueado ? <Lock size={14} /> : <Unlock size={14} />}
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>
@@ -847,56 +844,53 @@ function PersonRow({
                                                 </div>
 
                                                 <div style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
-                                                    {doc.archivoDriveUrl && (
-                                                        <a
-                                                            href={getExpedienteDownloadUrl({
-                                                                url: doc.archivoDriveUrl,
-                                                                publicId: doc.archivoDriveId,
-                                                                cct: persona.escuela?.cct || "",
-                                                                apellidoPaterno: persona.apellidoPaterno,
-                                                                apellidoMaterno: persona.apellidoMaterno,
-                                                                nombre: persona.nombre,
-                                                                tipoDocumento: "CUSTOM",
-                                                                etiqueta: doc.etiqueta,
-                                                                nombreOriginal: doc.archivoNombre || "archivo",
-                                                            }) || "#"}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            onClick={e => {
-                                                                if (doc.archivoNombre?.toLowerCase().endsWith(".pdf") && doc.archivoDriveUrl) {
-                                                                    e.preventDefault();
-                                                                    onViewPdf(
-                                                                        doc.archivoDriveUrl,
-                                                                        `${doc.etiqueta || doc.archivoNombre} - ${persona.nombre} ${persona.apellidoPaterno}`,
-                                                                        getExpedienteDownloadUrl({
-                                                                            url: doc.archivoDriveUrl,
-                                                                            publicId: doc.archivoDriveId,
-                                                                            cct: persona.escuela?.cct || "",
-                                                                            apellidoPaterno: persona.apellidoPaterno,
-                                                                            apellidoMaterno: persona.apellidoMaterno,
-                                                                            nombre: persona.nombre,
-                                                                            tipoDocumento: "CUSTOM",
-                                                                            etiqueta: doc.etiqueta,
-                                                                            nombreOriginal: doc.archivoNombre || "archivo",
-                                                                        }) || undefined,
-                                                                        buildExpedienteFileName(
-                                                                            persona.escuela?.cct || "",
-                                                                            persona.apellidoPaterno,
-                                                                            persona.apellidoMaterno,
-                                                                            persona.nombre,
-                                                                            "CUSTOM",
-                                                                            doc.etiqueta,
-                                                                            doc.archivoNombre || "archivo"
-                                                                        )
-                                                                    );
-                                                                }
-                                                            }}
-                                                            style={{ color: "var(--primary)", display: "inline-flex", padding: "2px" }}
-                                                            title={doc.etiqueta || doc.archivoNombre || "Descargar"}
-                                                        >
-                                                            <Download size={14} />
-                                                        </a>
-                                                    )}
+                                                    {doc.archivoDriveUrl && (() => {
+                                                        const dlUrl = getExpedienteDownloadUrl({
+                                                            url: doc.archivoDriveUrl!,
+                                                            publicId: doc.archivoDriveId,
+                                                            cct: persona.escuela?.cct || "",
+                                                            apellidoPaterno: persona.apellidoPaterno,
+                                                            apellidoMaterno: persona.apellidoMaterno,
+                                                            nombre: persona.nombre,
+                                                            tipoDocumento: "CUSTOM",
+                                                            etiqueta: doc.etiqueta,
+                                                            nombreOriginal: doc.archivoNombre || "archivo",
+                                                        });
+                                                        const fileTitle = buildExpedienteFileName(
+                                                            persona.escuela?.cct || "",
+                                                            persona.apellidoPaterno,
+                                                            persona.apellidoMaterno,
+                                                            persona.nombre,
+                                                            "CUSTOM",
+                                                            doc.etiqueta,
+                                                            doc.archivoNombre || "archivo"
+                                                        );
+                                                        return (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => onViewPdf(
+                                                                        doc.archivoDriveUrl!,
+                                                                        `${doc.etiqueta || doc.archivoNombre} — ${persona.apellidoPaterno} ${persona.nombre}`,
+                                                                        dlUrl || undefined,
+                                                                        fileTitle
+                                                                    )}
+                                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", display: "inline-flex" }}
+                                                                    title={`Ver ${doc.etiqueta || doc.archivoNombre}`}
+                                                                >
+                                                                    <Eye size={14} />
+                                                                </button>
+                                                                <a
+                                                                    href={dlUrl || "#"}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    style={{ color: "var(--text-secondary)", display: "inline-flex", padding: "2px" }}
+                                                                    title={`Descargar ${doc.etiqueta || doc.archivoNombre}`}
+                                                                >
+                                                                    <Download size={14} />
+                                                                </a>
+                                                            </>
+                                                        );
+                                                    })()}
                                                     <button
                                                         onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
                                                         disabled={busy}

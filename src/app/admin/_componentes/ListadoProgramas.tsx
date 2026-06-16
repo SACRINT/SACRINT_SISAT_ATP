@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronUp, ChevronDown, MessageSquare, Download } from "lucide-react";
+import { ChevronUp, ChevronDown, MessageSquare, Download, Eye } from "lucide-react";
 import JSZip from "jszip";
 import { MESES, ESTADOS, ESTADO_LABELS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
@@ -221,28 +221,37 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
                                                                         {ent.archivos.map((arch, index) => {
                                                                             const fileUrl = getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId);
+                                                                            const label = arch.etiqueta || `Archivo ${index + 1}`;
                                                                             return (
-                                                                                <a
-                                                                                    key={arch.id}
-                                                                                    href={fileUrl || "#"}
-                                                                                    target="_blank"
-                                                                                    rel="noopener noreferrer"
-                                                                                    onClick={(e) => {
-                                                                                        if (arch.nombre?.toLowerCase().endsWith(".pdf") && fileUrl) {
-                                                                                            e.preventDefault();
-                                                                                            setViewingPdf({
-                                                                                                url: arch.driveUrl || "",
-                                                                                                title: `${ent.escuela.cct} - ${prog.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`,
-                                                                                                downloadUrl: fileUrl,
-                                                                                                fileName: arch.nombre,
-                                                                                            });
-                                                                                        }
-                                                                                    }}
-                                                                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
-                                                                                    title={`Ver/Descargar ${arch.nombre}`}
-                                                                                >
-                                                                                    <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
-                                                                                </a>
+                                                                                <span key={arch.id} style={{ display: "inline-flex", alignItems: "center", gap: "0.15rem" }}>
+                                                                                    {/* Eye: opens viewer */}
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            if (fileUrl) {
+                                                                                                setViewingPdf({
+                                                                                                    url: arch.driveUrl || "",
+                                                                                                    title: `${ent.escuela.cct} — ${prog.nombre} — ${label}`,
+                                                                                                    downloadUrl: fileUrl,
+                                                                                                    fileName: arch.nombre,
+                                                                                                });
+                                                                                            }
+                                                                                        }}
+                                                                                        style={{ background: "none", border: "1px solid var(--border)", borderRadius: "4px 0 0 4px", cursor: "pointer", padding: "0.15rem 0.35rem", color: "var(--primary)", display: "inline-flex", alignItems: "center", gap: "0.2rem", fontSize: "0.75rem" }}
+                                                                                        title={`Ver ${arch.nombre}`}
+                                                                                    >
+                                                                                        <Eye size={12} /> {label}
+                                                                                    </button>
+                                                                                    {/* Download */}
+                                                                                    <a
+                                                                                        href={fileUrl || "#"}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        style={{ background: "none", border: "1px solid var(--border)", borderLeft: "none", borderRadius: "0 4px 4px 0", padding: "0.15rem 0.35rem", color: "var(--text-secondary)", display: "inline-flex", alignItems: "center" }}
+                                                                                        title={`Descargar ${arch.nombre}`}
+                                                                                    >
+                                                                                        <Download size={12} />
+                                                                                    </a>
+                                                                                </span>
                                                                             );
                                                                         })}
                                                                         <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "flex", alignItems: "center" }}>
@@ -250,6 +259,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                         </span>
                                                                     </div>
                                                                 )}
+
                                                             </div>
                                                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                                                 <select
