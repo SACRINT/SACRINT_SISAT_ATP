@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Search, FileText, ChevronUp, ChevronDown, MessageSquare, Download, Mail } from "lucide-react";
+import { Search, FileText, ChevronUp, ChevronDown, MessageSquare, Download, Mail, Eye } from "lucide-react";
 import { MESES, ESTADOS, ESTADO_LABELS } from "@/lib/constants";
 import { EscuelaAdmin } from "@/types";
 import { getEntregaDownloadUrl } from "@/lib/download-url";
@@ -279,28 +279,37 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                                 nombreOriginal: arch.nombre,
                                                             });
 
+                                                            const archLabel = arch.etiqueta || `Archivo ${index + 1}`;
+                                                            const archTitle = `${esc.cct} — ${ent.periodoEntrega.programa.nombre} — ${archLabel}`;
                                                             return (
-                                                                <a
-                                                                    key={arch.id}
-                                                                    href={fileUrl || "#"}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    onClick={(e) => {
-                                                                        if (arch.nombre?.toLowerCase().endsWith(".pdf") && fileUrl) {
-                                                                            e.preventDefault();
-                                                                            setViewingPdf({
-                                                                                url: arch.driveUrl || "",
-                                                                                title: `${esc.cct} - ${ent.periodoEntrega.programa.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`,
-                                                                                downloadUrl: fileUrl,
-                                                                                fileName: arch.nombre,
-                                                                            });
-                                                                        }
-                                                                    }}
-                                                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.4rem", borderRadius: "4px", color: "var(--text)", textDecoration: "none" }}
-                                                                    title={`Ver/Descargar: ${esc.cct} - ${ent.periodoEntrega.programa.nombre} - ${arch.etiqueta || `Archivo ${index + 1}`}`}
-                                                                >
-                                                                    <Download size={12} /> {arch.etiqueta || `Archivo ${index + 1}`}
-                                                                </a>
+                                                                <span key={arch.id} style={{ display: "inline-flex", alignItems: "center", gap: "0.125rem", background: "var(--bg)", border: "1px solid var(--border)", padding: "0.15rem 0.35rem", borderRadius: "4px", fontSize: "0.75rem" }}>
+                                                                    <span style={{ color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }} title={archLabel}>{archLabel}</span>
+                                                                    {/* Eye: open viewer */}
+                                                                    {arch.driveUrl && (
+                                                                        <button
+                                                                            onClick={() => setViewingPdf({
+                                                                                url: arch.driveUrl!,
+                                                                                title: archTitle,
+                                                                                downloadUrl: fileUrl || undefined,
+                                                                                fileName: arch.nombre || undefined,
+                                                                            })}
+                                                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "1px", display: "inline-flex", alignItems: "center" }}
+                                                                            title={`Ver ${archLabel}`}
+                                                                        >
+                                                                            <Eye size={12} />
+                                                                        </button>
+                                                                    )}
+                                                                    {/* Download */}
+                                                                    <a
+                                                                        href={fileUrl || "#"}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        style={{ color: "var(--text-muted)", display: "inline-flex", alignItems: "center", padding: "1px" }}
+                                                                        title={`Descargar ${archLabel}`}
+                                                                    >
+                                                                        <Download size={12} />
+                                                                    </a>
+                                                                </span>
                                                             );
                                                         })}
                                                         <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "flex", alignItems: "center" }}>
