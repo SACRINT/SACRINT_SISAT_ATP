@@ -6,80 +6,93 @@ import { X, ExternalLink, Download, ZoomIn, ZoomOut, RotateCw, Loader2, FileText
 interface PdfViewerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    /** Raw Cloudinary/Drive URL — used only as fallback "open in new tab" */
+    /** Raw Cloudinary URL — used directly in iframe and as "Open in tab" */
     url: string;
     title: string;
-    /** Proxy URL through our server — used for actual loading (avoids 401) */
+    /** Proxy URL through our server — used for the Download button only */
     downloadUrl?: string;
     /** Optional filename to detect file type (more reliable than the URL) */
     fileName?: string;
 }
 
-/** Returns lowercase extension from a filename or URL.
- *  For proxy URLs like /api/download?url=...&name=file.pdf, reads the 'name' param.
- */
+/** Returns lowercase extension from a filename or URL. */
 function getExt(str: string): string {
     if (!str) return "";
     try {
-        // Check for proxy URL with 'name' query param (most reliable)
-        if (str.includes("/api/download") || str.includes("?")) {
-            const qIdx = str.indexOf("?");
-            if (qIdx !== -1) {
-                const params = new URLSearchParams(str.slice(qIdx + 1));
-                const name = params.get("name");
-                if (name) {
-                    const m = name.match(/\.([a-z0-9]+)$/i);
-                    if (m) return m[1].toLowerCase();
-                }
+        // For proxy URLs: read the 'name' query param
+        if (str.includes("?")) {
+            const params = new URLSearchParams(str.slice(str.indexOf("?") + 1));
+            const name = params.get("name");
+            if (name) {
+                const m = name.match(/\.([a-z0-9]+)$/i);
+                if (m) return m[1].toLowerCase();
             }
         }
     } catch { /* ignore */ }
-    // Fallback: extract from path before query string
     const clean = str.split("?")[0];
     const match = clean.match(/\.([a-z0-9]+)$/i);
     return match ? match[1].toLowerCase() : "";
 }
 
-const IMAGE_EXTS  = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "avif"]);
-const PDF_EXTS    = new Set(["pdf"]);
-// Formats that browsers can NOT render inline
-const NO_PREVIEW  = new Set(["doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods"]);
+const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "avif"]);
+const PDF_EXTS   = new Set(["pdf"]);
+const NO_PREVIEW = new Set(["doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods"]);
 
-/** Converts a proxy download URL to an inline-view URL by adding ?inline=1.
- *  Only modifies /api/download URLs; passes through other URLs unchanged.
+/**
+ * Converts a Cloudinary URL to one that browsers will render inline.
+ *
+ * Cloudinary's CDN serves PDFs with Content-Type: application/pdf
+ * and NO Content-Disposition: attachment — so browsers display them natively
+ * in iframes without any proxy needed.
+ *
+ * We just need the raw Cloudinary URL (res.cloudinary.com/...).
  */
-function toInlineUrl(url: string): string {
-    if (!url.includes("/api/download")) return url;
-    const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}inline=1`;
+function toDirectViewUrl(cloudinaryUrl: string): string {
+    // Already a direct Cloudinary URL — use as-is
+    if (cloudinaryUrl.includes("res.cloudinary.com")) {
+        return cloudinaryUrl;
+    }
+    // If it's our proxy URL, extract the original URL
+    if (cloudinaryUrl.includes("/api/download")) {
+        try {
+            const params = new URLSearchParams(cloudinaryUrl.slice(cloudinaryUrl.indexOf("?") + 1));
+            const orig = params.get("url");
+            if (orig) return orig;
+        } catch { /* ignore */ }
+    }
+    return cloudinaryUrl;
 }
 
 export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUrl, fileName }: PdfViewerModalProps) {
-    const [zoom, setZoom]         = useState(100);
-    const [rotation, setRotation] = useState(0);
+    const [zoom, setZoom]           = useState(100);
+    const [rotation, setRotation]   = useState(0);
     const [imgLoaded, setImgLoaded] = useState(false);
     const [imgError, setImgError]   = useState(false);
     const [pdfError, setPdfError]   = useState(false);
+    const [useGDocs, setUseGDocs]   = useState(false);
 
-    // Detect file type: prefer downloadUrl (has 'name' param) → fileName → raw url
-    const extSource = downloadUrl || fileName || url;
+    // Detect file type: prefer fileName → downloadUrl name param → url
+    const extSource = fileName || downloadUrl || url;
     const ext = getExt(extSource);
 
-    // The URL we actually load in the viewer: proxy URL takes priority (avoids 401)
-    const viewUrl = downloadUrl || url;
-    // Inline URL for the iframe: tells the API to serve the file as inline (not attachment)
-    const inlineUrl = toInlineUrl(viewUrl);
+    // For the iframe: use the direct Cloudinary URL (no proxy, no timeouts)
+    const directUrl = toDirectViewUrl(url);
+
+    // Google Docs Viewer as fallback (works for PDFs and office docs)
+    const gDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(directUrl)}&embedded=true`;
+
+    // For downloads: use the proxy URL (sets correct filename via Content-Disposition)
+    const dlUrl = downloadUrl || url;
 
     const isImage   = IMAGE_EXTS.has(ext);
     const isPdf     = PDF_EXTS.has(ext);
     const noPreview = NO_PREVIEW.has(ext);
 
-    // renderAs logic
     const renderAs: "image" | "pdf" | "no-preview" | "pdf-fallback" =
-        noPreview   ? "no-preview"    :
-        isImage     ? "image"         :
-        isPdf       ? "pdf"           :
-        "pdf-fallback"; // unknown → try PDF embed
+        noPreview ? "no-preview" :
+        isImage   ? "image"      :
+        isPdf     ? "pdf"        :
+        "pdf-fallback";
 
     useEffect(() => {
         if (!isOpen) return;
@@ -88,6 +101,7 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
         setImgLoaded(false);
         setImgError(false);
         setPdfError(false);
+        setUseGDocs(false);
 
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
@@ -104,6 +118,9 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
     }, [isOpen, onClose, url, renderAs]);
 
     if (!isOpen) return null;
+
+    // Which URL goes in the iframe: direct Cloudinary first, Google Docs if user switches
+    const iframeSrc = useGDocs ? gDocsUrl : directUrl;
 
     return (
         <div
@@ -136,7 +153,6 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     background: "var(--surface)", gap: "0.5rem", flexShrink: 0,
                 }}>
-                    {/* Title */}
                     <div style={{ minWidth: 0, flex: 1 }}>
                         <h3 style={{
                             margin: 0, fontSize: "0.9375rem", fontWeight: 700,
@@ -150,7 +166,6 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
                         </span>
                     </div>
 
-                    {/* Controls */}
                     <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexShrink: 0 }}>
                         {/* Zoom — only for images */}
                         {renderAs === "image" && (
@@ -171,9 +186,21 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
                             </>
                         )}
 
-                        {/* Download */}
+                        {/* Switch to Google Docs Viewer — for PDFs when direct load fails */}
+                        {(renderAs === "pdf" || renderAs === "pdf-fallback") && pdfError && !useGDocs && (
+                            <button
+                                onClick={() => { setPdfError(false); setUseGDocs(true); }}
+                                style={{ ...linkBtnStyle, color: "var(--primary)", borderColor: "var(--primary)" }}
+                                title="Intentar con Google Docs Viewer"
+                            >
+                                <ExternalLink size={14} />
+                                <span>Visor alternativo</span>
+                            </button>
+                        )}
+
+                        {/* Download — uses proxy to set filename */}
                         <a
-                            href={viewUrl}
+                            href={dlUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             download
@@ -184,19 +211,17 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
                             <span>Descargar</span>
                         </a>
 
-                        {/* Open in new tab — only if raw url is different */}
-                        {url !== viewUrl && (
-                            <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ ...linkBtnStyle }}
-                                title="Abrir en pestaña nueva"
-                            >
-                                <ExternalLink size={14} />
-                                <span>Abrir</span>
-                            </a>
-                        )}
+                        {/* Open in new tab — direct Cloudinary URL */}
+                        <a
+                            href={directUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ ...linkBtnStyle }}
+                            title="Abrir en pestaña nueva"
+                        >
+                            <ExternalLink size={14} />
+                            <span>Abrir</span>
+                        </a>
 
                         {/* Close */}
                         <button onClick={onClose} style={{ ...btnStyle, color: "var(--text-muted)", padding: "0.375rem" }} title="Cerrar (Esc)">
@@ -224,11 +249,11 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
                                 </div>
                             )}
                             {imgError ? (
-                                <NoPreviewFallback viewUrl={viewUrl} message="No se pudo cargar la imagen." />
+                                <NoPreviewFallback viewUrl={dlUrl} message="No se pudo cargar la imagen." />
                             ) : (
                                 /* eslint-disable-next-line @next/next/no-img-element */
                                 <img
-                                    src={viewUrl}
+                                    src={directUrl}
                                     alt={title}
                                     onLoad={() => setImgLoaded(true)}
                                     onError={() => setImgError(true)}
@@ -249,25 +274,32 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
                         </>
                     )}
 
-                    {/* PDF / UNKNOWN → iframe with inline proxy URL */}
+                    {/* PDF / UNKNOWN → direct Cloudinary iframe (no proxy needed) */}
                     {(renderAs === "pdf" || renderAs === "pdf-fallback") && !pdfError && (
                         <iframe
-                            src={inlineUrl}
+                            key={iframeSrc}
+                            src={iframeSrc}
                             style={{ width: "100%", height: "100%", border: "none", display: "block" }}
                             title={title}
                             onError={() => setPdfError(true)}
                         />
                     )}
 
-                    {/* PDF failed to load */}
+                    {/* PDF failed — show fallback options */}
                     {(renderAs === "pdf" || renderAs === "pdf-fallback") && pdfError && (
-                        <NoPreviewFallback viewUrl={viewUrl} message="No se pudo cargar el documento en el visor." />
+                        <NoPreviewFallback
+                            viewUrl={dlUrl}
+                            directUrl={directUrl}
+                            message="No se pudo cargar el documento en el visor."
+                            onTryGDocs={!useGDocs ? () => { setPdfError(false); setUseGDocs(true); } : undefined}
+                        />
                     )}
 
                     {/* NO PREVIEW (Word / Excel / etc.) */}
                     {renderAs === "no-preview" && (
                         <NoPreviewFallback
-                            viewUrl={viewUrl}
+                            viewUrl={dlUrl}
+                            directUrl={directUrl}
                             message={`Los archivos .${ext.toUpperCase()} no se pueden previsualizar en el navegador.`}
                             isOffice
                         />
@@ -286,6 +318,9 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
                     {renderAs === "image" && (
                         <span>Usa <kbd style={{ background: "var(--border)", padding: "1px 4px", borderRadius: "3px" }}>+</kbd> / <kbd style={{ background: "var(--border)", padding: "1px 4px", borderRadius: "3px" }}>−</kbd> para zoom</span>
                     )}
+                    {useGDocs && (
+                        <span style={{ color: "var(--primary)" }}>Usando Google Docs Viewer</span>
+                    )}
                     <span style={{ marginLeft: "auto" }}>{title}</span>
                 </div>
             </div>
@@ -294,7 +329,19 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
 }
 
 /** Fallback shown when preview is impossible */
-function NoPreviewFallback({ viewUrl, message, isOffice }: { viewUrl: string; message: string; isOffice?: boolean }) {
+function NoPreviewFallback({
+    viewUrl,
+    directUrl,
+    message,
+    isOffice,
+    onTryGDocs,
+}: {
+    viewUrl: string;
+    directUrl?: string;
+    message: string;
+    isOffice?: boolean;
+    onTryGDocs?: () => void;
+}) {
     return (
         <div style={{
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -310,23 +357,61 @@ function NoPreviewFallback({ viewUrl, message, isOffice }: { viewUrl: string; me
             <p style={{ margin: 0, fontSize: "0.8125rem", color: "var(--text-muted)", maxWidth: "360px" }}>
                 {message}
             </p>
-            <a
-                href={viewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                download
-                style={{
-                    display: "inline-flex", alignItems: "center", gap: "0.5rem",
-                    padding: "0.625rem 1.25rem",
-                    background: "var(--primary)", color: "white",
-                    borderRadius: "8px", textDecoration: "none",
-                    fontSize: "0.875rem", fontWeight: 600,
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                }}
-            >
-                <Download size={16} />
-                Descargar archivo
-            </a>
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+                {onTryGDocs && (
+                    <button
+                        onClick={onTryGDocs}
+                        style={{
+                            display: "inline-flex", alignItems: "center", gap: "0.5rem",
+                            padding: "0.625rem 1.25rem",
+                            background: "var(--primary)", color: "white",
+                            border: "none", cursor: "pointer",
+                            borderRadius: "8px", textDecoration: "none",
+                            fontSize: "0.875rem", fontWeight: 600,
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                        }}
+                    >
+                        <ExternalLink size={16} />
+                        Intentar con visor alternativo
+                    </button>
+                )}
+                {directUrl && directUrl !== viewUrl && (
+                    <a
+                        href={directUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            display: "inline-flex", alignItems: "center", gap: "0.5rem",
+                            padding: "0.625rem 1.25rem",
+                            background: "none", color: "var(--primary)",
+                            border: "1px solid var(--primary)",
+                            borderRadius: "8px", textDecoration: "none",
+                            fontSize: "0.875rem", fontWeight: 600,
+                        }}
+                    >
+                        <ExternalLink size={16} />
+                        Abrir en nueva pestaña
+                    </a>
+                )}
+                <a
+                    href={viewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    style={{
+                        display: "inline-flex", alignItems: "center", gap: "0.5rem",
+                        padding: "0.625rem 1.25rem",
+                        background: "var(--bg-secondary)", color: "var(--text)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px", textDecoration: "none",
+                        fontSize: "0.875rem", fontWeight: 600,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    }}
+                >
+                    <Download size={16} />
+                    Descargar archivo
+                </a>
+            </div>
         </div>
     );
 }
