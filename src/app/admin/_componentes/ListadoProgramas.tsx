@@ -159,23 +159,22 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
         const fileName  = `${mergePrefix.toUpperCase()}_${tipoLabel}.PDF`;
 
         setMergingType(tipo);
-        setMergeProgress({ total: items.length, done: 0, failed: 0, stage: "downloading" });
+        setMergeProgress({ total: items.length, done: 0, failed: 0, failedCcts: [], stage: "downloading" });
         onSetMessage({ type: "success", text: `Unificando ${items.length} PDF${items.length > 1 ? "s" : ""} de ${tipoLabel}...` });
 
         try {
-            const { mergedCount, failedCount } = await mergePdfsAndDownload(
+            const { mergedCount } = await mergePdfsAndDownload(
                 items,
                 fileName,
                 (p) => setMergeProgress(p)
             );
             onSetMessage({
                 type: "success",
-                text: failedCount > 0
-                    ? `✅ ${fileName} descargado (${mergedCount} escuelas, ${failedCount} omitidas por error).`
-                    : `✅ ${fileName} descargado con ${mergedCount} escuela${mergedCount > 1 ? "s" : ""}.`,
+                text: `✅ ${fileName} listo: ${mergedCount} bachillerato${mergedCount > 1 ? "s" : ""} unidos en orden de CCT.`,
             });
         } catch (e: any) {
-            onSetMessage({ type: "error", text: e.message || "Error al unificar los PDFs." });
+            // merge-pdfs lanza un Error detallado con los CCTs que fallaron
+            onSetMessage({ type: "error", text: `❌ ${e.message || "Error al unificar los PDFs."}` });
         } finally {
             setMergingType(null);
             setMergeProgress(null);

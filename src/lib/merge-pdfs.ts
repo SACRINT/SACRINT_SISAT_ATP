@@ -24,11 +24,16 @@ export interface MergeProgress {
     total: number;
     done: number;
     failed: number;
+    failedCcts: string[]; // CCTs de las escuelas que fallaron
     stage: "downloading" | "merging" | "done";
 }
 
 /**
  * Une múltiples PDFs en uno y lo descarga en el navegador.
+ *
+ * Si alguno de los archivos falla al descargar (error de red, timeout, etc.),
+ * lanza un Error con los detalles de cuáles escuelas fallaron.
+ * De esta forma el admin siempre recibe o TODOS los PDFs o un mensaje de error claro.
  *
  * @param items      Lista de archivos a unir, en el orden deseado
  * @param fileName   Nombre del archivo resultante (ej: "GEN004_21FMS0020X_REGISTROS.PDF")
@@ -42,9 +47,10 @@ export async function mergePdfsAndDownload(
     const CONCURRENCY = 5; // máx requests paralelas
     let done = 0;
     let failed = 0;
+    const failedCcts: string[] = [];
 
     const report = (stage: MergeProgress["stage"]) =>
-        onProgress?.({ total: items.length, done, failed, stage });
+        onProgress?.({ total: items.length, done, failed, failedCcts, stage });
 
     // ── 1. Descargar todos los PDFs en paralelo (grupos de CONCURRENCY) ──
     const buffers: (ArrayBuffer | null)[] = new Array(items.length).fill(null);
@@ -62,9 +68,20 @@ export async function mergePdfsAndDownload(
                 } catch (e) {
                     console.warn(`[merge-pdfs] Failed to download ${item.cct} (${item.etiqueta}):`, e);
                     failed++;
+                    failedCcts.push(item.cct);
                 }
                 report("downloading");
             })
+        );
+    }
+
+    // ── Si alguna descarga falló, lanzar error ANTES de generar el PDF ──
+    // Así el admin nunca recibe un archivo incompleto sin saberlo.
+    if (failed > 0) {
+        throw new Error(
+            `No se pudo descargar ${failed} PDF${failed > 1 ? "s" : ""}. ` +
+            `Escuelas afectadas: ${failedCcts.join(", ")}. ` +
+            `Vuelve a intentarlo en unos segundos.`
         );
     }
 
