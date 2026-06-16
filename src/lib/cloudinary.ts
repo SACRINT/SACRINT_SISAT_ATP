@@ -28,7 +28,10 @@ export async function uploadFileToCloudinary(
     buffer: Buffer,
     fileName: string,
     mimeType: string,
-    folderPath: string
+    folderPath: string,
+    /** Optional: descriptive name for the public_id in Cloudinary (e.g. "21EBH0682T_CAPEM_1_FichaTrabajo").
+     *  If omitted, falls back to timestamp-based name. */
+    descriptiveName?: string
 ): Promise<CloudinaryUploadResult> {
     const client = getCloudinaryConfig();
 
@@ -38,11 +41,16 @@ export async function uploadFileToCloudinary(
     // Determine resource type
     const resourceType = mimeType.startsWith("image/") ? "image" : "raw";
 
+    // Build public_id: prefer descriptive name, fall back to timestamp
+    const publicId = descriptiveName
+        ? sanitizeFileName(descriptiveName)
+        : `${Date.now()}_${sanitizeFileName(fileName)}`;
+
     return new Promise((resolve, reject) => {
         const uploadStream = client.uploader.upload_stream(
             {
                 folder,
-                public_id: `${Date.now()}_${sanitizeFileName(fileName)}`,
+                public_id: publicId,
                 resource_type: resourceType,
                 // Preserve original filename in display
                 use_filename: false,
@@ -63,6 +71,7 @@ export async function uploadFileToCloudinary(
         uploadStream.end(buffer);
     });
 }
+
 
 // ─── Delete ──────────────────────────────────────────────────────────────────
 

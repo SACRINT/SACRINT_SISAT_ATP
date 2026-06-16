@@ -45,6 +45,15 @@ const PDF_EXTS    = new Set(["pdf"]);
 // Formats that browsers can NOT render inline
 const NO_PREVIEW  = new Set(["doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods"]);
 
+/** Converts a proxy download URL to an inline-view URL by adding ?inline=1.
+ *  Only modifies /api/download URLs; passes through other URLs unchanged.
+ */
+function toInlineUrl(url: string): string {
+    if (!url.includes("/api/download")) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}inline=1`;
+}
+
 export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUrl, fileName }: PdfViewerModalProps) {
     const [zoom, setZoom]         = useState(100);
     const [rotation, setRotation] = useState(0);
@@ -58,6 +67,8 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
 
     // The URL we actually load in the viewer: proxy URL takes priority (avoids 401)
     const viewUrl = downloadUrl || url;
+    // Inline URL for the iframe: tells the API to serve the file as inline (not attachment)
+    const inlineUrl = toInlineUrl(viewUrl);
 
     const isImage   = IMAGE_EXTS.has(ext);
     const isPdf     = PDF_EXTS.has(ext);
@@ -238,10 +249,10 @@ export default function PdfViewerModal({ isOpen, onClose, url, title, downloadUr
                         </>
                     )}
 
-                    {/* PDF / UNKNOWN → iframe with proxy URL */}
+                    {/* PDF / UNKNOWN → iframe with inline proxy URL */}
                     {(renderAs === "pdf" || renderAs === "pdf-fallback") && !pdfError && (
                         <iframe
-                            src={viewUrl}
+                            src={inlineUrl}
                             style={{ width: "100%", height: "100%", border: "none", display: "block" }}
                             title={title}
                             onError={() => setPdfError(true)}

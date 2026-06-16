@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadFileToCloudinary, buildFolderPath } from "@/lib/cloudinary";
 import { sendUploadConfirmation } from "@/lib/email";
+import { buildEntregaFileName } from "@/lib/download-url";
 
 export async function POST(req: NextRequest) {
     try {
@@ -84,6 +85,16 @@ export async function POST(req: NextRequest) {
         const escuela = entrega.escuela;
         const folderPath = buildFolderPath(escuela.cct, escuela.nombre, programa.nombre);
 
+        // Build period label for naming
+        const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const periodo = entrega.periodoEntrega;
+        const periodoLabel = periodo.mes
+            ? MESES[periodo.mes]
+            : periodo.semestre
+                ? `Semestre${periodo.semestre}`
+                : "CicloCompleto";
+
         // Upload files to Cloudinary
         const createdArchivos = [];
         let lastUrl: string | undefined;
@@ -93,11 +104,21 @@ export async function POST(req: NextRequest) {
             const etiqueta = etiquetas[i] || null;
             const buffer = Buffer.from(await file.arrayBuffer());
 
+            // Build descriptive name: CCT_Programa_Periodo_Etiqueta
+            const descriptiveName = buildEntregaFileName(
+                escuela.cct,
+                programa.nombre,
+                periodoLabel,
+                etiqueta,
+                file.name
+            ).replace(/\.[^.]+$/, ""); // strip extension (Cloudinary adds it)
+
             const { publicId, url } = await uploadFileToCloudinary(
                 buffer,
                 file.name,
                 file.type,
-                folderPath
+                folderPath,
+                descriptiveName
             );
 
             const archivo = await prisma.archivo.create({
@@ -125,17 +146,6 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        // Build period label for email notification
-        let periodoLabel = "Ciclo 2025-2026";
-        const periodo = entrega.periodoEntrega;
-        if (periodo.mes) {
-            const meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-            periodoLabel = meses[periodo.mes];
-        } else if (periodo.semestre) {
-            periodoLabel = `Semestre ${periodo.semestre}`;
-        }
-
         // Enviar acuse de recibo por email
         await sendUploadConfirmation(
             escuela.email,
@@ -143,6 +153,7 @@ export async function POST(req: NextRequest) {
             programa.nombre,
             periodoLabel
         );
+
 
         return NextResponse.json({
             success: true,

@@ -262,8 +262,15 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                     escuelaNombre: escuela.nombre,
                     subfolder: personName.replace(/\s+/g, "_"),
                     originalFilename: file.name,
+                    // Extra data for descriptive naming in Cloudinary
+                    apellidoPaterno: person?.apellidoPaterno || "",
+                    apellidoMaterno: person?.apellidoMaterno || "",
+                    nombre: person?.nombre || "",
+                    tipoDocumento,
+                    etiqueta: etiqueta || null,
                 }),
             });
+
 
             if (!signRes.ok) throw new Error("Error obteniendo firma");
             const { signature, timestamp, folder, apiKey, cloudName, publicId } = await signRes.json();

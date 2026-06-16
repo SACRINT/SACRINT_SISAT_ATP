@@ -3,6 +3,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { buildFolderPath } from "@/lib/cloudinary";
+import { buildExpedienteFileName } from "@/lib/download-url";
 
 export async function POST(req: NextRequest) {
     try {
@@ -11,7 +12,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
-        const { entregaId, originalFilename, etiqueta, subfolder, programa, cct, escuelaNombre } = await req.json();
+        const {
+            entregaId, originalFilename, etiqueta, subfolder,
+            programa, cct, escuelaNombre,
+            // Expedientes-specific fields for descriptive naming
+            apellidoPaterno, apellidoMaterno, nombre: personalNombre, tipoDocumento,
+        } = await req.json();
 
         let folder: string;
         let escuelaCct: string = "";
@@ -70,10 +76,22 @@ export async function POST(req: NextRequest) {
         let publicId: string | undefined = undefined;
         if (originalFilename) {
             const isAcosoEscolar = programaNombre.toUpperCase().includes("ACOSO ESCOLAR");
+            const isExpedientes = programaNombre === "Expedientes";
 
             let finalName: string;
 
-            if (isAcosoEscolar && entregaId) {
+            if (isExpedientes && apellidoPaterno) {
+                // Nomenclatura para Expedientes: CCT_ApellidosNombre_TipoDocumento
+                finalName = buildExpedienteFileName(
+                    escuelaCct,
+                    apellidoPaterno || "",
+                    apellidoMaterno || "",
+                    personalNombre || "",
+                    tipoDocumento || "DOCUMENTO",
+                    etiqueta,
+                    originalFilename
+                ).replace(/\.[^.]+$/, ""); // strip extension for public_id
+            } else if (isAcosoEscolar && entregaId) {
                 // Nomenclatura especial para Acoso Escolar (solo en modo standard)
                 const entrega = await prisma.entrega.findUnique({
                     where: { id: entregaId },

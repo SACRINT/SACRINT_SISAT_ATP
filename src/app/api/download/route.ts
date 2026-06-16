@@ -48,6 +48,13 @@ export async function GET(request: NextRequest) {
     const fileUrl = searchParams.get("url");
     const fileName = searchParams.get("name") || "archivo";
     const directPublicId = searchParams.get("publicId");
+    // ?inline=1 → browser renders the file in an iframe (PDF viewer)
+    // default  → browser downloads the file (attachment)
+    const isInline = searchParams.get("inline") === "1";
+    const disposition = isInline
+        ? `inline; filename="${encodeURIComponent(fileName)}"`
+        : `attachment; filename="${encodeURIComponent(fileName)}"`;
+
 
     if (!fileUrl) {
         return NextResponse.json({ error: "Missing 'url' parameter" }, { status: 400 });
@@ -128,7 +135,7 @@ export async function GET(request: NextRequest) {
                         status: 200,
                         headers: {
                             "Content-Type": contentType,
-                            "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+                            "Content-Disposition": disposition,
                             "Content-Length": blob.byteLength.toString(),
                             "Cache-Control": "private, no-cache",
                         },
@@ -154,7 +161,7 @@ export async function GET(request: NextRequest) {
                             status: 200,
                             headers: {
                                 "Content-Type": contentType,
-                                "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+                                "Content-Disposition": disposition,
                                 "Content-Length": blob.byteLength.toString(),
                                 "Cache-Control": "private, no-cache",
                             },
@@ -182,7 +189,7 @@ export async function GET(request: NextRequest) {
                 status: 200,
                 headers: {
                     "Content-Type": contentType,
-                    "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+                    "Content-Disposition": disposition,
                     "Content-Length": blob.byteLength.toString(),
                     "Cache-Control": "private, no-cache",
                 },
