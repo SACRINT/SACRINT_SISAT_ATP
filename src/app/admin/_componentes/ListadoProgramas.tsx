@@ -2,12 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronUp, ChevronDown, MessageSquare, Download, Eye } from "lucide-react";
+import { ChevronUp, ChevronDown, MessageSquare, Download, Eye, Loader2, FileCheck2, FilePlus2 } from "lucide-react";
 import JSZip from "jszip";
 import { MESES, ESTADOS, ESTADO_LABELS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
 import { getDownloadUrl } from "@/lib/download-url";
 import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
+import { mergePdfsAndDownload, MergeProgress } from "@/lib/merge-pdfs";
+
+/** Nombre del programa que activa los botones de unificación */
+const DIA_NARANJA_NOMBRE = "DÍA NARANJA";
+
+/** Prefijo por defecto para los archivos unificados */
+const DEFAULT_PREFIX = "GEN004_21FMS0020X";
 
 interface ListadoProgramasProps {
     programas: ProgramaAdmin[];
@@ -18,52 +25,34 @@ interface ListadoProgramasProps {
 function getEstadoStyles(estado: string) {
     switch (estado) {
         case "APROBADO":
-            return {
-                color: "var(--success)",
-                background: "var(--success-bg)",
-                borderColor: "#bbf7d0"
-            };
+            return { color: "var(--success)", background: "var(--success-bg)", borderColor: "#bbf7d0" };
         case "PENDIENTE":
-            return {
-                color: "var(--warning)",
-                background: "var(--warning-bg)",
-                borderColor: "#fef08a"
-            };
+            return { color: "var(--warning)", background: "var(--warning-bg)", borderColor: "#fef08a" };
         case "REQUIERE_CORRECCION":
-            return {
-                color: "#e67e22",
-                background: "#fff7ed",
-                borderColor: "#ffedd5"
-            };
+            return { color: "#e67e22", background: "#fff7ed", borderColor: "#ffedd5" };
         case "EN_REVISION":
-            return {
-                color: "var(--primary)",
-                background: "var(--primary-bg)",
-                borderColor: "#bfdbfe"
-            };
+            return { color: "var(--primary)", background: "var(--primary-bg)", borderColor: "#bfdbfe" };
         case "NO_APROBADO":
-            return {
-                color: "var(--danger)",
-                background: "var(--danger-bg)",
-                borderColor: "#fecaca"
-            };
+            return { color: "var(--danger)", background: "var(--danger-bg)", borderColor: "#fecaca" };
         case "NO_ENTREGADO":
         default:
-            return {
-                color: "var(--text-secondary)",
-                background: "#f1f5f9",
-                borderColor: "#cbd5e1"
-            };
+            return { color: "var(--text-secondary)", background: "#f1f5f9", borderColor: "#cbd5e1" };
     }
 }
 
 export default function ListadoProgramas({ programas, onSetMessage, onSetCorreccionModal }: ListadoProgramasProps) {
     const router = useRouter();
-    const [expanded, setExpanded] = useState<string | null>(null);
+    const [expanded, setExpanded]               = useState<string | null>(null);
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
-    const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
-    const [downloadingZip, setDownloadingZip] = useState<string | null>(null);
-    const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
+    const [updatingEstado, setUpdatingEstado]   = useState<string | null>(null);
+    const [downloadingZip, setDownloadingZip]   = useState<string | null>(null);
+    const [viewingPdf, setViewingPdf]           = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
+
+    // ── Estado para la unificación de PDFs (Día Naranja) ──
+    const [mergePrefix, setMergePrefix]           = useState(DEFAULT_PREFIX);
+    const [mergingType, setMergingType]           = useState<"REGISTRO" | "EVIDENCIAS" | null>(null);
+    const [mergeProgress, setMergeProgress]       = useState<MergeProgress | null>(null);
+    const [showPrefixInput, setShowPrefixInput]   = useState(false);
 
     async function handleDownloadZip(prog: ProgramaAdmin) {
         setDownloadingZip(prog.id);
@@ -108,15 +97,88 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
             a.download = `${prog.nombre.replace(/[/\\?%*:|"<>]/g, '-')}.zip`;
             document.body.appendChild(a);
             a.click();
-            setTimeout(() => {
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-            }, 0);
+            setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 0);
             onSetMessage({ type: "success", text: "Descarga completada." });
         } catch (e: any) {
             onSetMessage({ type: "error", text: e.message });
         } finally {
             setDownloadingZip(null);
+        }
+    }
+
+    /**
+     * Une todos los PDFs de un tipo (Registro / Evidencias) de todas las escuelas
+     * que subieron ese documento, ordenadas alfabéticamente por CCT.
+     *
+     * Solo para el programa DÍA NARANJA.
+     */
+    async function handleMergePdfs(prog: ProgramaAdmin, tipo: "REGISTRO" | "EVIDENCIAS") {
+        if (mergingType) return; // ya hay una en curso
+
+        // Recopilar todos los archivos del tipo solicitado, de todos los periodos activos.
+        // Mapear por CCT para evitar duplicados y luego ordenar alfabéticamente.
+        const porCct = new Map<string, { cct: string; proxyUrl: string; etiqueta: string }>();
+
+        for (const p of prog.periodos.filter(per => per.activo)) {
+            for (const ent of p.entregas) {
+                if (!ent.archivos || ent.archivos.length === 0) continue;
+                const cct = ent.escuela.cct;
+                for (const arch of ent.archivos) {
+                    if (!arch.driveUrl) continue;
+                    // Detectar el tipo por etiqueta (insensible a mayúsculas/minúsculas)
+                    const etiq = (arch.etiqueta || "").toLowerCase();
+                    const esRegistro   = etiq.includes("registro");
+                    const esEvidencias = etiq.includes("evidencia");
+                    if (tipo === "REGISTRO"    && !esRegistro)   continue;
+                    if (tipo === "EVIDENCIAS"  && !esEvidencias) continue;
+                    // Solo PDFs
+                    if (!arch.nombre.toLowerCase().endsWith(".pdf")) continue;
+
+                    // Tomar solo uno por escuela (el primero que coincida)
+                    if (!porCct.has(cct)) {
+                        const proxyUrl = getDownloadUrl(arch.driveUrl, arch.nombre, arch.driveId) || arch.driveUrl;
+                        // Agregar inline=1 para que el proxy sirva con Content-Disposition: inline
+                        const inlineUrl = proxyUrl.includes("?")
+                            ? `${proxyUrl}&inline=1`
+                            : `${proxyUrl}?inline=1`;
+                        porCct.set(cct, { cct, proxyUrl: inlineUrl, etiqueta: arch.etiqueta || tipo });
+                    }
+                }
+            }
+        }
+
+        // Ordenar por CCT alfabéticamente
+        const items = [...porCct.values()].sort((a, b) => a.cct.localeCompare(b.cct));
+
+        if (items.length === 0) {
+            onSetMessage({ type: "error", text: `No se encontraron PDFs de "${tipo}" subidos por los bachilleratos.` });
+            return;
+        }
+
+        const tipoLabel = tipo === "REGISTRO" ? "REGISTROS" : "EVIDENCIAS";
+        const fileName  = `${mergePrefix.toUpperCase()}_${tipoLabel}.PDF`;
+
+        setMergingType(tipo);
+        setMergeProgress({ total: items.length, done: 0, failed: 0, stage: "downloading" });
+        onSetMessage({ type: "success", text: `Unificando ${items.length} PDF${items.length > 1 ? "s" : ""} de ${tipoLabel}...` });
+
+        try {
+            const { mergedCount, failedCount } = await mergePdfsAndDownload(
+                items,
+                fileName,
+                (p) => setMergeProgress(p)
+            );
+            onSetMessage({
+                type: "success",
+                text: failedCount > 0
+                    ? `✅ ${fileName} descargado (${mergedCount} escuelas, ${failedCount} omitidas por error).`
+                    : `✅ ${fileName} descargado con ${mergedCount} escuela${mergedCount > 1 ? "s" : ""}.`,
+            });
+        } catch (e: any) {
+            onSetMessage({ type: "error", text: e.message || "Error al unificar los PDFs." });
+        } finally {
+            setMergingType(null);
+            setMergeProgress(null);
         }
     }
 
@@ -166,9 +228,16 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                     cardBgGradient = "linear-gradient(to right, var(--primary-bg) 0%, var(--surface) 150px)";
                 }
 
+                // ¿Es DÍA NARANJA?
+                const isDiaNaranja = prog.nombre.toUpperCase().includes(DIA_NARANJA_NOMBRE);
+
                 return (
                     <div key={prog.id} className="card" style={{ padding: 0, borderLeft: `5px solid ${progressColor}`, background: cardBgGradient }}>
-                        <button onClick={() => setExpanded(isExpanded ? null : prog.id)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "1rem", textAlign: "left" }}>
+                        {/* ── Cabecera del programa ── */}
+                        <button
+                            onClick={() => setExpanded(isExpanded ? null : prog.id)}
+                            style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "1rem", textAlign: "left" }}
+                        >
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <div>
                                     <div style={{ fontWeight: 700 }}>{prog.nombre}</div>
@@ -176,30 +245,146 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                         {entregadosProg}/{totalProg} recibidas • {prog.periodos.filter((p) => p.activo).length} periodo(s) activo(s)
                                     </div>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                     <span style={{ fontWeight: 700, color: progressColor }}>{porc}%</span>
+
+                                    {/* ── Botones de unificación PDF (solo Día Naranja) ── */}
+                                    {isDiaNaranja && (
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={(e) => e.stopPropagation()}>
+                                            {/* Botón Registros */}
+                                            <button
+                                                onClick={() => handleMergePdfs(prog, "REGISTRO")}
+                                                disabled={mergingType !== null}
+                                                title="Unificar todos los PDFs de Registro en un solo archivo (ordenados por CCT)"
+                                                style={{
+                                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                                    background: mergingType === "REGISTRO" ? "var(--primary-bg)" : "white",
+                                                    border: "1px solid var(--primary)", borderRadius: "5px",
+                                                    color: "var(--primary)", padding: "0.2rem 0.45rem",
+                                                    fontSize: "0.7rem", fontWeight: 700, cursor: mergingType ? "not-allowed" : "pointer",
+                                                    opacity: mergingType && mergingType !== "REGISTRO" ? 0.45 : 1,
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {mergingType === "REGISTRO"
+                                                    ? <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Descargando...</>
+                                                    : <><FileCheck2 size={11} /> Unificar Registros</>
+                                                }
+                                            </button>
+
+                                            {/* Botón Evidencias */}
+                                            <button
+                                                onClick={() => handleMergePdfs(prog, "EVIDENCIAS")}
+                                                disabled={mergingType !== null}
+                                                title="Unificar todos los PDFs de Evidencias en un solo archivo (ordenados por CCT)"
+                                                style={{
+                                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                                    background: mergingType === "EVIDENCIAS" ? "var(--primary-bg)" : "white",
+                                                    border: "1px solid #059669", borderRadius: "5px",
+                                                    color: "#059669", padding: "0.2rem 0.45rem",
+                                                    fontSize: "0.7rem", fontWeight: 700, cursor: mergingType ? "not-allowed" : "pointer",
+                                                    opacity: mergingType && mergingType !== "EVIDENCIAS" ? 0.45 : 1,
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {mergingType === "EVIDENCIAS"
+                                                    ? <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Descargando...</>
+                                                    : <><FilePlus2 size={11} /> Unificar Evidencias</>
+                                                }
+                                            </button>
+
+                                            {/* Engranaje para editar prefijo */}
+                                            <button
+                                                onClick={() => setShowPrefixInput(v => !v)}
+                                                title="Cambiar prefijo del nombre del archivo"
+                                                style={{
+                                                    background: "none", border: "1px solid var(--border)", borderRadius: "5px",
+                                                    color: "var(--text-muted)", padding: "0.2rem 0.3rem",
+                                                    cursor: "pointer", fontSize: "0.7rem", display: "inline-flex", alignItems: "center",
+                                                }}
+                                            >
+                                                ✎
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* ZIP download (todos los programas) */}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDownloadZip(prog); }}
                                         disabled={downloadingZip === prog.id}
                                         style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem", display: "flex", alignItems: "center", opacity: downloadingZip === prog.id ? 0.5 : 1 }}
-                                        title="Descargar todos los archivos generados en este programa en formato ZIP"
+                                        title="Descargar todos los archivos en formato ZIP"
                                     >
                                         <Download size={18} />
                                     </button>
                                     {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                 </div>
                             </div>
+
+                            {/* ── Editor de prefijo (solo Día Naranja, inline) ── */}
+                            {isDiaNaranja && showPrefixInput && (
+                                <div
+                                    style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>Prefijo:</span>
+                                    <input
+                                        type="text"
+                                        value={mergePrefix}
+                                        onChange={(e) => setMergePrefix(e.target.value.toUpperCase())}
+                                        placeholder="GEN004_21FMS0020X"
+                                        style={{
+                                            fontSize: "0.75rem", padding: "0.15rem 0.4rem",
+                                            border: "1px solid var(--border)", borderRadius: "4px",
+                                            background: "white", color: "var(--text)",
+                                            textTransform: "uppercase", fontFamily: "monospace", letterSpacing: "0.05em",
+                                            width: "180px",
+                                        }}
+                                    />
+                                    <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
+                                        → <strong>{mergePrefix.toUpperCase() || "PREFIX"}_REGISTROS.PDF</strong>
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* ── Barra de progreso del merge ── */}
+                            {isDiaNaranja && mergeProgress && (
+                                <div
+                                    style={{ marginTop: "0.4rem", display: "flex", alignItems: "center", gap: "0.5rem" }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div style={{ flex: 1, height: "4px", background: "var(--border)", borderRadius: "2px", overflow: "hidden" }}>
+                                        <div style={{
+                                            height: "100%", background: "var(--primary)", borderRadius: "2px",
+                                            width: mergeProgress.total > 0
+                                                ? `${Math.round(((mergeProgress.done + mergeProgress.failed) / mergeProgress.total) * 100)}%`
+                                                : "0%",
+                                            transition: "width 0.3s ease",
+                                        }} />
+                                    </div>
+                                    <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                                        {mergeProgress.stage === "merging"
+                                            ? "Uniendo PDFs..."
+                                            : `${mergeProgress.done + mergeProgress.failed} / ${mergeProgress.total}`
+                                        }
+                                        {mergeProgress.failed > 0 && ` (${mergeProgress.failed} omitidos)`}
+                                    </span>
+                                </div>
+                            )}
+
                             <div className="progress-bar" style={{ marginTop: "0.5rem", height: "6px" }}>
                                 <div className="progress-fill" style={{ width: `${porc}%`, background: progressColor }} />
                             </div>
                         </button>
 
+                        {/* ── Detalle expandido ── */}
                         {isExpanded && (
                             <div style={{ borderTop: "1px solid var(--border)" }}>
                                 {prog.periodos.filter((p) => p.activo).map((periodo) => (
                                     <div key={periodo.id}>
                                         {prog.tipo !== "ANUAL" && (
-                                            <div style={{ padding: "0.5rem 1rem", background: "var(--bg-secondary)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
+                                            <div
+                                                style={{ padding: "0.5rem 1rem", background: "var(--bg-secondary)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
                                                 onClick={() => setExpandedPeriodo(expandedPeriodo === periodo.id ? null : periodo.id)}
                                             >
                                                 {getPeriodoLabel(periodo)} ({periodo.entregas.filter((e) => e.estado !== "NO_ENTREGADO").length}/{periodo.entregas.length} recibidas)
@@ -214,9 +399,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                         <div key={ent.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)", gap: "0.5rem", flexWrap: "wrap" }}>
                                                             <div style={{ fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                                                                 <div style={{ fontWeight: 500 }}>{ent.escuela.nombre}</div>
-                                                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                                                    {ent.escuela.cct}
-                                                                </div>
+                                                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{ent.escuela.cct}</div>
                                                                 {ent.archivos.length > 0 && (
                                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
                                                                         {ent.archivos.map((arch, index) => {
@@ -259,7 +442,6 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                         </span>
                                                                     </div>
                                                                 )}
-
                                                             </div>
                                                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                                                 <select
@@ -270,7 +452,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                         padding: "0.25rem 0.5rem", borderRadius: "6px",
                                                                         border: `1px solid ${styles.borderColor}`, background: styles.background,
                                                                         color: styles.color, fontWeight: 600, fontSize: "0.75rem", cursor: "pointer",
-                                                                        outline: "none", transition: "all 0.2s ease"
+                                                                        outline: "none", transition: "all 0.2s ease",
                                                                     }}
                                                                 >
                                                                     {ESTADOS.map((e) => (
