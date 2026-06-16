@@ -2,17 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 
 /**
- * GET /api/download?url=<cloudinary_url>&name=<filename>&publicId=<driveId>
+ * GET /api/download?url=<cloudinary_url>&name=<filename>&publicId=<id>&inline=1
  *
- * Proxy de descarga para archivos de Cloudinary.
- * 
- * Estrategia:
- * 1. Usar Admin API para encontrar el recurso y obtener su resource_type correcto
- * 2. Generar un private_download_url (que usa api.cloudinary.com, NO el CDN)
- * 3. Fetch del archivo desde esa URL autenticada
- * 
- * El CDN de Cloudinary (res.cloudinary.com) bloquea PDFs y otros archivos
- * en cuentas free-tier, pero la API endpoint sí los entrega.
+ * Proxy optimizado para archivos de Cloudinary.
+ *
+ * Estrategia: usar private_download_url (solo HMAC, sin Admin API)
+ * → mucho más rápido que la versión anterior que hacía hasta 9 llamadas Admin API.
+ *
+ * Con ?inline=1 el Content-Disposition se manda como "inline" para que el
+ * navegador renderice el PDF en el iframe en lugar de descargarlo.
  */
 
 function configureCloudinary() {
@@ -31,35 +29,56 @@ function parseCloudinaryUrl(url: string) {
     );
     if (!match) return null;
 
-    const cloudName = match[1];
-    const resourceType = match[2];
-    const fullPath = match[3];
-    const lastDotIndex = fullPath.lastIndexOf(".");
-    const format = lastDotIndex > 0 ? fullPath.slice(lastDotIndex + 1) : "";
-    const publicId = resourceType === "raw"
-        ? fullPath
-        : (lastDotIndex > 0 ? fullPath.slice(0, lastDotIndex) : fullPath);
+    const cloudName    = match[1];
+    const resourceType = match[2];          // "image" | "raw" | "video"
+    const fullPath     = match[3];
+    const lastDot      = fullPath.lastIndexOf(".");
+    const format       = lastDot > 0 ? fullPath.slice(lastDot + 1) : "";
 
-    return { cloudName, resourceType, publicId, format, fullPath };
+    // raw resources include the extension in public_id; image/video do not.
+    const publicId =
+        resourceType === "raw"
+            ? fullPath
+            : (lastDot > 0 ? fullPath.slice(0, lastDot) : fullPath);
+
+    return { cloudName, resourceType, publicId, format };
+}
+
+/**
+ * Generates a signed Cloudinary private_download_url without calling the Admin API.
+ * This is purely local HMAC computation — takes < 1 ms.
+ */
+function buildSignedUrl(
+    publicId: string,
+    format: string,
+    resourceType: string
+): string {
+    return cloudinary.utils.private_download_url(
+        publicId,
+        format,
+        {
+            resource_type: resourceType as "image" | "raw" | "video",
+            type: "upload",
+            attachment: true, // Cloudinary always sends attachment; we override in our response
+        }
+    );
 }
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
-    const fileUrl = searchParams.get("url");
-    const fileName = searchParams.get("name") || "archivo";
+    const fileUrl        = searchParams.get("url");
+    const fileName       = searchParams.get("name") || "archivo";
     const directPublicId = searchParams.get("publicId");
-    // ?inline=1 → browser renders the file in an iframe (PDF viewer)
-    // default  → browser downloads the file (attachment)
-    const isInline = searchParams.get("inline") === "1";
+    // ?inline=1 → render in iframe; default → download as attachment
+    const isInline  = searchParams.get("inline") === "1";
     const disposition = isInline
         ? `inline; filename="${encodeURIComponent(fileName)}"`
         : `attachment; filename="${encodeURIComponent(fileName)}"`;
 
-
+    // ── Validations ────────────────────────────────────────
     if (!fileUrl) {
         return NextResponse.json({ error: "Missing 'url' parameter" }, { status: 400 });
     }
-
     if (!fileUrl.includes("res.cloudinary.com")) {
         return NextResponse.json({ error: "Only Cloudinary URLs are allowed" }, { status: 403 });
     }
@@ -69,143 +88,108 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Could not parse Cloudinary URL" }, { status: 400 });
     }
 
-    const publicId = directPublicId || parsed.publicId;
+    const { cloudName, resourceType: urlResourceType, format } = parsed;
+    const publicId      = directPublicId || parsed.publicId;
     const configuredCloud = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const apiKey          = process.env.CLOUDINARY_API_KEY;
+    const apiSecret       = process.env.CLOUDINARY_API_SECRET;
 
     if (!configuredCloud || !apiKey || !apiSecret) {
         return NextResponse.json({ error: "Cloudinary credentials not configured" }, { status: 500 });
     }
-
-    if (parsed.cloudName !== configuredCloud) {
-        return NextResponse.json({ error: `Cloud mismatch: ${parsed.cloudName} vs ${configuredCloud}` }, { status: 400 });
+    if (cloudName !== configuredCloud) {
+        return NextResponse.json({ error: `Cloud mismatch: ${cloudName} vs ${configuredCloud}` }, { status: 400 });
     }
 
     configureCloudinary();
 
-    const errors: string[] = [];
-    const resourceTypes = ["image", "raw", "video"];
-
-    console.log(`[download] publicId=${publicId}, format=${parsed.format}, directId=${!!directPublicId}`);
-
-    for (const resType of resourceTypes) {
-        // Build the correct public_id for this resource_type
-        let tryId = publicId;
-        if (resType === "raw" && !publicId.endsWith(`.${parsed.format}`)) {
-            // raw resource_type includes file extension in public_id
-            tryId = publicId + "." + parsed.format;
-        } else if (resType !== "raw" && publicId.match(/\.\w{2,5}$/)) {
-            // image/video resource_type does NOT include extension
-            tryId = publicId.replace(/\.[^/.]+$/, "");
+    // ── Build public_id variants ───────────────────────────
+    // raw resources include the extension; image/video don't.
+    function adjustId(id: string, resType: string): string {
+        if (resType === "raw" && format && !id.endsWith(`.${format}`)) {
+            return `${id}.${format}`;
         }
+        if (resType !== "raw" && /\.\w{2,5}$/.test(id)) {
+            return id.replace(/\.[^/.]+$/, "");
+        }
+        return id;
+    }
+
+    // Try URL-detected type first, then common fallbacks
+    const tryTypes = [urlResourceType, "image", "raw", "video"]
+        .filter((v, i, a) => a.indexOf(v) === i);
+
+    console.log(`[download] publicId=${publicId}, format=${format}, isInline=${isInline}`);
+
+    for (const resType of tryTypes) {
+        const tryId = adjustId(publicId, resType);
 
         try {
-            // Step 1: Check if resource exists with Admin API
-            console.log(`[download] Checking Admin API: resType=${resType}, id=${tryId}`);
-            const resource = await cloudinary.api.resource(tryId, {
-                resource_type: resType,
-                type: "upload",
+            // Build signed URL locally (fast: just HMAC, no network call)
+            const signedUrl = buildSignedUrl(tryId, format, resType);
+            console.log(`[download] Trying signed URL: ${resType}/${tryId}`);
+
+            const res = await fetch(signedUrl, {
+                signal: AbortSignal.timeout(8000), // 8 s safety net
             });
 
-            if (!resource) continue;
-            console.log(`[download] Found resource: ${resource.public_id} (${resType}/${resource.format})`);
+            if (res.ok) {
+                const contentType =
+                    res.headers.get("content-type") || "application/octet-stream";
+                console.log(`[download] SUCCESS ${resType}/${tryId} — ${contentType}`);
 
-            // Step 2: Generate a private download URL via Cloudinary SDK
-            // This calls api.cloudinary.com endpoint, NOT the CDN
-            try {
-                const privateUrl = cloudinary.utils.private_download_url(
-                    resource.public_id,
-                    resource.format || parsed.format,
-                    {
-                        resource_type: resType,
-                        type: "upload",
-                        attachment: true,
-                    }
-                );
-
-                console.log(`[download] Private download URL: ${privateUrl}`);
-                const response = await fetch(privateUrl);
-
-                if (response.ok) {
-                    const contentType = response.headers.get("content-type") || "application/octet-stream";
-                    const blob = await response.arrayBuffer();
-                    console.log(`[download] SUCCESS via private_download_url (${resType}), ${blob.byteLength} bytes`);
-                    return new NextResponse(blob, {
-                        status: 200,
-                        headers: {
-                            "Content-Type": contentType,
-                            "Content-Disposition": disposition,
-                            "Content-Length": blob.byteLength.toString(),
-                            "Cache-Control": "private, no-cache",
-                        },
-                    });
-                }
-
-                const errText = await response.text().catch(() => "");
-                errors.push(`private_download (${resType}): ${response.status} - ${errText.slice(0, 200)}`);
-                console.log(`[download] private_download_url failed: ${response.status} - ${errText.slice(0, 200)}`);
-            } catch (e: any) {
-                errors.push(`private_download (${resType}): ${e.message}`);
+                // Stream the response body to the client
+                // (avoids buffering the full file in memory)
+                return new Response(res.body, {
+                    status: 200,
+                    headers: {
+                        "Content-Type":           contentType,
+                        "Content-Disposition":    disposition,
+                        "Cache-Control":          "private, max-age=300",
+                        // Allow this endpoint to be loaded in iframes from the same origin
+                        "X-Frame-Options":        "SAMEORIGIN",
+                        "X-Content-Type-Options": "nosniff",
+                    },
+                });
             }
 
-            // Step 3: Try secure_url from Admin API directly (may still 401)
-            if (resource.secure_url) {
-                try {
-                    const response = await fetch(resource.secure_url);
-                    if (response.ok) {
-                        const contentType = response.headers.get("content-type") || "application/octet-stream";
-                        const blob = await response.arrayBuffer();
-                        console.log(`[download] SUCCESS via secure_url (${resType}), ${blob.byteLength} bytes`);
-                        return new NextResponse(blob, {
-                            status: 200,
-                            headers: {
-                                "Content-Type": contentType,
-                                "Content-Disposition": disposition,
-                                "Content-Length": blob.byteLength.toString(),
-                                "Cache-Control": "private, no-cache",
-                            },
-                        });
-                    }
-                    errors.push(`secure_url (${resType}): ${response.status}`);
-                } catch (e: any) {
-                    errors.push(`secure_url (${resType}): ${e.message}`);
-                }
-            }
-
-        } catch (e: any) {
-            const msg = e?.error?.message || e?.message || String(e);
-            errors.push(`Admin API (${resType}, id=${tryId}): ${msg}`);
+            console.log(`[download] ${resType} returned ${res.status}`);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error(`[download] Error for ${resType}/${tryId}:`, msg);
         }
     }
 
-    // Last resort: direct URL fetch
+    // ── Last resort: direct CDN URL (works for public assets) ──
     try {
-        const response = await fetch(fileUrl, { headers: { "User-Agent": "SISAT-ATP/1.0" } });
-        if (response.ok) {
-            const contentType = response.headers.get("content-type") || "application/octet-stream";
-            const blob = await response.arrayBuffer();
-            return new NextResponse(blob, {
+        const res = await fetch(fileUrl, {
+            headers: { "User-Agent": "SISAT-ATP/1.0" },
+            signal: AbortSignal.timeout(8000),
+        });
+        if (res.ok) {
+            const contentType = res.headers.get("content-type") || "application/octet-stream";
+            console.log(`[download] SUCCESS via direct CDN URL — ${contentType}`);
+            return new Response(res.body, {
                 status: 200,
                 headers: {
-                    "Content-Type": contentType,
+                    "Content-Type":        contentType,
                     "Content-Disposition": disposition,
-                    "Content-Length": blob.byteLength.toString(),
-                    "Cache-Control": "private, no-cache",
+                    "Cache-Control":       "private, max-age=300",
+                    "X-Frame-Options":     "SAMEORIGIN",
                 },
             });
         }
-        errors.push(`direct fetch: ${response.status}`);
-    } catch (e: any) {
-        errors.push(`direct fetch: ${e.message}`);
+        console.log(`[download] Direct CDN: ${res.status}`);
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[download] Direct CDN failed:", msg);
     }
 
-    console.error(`[download] All strategies failed:`, errors);
+    console.error(`[download] All strategies failed for publicId=${publicId}`);
     return NextResponse.json(
         {
             error: "No se pudo descargar el archivo.",
-            details: errors,
-            info: { publicId, format: parsed.format, configuredCloud, hadDirectId: !!directPublicId },
+            info: { publicId, format, configuredCloud },
         },
         { status: 502 }
     );
