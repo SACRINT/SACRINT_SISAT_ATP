@@ -28,11 +28,11 @@ interface ProyectoCircular05Props {
 // ─── Checklist Items ──────────────────────────────
 const CHECKLIST_ITEMS = [
     "Oficio de solicitud firmado por el Director.",
-    "Formatos originales de autorización firmados por los padres/tutores.",
-    "Copia del INE de cada padre/tutor que firma.",
+    "Formatos originales de autorización firmados por los padres/tutores (menores de edad) o Formatos de aceptación (mayores de edad).",
+    "Copia del INE de cada padre/tutor o alumno mayor de edad.",
     "Constancia de vigencia de derechos (NSS/IMSS) o certificado médico de cada alumno.",
     "Acta original de la reunión con padres de familia.",
-    "Si hay transporte rentado: Contrato de transporte, póliza de seguro de viajero y licencia del conductor.",
+    "Si hay transporte rentado: Contrato de transporte, póliza de seguro de viajero, licencia del conductor y factura de mantenimiento del vehículo (no mayor a 3 meses).",
     "Acreditación de la persona encargada de primeros auxilios (ej. Cruz Roja).",
 ];
 
@@ -45,11 +45,12 @@ const ORDEN_INTEGRACION = [
     "6. Contrato de transporte con la empresa.",
     "7. Póliza de seguro de viajero vigente.",
     "8. Licencia del conductor.",
-    "9. Constancia de primeros auxilios (acreditación Cruz Roja u otras).",
-    "10. Formatos de autorización firmados por padres/tutores con copia de INE.",
-    "11. Constancias de vigencia de derechos (NSS/IMSS) o certificados médicos.",
-    "12. Acta de la reunión con padres de familia.",
-    "13. Credenciales escolares de los alumnos participantes.",
+    "9. Factura de mantenimiento de la unidad de transporte (antigüedad menor a 3 meses).",
+    "10. Constancia de primeros auxilios (acreditación Cruz Roja u otras).",
+    "11. Formatos de autorización/aceptación firmados con copia de INE.",
+    "12. Constancias de vigencia de derechos (NSS/IMSS) o certificados médicos.",
+    "13. Acta de la reunión con padres de familia.",
+    "14. Credenciales escolares de los alumnos participantes.",
 ];
 
 const ITINERARIO_INICIAL: Itinerario[] = [
@@ -64,10 +65,15 @@ const ITINERARIO_INICIAL: Itinerario[] = [
     { hora: "", actividad: "LLEGADA APROXIMADA", lugar: "" },
 ];
 
-// Ratio Circular 05: 2 docentes por cada 40 o menos alumnos (Media Superior)
+// Ratio Circular 03 (Media Superior): 2 docentes y 1 padre/tutor por cada 40 o menos alumnos
 function calcularDocentesRequeridos(numAlumnos: number): number {
     if (numAlumnos <= 0) return 0;
     return Math.ceil(numAlumnos / 40) * 2;
+}
+
+function calcularPadresRequeridos(numAlumnos: number): number {
+    if (numAlumnos <= 0) return 0;
+    return Math.ceil(numAlumnos / 40) * 1;
 }
 
 // ─── Componente ───────────────────────────────────
@@ -432,7 +438,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
     if (loadingConfig) {
         return (
             <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem", gap: "0.75rem" }}>
-                <Loader2 size={24} className="spin" /> Cargando módulo Circular 05...
+                <Loader2 size={24} className="spin" /> Cargando módulo Circular 03...
             </div>
         );
     }
@@ -444,10 +450,10 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                 <div className="card" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)", color: "white", border: "none" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
                         <FileText size={28} />
-                        <h2 style={{ margin: 0 }}>Proyecto Circular 05</h2>
+                        <h2 style={{ margin: 0 }}>Proyecto Circular 03</h2>
                     </div>
                     <p style={{ opacity: 0.85, fontSize: "0.875rem", margin: 0 }}>
-                        Generador automático del expediente para autorización de salidas extraescolares (Circular No. 05/2017 SEP)
+                        Generador automático del expediente para autorización de salidas extraescolares (Circular No. 003/2026 SEP)
                     </p>
                 </div>
                 <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
@@ -473,10 +479,10 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
             <div className="card" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)", color: "white", border: "none" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
                     <FileText size={28} />
-                    <h2 style={{ margin: 0 }}>Proyecto Circular 05</h2>
+                    <h2 style={{ margin: 0 }}>Proyecto Circular 03</h2>
                 </div>
                 <p style={{ opacity: 0.85, fontSize: "0.875rem", margin: 0 }}>
-                    Generador automático del expediente para autorización de salidas extraescolares (Circular No. 05/2017 SEP)
+                    Generador automático del expediente para autorización de salidas extraescolares (Circular No. 003/2026 SEP)
                 </p>
             </div>
 
@@ -719,7 +725,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                         <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "0.6rem 0.75rem", marginBottom: "0.75rem", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
                             <Info size={16} style={{ color: "#3b82f6", flexShrink: 0, marginTop: "2px" }} />
                             <p style={{ margin: 0, fontSize: "0.75rem", color: "#1e40af" }}>
-                                <strong>Importante:</strong> Seleccione la disciplina de cada alumno del catálogo. Si no aparece la disciplina deseada, seleccione &quot;Otra...&quot; para escribirla manualmente. El sistema agrupará automáticamente los alumnos por disciplina y calculará cuántos responsables se necesitan según la Circular 05 (2 docentes por cada 40 o menos alumnos).
+                                <strong>Importante:</strong> Seleccione la disciplina de cada alumno del catálogo. Si no aparece la disciplina deseada, seleccione &quot;Otra...&quot; para escribirla manualmente. El sistema agrupará automáticamente los alumnos por disciplina y calculará cuántos responsables se necesitan según la Circular 03 (2 docentes y 1 padre/tutor por cada 40 o menos alumnos).
                             </p>
                         </div>
 
@@ -759,7 +765,6 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                                             onChange={(e) => {
                                                                 if (e.target.value === "__otra__") {
                                                                     updateAlumno(i, "disciplina", " ");
-                                                                    /* ponemos espacio para activar el modo input, el usuario borrará */
                                                                 } else {
                                                                     updateAlumno(i, "disciplina", e.target.value);
                                                                 }
@@ -797,10 +802,11 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                 </div>
                                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                                     {Array.from(disciplinasAgrupadas.entries()).map(([disc, als]) => {
-                                        const requeridos = calcularDocentesRequeridos(als.length);
+                                        const reqDoc = calcularDocentesRequeridos(als.length);
+                                        const reqPad = calcularPadresRequeridos(als.length);
                                         return (
                                             <span key={disc} style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.3rem 0.75rem", borderRadius: "20px", background: "#dcfce7", color: "#166534", fontSize: "0.75rem", fontWeight: 600 }}>
-                                                {disc}: {als.length} alumno(s) → mín. {requeridos} docente(s)
+                                                {disc}: {als.length} alumno(s) → mín. {reqDoc} docente(s) y {reqPad} padre/tutor
                                             </span>
                                         );
                                     })}
@@ -827,19 +833,24 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                 <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "0.6rem 0.75rem", marginBottom: "1rem", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
                                     <Info size={16} style={{ color: "#3b82f6", flexShrink: 0, marginTop: "2px" }} />
                                     <p style={{ margin: 0, fontSize: "0.75rem", color: "#1e40af" }}>
-                                        <strong>Circular 05 (Media Superior):</strong> Se requieren <strong>2 docentes por cada 40 o menos alumnos</strong> por disciplina. Un mismo docente no puede ser responsable de 2 disciplinas al mismo tiempo. Se generará un Oficio de Comisión por cada docente.
+                                        <strong>Circular 03 (Media Superior):</strong> Se requieren <strong>2 docentes y 1 padre/tutor por cada 40 o menos alumnos</strong> por disciplina. Un mismo docente no puede ser responsable de 2 disciplinas al mismo tiempo. Se generará un Oficio de Comisión por cada docente (los padres/tutores no requieren Oficio de Comisión individual).
                                     </p>
                                 </div>
 
                                 {Array.from(disciplinasAgrupadas.entries()).map(([disc, als]) => {
-                                    const requeridos = calcularDocentesRequeridos(als.length);
-                                    const asignados = (responsablesPorDisciplina[disc] || []).filter(r => r.nombre).length;
-                                    const cumple = asignados >= requeridos;
+                                    const docentesRequeridos = calcularDocentesRequeridos(als.length);
+                                    const padresRequeridos = calcularPadresRequeridos(als.length);
+                                    const responsablesArray = responsablesPorDisciplina[disc] || [];
+                                    const docentesAsignados = responsablesArray.filter(r => r.nombre && r.cargo !== "Padre/Madre/Tutor").length;
+                                    const padresAsignados = responsablesArray.filter(r => r.nombre && r.cargo === "Padre/Madre/Tutor").length;
+                                    const cumpleDocentes = docentesAsignados >= docentesRequeridos;
+                                    const cumplePadres = padresAsignados >= padresRequeridos;
+                                    const cumple = cumpleDocentes && cumplePadres;
 
                                     return (
                                         <div key={disc} style={{ marginBottom: "1rem", border: `2px solid ${cumple ? "#86efac" : "#fca5a5"}`, borderRadius: "10px", overflow: "hidden" }}>
                                             {/* Header de disciplina */}
-                                            <div style={{ background: cumple ? "#f0fdf4" : "#fef2f2", padding: "0.6rem 0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <div style={{ background: cumple ? "#f0fdf4" : "#fef2f2", padding: "0.6rem 0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                                                 <div>
                                                     <strong style={{ fontSize: "0.9375rem", color: cumple ? "#166534" : "#991b1b" }}>
                                                         {disc}
@@ -848,16 +859,26 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                                         ({als.length} alumno{als.length !== 1 ? "s" : ""})
                                                     </span>
                                                 </div>
-                                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                                                     <span style={{
                                                         padding: "0.2rem 0.6rem",
                                                         borderRadius: "12px",
                                                         fontSize: "0.7rem",
                                                         fontWeight: 700,
-                                                        background: cumple ? "#dcfce7" : "#fee2e2",
-                                                        color: cumple ? "#166534" : "#991b1b",
+                                                        background: cumpleDocentes ? "#dcfce7" : "#fee2e2",
+                                                        color: cumpleDocentes ? "#166534" : "#991b1b",
                                                     }}>
-                                                        {asignados}/{requeridos} docente(s)
+                                                        {docentesAsignados}/{docentesRequeridos} docente(s)
+                                                    </span>
+                                                    <span style={{
+                                                        padding: "0.2rem 0.6rem",
+                                                        borderRadius: "12px",
+                                                        fontSize: "0.7rem",
+                                                        fontWeight: 700,
+                                                        background: cumplePadres ? "#dcfce7" : "#fee2e2",
+                                                        color: cumplePadres ? "#166534" : "#991b1b",
+                                                    }}>
+                                                        {padresAsignados}/{padresRequeridos} padre(s)/tutor(es)
                                                     </span>
                                                     {cumple ? <CheckCircle2 size={16} style={{ color: "#16a34a" }} /> : <AlertTriangle size={16} style={{ color: "#ef4444" }} />}
                                                 </div>
@@ -871,7 +892,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                                             style={{ ...inputStyle, flex: 2 }}
                                                             value={resp.nombre}
                                                             onChange={(e) => updateResponsable(disc, i, "nombre", e.target.value)}
-                                                            placeholder="Nombre completo del docente"
+                                                            placeholder={resp.cargo === "Padre/Madre/Tutor" ? "Nombre completo del padre/tutor" : "Nombre completo del docente"}
                                                         />
                                                         <select
                                                             style={{ ...inputStyle, flex: 1 }}
@@ -883,6 +904,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                                             <option value="Director">Director</option>
                                                             <option value="Subdirector">Subdirector</option>
                                                             <option value="Orientador">Orientador</option>
+                                                            <option value="Padre/Madre/Tutor">Padre/Madre/Tutor</option>
                                                         </select>
                                                         <button
                                                             onClick={() => removerResponsable(disc, i)}
@@ -897,7 +919,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                                                     style={{ padding: "0.3rem 0.65rem", fontSize: "0.75rem" }}
                                                     onClick={() => agregarResponsable(disc)}
                                                 >
-                                                    <Plus size={12} /> Agregar docente a {disc}
+                                                    <Plus size={12} /> Agregar custodio a {disc}
                                                 </button>
                                             </div>
                                         </div>
@@ -947,7 +969,7 @@ export default function ProyectoCircular05({ escuela }: ProyectoCircular05Props)
                     {loading ? (
                         <><Loader2 size={22} className="spin" /> Generando documento...</>
                     ) : (
-                        <><Download size={22} /> Descargar Proyecto Circular 05</>
+                        <><Download size={22} /> Descargar Proyecto Circular 03</>
                     )}
                 </button>
             </div>

@@ -370,7 +370,7 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
     children.push(...encabezado());
     children.push(zonaEscolarParagraph(datos.zonaEscolar));
     children.push(tituloSeccion("RELACIÓN DE ASISTENTES"));
-    children.push(parrafo(`Ciclo escolar ${ciclo}. Total de alumnos: ${totalAlumnos}. Total de responsables: ${allResponsables.length + 1} (incluyendo al Director). Ratio Circular 05: 2 docentes por cada 40 o menos alumnos.`, { size: 18 }));
+    children.push(parrafo(`Ciclo escolar ${ciclo}. Total de alumnos: ${totalAlumnos}. Total de responsables: ${allResponsables.length + 1} (incluyendo al Director). Ratio Circular 03: 2 docentes y 1 padre/tutor por cada 40 o menos alumnos.`, { size: 18 }));
 
     // Tabla por cada disciplina
     for (const grupo of grupos) {
@@ -514,6 +514,7 @@ export function generarDocumentoCircular05(datos: DatosCircular05): Document {
     // ════════ PÁGINAS: OFICIOS DE COMISIÓN (uno por responsable) ════════
     for (const grupo of grupos) {
         for (const resp of grupo.responsables) {
+            if (resp.cargo === "Padre/Madre/Tutor") continue; // Los padres de familia no reciben oficio de comisión individual
             children.push(new Paragraph({ children: [new PageBreak()] }));
             children.push(...encabezado());
             children.push(zonaEscolarParagraph(datos.zonaEscolar));

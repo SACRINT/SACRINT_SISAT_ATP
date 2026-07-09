@@ -513,7 +513,7 @@ export default function AdminDashboard({
                                     {sidebarConfig.showCircular05 && (
                                         <button className={`sidebar-link ${vista === "circular05" ? "active" : ""}`} onClick={() => navigate("circular05")}>
                                             <FileText size={17} />
-                                            <span>Circular 05</span>
+                                            <span>Circular 03</span>
                                         </button>
                                     )}
                                     {sidebarConfig.showOlimpiada && (

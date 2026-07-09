@@ -57,7 +57,7 @@ const MODULOS: ModuloInfo[] = [
     },
     {
         key: "showCircular05",
-        nombre: "Proyecto Circular 05",
+        nombre: "Proyecto Circular 03",
         descripcion: "Generación y seguimiento de cartas de proyecto por escuela.",
         icon: <FileText size={22} />,
         color: "#6366f1",

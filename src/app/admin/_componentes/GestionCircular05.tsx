@@ -204,7 +204,7 @@ export default function GestionCircular05() {
             <div className="card" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)", color: "white", border: "none" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
                     <FileText size={28} />
-                    <h2 style={{ margin: 0 }}>Gestión Circular 05</h2>
+                    <h2 style={{ margin: 0 }}>Gestión Circular 03</h2>
                 </div>
                 <p style={{ opacity: 0.85, fontSize: "0.875rem", margin: 0 }}>
                     Administra el módulo de generación de expedientes para salidas extraescolares.
@@ -226,7 +226,7 @@ export default function GestionCircular05() {
                         <h3 style={{ margin: "0 0 0.25rem" }}>Estado del Módulo</h3>
                         <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-muted)" }}>
                             {config?.activo
-                                ? "Los directores pueden generar documentos de Circular 05."
+                                ? "Los directores pueden generar documentos de Circular 03."
                                 : "El módulo está desactivado. Los directores no pueden generar documentos."}
                         </p>
                     </div>

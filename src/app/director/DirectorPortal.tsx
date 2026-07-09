@@ -97,7 +97,7 @@ export default function DirectorPortal({
     // Count active special modules
     const specialModules: { key: TabType; label: string; icon: React.ReactNode; active: boolean }[] = [
         { key: "eventos", label: "Eventos Culturales", icon: <Trophy size={17} />, active: isEventosActive },
-        { key: "circular05", label: "Circular 05", icon: <FileText size={17} />, active: isCircularActive },
+        { key: "circular05", label: "Circular 03", icon: <FileText size={17} />, active: isCircularActive },
         { key: "olimpiada", label: "Olimpiada Matemáticas", icon: <GraduationCap size={17} />, active: isOlimpiadaActive },
         { key: "paec", label: "Encuentro PAEC", icon: <Lightbulb size={17} />, active: isPAECActive },
         { key: "capems", label: "Fichas CAPEMS", icon: <BookMarked size={17} />, active: isCapemsActive },
@@ -109,7 +109,7 @@ export default function DirectorPortal({
         entregas: "Mis Entregas",
         recursos: "Recursos",
         eventos: "Eventos Culturales",
-        circular05: "Circular 05",
+        circular05: "Circular 03",
         olimpiada: "Olimpiada Matemáticas",
         paec: "Encuentro PAEC",
         capems: "Fichas CAPEMS",

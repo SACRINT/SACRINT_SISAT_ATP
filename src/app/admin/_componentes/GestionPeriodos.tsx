@@ -45,7 +45,7 @@ export default function GestionPeriodos({ programas, sidebarConfig }: GestionPer
     const visibilityItems = [
         { key: "showRecursos", label: "Formatos y Plantillas" },
         { key: "showEventos", label: "Eventos Culturales" },
-        { key: "showCircular05", label: "Circular 05" },
+        { key: "showCircular05", label: "Circular 03" },
         { key: "showOlimpiada", label: "Olimpiada Matemáticas" },
         { key: "showPAEC", label: "Encuentro PAEC" },
         { key: "showCapems", label: "Fichas CAPEMS" },
