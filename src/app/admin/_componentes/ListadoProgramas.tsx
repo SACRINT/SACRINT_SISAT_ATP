@@ -19,7 +19,7 @@ const DEFAULT_PREFIX = "GEN004_21FMS0020X";
 interface ListadoProgramasProps {
     programas: ProgramaAdmin[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
-    onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[] } | null) => void;
+    onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any } | null) => void;
 }
 
 function getEstadoStyles(estado: string) {
@@ -398,7 +398,32 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                         <div key={ent.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)", gap: "0.5rem", flexWrap: "wrap" }}>
                                                             <div style={{ fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                                                                 <div style={{ fontWeight: 500 }}>{ent.escuela.nombre}</div>
-                                                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{ent.escuela.cct}</div>
+                                                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                                    <span>{ent.escuela.cct}</span>
+                                                                    {(ent as any).preRevision && (
+                                                                        <span style={{
+                                                                            fontSize: "0.68rem",
+                                                                            padding: "0.05rem 0.3rem",
+                                                                            borderRadius: "4px",
+                                                                            fontWeight: 700,
+                                                                            background: (ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false
+                                                                                ? "#fdf2f2"
+                                                                                : "#f0fdf4",
+                                                                            color: (ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false
+                                                                                ? "#dc2626"
+                                                                                : "#16a34a",
+                                                                            border: `1px solid ${(ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false ? "#f87171" : "#86efac"}`
+                                                                        }}>
+                                                                            🔍 Pre-dictamen: {
+                                                                                (ent as any).preRevision.resultado.tieneIncidencias
+                                                                                    ? "⚠️ Con Incidencias"
+                                                                                    : (ent as any).preRevision.resultado.aprobado === false
+                                                                                        ? "⚠️ Firma/Sello Faltante"
+                                                                                        : "✓ Correcto"
+                                                                            }
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 {ent.archivos.length > 0 && (
                                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
                                                                         {ent.archivos.map((arch, index) => {
@@ -459,7 +484,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                     ))}
                                                                 </select>
                                                                 <button
-                                                                    onClick={() => onSetCorreccionModal({ entregaId: ent.id, escuelaNombre: ent.escuela.nombre, history: ent.correcciones })}
+                                                                    onClick={() => onSetCorreccionModal({ entregaId: ent.id, escuelaNombre: ent.escuela.nombre, history: ent.correcciones, preRevision: (ent as any).preRevision })}
                                                                     style={{ background: "none", border: "none", cursor: "pointer", color: "#e67e22", padding: "0.25rem" }}
                                                                     title="Enviar corrección / Ver historial"
                                                                 >

@@ -127,6 +127,7 @@ model Entrega {
   periodoEntrega PeriodoEntrega @relation(fields: [periodoEntregaId], references: [id])
   archivos       Archivo[]
   correcciones   Correccion[]
+  preRevision    PreRevision?
 
   @@unique([escuelaId, periodoEntregaId])
 }
@@ -413,4 +414,23 @@ model DocumentoPersonal {
   updatedAt        DateTime @updatedAt
 
   personal         Personal @relation(fields: [personalId], references: [id], onDelete: Cascade)
+}
+
+model PreRevision {
+  id        String   @id @default(cuid())
+  entregaId String   @unique
+  resultado Json     // Contiene { cumpleFirmas: boolean, borradorCorreo: string, etc. }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entrega   Entrega  @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+}
+
+model PlantillaEvaluacion {
+  id        String   @id @default(cuid())
+  modulo    String   // "PMC" | "PAEC"
+  nombre    String   // ej. "Rúbrica de Diagnóstico Colectivo 2025"
+  contenido String   // El prompt maestro, lineamientos o rúbrica completa
+  activo    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
 }

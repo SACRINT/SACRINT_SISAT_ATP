@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendUploadConfirmation } from "@/lib/email";
+import { analizarEntregaConIA } from "@/lib/pre-revision";
 
 export async function POST(req: NextRequest) {
     try {
@@ -89,6 +90,11 @@ export async function POST(req: NextRequest) {
             programa.nombre,
             periodoLabel
         );
+
+        // Desencadenar pre-revisión en segundo plano (asíncrono sin await para no bloquear la respuesta)
+        analizarEntregaConIA(entregaId).catch(err => {
+            console.error("Error al ejecutar pre-revisión en segundo plano:", err);
+        });
 
         return NextResponse.json({
             success: true,

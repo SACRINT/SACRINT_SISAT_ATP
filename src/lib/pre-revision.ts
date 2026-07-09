@@ -1,0 +1,367 @@
+import { prisma } from "./db";
+import { callGemini } from "./gemini";
+import * as XLSX from "xlsx";
+import JSZip from "jszip";
+
+async function extractTextFromDocx(buffer: Buffer): Promise<string> {
+    const zip = await JSZip.loadAsync(buffer);
+    const docFile = zip.file("word/document.xml");
+    if (!docFile) {
+        throw new Error("No word/document.xml found in DOCX file");
+    }
+    const docXml = await docFile.async("string");
+    const matches = docXml.match(/<w:t[^>]*>(.*?)<\/w:t>/g) || [];
+    const text = matches.map(m => m.replace(/<[^>]+>/g, '')).join(' ');
+    return text;
+}
+
+export interface PreRevisionResult {
+    tipo: "DIA_NARANJA" | "ACOSO_ESCOLAR" | "PMC" | "PAEC" | "OTROS";
+    aprobado?: boolean;
+    error?: string;
+    // Día Naranja fields
+    archivos?: {
+        nombre: string;
+        etiqueta: string;
+        firmado: boolean;
+        sellado: boolean;
+        explicacion: string;
+    }[];
+    // Acoso Escolar fields
+    tieneIncidencias?: boolean;
+    incidenciasDetalle?: {
+        mes: string;
+        categoria: string;
+        edad: string;
+        violencia: string[];
+        escuela: string;
+        cct: string;
+        localidad: string;
+    }[];
+    borradorCorreo?: string;
+    firmado?: boolean;
+    sellado?: boolean;
+    explicacion?: string;
+}
+
+/**
+ * Downloads a file as buffer from a URL (e.g. Cloudinary secure URL)
+ */
+async function downloadFile(url: string): Promise<Buffer> {
+    const res = await fetch(url);
+    if (!res.ok) {
+        throw new Error(`Failed to download file from ${url} (status ${res.status})`);
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Performs background pre-revision analysis for a school delivery
+ */
+export async function analizarEntregaConIA(entregaId: string): Promise<void> {
+    try {
+        const entrega = await prisma.entrega.findUnique({
+            where: { id: entregaId },
+            include: {
+                archivos: true,
+                periodoEntrega: { include: { programa: true } },
+                escuela: true,
+            }
+        });
+
+        if (!entrega || entrega.archivos.length === 0) {
+            console.warn(`No files found for delivery ${entregaId} in pre-revision.`);
+            return;
+        }
+
+        const programaNombre = entrega.periodoEntrega.programa.nombre.toUpperCase().trim();
+        const escuelaCct = entrega.escuela.cct;
+        const escuelaNombre = entrega.escuela.nombre;
+
+        let resultado: PreRevisionResult | null = null;
+
+        if (programaNombre.includes("DÍA NARANJA") || programaNombre.includes("DIA NARANJA")) {
+            // --- DÍA NARANJA PRE-REVISION ---
+            const pdfFiles = entrega.archivos.filter(a => a.tipo === "ENTREGA" && a.driveUrl);
+            const reportes: any[] = [];
+
+            for (const file of pdfFiles) {
+                try {
+                    const buffer = await downloadFile(file.driveUrl!);
+                    
+                    const systemInstruction = "Eres un Asesor Técnico Pedagógico experto en revisión de expedientes escolares.";
+                    const prompt = `Analiza este documento PDF de entrega correspondiente a la escuela ${escuelaNombre} (${escuelaCct}).
+Determina si cuenta con:
+1. La firma autógrafa del Director del plantel en la página final o donde se presenten las firmas.
+2. El sello oficial de la institución.
+
+Responde únicamente en formato JSON con la siguiente estructura:
+{
+  "signed": true/false,
+  "sealed": true/false,
+  "explanation": "Breve explicación detallada de lo encontrado (máximo 2 líneas)"
+}`;
+
+                    const rawResponse = await callGemini(systemInstruction, prompt, buffer);
+                    const parsed = JSON.parse(rawResponse);
+
+                    reportes.push({
+                        nombre: file.nombre,
+                        etiqueta: file.etiqueta || "Archivo",
+                        firmado: !!parsed.signed,
+                        sellado: !!parsed.sealed,
+                        explicacion: parsed.explanation || "Analizado correctamente."
+                    });
+                } catch (e: any) {
+                    console.error(`Error analyzing file ${file.nombre}:`, e);
+                    reportes.push({
+                        nombre: file.nombre,
+                        etiqueta: file.etiqueta || "Archivo",
+                        firmado: false,
+                        sellado: false,
+                        explicacion: `Error de análisis: ${e.message}`
+                    });
+                }
+            }
+
+            resultado = {
+                tipo: "DIA_NARANJA",
+                archivos: reportes,
+                aprobado: reportes.every(r => r.firmado && r.sellado)
+            };
+
+        } else if (programaNombre.includes("ACOSO ESCOLAR")) {
+            // --- ACOSO ESCOLAR PRE-REVISION ---
+            const file = entrega.archivos.find(a => a.tipo === "ENTREGA" && a.driveUrl);
+            if (!file) return;
+
+            const isExcel = file.nombre.toLowerCase().endsWith(".xlsx") || file.nombre.toLowerCase().endsWith(".xls");
+
+            if (isExcel) {
+                // EXCEL: Report with incidents
+                try {
+                    const buffer = await downloadFile(file.driveUrl!);
+                    const workbook = XLSX.read(buffer, { type: "buffer" });
+                    const sheetNames = workbook.SheetNames;
+                    const incidencias: any[] = [];
+
+                    for (const sheetName of sheetNames) {
+                        const sheet = workbook.Sheets[sheetName];
+                        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[];
+                        
+                        let currentCategoria = "";
+                        for (let r = 7; r < rows.length; r++) {
+                            const row = rows[r];
+                            if (!row || row.length === 0) continue;
+                            
+                            if (row[0] && typeof row[0] === 'string' && ['NIÑAS', 'NIÑOS', 'ADOLESCENTES', 'MUJER', 'HOMBRE'].includes(row[0].toUpperCase().trim())) {
+                                currentCategoria = row[0].toUpperCase().trim();
+                            }
+                            
+                            const schoolName = row[7];
+                            const cct = row[8];
+                            
+                            if (schoolName || cct) {
+                                const agFisica = row[2];
+                                const hostigamiento = row[3];
+                                const discriminatorio = row[4];
+                                const otro = row[5];
+                                
+                                const tieneCaso = [agFisica, hostigamiento, discriminatorio, otro].some(val => 
+                                    val && typeof val === 'string' && val.toUpperCase().trim() === 'X'
+                                );
+                                
+                                if (tieneCaso) {
+                                    const tiposViolencia: string[] = [];
+                                    if (agFisica && agFisica.toUpperCase().trim() === 'X') tiposViolencia.push("Agresión Física");
+                                    if (hostigamiento && hostigamiento.toUpperCase().trim() === 'X') tiposViolencia.push("Hostigamiento");
+                                    if (discriminatorio && discriminatorio.toUpperCase().trim() === 'X') tiposViolencia.push("Discriminatorio");
+                                    if (otro && otro.toUpperCase().trim() === 'X') tiposViolencia.push("Otro");
+
+                                    incidencias.push({
+                                        mes: sheetName,
+                                        categoria: currentCategoria || "General",
+                                        edad: row[1] || "S/D",
+                                        violencia: tiposViolencia,
+                                        escuela: schoolName ? schoolName.toString().trim() : "N/D",
+                                        cct: cct ? cct.toString().trim() : "N/D",
+                                        localidad: row[9] ? row[9].toString().trim() : "N/D"
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    let borradorCorreo = "";
+                    if (incidencias.length > 0) {
+                        // Call Gemini to draft a formal email with the parsed incidents
+                        const systemInstruction = "Eres un Asesor Técnico Pedagógico (ATP) de supervisión escolar de bachilleratos.";
+                        const prompt = `Redacta un correo institucional formal dirigido a la Dirección General de Bachilleratos, notificando que se detectaron incidencias de acoso escolar en la zona escolar.
+Los detalles de las incidencias reportadas por el director en el archivo Excel son los siguientes:
+${JSON.stringify(incidencias, null, 2)}
+
+El correo debe:
+- Ser formal, claro y profesional.
+- Resumir de forma consolidada las escuelas afectadas, el tipo de población y el tipo de violencia/acoso reportado.
+- Mencionar que el reporte fue consolidado por la supervisión de zona a cargo del ATP.
+
+Responde únicamente en formato JSON con la siguiente estructura:
+{
+  "email_draft": "Cuerpo completo del correo redactado..."
+}`;
+
+                        try {
+                            const rawResponse = await callGemini(systemInstruction, prompt);
+                            const parsed = JSON.parse(rawResponse);
+                            borradorCorreo = parsed.email_draft || "";
+                        } catch (e) {
+                            console.error("Error generating email draft with Gemini:", e);
+                            borradorCorreo = `Error al redactar borrador: ${e instanceof Error ? e.message : String(e)}`;
+                        }
+                    }
+
+                    resultado = {
+                        tipo: "ACOSO_ESCOLAR",
+                        tieneIncidencias: true,
+                        incidenciasDetalle: incidencias,
+                        borradorCorreo: borradorCorreo || "No se pudo generar el borrador."
+                    };
+
+                } catch (e: any) {
+                    console.error("Error parsing acoso Excel:", e);
+                    resultado = {
+                        tipo: "ACOSO_ESCOLAR",
+                        tieneIncidencias: true,
+                        error: `Error al leer Excel: ${e.message}`,
+                        borradorCorreo: "Error al leer el archivo Excel."
+                    };
+                }
+
+            } else {
+                // PDF: Report without incidents (standard letter declaring zero cases)
+                try {
+                    const buffer = await downloadFile(file.driveUrl!);
+                    const systemInstruction = "Eres un Asesor Técnico Pedagógico experto en revisión de expedientes escolares.";
+                    const prompt = `Analiza este informe de Acoso Escolar en PDF de la escuela ${escuelaNombre} (${escuelaCct}).
+Determina si:
+1. El informe cuenta con la firma autógrafa del Director.
+2. Cuenta con el sello oficial del plantel.
+
+Responde únicamente en formato JSON con la siguiente estructura:
+{
+  "signed": true/false,
+  "sealed": true/false,
+  "explanation": "Breve explicación del análisis visual (máximo 2 líneas)"
+}`;
+
+                    const rawResponse = await callGemini(systemInstruction, prompt, buffer);
+                    const parsed = JSON.parse(rawResponse);
+
+                    resultado = {
+                        tipo: "ACOSO_ESCOLAR",
+                        tieneIncidencias: false,
+                        firmado: !!parsed.signed,
+                        sellado: !!parsed.sealed,
+                        explicacion: parsed.explanation || "Reporte sin incidencias validado correctamente."
+                    };
+                } catch (e: any) {
+                    console.error("Error analyzing acoso PDF:", e);
+                    resultado = {
+                        tipo: "ACOSO_ESCOLAR",
+                        tieneIncidencias: false,
+                        firmado: false,
+                        sellado: false,
+                        explicacion: `Error de análisis visual: ${e.message}`
+                    };
+                }
+            }
+        } else if (programaNombre.includes("PMC") || programaNombre.includes("PAEC") || programaNombre.includes("PEC") || programaNombre.includes("PLAN DE MEJORA CONTINUA")) {
+            // --- PMC / PAEC PRE-REVISION (Fase 3: Rúbricas y Prompts) ---
+            const file = entrega.archivos.find(a => a.tipo === "ENTREGA" && a.driveUrl);
+            if (file) {
+                const isPmc = programaNombre.includes("PMC") || programaNombre.includes("PLAN DE MEJORA CONTINUA");
+                const modulo = isPmc ? "PMC" : "PAEC";
+
+                // 1. Fetch active evaluation template
+                const template = await prisma.plantillaEvaluacion.findFirst({
+                    where: { modulo, activo: true }
+                });
+
+                const templateContent = template?.contenido || (isPmc 
+                    ? "Evalúa este Plan de Mejora Continua (PMC) y verifica si cuenta con objetivos, metas y responsables."
+                    : "Evalúa este Proyecto Escolar Comunitario (PEC) y verifica que cumpla con los lineamientos del PAEC.");
+
+                try {
+                    const buffer = await downloadFile(file.driveUrl!);
+                    const isDocx = file.nombre.toLowerCase().endsWith(".docx");
+                    
+                    let geminiRawRes = "";
+                    const systemInstruction = "Eres un Asesor Técnico Pedagógico (ATP) experto en evaluación y planeación escolar.";
+
+                    const prompt = `A continuación se presenta el prompt maestro de evaluación oficial de la supervisión que define los lineamientos y rúbricas a evaluar:
+---
+${templateContent}
+---
+
+Evalúa el documento entregado por el plantel: ${escuelaNombre} (${escuelaCct}).
+${isDocx 
+    ? "El texto extraído del documento DOCX es el siguiente:\n" + (await extractTextFromDocx(buffer))
+    : "El documento PDF se incluye en formato binario para tu análisis."
+}
+
+Debes responder ÚNICAMENTE en formato JSON con la siguiente estructura de datos:
+{
+  "aprobado": true/false,
+  "puntuacion": "Ej. 9/11 o 85/100 (determina un puntaje formal según la rúbrica)",
+  "observaciones": "Retroalimentación formal detallada en Markdown para el director. Menciona logros y áreas específicas que debe corregir.",
+  "estadoRecomendado": "APROBADO" o "REQUIERE_CORRECCION"
+}`;
+
+                    if (isDocx) {
+                        geminiRawRes = await callGemini(systemInstruction, prompt);
+                    } else {
+                        geminiRawRes = await callGemini(systemInstruction, prompt, buffer);
+                    }
+
+                    const parsed = JSON.parse(geminiRawRes);
+
+                    resultado = {
+                        tipo: modulo,
+                        aprobado: !!parsed.aprobado,
+                        explicacion: `Puntuación obtenida: ${parsed.puntuacion || "N/D"}. Ver detalles de observaciones en el panel de control.`,
+                        borradorCorreo: parsed.observaciones || "Sin observaciones específicas.",
+                        tieneIncidencias: parsed.estadoRecomendado === "REQUIERE_CORRECCION"
+                    };
+
+                } catch (e: any) {
+                    console.error(`Error analyzing PMC/PAEC delivery ${entregaId}:`, e);
+                    resultado = {
+                        tipo: modulo,
+                        aprobado: false,
+                        explicacion: `Error en análisis automático: ${e.message}`,
+                        tieneIncidencias: true
+                    };
+                }
+            }
+        }
+
+        // Save result in DB
+        if (resultado) {
+            await prisma.preRevision.upsert({
+                where: { entregaId },
+                update: {
+                    resultado: resultado as any
+                },
+                create: {
+                    entregaId,
+                    resultado: resultado as any
+                }
+            });
+            console.log(`Pre-revision results saved successfully for delivery ${entregaId}`);
+        }
+
+    } catch (error) {
+        console.error(`Critical error in analizarEntregaConIA for delivery ${entregaId}:`, error);
+    }
+}

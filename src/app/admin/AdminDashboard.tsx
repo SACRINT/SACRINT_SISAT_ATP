@@ -56,6 +56,7 @@ import GestionCapems from "./_componentes/GestionCapems";
 import GestionExpedientes from "./_componentes/GestionExpedientes";
 import PanelModulos from "./_componentes/PanelModulos";
 import GestionCiclos from "./_componentes/GestionCiclos";
+import GestionPrompts from "./_componentes/GestionPrompts";
 
 import { ProgramaAdmin, EscuelaAdmin, Stats, ZonaStat } from "@/types";
 
@@ -99,7 +100,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos" | "gestion-prompts">("general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -114,7 +115,7 @@ export default function AdminDashboard({
         setVista(v);
         setSidebarOpen(false);
     };
-    const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[] } | null>(null);
+    const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
 
@@ -276,7 +277,7 @@ export default function AdminDashboard({
     ].filter(Boolean).length;
 
     const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "capems", "expedientes"].includes(vista);
-    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos"].includes(vista);
+    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos", "gestion-prompts"].includes(vista);
 
     return (
         <div className="admin-layout">
@@ -474,6 +475,10 @@ export default function AdminDashboard({
                                         <span>Accesos y Seguridad</span>
                                     </button>
                                 )}
+                                 <button className={`sidebar-link ${vista === "gestion-prompts" ? "active" : ""}`} onClick={() => navigate("gestion-prompts")}>
+                                     <Settings2 size={17} />
+                                     <span>Rúbricas y Prompts de IA</span>
+                                 </button>
                                 {/* Panel de módulos — always visible in config */}
                                 <button className={`sidebar-link ${vista === "modulos-control" ? "active" : ""}`} onClick={() => navigate("modulos-control")}>
                                     <FolderOpen size={17} />
@@ -717,6 +722,13 @@ export default function AdminDashboard({
                         <GestionExpedientes highlightId={expedientesHighlightId} />
                     )
                 }
+
+                {/* ========= VISTA: RÚBRICAS Y PROMPTS DE IA ========= */}
+                {
+                    vista === "gestion-prompts" && (
+                        <GestionPrompts />
+                    )
+                }
             </main >
 
             {/* Correction Modal */}
@@ -734,6 +746,177 @@ export default function AdminDashboard({
                             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
                                 Para: <strong>{correccionModal.escuelaNombre}</strong>
                             </p>
+
+                            {/* 🔍 Observaciones Preliminares de la Supervisión (IA) */}
+                            {correccionModal.preRevision && correccionModal.preRevision.resultado && (() => {
+                                const res = correccionModal.preRevision.resultado;
+                                if (res.tipo === "DIA_NARANJA") {
+                                    return (
+                                        <div style={{
+                                            marginBottom: "1rem", padding: "0.75rem", borderRadius: "8px",
+                                            border: "1px solid #bfdbfe", background: "#eff6ff", fontSize: "0.8125rem"
+                                        }}>
+                                            <h4 style={{ margin: "0 0 0.5rem", color: "#1e40af", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                🔍 Observaciones de la Supervisión (Día Naranja)
+                                            </h4>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                                                {res.archivos?.map((file: any, i: number) => (
+                                                    <div key={i} style={{ borderBottom: i < res.archivos.length - 1 ? "1px dashed #dbeafe" : "none", paddingBottom: "0.4rem" }}>
+                                                        <div style={{ fontWeight: 600, color: "#1e3a8a" }}>{file.etiqueta || file.nombre}</div>
+                                                        <div style={{ display: "flex", gap: "0.75rem", margin: "0.2rem 0" }}>
+                                                            <span>Firma: {file.firmado ? "✅ Sí" : "❌ No"}</span>
+                                                            <span>Sello: {file.sellado ? "✅ Sí" : "❌ No"}</span>
+                                                        </div>
+                                                        <div style={{ color: "#4b5563", fontSize: "0.75rem" }}>{file.explicacion}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                if (res.tipo === "ACOSO_ESCOLAR") {
+                                    return (
+                                        <div style={{
+                                            marginBottom: "1rem", padding: "0.75rem", borderRadius: "8px",
+                                            border: res.tieneIncidencias ? "1px solid #fecaca" : "1px solid #bfdbfe",
+                                            background: res.tieneIncidencias ? "#fdf2f2" : "#eff6ff", fontSize: "0.8125rem"
+                                        }}>
+                                            <h4 style={{
+                                                margin: "0 0 0.5rem",
+                                                color: res.tieneIncidencias ? "#991b1b" : "#1e40af",
+                                                fontWeight: 700
+                                            }}>
+                                                🔍 Observaciones de la Supervisión (Acoso Escolar)
+                                            </h4>
+
+                                            {res.tieneIncidencias ? (
+                                                <div>
+                                                    <div style={{ fontWeight: 700, color: "#b91c1c", marginBottom: "0.5rem" }}>
+                                                        ⚠️ Se detectaron incidencias reportadas (Archivo Excel)
+                                                    </div>
+                                                    <div style={{
+                                                        maxHeight: "100px", overflowY: "auto", background: "white",
+                                                        padding: "0.5rem", borderRadius: "6px", border: "1px solid #fca5a5",
+                                                        marginBottom: "0.5rem"
+                                                    }}>
+                                                        <ul style={{ margin: 0, paddingLeft: "1.2rem", color: "#374151" }}>
+                                                            {res.incidenciasDetalle?.map((inc: any, idx: number) => (
+                                                                <li key={idx} style={{ marginBottom: "0.25rem" }}>
+                                                                    <strong>{inc.mes} ({inc.categoria}, {inc.edad} años)</strong>: {inc.tiposViolencia ? inc.tiposViolencia.join(", ") : inc.violencia?.join(", ") || "Acoso"} en {inc.escuela} ({inc.cct})
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                    
+                                                    {/* Borrador del correo */}
+                                                    <div style={{ marginTop: "0.5rem" }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
+                                                            <span style={{ fontWeight: 600, color: "#7f1d1d" }}>📧 Borrador de Correo para Dirección General:</span>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    navigator.clipboard.writeText(res.borradorCorreo || "");
+                                                                    const btn = e.currentTarget;
+                                                                    const oldText = btn.innerText;
+                                                                    btn.innerText = "✓ Copiado";
+                                                                    setTimeout(() => { btn.innerText = oldText; }, 1500);
+                                                                }}
+                                                                style={{
+                                                                    fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
+                                                                    background: "#b91c1c", color: "white", border: "none", cursor: "pointer"
+                                                                }}
+                                                            >
+                                                                Copiar Borrador
+                                                            </button>
+                                                        </div>
+                                                        <pre style={{
+                                                            margin: 0, padding: "0.5rem", background: "white",
+                                                            border: "1px solid #fca5a5", borderRadius: "6px",
+                                                            whiteSpace: "pre-wrap", maxHeight: "120px", overflowY: "auto",
+                                                            fontSize: "0.75rem", fontFamily: "monospace", color: "#1f2937"
+                                                        }}>
+                                                            {res.borradorCorreo}
+                                                        </pre>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <div style={{ fontWeight: 700, color: "#1e3a8a", marginBottom: "0.3rem" }}>
+                                                        ✓ Reporte de Cero Incidencias (PDF)
+                                                    </div>
+                                                    <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.3rem" }}>
+                                                        <span>Firma: {res.firmado ? "✅ Sí" : "❌ No"}</span>
+                                                        <span>Sello: {res.sellado ? "✅ Sí" : "❌ No"}</span>
+                                                    </div>
+                                                    <div style={{ color: "#4b5563", fontSize: "0.75rem" }}>{res.explicacion}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                if (res.tipo === "PMC" || res.tipo === "PAEC") {
+                                    return (
+                                        <div style={{
+                                            marginBottom: "1rem", padding: "0.75rem", borderRadius: "8px",
+                                            border: res.tieneIncidencias ? "1px solid #fecaca" : "1px solid #bfdbfe",
+                                            background: res.tieneIncidencias ? "#fdf2f2" : "#eff6ff", fontSize: "0.8125rem"
+                                        }}>
+                                            <h4 style={{
+                                                margin: "0 0 0.5rem",
+                                                color: res.tieneIncidencias ? "#991b1b" : "#1e40af",
+                                                fontWeight: 700
+                                            }}>
+                                                🔍 Observaciones de la Supervisión ({res.tipo})
+                                            </h4>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                                                <span style={{ fontWeight: 600, color: "var(--text)" }}>
+                                                    Resultado sugerido: <span style={{ color: res.tieneIncidencias ? "#dc2626" : "#16a34a", fontWeight: 700 }}>
+                                                        {res.tieneIncidencias ? "⚠️ Requiere Correcciones" : "✓ Aprobación"}
+                                                    </span>
+                                                </span>
+                                                <span style={{ fontWeight: 700, background: "white", padding: "0.15rem 0.4rem", borderRadius: "4px", border: "1px solid var(--border)", color: "var(--text)" }}>
+                                                    {res.explicacion?.match(/Puntuación obtenida: (.*?)\./)?.[1] || "Evaluado"}
+                                                </span>
+                                            </div>
+                                            
+                                            <div style={{ marginTop: "0.5rem" }}>
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
+                                                    <span style={{ fontWeight: 600, color: "var(--text-muted)" }}>📝 Retroalimentación Generada:</span>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            navigator.clipboard.writeText(res.borradorCorreo || "");
+                                                            const btn = e.currentTarget;
+                                                            const oldText = btn.innerText;
+                                                            btn.innerText = "✓ Copiado";
+                                                            setTimeout(() => { btn.innerText = oldText; }, 1500);
+                                                        }}
+                                                        style={{
+                                                            fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
+                                                            background: res.tieneIncidencias ? "#b91c1c" : "var(--primary)", color: "white", border: "none", cursor: "pointer"
+                                                        }}
+                                                    >
+                                                        Copiar Retroalimentación
+                                                    </button>
+                                                </div>
+                                                <div style={{
+                                                    margin: 0, padding: "0.5rem 0.75rem", background: "white",
+                                                    border: "1px solid var(--border)", borderRadius: "6px",
+                                                    maxHeight: "150px", overflowY: "auto",
+                                                    fontSize: "0.78rem", color: "var(--text)", lineHeight: "1.4"
+                                                }}>
+                                                    <div className="markdown-feedback" style={{ whiteSpace: "pre-wrap" }}>
+                                                        {res.borradorCorreo}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
 
                             {correccionModal.history && correccionModal.history.length > 0 && (
                                 <div style={{

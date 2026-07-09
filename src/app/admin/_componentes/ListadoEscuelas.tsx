@@ -13,7 +13,7 @@ import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 interface ListadoEscuelasProps {
     escuelas: EscuelaAdmin[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
-    onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[] } | null) => void;
+    onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any } | null) => void;
 }
 
 function getEstadoStyles(estado: string) {
@@ -258,10 +258,34 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                     return (
                                         <div key={ent.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)", gap: "0.5rem", flexWrap: "wrap" }}>
                                             <div style={{ fontSize: "0.875rem", minWidth: "140px", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                                                <div>
-                                                    <span style={{ fontWeight: 500 }}>{ent.periodoEntrega.programa.nombre}</span>
-                                                    {periodoLabel && <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}> ({periodoLabel})</span>}
-                                                </div>
+                                                 <div>
+                                                     <span style={{ fontWeight: 500 }}>{ent.periodoEntrega.programa.nombre}</span>
+                                                     {periodoLabel && <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}> ({periodoLabel})</span>}
+                                                     {(ent as any).preRevision && (
+                                                         <span style={{
+                                                             fontSize: "0.68rem",
+                                                             padding: "0.05rem 0.3rem",
+                                                             borderRadius: "4px",
+                                                             fontWeight: 700,
+                                                             marginLeft: "0.5rem",
+                                                             background: (ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false
+                                                                 ? "#fdf2f2"
+                                                                 : "#f0fdf4",
+                                                             color: (ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false
+                                                                 ? "#dc2626"
+                                                                 : "#16a34a",
+                                                             border: `1px solid ${(ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false ? "#f87171" : "#86efac"}`
+                                                         }}>
+                                                             🔍 Pre-dictamen: {
+                                                                 (ent as any).preRevision.resultado.tieneIncidencias
+                                                                     ? "⚠️ Con Incidencias"
+                                                                     : (ent as any).preRevision.resultado.aprobado === false
+                                                                         ? "⚠️ Firma/Sello Faltante"
+                                                                         : "✓ Correcto"
+                                                             }
+                                                         </span>
+                                                     )}
+                                                 </div>
                                                 {ent.archivos.length > 0 && (
                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
                                                         {ent.archivos.map((arch, index) => {
@@ -344,13 +368,13 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                         <option key={e} value={e}>{ESTADO_LABELS[e]}</option>
                                                     ))}
                                                 </select>
-                                                <button
-                                                    onClick={() => onSetCorreccionModal({ entregaId: ent.id, escuelaNombre: esc.nombre, history: ent.correcciones })}
-                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#e67e22", padding: "0.25rem" }}
-                                                    title="Enviar corrección / Ver historial"
-                                                >
-                                                    <MessageSquare size={16} />
-                                                </button>
+                                                 <button
+                                                     onClick={() => onSetCorreccionModal({ entregaId: ent.id, escuelaNombre: esc.nombre, history: ent.correcciones, preRevision: (ent as any).preRevision })}
+                                                     style={{ background: "none", border: "none", cursor: "pointer", color: "#e67e22", padding: "0.25rem" }}
+                                                     title="Enviar corrección / Ver historial"
+                                                 >
+                                                     <MessageSquare size={16} />
+                                                 </button>
                                             </div>
                                         </div>
                                     );
