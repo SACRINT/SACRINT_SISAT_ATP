@@ -37,6 +37,22 @@ async function extractTextFromDocx(buffer: Buffer): Promise<string> {
     return text;
 }
 
+async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+    try {
+        // @ts-ignore
+        const pdf = await import("pdf-parse");
+        // Convert Buffer to Uint8Array for safety
+        const uint8Array = new Uint8Array(buffer);
+        const parser: any = new pdf.PDFParse({ data: uint8Array, verbosity: 0 });
+        await parser.load();
+        const result = await parser.getText();
+        return result?.text || "";
+    } catch (error) {
+        console.error("Error extracting text from PDF locally:", error);
+        throw error;
+    }
+}
+
 function cleanAndParseGeminiJson(raw: string) {
     let text = raw.trim();
     if (text.startsWith("```")) {
@@ -401,21 +417,34 @@ Responde únicamente en formato JSON con la siguiente estructura:
                 try {
                     const buffer = await downloadFile(file.driveUrl!);
                     const isDocx = file.nombre.toLowerCase().endsWith(".docx");
+                    const isPdf = file.nombre.toLowerCase().endsWith(".pdf");
+                    
+                    let extractedText = "";
+                    if (isDocx) {
+                        extractedText = await extractTextFromDocx(buffer);
+                    } else if (isPdf) {
+                        try {
+                            extractedText = await extractTextFromPdf(buffer);
+                            console.log(`[pre-revision] Local PDF text extraction successful for ${file.nombre}. Length: ${extractedText.length}`);
+                        } catch (err) {
+                            console.error("[pre-revision] Local PDF text extraction failed. Falling back to raw binary.", err);
+                        }
+                    }
                     
                     let geminiRawRes = "";
                     const systemInstruction = "Eres un Asesor Técnico Pedagógico (ATP) experto en evaluación y planeación escolar.";
-
+ 
                     const prompt = `A continuación se presenta el prompt maestro de evaluación oficial de la supervisión que define los lineamientos y rúbricas a evaluar:
 ---
 ${templateContent}
 ---
-
+ 
 Evalúa el documento entregado por el plantel: ${escuelaNombre} (${escuelaCct}).
-${isDocx 
-    ? "El texto extraído del documento DOCX es el siguiente:\n" + (await extractTextFromDocx(buffer))
-    : "El documento PDF se incluye en formato binario para tu análisis."
+${extractedText 
+    ? "Texto extraído del documento para tu evaluación:\n" + extractedText
+    : "El documento se incluye en formato binario para tu análisis."
 }
-
+ 
 Debes responder ÚNICAMENTE en formato JSON con la siguiente estructura de datos.
 IMPORTANTE: Si utilizas comillas dobles dentro de las observaciones, debes escaparlas obligatoriamente usando barra invertida (como \"texto\") para que el JSON sea válido.
 {
@@ -424,8 +453,8 @@ IMPORTANTE: Si utilizas comillas dobles dentro de las observaciones, debes escap
   "observaciones": "Retroalimentación formal detallada en Markdown para el director. Menciona logros y áreas específicas que debe corregir.",
   "estadoRecomendado": "APROBADO" o "REQUIERE_CORRECCION"
 }`;
-
-                    if (isDocx) {
+ 
+                    if (extractedText) {
                         geminiRawRes = await callGemini(systemInstruction, prompt);
                     } else {
                         geminiRawRes = await callGemini(systemInstruction, prompt, buffer);
