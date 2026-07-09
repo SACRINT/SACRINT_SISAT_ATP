@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { sendUploadConfirmation } from "@/lib/email";
 import { analizarEntregaConIA } from "@/lib/pre-revision";
 
+export const maxDuration = 60; // Allow up to 60 seconds for Vercel Hobby limits during upload and analysis
+
 export async function POST(req: NextRequest) {
     try {
         const session = await auth();
@@ -91,10 +93,12 @@ export async function POST(req: NextRequest) {
             periodoLabel
         );
 
-        // Desencadenar pre-revisión en segundo plano (asíncrono sin await para no bloquear la respuesta)
-        analizarEntregaConIA(entregaId).catch(err => {
-            console.error("Error al ejecutar pre-revisión en segundo plano:", err);
-        });
+        // Ejecutar pre-revisión y esperar que termine (con timeout de 60s en Vercel)
+        try {
+            await analizarEntregaConIA(entregaId);
+        } catch (err) {
+            console.error("Error al ejecutar pre-revisión:", err);
+        }
 
         return NextResponse.json({
             success: true,
