@@ -34,6 +34,9 @@ import {
     Settings2,
     Menu,
     X as XIcon,
+    Loader2,
+    RefreshCw,
+    Sparkles,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
@@ -120,6 +123,7 @@ export default function AdminDashboard({
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
 
     const [sendingCorreccion, setSendingCorreccion] = useState(false);
+    const [reEvaluating, setReEvaluating] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [searchOpen, setSearchOpen] = useState(false);
     const [expedientesHighlightId, setExpedientesHighlightId] = useState<string>("");
@@ -262,6 +266,30 @@ export default function AdminDashboard({
             setMessage({ type: "error", text: error.message || "Error de conexión" });
         } finally {
             setSendingCorreccion(false);
+        }
+    }
+
+    async function handleReEvaluate() {
+        if (!correccionModal) return;
+        setReEvaluating(true);
+        setMessage(null);
+        try {
+            const res = await fetch(`/api/entregas/${correccionModal.entregaId}/pre-revision`, {
+                method: "POST"
+            });
+            if (!res.ok) throw new Error("Error al re-evaluar con IA");
+            const data = await res.json();
+            if (data.success && data.resultado) {
+                setCorreccionModal(prev => prev ? { ...prev, preRevision: { resultado: data.resultado } } : null);
+                setMessage({ type: "success", text: "Pre-dictamen re-evaluado con éxito por la IA" });
+                router.refresh();
+            } else {
+                throw new Error("No se pudo obtener el resultado de la re-evaluación");
+            }
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message || "Error al conectar con el servidor" });
+        } finally {
+            setReEvaluating(false);
         }
     }
 
@@ -857,61 +885,114 @@ export default function AdminDashboard({
                                 }
 
                                 if (res.tipo === "PMC" || res.tipo === "PAEC") {
+                                    const hasError = res.explicacion?.includes("Failed to download") || !res.borradorCorreo;
                                     return (
                                         <div style={{
                                             marginBottom: "1rem", padding: "0.75rem", borderRadius: "8px",
-                                            border: res.tieneIncidencias ? "1px solid #fecaca" : "1px solid #bfdbfe",
-                                            background: res.tieneIncidencias ? "#fdf2f2" : "#eff6ff", fontSize: "0.8125rem"
+                                            border: res.tieneIncidencias || hasError ? "1px solid #fecaca" : "1px solid #bfdbfe",
+                                            background: res.tieneIncidencias || hasError ? "#fdf2f2" : "#eff6ff", fontSize: "0.8125rem"
                                         }}>
                                             <h4 style={{
                                                 margin: "0 0 0.5rem",
-                                                color: res.tieneIncidencias ? "#991b1b" : "#1e40af",
+                                                color: res.tieneIncidencias || hasError ? "#991b1b" : "#1e40af",
                                                 fontWeight: 700
                                             }}>
                                                 🔍 Observaciones de la Supervisión ({res.tipo})
                                             </h4>
-                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                                                <span style={{ fontWeight: 600, color: "var(--text)" }}>
-                                                    Resultado sugerido: <span style={{ color: res.tieneIncidencias ? "#dc2626" : "#16a34a", fontWeight: 700 }}>
-                                                        {res.tieneIncidencias ? "⚠️ Requiere Correcciones" : "✓ Aprobación"}
-                                                    </span>
-                                                </span>
-                                                <span style={{ fontWeight: 700, background: "white", padding: "0.15rem 0.4rem", borderRadius: "4px", border: "1px solid var(--border)", color: "var(--text)" }}>
-                                                    {res.explicacion?.match(/Puntuación obtenida: (.*?)\./)?.[1] || "Evaluado"}
-                                                </span>
-                                            </div>
-                                            
-                                            <div style={{ marginTop: "0.5rem" }}>
-                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
-                                                    <span style={{ fontWeight: 600, color: "var(--text-muted)" }}>📝 Retroalimentación Generada:</span>
+                                            {hasError ? (
+                                                <div style={{ padding: "0.5rem", background: "white", border: "1px solid #fecaca", borderRadius: "6px", color: "#b91c1c" }}>
+                                                    <p style={{ margin: 0, fontWeight: 600 }}>⚠️ La pre-revisión automática falló o está incompleta:</p>
+                                                    <p style={{ margin: "0.25rem 0 0.5rem", fontSize: "0.75rem", color: "#4b5563" }}>{res.explicacion}</p>
                                                     <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            navigator.clipboard.writeText(res.borradorCorreo || "");
-                                                            const btn = e.currentTarget;
-                                                            const oldText = btn.innerText;
-                                                            btn.innerText = "✓ Copiado";
-                                                            setTimeout(() => { btn.innerText = oldText; }, 1500);
-                                                        }}
+                                                        onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
+                                                        disabled={reEvaluating}
                                                         style={{
-                                                            fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
-                                                            background: res.tieneIncidencias ? "#b91c1c" : "var(--primary)", color: "white", border: "none", cursor: "pointer"
+                                                            display: "inline-flex", alignItems: "center", gap: "0.375rem",
+                                                            padding: "0.25rem 0.5rem", fontSize: "0.75rem", borderRadius: "4px",
+                                                            background: "#dc2626", color: "white", border: "none", cursor: "pointer"
                                                         }}
                                                     >
-                                                        Copiar Retroalimentación
+                                                        {reEvaluating ? (
+                                                            <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Re-evaluando...</>
+                                                        ) : (
+                                                            <><RefreshCw size={12} /> Re-intentar análisis con IA</>
+                                                        )}
                                                     </button>
                                                 </div>
-                                                <div style={{
-                                                    margin: 0, padding: "0.5rem 0.75rem", background: "white",
-                                                    border: "1px solid var(--border)", borderRadius: "6px",
-                                                    maxHeight: "150px", overflowY: "auto",
-                                                    fontSize: "0.78rem", color: "var(--text)", lineHeight: "1.4"
-                                                }}>
-                                                    <div className="markdown-feedback" style={{ whiteSpace: "pre-wrap" }}>
-                                                        {res.borradorCorreo}
+                                            ) : (
+                                                <>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                                                        <span style={{ fontWeight: 600, color: "var(--text)" }}>
+                                                            Resultado sugerido: <span style={{ color: res.tieneIncidencias ? "#dc2626" : "#16a34a", fontWeight: 700 }}>
+                                                                {res.tieneIncidencias ? "⚠️ Requiere Correcciones" : "✓ Aprobación"}
+                                                            </span>
+                                                        </span>
+                                                        <span style={{ fontWeight: 700, background: "white", padding: "0.15rem 0.4rem", borderRadius: "4px", border: "1px solid var(--border)", color: "var(--text)" }}>
+                                                            {res.explicacion?.match(/Puntuación obtenida: (.*?)\./)?.[1] || "Evaluado"}
+                                                        </span>
                                                     </div>
-                                                </div>
-                                            </div>
+                                                    
+                                                    <div style={{ marginTop: "0.5rem" }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
+                                                            <span style={{ fontWeight: 600, color: "var(--text-muted)" }}>📝 Retroalimentación Generada:</span>
+                                                            <div style={{ display: "flex", gap: "0.375rem" }}>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        navigator.clipboard.writeText(res.borradorCorreo || "");
+                                                                        const btn = e.currentTarget;
+                                                                        const oldText = btn.innerText;
+                                                                        btn.innerText = "✓ Copiado";
+                                                                        setTimeout(() => { btn.innerText = oldText; }, 1500);
+                                                                    }}
+                                                                    style={{
+                                                                        fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
+                                                                        background: "var(--primary)", color: "white", border: "none", cursor: "pointer"
+                                                                    }}
+                                                                >
+                                                                    Copiar
+                                                                </button>
+                                                                <a
+                                                                    href={`/api/admin/entregas/${correccionModal.entregaId}/exportar-revision`}
+                                                                    download
+                                                                    style={{
+                                                                        textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                                                        fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
+                                                                        background: "#0f766e", color: "white", fontWeight: 600, border: "none", cursor: "pointer"
+                                                                    }}
+                                                                >
+                                                                    <Download size={11} /> Descargar Reporte (.docx)
+                                                                </a>
+                                                                <button
+                                                                    onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
+                                                                    disabled={reEvaluating}
+                                                                    style={{
+                                                                        fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
+                                                                        background: "#e2e8f0", color: "#1e293b", border: "1px solid #cbd5e1", cursor: "pointer",
+                                                                        display: "inline-flex", alignItems: "center", gap: "0.25rem"
+                                                                    }}
+                                                                >
+                                                                    {reEvaluating ? (
+                                                                        <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Re-evaluando...</>
+                                                                    ) : (
+                                                                        <><RefreshCw size={11} /> Re-evaluar</>
+                                                                    )}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{
+                                                            margin: 0, padding: "0.5rem 0.75rem", background: "white",
+                                                            border: "1px solid var(--border)", borderRadius: "6px",
+                                                            maxHeight: "150px", overflowY: "auto",
+                                                            fontSize: "0.78rem", color: "var(--text)", lineHeight: "1.4"
+                                                        }}>
+                                                            <div className="markdown-feedback" style={{ whiteSpace: "pre-wrap" }}>
+                                                                {res.borradorCorreo}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     );
                                 }

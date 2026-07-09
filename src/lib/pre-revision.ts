@@ -2,6 +2,28 @@ import { prisma } from "./db";
 import { callGemini } from "./gemini";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
+import { v2 as cloudinary } from "cloudinary";
+
+function parseCloudinaryUrl(url: string) {
+    const decoded = decodeURIComponent(url);
+    const match = decoded.match(
+        /res\.cloudinary\.com\/([^/]+)\/(\w+)\/upload\/(?:v\d+\/)?(.+)$/
+    );
+    if (!match) return null;
+
+    const cloudName    = match[1];
+    const resourceType = match[2];          // "image" | "raw" | "video"
+    const fullPath     = match[3];
+    const lastDot      = fullPath.lastIndexOf(".");
+    const format       = lastDot > 0 ? fullPath.slice(lastDot + 1) : "";
+
+    const publicId =
+        resourceType === "raw"
+            ? fullPath
+            : (lastDot > 0 ? fullPath.slice(0, lastDot) : fullPath);
+
+    return { cloudName, resourceType, publicId, format };
+}
 
 async function extractTextFromDocx(buffer: Buffer): Promise<string> {
     const zip = await JSZip.loadAsync(buffer);
@@ -42,12 +64,47 @@ export interface PreRevisionResult {
     firmado?: boolean;
     sellado?: boolean;
     explicacion?: string;
+    puntuacion?: string;
 }
 
 /**
  * Downloads a file as buffer from a URL (e.g. Cloudinary secure URL)
  */
 async function downloadFile(url: string): Promise<Buffer> {
+    if (url.includes("res.cloudinary.com")) {
+        try {
+            const parsed = parseCloudinaryUrl(url);
+            if (parsed) {
+                cloudinary.config({
+                    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                    api_key: process.env.CLOUDINARY_API_KEY,
+                    api_secret: process.env.CLOUDINARY_API_SECRET,
+                    secure: true,
+                });
+
+                let id = parsed.publicId;
+                if (parsed.resourceType === "raw" && parsed.format && !id.endsWith(`.${parsed.format}`)) {
+                    id = `${id}.${parsed.format}`;
+                } else if (parsed.resourceType !== "raw" && /\.\w{2,5}$/.test(id)) {
+                    id = id.replace(/\.[^/.]+$/, "");
+                }
+
+                const signedUrl = cloudinary.utils.private_download_url(id, parsed.format, {
+                    resource_type: parsed.resourceType as "image" | "raw" | "video",
+                    type: "upload",
+                });
+
+                const res = await fetch(signedUrl);
+                if (res.ok) {
+                    const arrayBuffer = await res.arrayBuffer();
+                    return Buffer.from(arrayBuffer);
+                }
+            }
+        } catch (e: any) {
+            console.error("[pre-revision] Error generating signed Cloudinary URL:", e);
+        }
+    }
+
     const res = await fetch(url);
     if (!res.ok) {
         throw new Error(`Failed to download file from ${url} (status ${res.status})`);
