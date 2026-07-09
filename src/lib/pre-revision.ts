@@ -46,7 +46,12 @@ export async function extractTextFromDocx(buffer: Buffer): Promise<string> {
     }
     const docXml = await docFile.async("string");
     const matches = docXml.match(/<w:t[^>]*>(.*?)<\/w:t>/g) || [];
-    const text = matches.map(m => m.replace(/<[^>]+>/g, '')).join(' ');
+    const rawText = matches.map(m => m.replace(/<[^>]+>/g, '')).join(' ');
+    const text = rawText
+        .replace(/[ \t]+/g, " ")
+        .replace(/\r\n/g, "\n")
+        .replace(/\n\s*\n/g, "\n")
+        .trim();
     return text;
 }
 
@@ -87,8 +92,13 @@ export async function extractTextFromPdf(
         }
         
         const result = await parser.getText(parseParams);
-        const text = result?.text || "";
-        console.log(`[pre-revision] Text extraction complete. Pages parsed: ${result?.pages?.length || 0}/${result?.total || 0}. Characters extracted: ${text.length}`);
+        const rawText = result?.text || "";
+        const text = rawText
+            .replace(/[ \t]+/g, " ")
+            .replace(/\r\n/g, "\n")
+            .replace(/\n\s*\n/g, "\n")
+            .trim();
+        console.log(`[pre-revision] Text extraction complete. Pages parsed: ${result?.pages?.length || 0}/${result?.total || 0}. Raw length: ${rawText.length}, Clean length: ${text.length}`);
         return { text, total: result?.total || 0 };
     } catch (error) {
         console.error("[pre-revision] Error extracting text from PDF locally:", error);
@@ -519,11 +529,15 @@ ${extractedText
 }
  
 Debes responder ÚNICAMENTE en formato JSON con la siguiente estructura de datos.
-IMPORTANTE: Si utilizas comillas dobles dentro de las observaciones, debes escaparlas obligatoriamente usando barra invertida (como \"texto\") para que el JSON sea válido.
+IMPORTANTE - LIMITACIÓN DE TIEMPO Y REDACCIÓN:
+- En la sección "observaciones", sé directo, conciso y redacta en viñetas (bullet points) breves.
+- Evita introducciones, conclusiones o redundancias.
+- Limita tu respuesta en "observaciones" a un máximo de 350 palabras para garantizar una respuesta rápida.
+- Si utilizas comillas dobles dentro de las observaciones, debes escaparlas obligatoriamente usando barra invertida (como \"texto\") para que el JSON sea válido.
 {
   "aprobado": true/false,
   "puntuacion": "Ej. 9/11 o 85/100 (determina un puntaje formal según la rúbrica)",
-  "observaciones": "Retroalimentación formal detallada en Markdown para el director. Menciona logros y áreas específicas que debe corregir.",
+  "observaciones": "Retroalimentación formal concisa en viñetas Markdown para el director. Menciona aciertos y áreas de mejora. Máximo 350 palabras.",
   "estadoRecomendado": "APROBADO" o "REQUIERE_CORRECCION"
 }`;
  
