@@ -37,6 +37,55 @@ async function extractTextFromDocx(buffer: Buffer): Promise<string> {
     return text;
 }
 
+function cleanAndParseGeminiJson(raw: string) {
+    let text = raw.trim();
+    if (text.startsWith("```")) {
+        text = text.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+    }
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.warn("[pre-revision] JSON.parse failed, attempting regex fallback repair...", e);
+        try {
+            const aprobadoMatch = text.match(/"aprobado"\s*:\s*(true|false)/i);
+            const puntuacionMatch = text.match(/"puntuacion"\s*:\s*"([^"]*)"/i);
+            const estadoMatch = text.match(/"estadoRecomendado"\s*:\s*"([^"]*)"/i);
+            
+            let observaciones = "";
+            const obsStart = text.indexOf('"observaciones"');
+            if (obsStart !== -1) {
+                const rest = text.substring(obsStart + 15);
+                const firstQuote = rest.indexOf('"');
+                if (firstQuote !== -1) {
+                    const content = rest.substring(firstQuote + 1);
+                    const nextKey = content.search(/"\s*,\s*"(?:estadoRecomendado|aprobado|puntuacion)"/);
+                    if (nextKey !== -1) {
+                        observaciones = content.substring(0, nextKey);
+                    } else {
+                        const lastBrace = content.lastIndexOf("}");
+                        if (lastBrace !== -1) {
+                            const trimmed = content.substring(0, lastBrace).trim();
+                            observaciones = trimmed.endsWith('"') ? trimmed.slice(0, -1) : trimmed;
+                        } else {
+                            observaciones = content;
+                        }
+                    }
+                }
+            }
+            
+            return {
+                aprobado: aprobadoMatch ? aprobadoMatch[1] === "true" : false,
+                puntuacion: puntuacionMatch ? puntuacionMatch[1] : "N/D",
+                observaciones: observaciones || "Sin observaciones específicas.",
+                estadoRecomendado: estadoMatch ? estadoMatch[1] : "REQUIERE_CORRECCION"
+            };
+        } catch (repairError) {
+            console.error("[pre-revision] Regex repair failed:", repairError);
+        }
+        throw e;
+    }
+}
+
 export interface PreRevisionResult {
     tipo: "DIA_NARANJA" | "ACOSO_ESCOLAR" | "PMC" | "PAEC" | "OTROS";
     aprobado?: boolean;
@@ -367,7 +416,8 @@ ${isDocx
     : "El documento PDF se incluye en formato binario para tu análisis."
 }
 
-Debes responder ÚNICAMENTE en formato JSON con la siguiente estructura de datos:
+Debes responder ÚNICAMENTE en formato JSON con la siguiente estructura de datos.
+IMPORTANTE: Si utilizas comillas dobles dentro de las observaciones, debes escaparlas obligatoriamente usando barra invertida (como \"texto\") para que el JSON sea válido.
 {
   "aprobado": true/false,
   "puntuacion": "Ej. 9/11 o 85/100 (determina un puntaje formal según la rúbrica)",
@@ -381,7 +431,7 @@ Debes responder ÚNICAMENTE en formato JSON con la siguiente estructura de datos
                         geminiRawRes = await callGemini(systemInstruction, prompt, buffer);
                     }
 
-                    const parsed = JSON.parse(geminiRawRes);
+                    const parsed = cleanAndParseGeminiJson(geminiRawRes);
 
                     resultado = {
                         tipo: modulo,
