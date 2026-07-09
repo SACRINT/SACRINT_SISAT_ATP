@@ -274,17 +274,48 @@ export default function AdminDashboard({
         setReEvaluating(true);
         setMessage(null);
         try {
+            setMessage({ type: "success", text: "Obteniendo información del archivo..." });
+            const infoRes = await fetch(`/api/entregas/${correccionModal.entregaId}/pre-revision?action=info`);
+            if (!infoRes.ok) throw new Error("Error al obtener información del archivo");
+            const info = await infoRes.json();
+            
+            let textoCompleto = "";
+            if (info.format === "pdf" && info.totalPages > 0) {
+                const totalPages = info.totalPages;
+                const chunkSize = 15;
+                
+                for (let start = 1; start <= totalPages; start += chunkSize) {
+                    const end = Math.min(start + chunkSize - 1, totalPages);
+                    setMessage({ 
+                        type: "success", 
+                        text: `Leyendo y extrayendo texto del documento... (Páginas ${start} a ${end} de ${totalPages})` 
+                    });
+                    
+                    const extractRes = await fetch(
+                        `/api/entregas/${correccionModal.entregaId}/pre-revision?action=extract&start=${start}&end=${end}`
+                    );
+                    if (!extractRes.ok) throw new Error(`Error al extraer texto de las páginas ${start}-${end}`);
+                    const extractData = await extractRes.json();
+                    textoCompleto += (extractData.text || "") + "\n";
+                }
+            }
+            
+            setMessage({ type: "success", text: "Evaluando la entrega con Inteligencia Artificial (Gemini)..." });
             const res = await fetch(`/api/entregas/${correccionModal.entregaId}/pre-revision`, {
-                method: "POST"
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ textoCompleto })
             });
-            if (!res.ok) throw new Error("Error al re-evaluar con IA");
+            if (!res.ok) throw new Error("Error al evaluar con IA");
             const data = await res.json();
             if (data.success && data.resultado) {
                 setCorreccionModal(prev => prev ? { ...prev, preRevision: { resultado: data.resultado } } : null);
-                setMessage({ type: "success", text: "Pre-dictamen re-evaluado con éxito por la IA" });
+                setMessage({ type: "success", text: "Pre-dictamen generado exitosamente por la IA" });
                 router.refresh();
             } else {
-                throw new Error("No se pudo obtener el resultado de la re-evaluación");
+                throw new Error("No se pudo obtener el resultado de la evaluación");
             }
         } catch (error: any) {
             setMessage({ type: "error", text: error.message || "Error al conectar con el servidor" });

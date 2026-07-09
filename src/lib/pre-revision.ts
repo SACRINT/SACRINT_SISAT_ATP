@@ -25,7 +25,7 @@ function parseCloudinaryUrl(url: string) {
     return { cloudName, resourceType, publicId, format };
 }
 
-async function extractTextFromDocx(buffer: Buffer): Promise<string> {
+export async function extractTextFromDocx(buffer: Buffer): Promise<string> {
     const zip = await JSZip.loadAsync(buffer);
     const docFile = zip.file("word/document.xml");
     if (!docFile) {
@@ -37,7 +37,10 @@ async function extractTextFromDocx(buffer: Buffer): Promise<string> {
     return text;
 }
 
-async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+export async function extractTextFromPdf(
+    buffer: Buffer,
+    pageOptions?: { start?: number; end?: number }
+): Promise<{ text: string; total: number }> {
     try {
         console.log("[pre-revision] Starting local PDF text extraction, buffer size:", buffer.length);
         // @ts-ignore
@@ -48,10 +51,17 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
         console.log("[pre-revision] PDFParse loading document...");
         await parser.load();
         console.log("[pre-revision] PDFParse document loaded. Extracting text...");
-        const result = await parser.getText({ first: 15 } as any);
+        
+        const parseParams: any = {};
+        if (pageOptions?.start && pageOptions?.end) {
+            parseParams.first = pageOptions.start;
+            parseParams.last = pageOptions.end;
+        }
+        
+        const result = await parser.getText(parseParams);
         const text = result?.text || "";
-        console.log("[pre-revision] Text extraction complete. Characters extracted:", text.length);
-        return text;
+        console.log(`[pre-revision] Text extraction complete. Pages parsed: ${result?.pages?.length || 0}/${result?.total || 0}. Characters extracted: ${text.length}`);
+        return { text, total: result?.total || 0 };
     } catch (error) {
         console.error("[pre-revision] Error extracting text from PDF locally:", error);
         throw error;
@@ -140,7 +150,7 @@ export interface PreRevisionResult {
 /**
  * Downloads a file as buffer from a URL (e.g. Cloudinary secure URL)
  */
-async function downloadFile(url: string): Promise<Buffer> {
+export async function downloadFile(url: string): Promise<Buffer> {
     if (url.includes("res.cloudinary.com")) {
         try {
             const parsed = parseCloudinaryUrl(url);
@@ -186,7 +196,7 @@ async function downloadFile(url: string): Promise<Buffer> {
 /**
  * Performs background pre-revision analysis for a school delivery
  */
-export async function analizarEntregaConIA(entregaId: string): Promise<void> {
+export async function analizarEntregaConIA(entregaId: string, textoCompletoInput?: string): Promise<void> {
     try {
         const entrega = await prisma.entrega.findUnique({
             where: { id: entregaId },
@@ -421,23 +431,31 @@ Responde únicamente en formato JSON con la siguiente estructura:
 
                 try {
                     console.log(`[pre-revision] Starting evaluation of ${modulo} for delivery ${entregaId}...`);
-                    console.log(`[pre-revision] Downloading file: ${file.nombre} from Cloudinary...`);
-                    const buffer = await downloadFile(file.driveUrl!);
+                    
+                    let extractedText = textoCompletoInput || "";
+                    let buffer: Buffer | null = null;
                     const isDocx = file.nombre.toLowerCase().endsWith(".docx");
                     const isPdf = file.nombre.toLowerCase().endsWith(".pdf");
-                    console.log(`[pre-revision] File downloaded. Size: ${buffer.length} bytes. Format isDocx: ${isDocx}, isPdf: ${isPdf}`);
-                    
-                    let extractedText = "";
-                    if (isDocx) {
-                        console.log("[pre-revision] Extracting text from DOCX...");
-                        extractedText = await extractTextFromDocx(buffer);
-                        console.log(`[pre-revision] DOCX text extraction successful. Characters: ${extractedText.length}`);
-                    } else if (isPdf) {
-                        try {
-                            extractedText = await extractTextFromPdf(buffer);
-                        } catch (err) {
-                            console.error("[pre-revision] Local PDF text extraction failed. Falling back to raw binary.", err);
+
+                    if (!extractedText) {
+                        console.log(`[pre-revision] Downloading file: ${file.nombre} from Cloudinary...`);
+                        buffer = await downloadFile(file.driveUrl!);
+                        console.log(`[pre-revision] File downloaded. Size: ${buffer.length} bytes. Format isDocx: ${isDocx}, isPdf: ${isPdf}`);
+                        
+                        if (isDocx) {
+                            console.log("[pre-revision] Extracting text from DOCX...");
+                            extractedText = await extractTextFromDocx(buffer);
+                            console.log(`[pre-revision] DOCX text extraction successful. Characters: ${extractedText.length}`);
+                        } else if (isPdf) {
+                            try {
+                                const resPdf = await extractTextFromPdf(buffer);
+                                extractedText = resPdf.text;
+                            } catch (err) {
+                                console.error("[pre-revision] Local PDF text extraction failed. Falling back to raw binary.", err);
+                            }
                         }
+                    } else {
+                        console.log(`[pre-revision] Using provided pre-extracted text. Characters: ${extractedText.length}`);
                     }
                     
                     let geminiRawRes = "";
@@ -467,6 +485,10 @@ IMPORTANTE: Si utilizas comillas dobles dentro de las observaciones, debes escap
                         console.log(`[pre-revision] Calling Gemini with EXTRACTED TEXT (${prompt.length} chars). No binary sent.`);
                         geminiRawRes = await callGemini(systemInstruction, prompt);
                     } else {
+                        if (!buffer) {
+                            console.log(`[pre-revision] Downloading file for binary fallback: ${file.nombre}...`);
+                            buffer = await downloadFile(file.driveUrl!);
+                        }
                         console.log(`[pre-revision] Calling Gemini with BINARY PDF BUFFER (${buffer.length} bytes) and prompt (${prompt.length} chars).`);
                         geminiRawRes = await callGemini(systemInstruction, prompt, buffer);
                     }
