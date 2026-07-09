@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { analizarEntregaConIA, downloadFile, extractTextFromPdf } from "@/lib/pre-revision";
 
-export const maxDuration = 60; // Allow up to 60 seconds for Gemini + Cloudinary download on Vercel
+export const maxDuration = 120; // Allow up to 120 seconds for Gemini + Cloudinary download on Vercel
 
 // GET: Obtener el resultado del pre-dictamen / pre-revisión de una entrega, o realizar acciones de chunking
 export async function GET(

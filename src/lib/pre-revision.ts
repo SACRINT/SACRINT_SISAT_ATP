@@ -528,29 +528,34 @@ ${extractedText
     : "El documento se incluye en formato binario para tu análisis."
 }
  
-Debes responder ÚNICAMENTE en formato JSON con la siguiente estructura de datos.
-IMPORTANTE - LIMITACIÓN DE TIEMPO Y REDACCIÓN:
-- En la sección "observaciones", sé directo, conciso y redacta en viñetas (bullet points) breves.
-- Evita introducciones, conclusiones o redundancias.
-- Limita tu respuesta en "observaciones" a un máximo de 350 palabras para garantizar una respuesta rápida.
-- Si utilizas comillas dobles dentro de las observaciones, debes escaparlas obligatoriamente usando barra invertida (como \"texto\") para que el JSON sea válido.
-{
-  "aprobado": true/false,
-  "puntuacion": "Ej. 9/11 o 85/100 (determina un puntaje formal según la rúbrica)",
-  "observaciones": "Retroalimentación formal concisa en viñetas Markdown para el director. Menciona aciertos y áreas de mejora. Máximo 350 palabras.",
-  "estadoRecomendado": "APROBADO" o "REQUIERE_CORRECCION"
-}`;
+Debes responder en formato JSON.
+IMPORTANTE - DETALLE Y EXTENSIÓN:
+- En la sección "observaciones", redacta un informe de pre-revisión completo, exhaustivo y detallado (de aproximadamente 1000 a 1500 palabras).
+- Describe con precisión cada hallazgo, fortaleza, área de oportunidad e inconsistencia detectada.
+- Utiliza títulos, subtítulos y viñetas en Markdown dentro de la cadena de texto para dar una estructura sumamente clara.
+- Sé específico citando partes del texto analizado si es necesario.`;
+
+                    const responseSchema = {
+                        type: "OBJECT",
+                        properties: {
+                            aprobado: { type: "BOOLEAN" },
+                            puntuacion: { type: "STRING" },
+                            observaciones: { type: "STRING" },
+                            estadoRecomendado: { type: "STRING", enum: ["APROBADO", "REQUIERE_CORRECCION"] }
+                        },
+                        required: ["aprobado", "puntuacion", "observaciones", "estadoRecomendado"]
+                    };
  
                     if (extractedText) {
                         console.log(`[pre-revision] Calling Gemini with EXTRACTED TEXT (${prompt.length} chars). No binary sent.`);
-                        geminiRawRes = await callGemini(systemInstruction, prompt);
+                        geminiRawRes = await callGemini(systemInstruction, prompt, undefined, undefined, responseSchema);
                     } else {
                         if (!buffer) {
                             console.log(`[pre-revision] Downloading file for binary fallback: ${file.nombre}...`);
                             buffer = await downloadFile(file.driveUrl!);
                         }
                         console.log(`[pre-revision] Calling Gemini with BINARY PDF BUFFER (${buffer.length} bytes) and prompt (${prompt.length} chars).`);
-                        geminiRawRes = await callGemini(systemInstruction, prompt, buffer);
+                        geminiRawRes = await callGemini(systemInstruction, prompt, buffer, "application/pdf", responseSchema);
                     }
                     console.log(`[pre-revision] Gemini response received. Length: ${geminiRawRes.length} chars.`);
  

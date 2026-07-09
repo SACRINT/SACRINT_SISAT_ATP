@@ -16,7 +16,8 @@ export async function callGemini(
     systemInstruction: string,
     prompt: string,
     pdfBuffer?: Buffer,
-    pdfMimeType: string = "application/pdf"
+    pdfMimeType: string = "application/pdf",
+    responseSchema?: any
 ): Promise<string> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -63,7 +64,8 @@ export async function callGemini(
         } : undefined,
         generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.2
+            temperature: 0.2,
+            responseSchema: responseSchema || undefined
         }
     };
 
