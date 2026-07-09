@@ -48,7 +48,7 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
         console.log("[pre-revision] PDFParse loading document...");
         await parser.load();
         console.log("[pre-revision] PDFParse document loaded. Extracting text...");
-        const result = await parser.getText();
+        const result = await parser.getText({ first: 15 } as any);
         const text = result?.text || "";
         console.log("[pre-revision] Text extraction complete. Characters extracted:", text.length);
         return text;
