@@ -162,22 +162,37 @@ export async function downloadFile(url: string): Promise<Buffer> {
                     secure: true,
                 });
 
-                let id = parsed.publicId;
-                if (parsed.resourceType === "raw" && parsed.format && !id.endsWith(`.${parsed.format}`)) {
-                    id = `${id}.${parsed.format}`;
-                } else if (parsed.resourceType !== "raw" && /\.\w{2,5}$/.test(id)) {
-                    id = id.replace(/\.[^/.]+$/, "");
-                }
+                const tryTypes = [parsed.resourceType, "image", "raw", "video"]
+                    .filter((v, i, a) => a.indexOf(v) === i);
 
-                const signedUrl = cloudinary.utils.private_download_url(id, parsed.format, {
-                    resource_type: parsed.resourceType as "image" | "raw" | "video",
-                    type: "upload",
-                });
+                for (const resType of tryTypes) {
+                    let id = parsed.publicId;
+                    if (resType === "raw" && parsed.format && !id.endsWith(`.${parsed.format}`)) {
+                        id = `${id}.${parsed.format}`;
+                    } else if (resType !== "raw" && /\.\w{2,5}$/.test(id)) {
+                        id = id.replace(/\.[^/.]+$/, "");
+                    }
 
-                const res = await fetch(signedUrl);
-                if (res.ok) {
-                    const arrayBuffer = await res.arrayBuffer();
-                    return Buffer.from(arrayBuffer);
+                    try {
+                        const signedUrl = cloudinary.utils.private_download_url(id, parsed.format, {
+                            resource_type: resType as "image" | "raw" | "video",
+                            type: "upload",
+                        });
+
+                        console.log(`[pre-revision] Trying to download signed url with resType: ${resType}, id: ${id}`);
+                        const res = await fetch(signedUrl, {
+                            signal: AbortSignal.timeout(10000)
+                        });
+                        if (res.ok) {
+                            console.log(`[pre-revision] Download success for resType: ${resType}`);
+                            const arrayBuffer = await res.arrayBuffer();
+                            return Buffer.from(arrayBuffer);
+                        } else {
+                            console.warn(`[pre-revision] Download failed for resType ${resType} with status: ${res.status}`);
+                        }
+                    } catch (err) {
+                        console.error(`[pre-revision] Error fetching signed URL for ${resType}:`, err);
+                    }
                 }
             }
         } catch (e: any) {
@@ -185,7 +200,10 @@ export async function downloadFile(url: string): Promise<Buffer> {
         }
     }
 
-    const res = await fetch(url);
+    console.log(`[pre-revision] Falling back to direct fetch for URL: ${url}`);
+    const res = await fetch(url, {
+        signal: AbortSignal.timeout(15000)
+    });
     if (!res.ok) {
         throw new Error(`Failed to download file from ${url} (status ${res.status})`);
     }

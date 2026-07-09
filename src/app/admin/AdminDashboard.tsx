@@ -276,7 +276,10 @@ export default function AdminDashboard({
         try {
             setMessage({ type: "success", text: "Obteniendo información del archivo..." });
             const infoRes = await fetch(`/api/entregas/${correccionModal.entregaId}/pre-revision?action=info`);
-            if (!infoRes.ok) throw new Error("Error al obtener información del archivo");
+            if (!infoRes.ok) {
+                const errData = await infoRes.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al obtener información del archivo");
+            }
             const info = await infoRes.json();
             
             let textoCompleto = "";
