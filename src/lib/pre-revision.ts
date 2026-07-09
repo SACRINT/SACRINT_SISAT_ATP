@@ -58,6 +58,21 @@ export async function extractTextFromPdf(
         console.log("[pre-revision] Starting local PDF text extraction, buffer size:", buffer.length);
         // @ts-ignore
         const pdf = await import("pdf-parse");
+        // @ts-ignore
+        const { GlobalWorkerOptions } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        
+        const fs = await import("fs");
+        const path = await import("path");
+
+        // Read local worker file and encode it to base64 Data URL at runtime
+        const workerPath = path.resolve(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs");
+        console.log("[pre-revision] Reading worker file dynamically at:", workerPath);
+        const workerContent = fs.readFileSync(workerPath, "utf8");
+        const base64Worker = "data:text/javascript;base64," + Buffer.from(workerContent).toString("base64");
+        
+        GlobalWorkerOptions.workerSrc = base64Worker;
+        console.log("[pre-revision] Configured GlobalWorkerOptions.workerSrc dynamically using fs base64 worker data URL.");
+
         const uint8Array = new Uint8Array(buffer);
         console.log("[pre-revision] PDFParse constructor initializing with disableWorker: true...");
         const parser: any = new pdf.PDFParse({ data: uint8Array, verbosity: 0, disableWorker: true } as any);
