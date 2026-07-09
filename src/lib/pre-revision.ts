@@ -1,3 +1,16 @@
+if (typeof global !== "undefined" && !(global as any).DOMMatrix) {
+    (global as any).DOMMatrix = class DOMMatrix {
+        constructor(init?: any) {
+            if (init && init.length >= 6) {
+                this.a = init[0]; this.b = init[1];
+                this.c = init[2]; this.d = init[3];
+                this.e = init[4]; this.f = init[5];
+            }
+        }
+        a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+    };
+}
+
 import { prisma } from "./db";
 import { callGemini } from "./gemini";
 import * as XLSX from "xlsx";
