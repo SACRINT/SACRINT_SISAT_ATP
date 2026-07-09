@@ -39,16 +39,21 @@ async function extractTextFromDocx(buffer: Buffer): Promise<string> {
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     try {
+        console.log("[pre-revision] Starting local PDF text extraction, buffer size:", buffer.length);
         // @ts-ignore
         const pdf = await import("pdf-parse");
-        // Convert Buffer to Uint8Array for safety
         const uint8Array = new Uint8Array(buffer);
-        const parser: any = new pdf.PDFParse({ data: uint8Array, verbosity: 0 });
+        console.log("[pre-revision] PDFParse constructor initializing with disableWorker: true...");
+        const parser: any = new pdf.PDFParse({ data: uint8Array, verbosity: 0, disableWorker: true } as any);
+        console.log("[pre-revision] PDFParse loading document...");
         await parser.load();
+        console.log("[pre-revision] PDFParse document loaded. Extracting text...");
         const result = await parser.getText();
-        return result?.text || "";
+        const text = result?.text || "";
+        console.log("[pre-revision] Text extraction complete. Characters extracted:", text.length);
+        return text;
     } catch (error) {
-        console.error("Error extracting text from PDF locally:", error);
+        console.error("[pre-revision] Error extracting text from PDF locally:", error);
         throw error;
     }
 }
@@ -415,17 +420,21 @@ Responde únicamente en formato JSON con la siguiente estructura:
                     : "Evalúa este Proyecto Escolar Comunitario (PEC) y verifica que cumpla con los lineamientos del PAEC.");
 
                 try {
+                    console.log(`[pre-revision] Starting evaluation of ${modulo} for delivery ${entregaId}...`);
+                    console.log(`[pre-revision] Downloading file: ${file.nombre} from Cloudinary...`);
                     const buffer = await downloadFile(file.driveUrl!);
                     const isDocx = file.nombre.toLowerCase().endsWith(".docx");
                     const isPdf = file.nombre.toLowerCase().endsWith(".pdf");
+                    console.log(`[pre-revision] File downloaded. Size: ${buffer.length} bytes. Format isDocx: ${isDocx}, isPdf: ${isPdf}`);
                     
                     let extractedText = "";
                     if (isDocx) {
+                        console.log("[pre-revision] Extracting text from DOCX...");
                         extractedText = await extractTextFromDocx(buffer);
+                        console.log(`[pre-revision] DOCX text extraction successful. Characters: ${extractedText.length}`);
                     } else if (isPdf) {
                         try {
                             extractedText = await extractTextFromPdf(buffer);
-                            console.log(`[pre-revision] Local PDF text extraction successful for ${file.nombre}. Length: ${extractedText.length}`);
                         } catch (err) {
                             console.error("[pre-revision] Local PDF text extraction failed. Falling back to raw binary.", err);
                         }
@@ -455,11 +464,14 @@ IMPORTANTE: Si utilizas comillas dobles dentro de las observaciones, debes escap
 }`;
  
                     if (extractedText) {
+                        console.log(`[pre-revision] Calling Gemini with EXTRACTED TEXT (${prompt.length} chars). No binary sent.`);
                         geminiRawRes = await callGemini(systemInstruction, prompt);
                     } else {
+                        console.log(`[pre-revision] Calling Gemini with BINARY PDF BUFFER (${buffer.length} bytes) and prompt (${prompt.length} chars).`);
                         geminiRawRes = await callGemini(systemInstruction, prompt, buffer);
                     }
-
+                    console.log(`[pre-revision] Gemini response received. Length: ${geminiRawRes.length} chars.`);
+ 
                     const parsed = cleanAndParseGeminiJson(geminiRawRes);
 
                     resultado = {
