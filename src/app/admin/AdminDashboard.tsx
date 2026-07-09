@@ -776,7 +776,34 @@ export default function AdminDashboard({
                             </p>
 
                             {/* 🔍 Observaciones Preliminares de la Supervisión (IA) */}
-                            {correccionModal.preRevision && correccionModal.preRevision.resultado && (() => {
+                            {(!correccionModal.preRevision || !correccionModal.preRevision.resultado) ? (
+                                <div style={{
+                                    marginBottom: "1rem", padding: "0.75rem", borderRadius: "8px",
+                                    border: "1px solid #e2e8f0", background: "#f8fafc", fontSize: "0.8125rem"
+                                }}>
+                                    <h4 style={{ margin: "0 0 0.5rem", color: "#475569", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                        <Sparkles size={14} style={{ color: "var(--primary)" }} /> Pre-dictamen con IA no generado
+                                    </h4>
+                                    <p style={{ margin: "0 0 0.5rem", color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                                        Este documento se subió antes de activar la IA o no ha sido analizado. ¿Deseas evaluarlo ahora?
+                                    </p>
+                                    <button
+                                        onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
+                                        disabled={reEvaluating}
+                                        style={{
+                                            display: "inline-flex", alignItems: "center", gap: "0.375rem",
+                                            padding: "0.25rem 0.5rem", fontSize: "0.75rem", borderRadius: "4px",
+                                            background: "var(--primary)", color: "white", border: "none", cursor: "pointer"
+                                        }}
+                                    >
+                                        {reEvaluating ? (
+                                            <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Analizando...</>
+                                        ) : (
+                                            <><RefreshCw size={12} /> Generar Pre-dictamen con IA</>
+                                        )}
+                                    </button>
+                                </div>
+                            ) : (() => {
                                 const res = correccionModal.preRevision.resultado;
                                 if (res.tipo === "DIA_NARANJA") {
                                     return (
