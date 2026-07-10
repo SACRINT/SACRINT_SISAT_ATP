@@ -493,6 +493,66 @@ Responde únicamente en formato JSON con la siguiente estructura:
 
                 try {
                     console.log(`[pre-revision] Starting evaluation of ${modulo} for delivery ${entregaId}...`);
+
+                    // Fetch the original PMC for comparison if we are evaluating the INFORME_FINAL
+                    let textoOriginalPMC = "";
+                    if (modulo === "INFORME_FINAL") {
+                        try {
+                            console.log(`[pre-revision] Evaluating INFORME_FINAL. Looking up original PMC for school ${entrega.escuelaId}...`);
+                            const pmcEntrega = await prisma.entrega.findFirst({
+                                where: {
+                                    escuelaId: entrega.escuelaId,
+                                    periodoEntrega: {
+                                        cicloEscolarId: entrega.periodoEntrega.cicloEscolarId,
+                                        programa: {
+                                            nombre: {
+                                                contains: "PMC",
+                                                mode: "insensitive"
+                                            },
+                                            NOT: {
+                                                nombre: {
+                                                    contains: "INFORME FINAL",
+                                                    mode: "insensitive"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                include: {
+                                    archivos: true,
+                                    preRevision: true
+                                }
+                            });
+
+                            if (pmcEntrega) {
+                                const pmcFile = pmcEntrega.archivos.find(a => a.tipo === "ENTREGA" && a.driveUrl);
+                                if (pmcFile) {
+                                    try {
+                                        console.log(`[pre-revision] Downloading PMC file: ${pmcFile.nombre} to compare...`);
+                                        const pmcBuffer = await downloadFile(pmcFile.driveUrl!);
+                                        if (pmcFile.nombre.toLowerCase().endsWith(".docx")) {
+                                            textoOriginalPMC = await extractTextFromDocx(pmcBuffer);
+                                        } else if (pmcFile.nombre.toLowerCase().endsWith(".pdf")) {
+                                            const pdfRes = await extractTextFromPdf(pmcBuffer);
+                                            textoOriginalPMC = pdfRes.text;
+                                        }
+                                        console.log(`[pre-revision] Original PMC text extracted successfully. Chars: ${textoOriginalPMC.length}`);
+                                    } catch (err) {
+                                        console.error("[pre-revision] Failed to extract text from original PMC:", err);
+                                        if (pmcEntrega.preRevision?.resultado) {
+                                            const resObj = pmcEntrega.preRevision.resultado as any;
+                                            textoOriginalPMC = `Observaciones y Metas del PMC Original:\n${resObj.borradorCorreo || ""}`;
+                                        }
+                                    }
+                                } else if (pmcEntrega.preRevision?.resultado) {
+                                    const resObj = pmcEntrega.preRevision.resultado as any;
+                                    textoOriginalPMC = `Observaciones y Metas del PMC Original:\n${resObj.borradorCorreo || ""}`;
+                                }
+                            }
+                        } catch (pmcErr) {
+                            console.error("[pre-revision] Error querying original PMC:", pmcErr);
+                        }
+                    }
                     
                     let extractedText = textoCompletoInput || "";
                     let buffer: Buffer | null = null;
@@ -523,14 +583,26 @@ Responde únicamente en formato JSON con la siguiente estructura:
                     let geminiRawRes = "";
                     const systemInstruction = "Eres un Asesor Técnico Pedagógico (ATP) experto en evaluación y planeación escolar.";
  
-                    const prompt = `A continuación se presenta el prompt maestro de evaluación oficial de la supervisión que define los lineamientos y rúbricas a evaluar:
+                    let prompt = `A continuación se presenta el prompt maestro de evaluación oficial de la supervisión que define los lineamientos y rúbricas a evaluar:
 ---
 ${templateContent}
 ---
  
-Evalúa el documento entregado por el plantel: ${escuelaNombre} (${escuelaCct}).
+Evalúa el documento entregado por el plantel: ${escuelaNombre} (${escuelaCct}).`;
+
+                    if (modulo === "INFORME_FINAL" && textoOriginalPMC) {
+                        prompt += `
+
+A continuación se proporciona el texto o análisis del PLAN DE MEJORA CONTINUA (PMC) original planeado por la escuela para este ciclo escolar. Úsalo como referencia obligatoria para comparar el Informe Final con las metas, actividades y categorías del PMC original:
+----------------------------------
+${textoOriginalPMC.slice(0, 12000)}
+----------------------------------`;
+                    }
+
+                    prompt += `
+
 ${extractedText 
-    ? "Texto extraído del documento para tu evaluación:\n" + extractedText
+    ? "Texto extraído del documento actual entregado para tu evaluación:\n" + extractedText
     : "El documento se incluye en formato binario para tu análisis."
 }
  
