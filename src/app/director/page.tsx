@@ -125,6 +125,7 @@ export default async function DirectorPage() {
             cicloId={ciclo.id}
             cicloObj={JSON.parse(JSON.stringify(ciclo))}
             todosCiclos={JSON.parse(JSON.stringify(todosCiclos))}
+            anuncioGlobal={ciclo.anuncioGlobal || undefined}
             recursos={JSON.parse(JSON.stringify(recursos))}
             isEventosActive={isEventosActive}
             isCircularActive={isCircularActive}

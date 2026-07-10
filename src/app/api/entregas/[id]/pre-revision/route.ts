@@ -126,6 +126,25 @@ export async function POST(
         const userRole = user?.role;
         const { id } = await params;
 
+        const { searchParams } = new URL(req.url);
+        const action = searchParams.get("action");
+
+        if (action === "reset") {
+            if (userRole !== "admin") {
+                return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+            }
+            const updated = await prisma.preRevision.upsert({
+                where: { entregaId: id },
+                update: { intentosUsados: 0 },
+                create: { entregaId: id, resultado: {}, intentosUsados: 0 }
+            });
+            return NextResponse.json({
+                success: true,
+                intentosUsados: 0,
+                resultado: updated.resultado
+            });
+        }
+
         // Fetch the entrega to verify school ownership if director
         const entrega = await prisma.entrega.findUnique({
             where: { id },

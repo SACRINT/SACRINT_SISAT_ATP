@@ -70,6 +70,7 @@ export default async function AdminPage() {
                 include: {
                     periodoEntrega: { include: { programa: true } },
                     archivos: { where: { tipo: "ENTREGA" } },
+                    preRevision: true,
                     correcciones: {
                         include: {
                             admin: { select: { id: true, nombre: true } },

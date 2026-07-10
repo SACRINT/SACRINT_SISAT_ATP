@@ -104,7 +104,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos" | "gestion-prompts" | "orquestador-ia">("general");
+    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos" | "gestion-prompts" | "orquestador-ia">("general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -119,12 +119,14 @@ export default function AdminDashboard({
         setVista(v);
         setSidebarOpen(false);
     };
+    const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas">("programas");
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
 
     const [sendingCorreccion, setSendingCorreccion] = useState(false);
     const [reEvaluating, setReEvaluating] = useState(false);
+    const [resettingAttempts, setResettingAttempts] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [searchOpen, setSearchOpen] = useState(false);
     const [expedientesHighlightId, setExpedientesHighlightId] = useState<string>("");
@@ -328,6 +330,29 @@ export default function AdminDashboard({
         }
     }
 
+    async function handleResetAttempts() {
+        if (!correccionModal) return;
+        setResettingAttempts(true);
+        setMessage(null);
+        try {
+            const res = await fetch(`/api/entregas/${correccionModal.entregaId}/pre-revision?action=reset`, {
+                method: "POST"
+            });
+            if (!res.ok) throw new Error("Error al reiniciar los intentos");
+            const data = await res.json();
+            if (data.success) {
+                setCorreccionModal(prev => prev ? { ...prev, preRevision: { ...prev.preRevision, intentosUsados: 0 } } : null);
+                setMessage({ type: "success", text: "El contador de intentos del director ha sido reiniciado a 0" });
+                router.refresh();
+            }
+        } catch (err: any) {
+            console.error("Error resetting attempts:", err);
+            setMessage({ type: "error", text: err.message || "Error al reiniciar intentos" });
+        } finally {
+            setResettingAttempts(false);
+        }
+    }
+
 
     // Count active special modules for badge
     const activeModulesCount = [
@@ -480,13 +505,9 @@ export default function AdminDashboard({
                                     <BarChart3 size={17} />
                                     <span>Vista General</span>
                                 </button>
-                                <button className={`sidebar-link ${vista === "escuelas" ? "active" : ""}`} onClick={() => navigate("escuelas")}>
-                                    <School size={17} />
-                                    <span>Avance por Escuela</span>
-                                </button>
-                                <button className={`sidebar-link ${vista === "programas" ? "active" : ""}`} onClick={() => navigate("programas")}>
+                                <button className={`sidebar-link ${vista === "avances" ? "active" : ""}`} onClick={() => navigate("avances")}>
                                     <ListChecks size={17} />
-                                    <span>Avance por Programa</span>
+                                    <span>Avance de Entregas</span>
                                 </button>
                             </div>
                         )}
@@ -669,27 +690,82 @@ export default function AdminDashboard({
                         anuncioGlobal={anuncioGlobal}
                         onSaveAnuncio={handleSaveAnuncio}
                         onExportExcel={exportToExcel}
-                        onNavigateEscuelas={() => navigate("escuelas")}
+                        onNavigateEscuelas={() => { navigate("avances"); setAvanceTab("escuelas"); }}
                     />
                 )}
 
 
-                {/* ========= VISTA: ESCUELAS ========= */}
-                {vista === "escuelas" && (
-                    <ListadoEscuelas
-                        escuelas={escuelas}
-                        onSetMessage={setMessage}
-                        onSetCorreccionModal={setCorreccionModal}
-                    />
-                )}
+                {/* ========= VISTA: AVANCES (CON PESTAÑAS) ========= */}
+                {vista === "avances" && (
+                    <div>
+                        <div style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            borderBottom: "1px solid var(--border)",
+                            marginBottom: "1.25rem",
+                            background: "var(--bg-secondary)",
+                            padding: "0.25rem",
+                            borderRadius: "8px",
+                            width: "fit-content"
+                        }}>
+                            <button
+                                onClick={() => setAvanceTab("programas")}
+                                style={{
+                                    padding: "0.45rem 0.9rem",
+                                    background: avanceTab === "programas" ? "white" : "none",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    boxShadow: avanceTab === "programas" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                                    color: avanceTab === "programas" ? "var(--primary)" : "var(--text-secondary)",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    fontSize: "0.8125rem",
+                                    transition: "all 0.15s ease",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.375rem"
+                                }}
+                            >
+                                <ListChecks size={13} />
+                                Avance por Programa
+                            </button>
+                            <button
+                                onClick={() => setAvanceTab("escuelas")}
+                                style={{
+                                    padding: "0.45rem 0.9rem",
+                                    background: avanceTab === "escuelas" ? "white" : "none",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    boxShadow: avanceTab === "escuelas" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                                    color: avanceTab === "escuelas" ? "var(--primary)" : "var(--text-secondary)",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    fontSize: "0.8125rem",
+                                    transition: "all 0.15s ease",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.375rem"
+                                }}
+                            >
+                                <School size={13} />
+                                Avance por Escuela
+                            </button>
+                        </div>
 
-                {/* ========= VISTA: PROGRAMAS ========= */}
-                {vista === "programas" && (
-                    <ListadoProgramas
-                        programas={programas}
-                        onSetMessage={setMessage}
-                        onSetCorreccionModal={setCorreccionModal}
-                    />
+                        {avanceTab === "programas" ? (
+                            <ListadoProgramas
+                                programas={programas}
+                                onSetMessage={setMessage}
+                                onSetCorreccionModal={setCorreccionModal}
+                            />
+                        ) : (
+                            <ListadoEscuelas
+                                escuelas={escuelas}
+                                onSetMessage={setMessage}
+                                onSetCorreccionModal={setCorreccionModal}
+                            />
+                        )}
+                    </div>
                 )}
 
                 {/* ========= VISTA: GESTIÓN DE PERIODOS ========= */}
@@ -1048,6 +1124,22 @@ export default function AdminDashboard({
                                                                         <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Re-evaluando...</>
                                                                     ) : (
                                                                         <><RefreshCw size={11} /> Re-evaluar</>
+                                                                    )}
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => { e.preventDefault(); handleResetAttempts(); }}
+                                                                    disabled={resettingAttempts}
+                                                                    style={{
+                                                                        fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
+                                                                        background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a", cursor: "pointer",
+                                                                        display: "inline-flex", alignItems: "center", gap: "0.25rem"
+                                                                    }}
+                                                                    title="Reiniciar contador de autoevaluaciones realizadas por el director"
+                                                                >
+                                                                    {resettingAttempts ? (
+                                                                        <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Reiniciando...</>
+                                                                    ) : (
+                                                                        <><RefreshCw size={11} /> Reiniciar Intentos ({correccionModal.preRevision?.intentosUsados ?? 0})</>
                                                                     )}
                                                                 </button>
                                                             </div>
