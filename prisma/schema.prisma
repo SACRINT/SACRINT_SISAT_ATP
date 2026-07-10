@@ -363,6 +363,8 @@ model CapemFichaRegistro {
   archivoDriveId  String?
   archivoDriveUrl String?
   bloqueado       Boolean  @default(false)
+  validoIA        String?  // "APROBADO" | "ADVERTENCIA" | "RECHAZADO" | "PENDIENTE"
+  observacionesIA String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -409,6 +411,8 @@ model DocumentoPersonal {
   archivoDriveId   String?
   archivoDriveUrl  String?
   bloqueado        Boolean  @default(false)
+  validoIA         String?  // "APROBADO" | "ADVERTENCIA" | "RECHAZADO" | "PENDIENTE"
+  observacionesIA  String?
   noTiene          Boolean  @default(false)
   orden            Int      @default(0)
   createdAt        DateTime @default(now())

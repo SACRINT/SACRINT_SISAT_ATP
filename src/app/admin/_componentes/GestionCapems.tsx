@@ -49,6 +49,8 @@ interface Registro {
     archivoDriveId: string | null;
     archivoDriveUrl: string | null;
     bloqueado: boolean;
+    validoIA?: string | null;
+    observacionesIA?: string | null;
     createdAt: string;
     ficha: { id: string; nombre: string };
     capem: { id: string; nombre: string };
@@ -56,6 +58,73 @@ interface Registro {
 }
 
 type TabSection = "fichas" | "capems" | "resumen";
+
+
+function renderIABadge(validoIA: string | null | undefined, observacionesIA: string | null | undefined, onManualReevaluate?: () => void, loading?: boolean) {
+    if (!validoIA) return null;
+
+    let bg = "#f1f5f9";
+    let color = "#475569";
+    let text = "Pendiente IA";
+
+    if (validoIA === "PENDIENTE" || loading) {
+        bg = "#fef3c7";
+        color = "#d97706";
+        text = "⏳ Validando...";
+    } else if (validoIA === "APROBADO") {
+        bg = "#dcfce7";
+        color = "#15803d";
+        text = "✓ Validado por IA";
+    } else if (validoIA === "ADVERTENCIA") {
+        bg = "#fffbeb";
+        color = "#b45309";
+        text = "⚠️ Advertencia IA";
+    } else if (validoIA === "RECHAZADO") {
+        bg = "#fee2e2";
+        color = "#b91c1c";
+        text = "❌ Rechazado por IA";
+    }
+
+    return (
+        <span
+            style={{
+                fontSize: "0.68rem",
+                padding: "0.15rem 0.4rem",
+                borderRadius: "4px",
+                background: bg,
+                color: color,
+                fontWeight: 600,
+                cursor: observacionesIA ? "help" : "default",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.25rem",
+                flexShrink: 0
+            }}
+            title={observacionesIA || undefined}
+        >
+            <span>{text}</span>
+            {onManualReevaluate && !loading && validoIA !== "PENDIENTE" && (
+                <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManualReevaluate(); }}
+                    style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "inherit",
+                        padding: 0,
+                        fontSize: "0.75rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        marginLeft: "2px"
+                    }}
+                    title="Forzar análisis de IA de nuevo"
+                >
+                    🔄
+                </button>
+            )}
+        </span>
+    );
+}
 
 export default function GestionCapems() {
     const router = useRouter();

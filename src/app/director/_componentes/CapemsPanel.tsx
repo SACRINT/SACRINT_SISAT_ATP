@@ -37,6 +37,8 @@ interface Registro {
     archivoDriveId: string | null;
     archivoDriveUrl: string | null;
     bloqueado: boolean;
+    validoIA?: string | null;
+    observacionesIA?: string | null;
     ficha: { id: string; nombre: string };
     capem: { id: string; nombre: string };
 }
@@ -51,6 +53,55 @@ interface SlotState {
     archivoDriveUrl: string | null;
     archivoDriveId: string | null;
     bloqueado: boolean;
+    validoIA?: string | null;
+    observacionesIA?: string | null;
+}
+
+
+function renderIABadge(validoIA: string | null | undefined, observacionesIA: string | null | undefined) {
+    if (!validoIA) return null;
+
+    let bg = "#f1f5f9";
+    let color = "#475569";
+    let text = "Pendiente IA";
+
+    if (validoIA === "PENDIENTE") {
+        bg = "#fef3c7";
+        color = "#d97706";
+        text = "⏳ Validando...";
+    } else if (validoIA === "APROBADO") {
+        bg = "#dcfce7";
+        color = "#15803d";
+        text = "✓ Validado por IA";
+    } else if (validoIA === "ADVERTENCIA") {
+        bg = "#fffbeb";
+        color = "#b45309";
+        text = "⚠️ Advertencia IA";
+    } else if (validoIA === "RECHAZADO") {
+        bg = "#fee2e2";
+        color = "#b91c1c";
+        text = "❌ Rechazado por IA";
+    }
+
+    return (
+        <span
+            style={{
+                fontSize: "0.68rem",
+                padding: "0.15rem 0.4rem",
+                borderRadius: "4px",
+                background: bg,
+                color: color,
+                fontWeight: 600,
+                cursor: observacionesIA ? "help" : "default",
+                display: "inline-flex",
+                alignItems: "center",
+                flexShrink: 0
+            }}
+            title={observacionesIA || undefined}
+        >
+            {text}
+        </span>
+    );
 }
 
 export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: string; nombre: string } }) {
@@ -94,6 +145,8 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                     archivoDriveUrl: r.archivoDriveUrl,
                     archivoDriveId: r.archivoDriveId,
                     bloqueado: r.bloqueado,
+                    validoIA: r.validoIA,
+                    observacionesIA: r.observacionesIA,
                 }));
                 // Si no hay slots, empezar con uno vacío
                 if (existingSlots.length === 0) {
@@ -106,6 +159,8 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                         archivoDriveUrl: null,
                         archivoDriveId: null,
                         bloqueado: false,
+                        validoIA: null,
+                        observacionesIA: null,
                     });
                 }
                 initialSlots[capem.id] = existingSlots;
@@ -239,7 +294,7 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                     ...prev,
                     [capemId]: (prev[capemId] || []).map(s =>
                         s.localId === localId
-                            ? { ...s, registroId: newReg.id, archivoNombre: file.name, archivoDriveUrl: uploadData.secure_url, archivoDriveId: uploadData.public_id, uploading: false }
+                            ? { ...s, registroId: newReg.id, archivoNombre: file.name, archivoDriveUrl: uploadData.secure_url, archivoDriveId: uploadData.public_id, uploading: false, validoIA: "PENDIENTE", observacionesIA: null }
                             : s
                     ),
                 }));
@@ -252,7 +307,7 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                 ...prev,
                 [capemId]: (prev[capemId] || []).map(s =>
                     s.localId === localId
-                        ? { ...s, archivoNombre: file.name, archivoDriveUrl: uploadData.secure_url, archivoDriveId: uploadData.public_id, uploading: false }
+                        ? { ...s, archivoNombre: file.name, archivoDriveUrl: uploadData.secure_url, archivoDriveId: uploadData.public_id, uploading: false, validoIA: "PENDIENTE", observacionesIA: null }
                         : s
                 ),
             }));
@@ -482,6 +537,7 @@ export default function CapemsPanel({ escuela }: { escuela: { id: string; cct: s
                                                         borderRadius: "6px", border: "1px solid var(--border)",
                                                         fontSize: "0.8125rem",
                                                     }}>
+                                                        {renderIABadge(slot.validoIA, slot.observacionesIA)}
                                                         <FileText size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
                                                         {/* Ver */}
                                                         <button

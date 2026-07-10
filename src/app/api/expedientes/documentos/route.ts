@@ -65,10 +65,19 @@ export async function POST(req: Request) {
             archivoNombre: archivoNombre || null,
             archivoDriveId: archivoDriveId || null,
             archivoDriveUrl: archivoDriveUrl || null,
+            validoIA: (archivoDriveUrl && !noTiene) ? "PENDIENTE" : null,
             noTiene: !!noTiene,
             orden: (lastDoc?.orden ?? 0) + 1,
         },
     });
+
+    if (documento.archivoDriveUrl && !documento.noTiene) {
+        import("@/lib/ocr-validator").then(({ validarDocumentoPersonalConIA }) => {
+            validarDocumentoPersonalConIA(documento.id).catch(err =>
+                console.error("[expedientes-ocr] Error in background validation:", err)
+            );
+        });
+    }
 
     return NextResponse.json(documento, { status: 201 });
 }

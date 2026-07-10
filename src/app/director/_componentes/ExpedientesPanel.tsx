@@ -34,6 +34,8 @@ interface Documento {
     bloqueado: boolean;
     noTiene?: boolean;
     orden: number;
+    validoIA?: string | null;
+    observacionesIA?: string | null;
 }
 
 interface PersonalRecord {
@@ -72,6 +74,53 @@ const EMPTY_FORM = {
     fechaIngreso: "",
 };
 
+
+function renderIABadge(validoIA: string | null | undefined, observacionesIA: string | null | undefined) {
+    if (!validoIA) return null;
+
+    let bg = "#f1f5f9";
+    let color = "#475569";
+    let text = "Pendiente IA";
+
+    if (validoIA === "PENDIENTE") {
+        bg = "#fef3c7";
+        color = "#d97706";
+        text = "⏳ Validando...";
+    } else if (validoIA === "APROBADO") {
+        bg = "#dcfce7";
+        color = "#15803d";
+        text = "✓ Validado por IA";
+    } else if (validoIA === "ADVERTENCIA") {
+        bg = "#fffbeb";
+        color = "#b45309";
+        text = "⚠️ Advertencia IA";
+    } else if (validoIA === "RECHAZADO") {
+        bg = "#fee2e2";
+        color = "#b91c1c";
+        text = "❌ Rechazado por IA";
+    }
+
+    return (
+        <span
+            style={{
+                fontSize: "0.68rem",
+                padding: "0.15rem 0.4rem",
+                borderRadius: "4px",
+                background: bg,
+                color: color,
+                fontWeight: 600,
+                cursor: observacionesIA ? "help" : "default",
+                display: "inline-flex",
+                alignItems: "center",
+                flexShrink: 0
+            }}
+            title={observacionesIA || undefined}
+        >
+            {text}
+        </span>
+    );
+}
+
 export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) {
     const [personal, setPersonal] = useState<PersonalRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -102,6 +151,30 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
     }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    useEffect(() => {
+        let hasPending = false;
+        personal.forEach(p => {
+            if (p.documentos.some(d => d.validoIA === "PENDIENTE")) {
+                hasPending = true;
+            }
+        });
+
+        if (!hasPending) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch("/api/expedientes/personal");
+                if (res.ok) {
+                    setPersonal(await res.json());
+                }
+            } catch (err) {
+                console.error("Error polling EXPEDIENTES validation:", err);
+            }
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, [personal]);
 
     useEffect(() => {
         if (highlightPersonId && personal.length > 0) {
@@ -803,6 +876,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                                     >
                                                                         <Download size={12} /> {docType.label}
                                                                     </a>
+                                                                    {renderIABadge(d.validoIA, d.observacionesIA)}
                                                                     {!d.bloqueado && (
                                                                         <button
                                                                             onClick={() => handleDeleteDoc(d.id)}
@@ -913,6 +987,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                         ) : (
                                                             <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>Sin archivo</span>
                                                         )}
+                                                        {d.archivoDriveUrl && renderIABadge(d.validoIA, d.observacionesIA)}
                                                         {!d.bloqueado && (
                                                             <button onClick={() => handleDeleteDoc(d.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)", padding: "2px" }}>
                                                                 <Trash2 size={14} />

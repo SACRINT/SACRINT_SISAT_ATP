@@ -38,6 +38,8 @@ interface Documento {
     archivoDriveUrl: string | null;
     bloqueado: boolean;
     noTiene?: boolean;
+    validoIA?: string | null;
+    observacionesIA?: string | null;
     createdAt: string;
 }
 
@@ -101,6 +103,39 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
     const [personalList, setPersonalList] = useState<Personal[]>([]);
     const [loading, setLoading] = useState(true);
     const [moduleActive, setModuleActive] = useState(false);
+    const [analyzingIA, setAnalyzingIA] = useState<string | null>(null);
+
+    async function handleReEvaluateIA(id: string) {
+        setAnalyzingIA(id);
+        setMessage(null);
+        try {
+            const res = await fetch("/api/admin/valida-ia", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id, modulo: "EXPEDIENTES" })
+            });
+            if (!res.ok) throw new Error("Error en el análisis de la IA");
+            const data = await res.json();
+            if (data.success && data.result) {
+                setPersonalList(prev => prev.map(p => {
+                    const hasDoc = p.documentos.some(d => d.id === id);
+                    if (hasDoc) {
+                        return {
+                            ...p,
+                            documentos: p.documentos.map(d => d.id === id ? { ...d, validoIA: data.result.valido, observacionesIA: data.result.observaciones } : d)
+                        };
+                    }
+                    return p;
+                }));
+                setMessage({ type: "success", text: "Documento re-evaluado exitosamente por la IA." });
+            }
+        } catch (err: any) {
+            console.error(err);
+            setMessage({ type: "error", text: err.message || "Error al re-evaluar con IA" });
+        } finally {
+            setAnalyzingIA(null);
+        }
+    }
     const [todasEscuelas, setTodasEscuelas] = useState<{ id: string; cct: string; nombre: string }[]>([]);
 
     const [expandedEscuela, setExpandedEscuela] = useState<string | null>(null);

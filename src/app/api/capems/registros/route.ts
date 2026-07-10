@@ -80,12 +80,21 @@ export async function POST(req: Request) {
             archivoNombre: fileData?.name || null,
             archivoDriveId: fileData?.publicId || null,
             archivoDriveUrl: fileData?.url || null,
+            validoIA: fileData?.url ? "PENDIENTE" : null,
         },
         include: {
             ficha: { select: { id: true, nombre: true } },
             capem: { select: { id: true, nombre: true } },
         },
     });
+
+    if (registro.archivoDriveUrl) {
+        import("@/lib/ocr-validator").then(({ validarRegistroCapemConIA }) => {
+            validarRegistroCapemConIA(registro.id).catch(err =>
+                console.error("[capems-ocr] Error in background validation:", err)
+            );
+        });
+    }
 
     return NextResponse.json(registro, { status: 201 });
 }
