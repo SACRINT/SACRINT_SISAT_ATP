@@ -128,6 +128,7 @@ model Entrega {
   archivos       Archivo[]
   correcciones   Correccion[]
   preRevision    PreRevision?
+  chatMensajes   ChatMensaje[]
 
   @@unique([escuelaId, periodoEntregaId])
 }
@@ -456,4 +457,14 @@ model ApiKey {
   isPremium   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model ChatMensaje {
+  id        String   @id @default(cuid())
+  entregaId String
+  role      String   // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
+
+  entrega   Entrega  @relation(fields: [entregaId], references: [id], onDelete: Cascade)
 }

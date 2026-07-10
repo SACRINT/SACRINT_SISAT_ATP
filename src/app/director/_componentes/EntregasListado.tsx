@@ -18,6 +18,8 @@ import {
     Brain,
     RefreshCw,
     Loader2,
+    X as XIcon,
+    Send,
 } from "lucide-react";
 import { ProgramaGroup, EntregaDirector } from "@/types/director";
 import { getDownloadUrl } from "@/lib/download-url";
@@ -346,7 +348,8 @@ export default function EntregasListado({
                                                     onSetMessage={onSetMessage}
                                                     entregaEstado={ent.estado}
                                                     hasUploadedFiles={entregaArchivos.length > 0}
-                                                />
+                                                    programaNombre={group.programa.nombre}
+                                                 />
 
                                                 {/* Corrections toggle */}
                                                 {hasCorrecciones && (
@@ -517,9 +520,10 @@ interface PreRevisionDirectorProps {
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
     entregaEstado: string;
     hasUploadedFiles: boolean;
+    programaNombre: string;
 }
 
-function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUploadedFiles }: PreRevisionDirectorProps) {
+function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUploadedFiles, programaNombre }: PreRevisionDirectorProps) {
     const [data, setData] = useState<{
         resultado: any;
         intentosUsados: number;
@@ -530,6 +534,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
     const [evaluating, setEvaluating] = useState(false);
     const [statusText, setStatusText] = useState("");
     const [showDetails, setShowDetails] = useState(false);
+    const [showChat, setShowChat] = useState(false);
 
     const fetchConfig = useCallback(async () => {
         try {
@@ -704,9 +709,33 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
 
             {/* Actions & Attempts */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", borderTop: "1px dashed var(--border)", paddingTop: "0.5rem" }}>
-                <span style={{ fontSize: "0.725rem", color: "var(--text-muted)" }}>
-                    Autoevaluaciones realizadas: <strong>{intentosUsados} de {limiteIntentos}</strong>
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span style={{ fontSize: "0.725rem", color: "var(--text-muted)", marginRight: "0.5rem" }}>
+                        Autoevaluaciones realizadas: <strong>{intentosUsados} de {limiteIntentos}</strong>
+                    </span>
+                    {resultado && resultado.tipo && (
+                        <button
+                            onClick={() => setShowChat(true)}
+                            type="button"
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.375rem",
+                                padding: "0.35rem 0.65rem",
+                                fontSize: "0.725rem",
+                                fontWeight: 600,
+                                borderRadius: "4px",
+                                background: "var(--bg-secondary)",
+                                border: "1px solid var(--border)",
+                                color: "var(--text-secondary)",
+                                cursor: "pointer"
+                            }}
+                        >
+                            <MessageSquare size={11} />
+                            Preguntar al Asistente (Chat)
+                        </button>
+                    )}
+                </div>
 
                 {evaluating ? (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.725rem", color: "var(--primary)", fontWeight: 600 }}>
@@ -741,6 +770,242 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                         )
                     )
                 )}
+            </div>
+        </div>
+    );
+}
+
+
+// ─── PreRevisionChat Component (AI Copilot Chat) ──────────────────────────
+
+interface Message {
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+    createdAt: string;
+}
+
+function PreRevisionChat({
+    entregaId,
+    programaNombre,
+    onClose
+}: {
+    entregaId: string;
+    programaNombre: string;
+    onClose: () => void;
+}) {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [input, setInput] = useState("");
+    const [sending, setSending] = useState(false);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+
+    const fetchChat = async () => {
+        try {
+            const res = await fetch(`/api/entregas/${entregaId}/chat`);
+            if (res.ok) {
+                const data = await res.json();
+                setMessages(data);
+            }
+        } catch (e) {
+            console.error("Error fetching chat:", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchChat();
+    }, [entregaId]);
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || sending) return;
+
+        const userMsgText = input.trim();
+        setInput("");
+        setSending(true);
+
+        const tempId = `temp-${Date.now()}`;
+        setMessages(prev => [
+            ...prev,
+            { id: tempId, role: "user", content: userMsgText, createdAt: new Date().toISOString() }
+        ]);
+
+        try {
+            const res = await fetch(`/api/entregas/${entregaId}/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: userMsgText }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setMessages(prev =>
+                    prev.filter(m => m.id !== tempId).concat([data.userMessage, data.aiMessage])
+                );
+            } else {
+                alert("Error al enviar mensaje");
+            }
+        } catch (e) {
+            console.error("Error sending chat:", e);
+            alert("Error de conexión");
+        } finally {
+            setSending(false);
+        }
+    };
+
+    return (
+        <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 1000,
+            display: "flex",
+            justifyContent: "flex-end",
+        }}>
+            <div style={{
+                width: "100%",
+                maxWidth: "460px",
+                height: "100%",
+                background: "white",
+                boxShadow: "-4px 0 15px rgba(0,0,0,0.1)",
+                display: "flex",
+                flexDirection: "column",
+            }}>
+                {/* Header */}
+                <div style={{
+                    padding: "1rem",
+                    borderBottom: "1px solid var(--border)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: "var(--bg-secondary)",
+                }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Brain size={18} style={{ color: "var(--primary)" }} />
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Asistente de Correcciones</h3>
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{programaNombre}</span>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        type="button"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
+                    >
+                        <XIcon size={20} />
+                    </button>
+                </div>
+
+                {/* Messages Body */}
+                <div style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    padding: "1rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
+                    background: "var(--bg-secondary)",
+                }}>
+                    <div style={{
+                        background: "white",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                        padding: "0.75rem",
+                        fontSize: "0.75rem",
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.4,
+                        marginBottom: "0.5rem"
+                    }}>
+                        👋 <strong>¡Hola!</strong> Soy tu Copiloto IA de correcciones. Puedes preguntarme dudas sobre cómo resolver las observaciones de tu <strong>{programaNombre}</strong>. Por ejemplo: <em>"¿Cómo redacto mejor mi meta del ámbito 1?"</em> o <em>"Dame ideas para justificar la subcategoría A"</em>.
+                    </div>
+
+                    {loading ? (
+                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100px", color: "var(--text-muted)" }}>
+                            <Loader2 size={20} className="spin" />
+                            <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem" }}>Cargando conversación...</span>
+                        </div>
+                    ) : (
+                        messages.map(msg => {
+                            const isUser = msg.role === "user";
+                            return (
+                                <div key={msg.id} style={{
+                                    display: "flex",
+                                    justifyContent: isUser ? "flex-end" : "flex-start",
+                                    width: "100%",
+                                }}>
+                                    <div style={{
+                                        maxWidth: "85%",
+                                        padding: "0.625rem 0.875rem",
+                                        borderRadius: "12px",
+                                        borderTopRightRadius: isUser ? "2px" : "12px",
+                                        borderTopLeftRadius: !isUser ? "2px" : "12px",
+                                        background: isUser ? "var(--primary)" : "white",
+                                        color: isUser ? "white" : "var(--text-primary)",
+                                        fontSize: "0.8rem",
+                                        lineHeight: 1.45,
+                                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                                        border: isUser ? "none" : "1px solid var(--border)",
+                                    }}>
+                                        {isUser ? (
+                                            msg.content
+                                        ) : (
+                                            renderMarkdown(msg.content)
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                    <div ref={chatEndRef} />
+                </div>
+
+                {/* Form Footer */}
+                <form onSubmit={handleSend} style={{
+                    padding: "0.75rem",
+                    borderTop: "1px solid var(--border)",
+                    display: "flex",
+                    gap: "0.5rem",
+                    background: "white",
+                }}>
+                    <input
+                        type="text"
+                        placeholder="Escribe tu duda sobre las observaciones..."
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        disabled={sending}
+                        style={{
+                            flex: 1,
+                            padding: "0.5rem 0.75rem",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border)",
+                            fontSize: "0.8rem",
+                            outline: "none",
+                        }}
+                    />
+                    <button
+                        type="submit"
+                        disabled={sending || !input.trim()}
+                        style={{
+                            background: "var(--primary)",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            padding: "0.5rem 0.75rem",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        {sending ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+                    </button>
+                </form>
             </div>
         </div>
     );
