@@ -16,7 +16,7 @@ export default function GestionPrompts() {
     const [loading, setLoading] = useState(true);
     const [savingId, setSavingId] = useState<string | null>(null);
     const [resettingId, setResettingId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"PMC" | "PAEC">("PMC");
+    const [activeTab, setActiveTab] = useState<"PMC" | "PAEC" | "INFORME_FINAL">("PMC");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Fetch templates on mount
@@ -143,6 +143,18 @@ export default function GestionPrompts() {
                     }}
                 >
                     Programa Aula, Escuela y Comunidad (PAEC)
+                </button>
+                <button
+                    onClick={() => setActiveTab("INFORME_FINAL")}
+                    style={{
+                        padding: "0.75rem 0.5rem", background: "none", border: "none", cursor: "pointer",
+                        fontWeight: 600, fontSize: "0.9375rem",
+                        color: activeTab === "INFORME_FINAL" ? "var(--primary)" : "var(--text-muted)",
+                        borderBottom: activeTab === "INFORME_FINAL" ? "2px solid var(--primary)" : "none",
+                        transition: "all 0.2s"
+                    }}
+                >
+                    Informe Final PMC
                 </button>
             </div>
 

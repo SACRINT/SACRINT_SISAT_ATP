@@ -156,7 +156,7 @@ function cleanAndParseGeminiJson(raw: string) {
 }
 
 export interface PreRevisionResult {
-    tipo: "DIA_NARANJA" | "ACOSO_ESCOLAR" | "PMC" | "PAEC" | "OTROS";
+    tipo: "DIA_NARANJA" | "ACOSO_ESCOLAR" | "PMC" | "PAEC" | "INFORME_FINAL" | "OTROS";
     aprobado?: boolean;
     error?: string;
     // Día Naranja fields
@@ -473,17 +473,23 @@ Responde únicamente en formato JSON con la siguiente estructura:
             // --- PMC / PAEC PRE-REVISION (Fase 3: Rúbricas y Prompts) ---
             const file = entrega.archivos.find(a => a.tipo === "ENTREGA" && a.driveUrl);
             if (file) {
-                const isPmc = programaNombre.includes("PMC") || programaNombre.includes("PLAN DE MEJORA CONTINUA");
-                const modulo = isPmc ? "PMC" : "PAEC";
+                let modulo: "PMC" | "PAEC" | "INFORME_FINAL" = "PMC";
+                if (programaNombre.includes("INFORME FINAL")) {
+                    modulo = "INFORME_FINAL";
+                } else if (programaNombre.includes("PAEC") || programaNombre.includes("PEC")) {
+                    modulo = "PAEC";
+                }
 
                 // 1. Fetch active evaluation template
                 const template = await prisma.plantillaEvaluacion.findFirst({
                     where: { modulo, activo: true }
                 });
 
-                const templateContent = template?.contenido || (isPmc 
-                    ? "Evalúa este Plan de Mejora Continua (PMC) y verifica si cuenta con objetivos, metas y responsables."
-                    : "Evalúa este Proyecto Escolar Comunitario (PEC) y verifica que cumpla con los lineamientos del PAEC.");
+                const templateContent = template?.contenido || (modulo === "INFORME_FINAL"
+                    ? "Evalúa este Informe Final del PMC y comprueba que se justifiquen las metas no cumplidas y se reporten evidencias de las cumplidas."
+                    : modulo === "PMC"
+                        ? "Evalúa este Plan de Mejora Continua (PMC) y verifica si cuenta con objetivos, metas y responsables."
+                        : "Evalúa este Proyecto Escolar Comunitario (PEC) y verifica que cumpla con los lineamientos del PAEC.");
 
                 try {
                     console.log(`[pre-revision] Starting evaluation of ${modulo} for delivery ${entregaId}...`);

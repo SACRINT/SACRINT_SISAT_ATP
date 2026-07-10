@@ -583,7 +583,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                 }
             }
             
-            setStatusText("Evaluando la entrega con Inteligencia Artificial (Gemini)...");
+            setStatusText("Analizando el documento preliminarmente...");
             const res = await fetch(`/api/entregas/${entregaId}/pre-revision`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -592,7 +592,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
             
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || "Error al evaluar con IA");
+                throw new Error(errData.error || "Error al generar autoevaluación");
             }
             
             const resJson = await res.json();
@@ -603,7 +603,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                     limiteIntentos: resJson.limiteIntentos,
                     activoDirectores: resJson.activoDirectores
                 });
-                onSetMessage({ type: "success", text: "✅ Pre-dictamen de IA generado correctamente." });
+                onSetMessage({ type: "success", text: "✅ Autoevaluación preliminar generada con éxito." });
             } else {
                 throw new Error("No se pudo obtener el resultado de la evaluación");
             }
@@ -638,7 +638,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <Brain size={16} style={{ color: "var(--primary)" }} />
-                    <span style={{ fontWeight: 700, color: "#1e293b" }}>Pre-dictamen del Asistente IA</span>
+                    <span style={{ fontWeight: 700, color: "#1e293b" }}>Asistente de Autoevaluación</span>
                 </div>
                 
                 {resultado && resultado.tipo && (
@@ -679,7 +679,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                             gap: "0.25rem"
                         }}
                     >
-                        {showDetails ? "Ocultar observaciones de la IA" : "Ver observaciones de la IA"}
+                        {showDetails ? "Ocultar observaciones preliminares" : "Ver observaciones preliminares"}
                     </button>
 
                     {showDetails && (
@@ -698,14 +698,14 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                 </div>
             ) : (
                 <p style={{ margin: "0 0 0.5rem", color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                    Esta entrega no ha sido pre-evaluada automáticamente por la IA.
+                    Esta entrega aún no cuenta con una autoevaluación preliminar.
                 </p>
             )}
 
             {/* Actions & Attempts */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", borderTop: "1px dashed var(--border)", paddingTop: "0.5rem" }}>
                 <span style={{ fontSize: "0.725rem", color: "var(--text-muted)" }}>
-                    Pre-evaluaciones consumidas: <strong>{intentosUsados} de {limiteIntentos}</strong>
+                    Autoevaluaciones realizadas: <strong>{intentosUsados} de {limiteIntentos}</strong>
                 </span>
 
                 {evaluating ? (
@@ -713,7 +713,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                         <Loader2 size={12} className="spin" /> {statusText}
                     </span>
                 ) : (
-                    entregaEstado !== "APROBADO" && (
+                    entregaEstado === "PENDIENTE" && (
                         hasRemainingAttempts ? (
                             <button
                                 onClick={handleReEvaluate}
@@ -732,11 +732,11 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                                 }}
                             >
                                 <RefreshCw size={11} />
-                                {intentosUsados > 0 ? "Re-evaluar con IA" : "Evaluar con IA"}
+                                {intentosUsados > 0 ? "Volver a autoevaluar" : "Pre-evaluar entrega"}
                             </button>
                         ) : (
                             <span style={{ fontSize: "0.725rem", color: "var(--danger)", fontWeight: 600 }}>
-                                ⚠️ Límite de pre-evaluaciones IA agotado.
+                                ⚠️ Límite de autoevaluaciones agotado.
                             </span>
                         )
                     )
