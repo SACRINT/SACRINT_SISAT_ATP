@@ -431,6 +431,10 @@ model PreRevisionConfig {
   id              String  @id @default("singleton")
   activoDirectores Boolean @default(false)
   limiteIntentos  Int     @default(3)
+  providerDefault String  @default("gemini")
+  modelDefault    String  @default("gemini-2.5-flash")
+  providerPremium String  @default("gemini")
+  modelPremium    String  @default("gemini-2.5-pro")
 }
 
 model PlantillaEvaluacion {
@@ -440,4 +444,16 @@ model PlantillaEvaluacion {
   contenido String   // El prompt maestro, lineamientos o rúbrica completa
   activo    Boolean  @default(true)
   updatedAt DateTime @updatedAt
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  provider    String   // "gemini" | "openai" | "claude" | "openrouter" | "deepseek"
+  key         String
+  label       String
+  active      Boolean  @default(true)
+  errorCount  Int      @default(0)
+  isPremium   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

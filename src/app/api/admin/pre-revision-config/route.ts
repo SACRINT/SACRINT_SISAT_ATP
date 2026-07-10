@@ -38,6 +38,10 @@ export async function POST(req: Request) {
     const updateData: any = {};
     if (body.activoDirectores !== undefined) updateData.activoDirectores = body.activoDirectores;
     if (body.limiteIntentos !== undefined) updateData.limiteIntentos = Number(body.limiteIntentos);
+    if (body.providerDefault !== undefined) updateData.providerDefault = body.providerDefault;
+    if (body.modelDefault !== undefined) updateData.modelDefault = body.modelDefault;
+    if (body.providerPremium !== undefined) updateData.providerPremium = body.providerPremium;
+    if (body.modelPremium !== undefined) updateData.modelPremium = body.modelPremium;
 
     const config = await prisma.preRevisionConfig.upsert({
         where: { id: "singleton" },
@@ -46,6 +50,10 @@ export async function POST(req: Request) {
             id: "singleton",
             activoDirectores: body.activoDirectores ?? false,
             limiteIntentos: body.limiteIntentos !== undefined ? Number(body.limiteIntentos) : 3,
+            providerDefault: body.providerDefault ?? "gemini",
+            modelDefault: body.modelDefault ?? "gemini-2.5-flash",
+            providerPremium: body.providerPremium ?? "gemini",
+            modelPremium: body.modelPremium ?? "gemini-2.5-pro",
         },
     });
 

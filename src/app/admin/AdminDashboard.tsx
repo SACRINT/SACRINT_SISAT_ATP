@@ -60,6 +60,7 @@ import GestionExpedientes from "./_componentes/GestionExpedientes";
 import PanelModulos from "./_componentes/PanelModulos";
 import GestionCiclos from "./_componentes/GestionCiclos";
 import GestionPrompts from "./_componentes/GestionPrompts";
+import GestionLlavesIA from "./_componentes/GestionLlavesIA";
 
 import { ProgramaAdmin, EscuelaAdmin, Stats, ZonaStat } from "@/types";
 
@@ -103,7 +104,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos" | "gestion-prompts">("general");
+    const [vista, setVista] = useState<"general" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos" | "gestion-prompts" | "orquestador-ia">("general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -339,7 +340,7 @@ export default function AdminDashboard({
     ].filter(Boolean).length;
 
     const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "capems", "expedientes"].includes(vista);
-    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos", "gestion-prompts"].includes(vista);
+    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos", "gestion-prompts", "orquestador-ia"].includes(vista);
 
     return (
         <div className="admin-layout">
@@ -541,6 +542,9 @@ export default function AdminDashboard({
                                      <Settings2 size={17} />
                                      <span>Rúbricas y Prompts de IA</span>
                                  </button>
+                                <button className={`sidebar-link ${vista === "orquestador-ia" ? "active" : ""}`} onClick={() => navigate("orquestador-ia")}>
+                                    <Sparkles size={18} /> Orquestador de IA
+                                </button>
                                 {/* Panel de módulos — always visible in config */}
                                 <button className={`sidebar-link ${vista === "modulos-control" ? "active" : ""}`} onClick={() => navigate("modulos-control")}>
                                     <FolderOpen size={17} />
@@ -789,6 +793,13 @@ export default function AdminDashboard({
                 {
                     vista === "gestion-prompts" && (
                         <GestionPrompts />
+                    )
+                }
+
+                {/* ========= VISTA: ORQUESTADOR DE IA ========= */}
+                {
+                    vista === "orquestador-ia" && (
+                        <GestionLlavesIA onSetMessage={setMessage} />
                     )
                 }
             </main >
