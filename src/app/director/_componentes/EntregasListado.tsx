@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
     Upload,
@@ -529,12 +530,18 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
         intentosUsados: number;
         limiteIntentos: number;
         activoDirectores: boolean;
+        evaluacionActual?: boolean;
     } | null>(null);
     const [loading, setLoading] = useState(true);
     const [evaluating, setEvaluating] = useState(false);
     const [statusText, setStatusText] = useState("");
     const [showDetails, setShowDetails] = useState(false);
     const [showChat, setShowChat] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const fetchConfig = useCallback(async () => {
         try {
@@ -743,7 +750,11 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                     </span>
                 ) : (
                     entregaEstado === "PENDIENTE" && (
-                        hasRemainingAttempts ? (
+                        data?.evaluacionActual ? (
+                            <span style={{ fontSize: "0.725rem", color: "var(--success)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                                ✓ Entrega autoevaluada
+                            </span>
+                        ) : hasRemainingAttempts ? (
                             <button
                                 onClick={handleReEvaluate}
                                 style={{
@@ -771,6 +782,14 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                     )
                 )}
             </div>
+            {showChat && mounted && createPortal(
+                <PreRevisionChat
+                    entregaId={entregaId}
+                    programaNombre={programaNombre}
+                    onClose={() => setShowChat(false)}
+                />,
+                document.body
+            )}
         </div>
     );
 }

@@ -90,11 +90,20 @@ export async function GET(
 
         const aiConfig = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
 
+        const tieneEvaluacionActual = !!(
+            preRevision &&
+            preRevision.resultado &&
+            (preRevision.resultado as any).tipo &&
+            entrega.fechaSubida &&
+            preRevision.updatedAt >= entrega.fechaSubida
+        );
+
         return NextResponse.json({
             resultado: preRevision ? preRevision.resultado : null,
             intentosUsados: preRevision ? preRevision.intentosUsados : 0,
             limiteIntentos: aiConfig?.limiteIntentos ?? 3,
-            activoDirectores: aiConfig?.activoDirectores ?? false
+            activoDirectores: aiConfig?.activoDirectores ?? false,
+            evaluacionActual: tieneEvaluacionActual
         });
     } catch (error: unknown) {
         console.error("GET Pre-revision error:", error);
