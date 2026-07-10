@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
     Upload,
@@ -14,6 +14,10 @@ import {
     ChevronDown,
     ChevronUp,
     MessageSquare,
+    Sparkles,
+    Brain,
+    RefreshCw,
+    Loader2,
 } from "lucide-react";
 import { ProgramaGroup, EntregaDirector } from "@/types/director";
 import { getDownloadUrl } from "@/lib/download-url";
@@ -336,6 +340,14 @@ export default function EntregasListado({
                                                     </div>
                                                 )}
 
+                                                {/* IA Pre-revision section for Director */}
+                                                <PreRevisionDirector
+                                                    entregaId={ent.id}
+                                                    onSetMessage={onSetMessage}
+                                                    entregaEstado={ent.estado}
+                                                    hasUploadedFiles={entregaArchivos.length > 0}
+                                                />
+
                                                 {/* Corrections toggle */}
                                                 {hasCorrecciones && (
                                                     <div style={{ marginBottom: "0.5rem" }}>
@@ -442,5 +454,294 @@ export default function EntregasListado({
                 />
             )}
         </>
+    );
+}
+
+// ─── Custom Markdown Renderer for IA Observations ──────────────────────────
+
+function renderMarkdown(text: string) {
+    if (!text) return null;
+    const lines = text.split("\n");
+    return lines.map((line, i) => {
+        const cleanLine = line.trim();
+        
+        // Headers
+        if (cleanLine.startsWith("### ")) {
+            return <h5 key={i} style={{ fontSize: "0.875rem", fontWeight: 700, margin: "0.75rem 0 0.25rem", color: "#1e293b" }}>{parseBoldText(cleanLine.slice(4))}</h5>;
+        }
+        if (cleanLine.startsWith("## ")) {
+            return <h4 key={i} style={{ fontSize: "0.9375rem", fontWeight: 700, margin: "1rem 0 0.5rem", color: "#0f172a" }}>{parseBoldText(cleanLine.slice(3))}</h4>;
+        }
+        if (cleanLine.startsWith("# ")) {
+            return <h3 key={i} style={{ fontSize: "1rem", fontWeight: 700, margin: "1.25rem 0 0.75rem", color: "#0f172a" }}>{parseBoldText(cleanLine.slice(2))}</h3>;
+        }
+        
+        // Bullet points
+        if (cleanLine.startsWith("* ") || cleanLine.startsWith("- ")) {
+            return (
+                <li key={i} style={{ marginLeft: "1.25rem", listStyleType: "disc", marginBottom: "0.35rem", fontSize: "0.8125rem", color: "#334155" }}>
+                    {parseBoldText(cleanLine.slice(2))}
+                </li>
+            );
+        }
+        
+        // HR
+        if (cleanLine === "---") {
+            return <hr key={i} style={{ border: "0", borderTop: "1px solid var(--border)", margin: "0.75rem 0" }} />;
+        }
+
+        // Empty line
+        if (!cleanLine) {
+            return <div key={i} style={{ height: "0.4rem" }} />;
+        }
+
+        // Regular line
+        return <p key={i} style={{ margin: "0 0 0.5rem", fontSize: "0.8125rem", color: "#334155", lineHeight: 1.4 }}>{parseBoldText(cleanLine)}</p>;
+    });
+}
+
+function parseBoldText(text: string) {
+    const parts = text.split(/\*\*(.*?)\*\*/g);
+    return parts.map((part, i) => {
+        if (i % 2 === 1) {
+            return <strong key={i} style={{ fontWeight: 700, color: "#0f172a" }}>{part}</strong>;
+        }
+        return part;
+    });
+}
+
+// ─── Sub-Component for IA Pre-revision ──────────────────────────────────────
+
+interface PreRevisionDirectorProps {
+    entregaId: string;
+    onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
+    entregaEstado: string;
+    hasUploadedFiles: boolean;
+}
+
+function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUploadedFiles }: PreRevisionDirectorProps) {
+    const [data, setData] = useState<{
+        resultado: any;
+        intentosUsados: number;
+        limiteIntentos: number;
+        activoDirectores: boolean;
+    } | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [evaluating, setEvaluating] = useState(false);
+    const [statusText, setStatusText] = useState("");
+    const [showDetails, setShowDetails] = useState(false);
+
+    const fetchConfig = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/entregas/${entregaId}/pre-revision`);
+            if (res.ok) {
+                const json = await res.json();
+                setData(json);
+            }
+        } catch (err) {
+            console.error("Error al cargar pre-revisión:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [entregaId]);
+
+    useEffect(() => {
+        if (hasUploadedFiles) {
+            fetchConfig();
+        } else {
+            setLoading(false);
+        }
+    }, [hasUploadedFiles, fetchConfig]);
+
+    async function handleReEvaluate() {
+        setEvaluating(true);
+        setStatusText("Obteniendo información del archivo...");
+        onSetMessage(null);
+        try {
+            const infoRes = await fetch(`/api/entregas/${entregaId}/pre-revision?action=info`);
+            if (!infoRes.ok) {
+                const errData = await infoRes.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al obtener información del archivo");
+            }
+            const info = await infoRes.json();
+            
+            let textoCompleto = "";
+            if (info.format === "pdf" && info.totalPages > 0) {
+                const totalPages = info.totalPages;
+                const chunkSize = 15;
+                
+                for (let start = 1; start <= totalPages; start += chunkSize) {
+                    const end = Math.min(start + chunkSize - 1, totalPages);
+                    setStatusText(`Leyendo y extrayendo texto del documento... (Páginas ${start} a ${end} de ${totalPages})`);
+                    
+                    const extractRes = await fetch(
+                        `/api/entregas/${entregaId}/pre-revision?action=extract&start=${start}&end=${end}`
+                    );
+                    if (!extractRes.ok) throw new Error(`Error al extraer texto de las páginas ${start}-${end}`);
+                    const extractData = await extractRes.json();
+                    textoCompleto += (extractData.text || "") + "\n";
+                }
+            }
+            
+            setStatusText("Evaluando la entrega con Inteligencia Artificial (Gemini)...");
+            const res = await fetch(`/api/entregas/${entregaId}/pre-revision`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ textoCompleto })
+            });
+            
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al evaluar con IA");
+            }
+            
+            const resJson = await res.json();
+            if (resJson.success && resJson.resultado) {
+                setData({
+                    resultado: resJson.resultado,
+                    intentosUsados: resJson.intentosUsados,
+                    limiteIntentos: resJson.limiteIntentos,
+                    activoDirectores: resJson.activoDirectores
+                });
+                onSetMessage({ type: "success", text: "✅ Pre-dictamen de IA generado correctamente." });
+            } else {
+                throw new Error("No se pudo obtener el resultado de la evaluación");
+            }
+        } catch (error: any) {
+            onSetMessage({ type: "error", text: error.message || "Error al conectar con el servidor" });
+        } finally {
+            setEvaluating(false);
+            setStatusText("");
+        }
+    }
+
+    if (loading || !hasUploadedFiles || !data || !data.activoDirectores) {
+        return null;
+    }
+
+    const { resultado, intentosUsados, limiteIntentos } = data;
+    const isApproved = resultado?.aprobado;
+    const score = resultado?.puntuacion || "N/A";
+    const observations = resultado?.borradorCorreo || "Sin observaciones específicas.";
+    const hasRemainingAttempts = intentosUsados < limiteIntentos;
+
+    return (
+        <div style={{
+            marginTop: "0.75rem",
+            padding: "0.75rem 1rem",
+            borderRadius: "8px",
+            border: `1px solid ${isApproved ? "#86efac" : "#fca5a5"}`,
+            background: isApproved ? "rgba(240, 253, 244, 0.7)" : "rgba(254, 242, 242, 0.7)",
+            fontSize: "0.8125rem",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+        }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <Brain size={16} style={{ color: "var(--primary)" }} />
+                    <span style={{ fontWeight: 700, color: "#1e293b" }}>Pre-dictamen del Asistente IA</span>
+                </div>
+                
+                {resultado && resultado.tipo && (
+                    <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.25rem",
+                        padding: "0.15rem 0.5rem",
+                        borderRadius: "9999px",
+                        fontSize: "0.725rem",
+                        fontWeight: 700,
+                        background: isApproved ? "#dcfce7" : "#fee2e2",
+                        color: isApproved ? "#15803d" : "#b91c1c",
+                        border: `1px solid ${isApproved ? "#bbf7d0" : "#fecaca"}`
+                    }}>
+                        <Sparkles size={10} />
+                        Puntuación: {score} · {isApproved ? "Aprobado" : "Requiere Ajustes"}
+                    </span>
+                )}
+            </div>
+
+            {/* Observations */}
+            {resultado && resultado.tipo ? (
+                <div style={{ marginBottom: "0.75rem" }}>
+                    <button
+                        onClick={() => setShowDetails(!showDetails)}
+                        style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--primary)",
+                            padding: 0,
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            textDecoration: "underline",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.25rem"
+                        }}
+                    >
+                        {showDetails ? "Ocultar observaciones de la IA" : "Ver observaciones de la IA"}
+                    </button>
+
+                    {showDetails && (
+                        <div style={{
+                            marginTop: "0.5rem",
+                            padding: "0.75rem",
+                            background: "white",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border)",
+                            maxHeight: "350px",
+                            overflowY: "auto"
+                        }}>
+                            {renderMarkdown(observations)}
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <p style={{ margin: "0 0 0.5rem", color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                    Esta entrega no ha sido pre-evaluada automáticamente por la IA.
+                </p>
+            )}
+
+            {/* Actions & Attempts */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", borderTop: "1px dashed var(--border)", paddingTop: "0.5rem" }}>
+                <span style={{ fontSize: "0.725rem", color: "var(--text-muted)" }}>
+                    Pre-evaluaciones consumidas: <strong>{intentosUsados} de {limiteIntentos}</strong>
+                </span>
+
+                {evaluating ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.725rem", color: "var(--primary)", fontWeight: 600 }}>
+                        <Loader2 size={12} className="spin" /> {statusText}
+                    </span>
+                ) : (
+                    entregaEstado !== "APROBADO" && (
+                        hasRemainingAttempts ? (
+                            <button
+                                onClick={handleReEvaluate}
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.375rem",
+                                    padding: "0.35rem 0.65rem",
+                                    fontSize: "0.725rem",
+                                    fontWeight: 600,
+                                    borderRadius: "4px",
+                                    background: "var(--primary)",
+                                    color: "white",
+                                    border: "none",
+                                    cursor: "pointer"
+                                }}
+                            >
+                                <RefreshCw size={11} />
+                                {intentosUsados > 0 ? "Re-evaluar con IA" : "Evaluar con IA"}
+                            </button>
+                        ) : (
+                            <span style={{ fontSize: "0.725rem", color: "var(--danger)", fontWeight: 600 }}>
+                                ⚠️ Límite de pre-evaluaciones IA agotado.
+                            </span>
+                        )
+                    )
+                )}
+            </div>
+        </div>
     );
 }

@@ -5,7 +5,7 @@ import {
     Trophy, FileText, GraduationCap, Lightbulb, BookMarked,
     Users, ToggleLeft, ToggleRight, Loader2, RefreshCw,
     Calendar, CheckCircle2, Clock, Eye, EyeOff, Settings2,
-    AlertCircle,
+    AlertCircle, Sparkles, Brain,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -150,6 +150,12 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
     const [localSidebar, setLocalSidebar] = useState(sidebarConfig);
     const [globalMessage, setGlobalMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+    // AI Config States
+    const [aiActivo, setAiActivo] = useState(false);
+    const [aiLimite, setAiLimite] = useState(3);
+    const [aiToggling, setAiToggling] = useState(false);
+    const [aiSaving, setAiSaving] = useState(false);
+
     // ─── Load all module configs ────────────────────────────────────────
 
     const loadAll = useCallback(async () => {
@@ -182,6 +188,18 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                 } catch { /* count stays null */ }
             }
         }));
+
+        // Cargar config de IA
+        try {
+            const aiRes = await fetch("/api/admin/pre-revision-config");
+            if (aiRes.ok) {
+                const aiData = await aiRes.json();
+                setAiActivo(aiData.activoDirectores ?? false);
+                setAiLimite(aiData.limiteIntentos ?? 3);
+            }
+        } catch (err) {
+            console.error("Error al cargar config de IA:", err);
+        }
 
         setStates(prev => {
             const next = { ...prev };
@@ -259,6 +277,50 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
             }));
         } finally {
             setStates(prev => ({ ...prev, [modulo.key]: { ...prev[modulo.key], savingFecha: false } }));
+        }
+    }
+
+    async function handleToggleAI() {
+        setAiToggling(true);
+        try {
+            const res = await fetch("/api/admin/pre-revision-config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ activoDirectores: !aiActivo }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAiActivo(data.activoDirectores);
+                setGlobalMessage({ type: "success", text: `IA para directores ${data.activoDirectores ? "activada" : "desactivada"}` });
+            } else {
+                throw new Error();
+            }
+        } catch {
+            setGlobalMessage({ type: "error", text: "No se pudo cambiar la configuración de la IA" });
+        } finally {
+            setAiToggling(false);
+        }
+    }
+
+    async function handleSaveAILimite() {
+        setAiSaving(true);
+        try {
+            const res = await fetch("/api/admin/pre-revision-config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ limiteIntentos: aiLimite }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAiLimite(data.limiteIntentos);
+                setGlobalMessage({ type: "success", text: `Límite de pre-evaluaciones establecido en ${data.limiteIntentos} intentos` });
+            } else {
+                throw new Error();
+            }
+        } catch {
+            setGlobalMessage({ type: "error", text: "No se pudo guardar el límite de intentos" });
+        } finally {
+            setAiSaving(false);
         }
     }
 
@@ -481,6 +543,94 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                         </div>
                     );
                 })}
+            </div>
+
+            {/* Configuración de IA para Directores */}
+            <hr style={{ border: "0", borderTop: "1px solid var(--border)", margin: "1.5rem 0" }} />
+            
+            <div style={{ maxWidth: "600px" }}>
+                <div 
+                    className="card" 
+                    style={{ 
+                        borderLeft: `4px solid ${aiActivo ? "var(--primary)" : "var(--border)"}`,
+                        transition: "border-color 0.2s ease" 
+                    }}
+                >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+                        <div style={{ display: "flex", gap: "0.75rem" }}>
+                            <div style={{
+                                width: "44px", height: "44px", borderRadius: "12px", flexShrink: 0,
+                                background: aiActivo ? "rgba(37, 99, 235, 0.1)" : "var(--bg-secondary)",
+                                color: aiActivo ? "var(--primary)" : "var(--text-muted)",
+                                display: "flex", alignItems: "center", justifyContent: "center"
+                            }}>
+                                <Brain size={22} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: "0.9375rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                    Autogestión de IA para Directores <Sparkles size={14} style={{ color: "#f59e0b" }} />
+                                </h3>
+                                <p style={{ margin: "0.25rem 0 0", fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                                    Permite a los directores obtener pre-dictámenes y observaciones en viñetas de sus documentos cargados de forma autónoma.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Toggle */}
+                        <button
+                            onClick={handleToggleAI}
+                            disabled={aiToggling}
+                            style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", flexShrink: 0 }}
+                            title={aiActivo ? "Desactivar para directores" : "Activar para directores"}
+                        >
+                            {aiToggling ? (
+                                <Loader2 size={30} className="spin" style={{ color: "var(--text-muted)" }} />
+                            ) : aiActivo ? (
+                                <ToggleRight size={34} style={{ color: "var(--primary)" }} />
+                            ) : (
+                                <ToggleLeft size={34} style={{ color: "var(--text-muted)" }} />
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Límite de intentos */}
+                    <div style={{ marginTop: "1rem", padding: "0.75rem 1rem", background: "var(--bg-secondary)", borderRadius: "8px" }}>
+                        <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                            Límite de Intentos de IA
+                        </h4>
+                        <p style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                            Número máximo de veces que cada escuela puede auto-evaluar su documento por periodo de entrega (para administrar el consumo de tokens).
+                        </p>
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                            <input
+                                type="number"
+                                min={1}
+                                max={10}
+                                className="form-control"
+                                value={aiLimite}
+                                onChange={e => setAiLimite(Math.max(1, parseInt(e.target.value) || 1))}
+                                style={{ width: "90px", fontSize: "0.8rem", padding: "0.375rem 0.5rem" }}
+                            />
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleSaveAILimite}
+                                disabled={aiSaving}
+                                style={{ minHeight: "auto", padding: "0.375rem 0.75rem", fontSize: "0.8rem" }}
+                            >
+                                {aiSaving ? <Loader2 size={14} className="spin" /> : "Establecer Límite"}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tip */}
+                    <div style={{
+                        marginTop: "0.75rem", padding: "0.5rem 0.75rem", borderRadius: "6px",
+                        background: "rgba(37, 99, 235, 0.05)", border: "1px dashed rgba(37, 99, 235, 0.2)",
+                        fontSize: "0.725rem", color: "var(--text-secondary)", lineHeight: 1.4
+                    }}>
+                        💡 <strong>Consejo de ATP:</strong> Activar esta autogestión permite a los directores corregir sus propios errores (metas SMART, firmas, sellos) antes de que tú hagas la revisión final.
+                    </div>
+                </div>
             </div>
         </div>
     );

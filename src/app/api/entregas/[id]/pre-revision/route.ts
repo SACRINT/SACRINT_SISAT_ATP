@@ -12,22 +12,38 @@ export async function GET(
 ) {
     try {
         const session = await auth();
-        const user = session?.user as { role?: string } | undefined;
-        if (!session || user?.role !== "admin") {
+        if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
+        const user = session.user as { role?: string; cct?: string } | undefined;
+        const userRole = user?.role;
         const { id } = await params;
+
+        // Fetch the entrega to verify school ownership if director
+        const entrega = await prisma.entrega.findUnique({
+            where: { id },
+            include: { escuela: true, archivos: true }
+        });
+
+        if (!entrega) {
+            return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
+        }
+
+        if (userRole === "director") {
+            if (entrega.escuela.cct !== user?.cct) {
+                return NextResponse.json({ error: "No autorizado para esta escuela" }, { status: 403 });
+            }
+        } else if (userRole !== "admin") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+        }
+
         const { searchParams } = new URL(req.url);
         const action = searchParams.get("action");
 
         // ── CHUNKING ACTION: info ──
         if (action === "info") {
-            const entrega = await prisma.entrega.findUnique({
-                where: { id },
-                include: { archivos: true }
-            });
-            if (!entrega || entrega.archivos.length === 0) {
+            if (entrega.archivos.length === 0) {
                 return NextResponse.json({ error: "Entrega o archivo no encontrado" }, { status: 404 });
             }
             const file = entrega.archivos.find(a => a.tipo === "ENTREGA" && a.driveUrl);
@@ -40,7 +56,7 @@ export async function GET(
                 return NextResponse.json({ format: "docx", totalPages: 1 });
             }
             
-            // For PDF, we download the buffer and check page count
+            // For PDF, download and count pages
             const buffer = await downloadFile(file.driveUrl!);
             const resPdf = await extractTextFromPdf(buffer, { start: 1, end: 1 });
             return NextResponse.json({ format: "pdf", totalPages: resPdf.total });
@@ -54,11 +70,7 @@ export async function GET(
                 return NextResponse.json({ error: "Start and end pages required" }, { status: 400 });
             }
 
-            const entrega = await prisma.entrega.findUnique({
-                where: { id },
-                include: { archivos: true }
-            });
-            if (!entrega || entrega.archivos.length === 0) {
+            if (entrega.archivos.length === 0) {
                 return NextResponse.json({ error: "Entrega o archivo no encontrado" }, { status: 404 });
             }
             const file = entrega.archivos.find(a => a.tipo === "ENTREGA" && a.driveUrl);
@@ -76,27 +88,75 @@ export async function GET(
             where: { entregaId: id }
         });
 
-        return NextResponse.json(preRevision ? preRevision.resultado : null);
+        const aiConfig = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
+
+        return NextResponse.json({
+            resultado: preRevision ? preRevision.resultado : null,
+            intentosUsados: preRevision ? preRevision.intentosUsados : 0,
+            limiteIntentos: aiConfig?.limiteIntentos ?? 3,
+            activoDirectores: aiConfig?.activoDirectores ?? false
+        });
     } catch (error: unknown) {
         console.error("GET Pre-revision error:", error);
         return NextResponse.json({ error: "Error al obtener pre-dictamen" }, { status: 500 });
     }
 }
 
-// POST: Forzar la re-evaluación del pre-dictamen (acepta opcionalmente textoCompleto en el body)
+// POST: Forzar la re-evaluación del pre-dictamen
 export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await auth();
-        const user = session?.user as { role?: string } | undefined;
-        if (!session || user?.role !== "admin") {
+        if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
+        const user = session.user as { role?: string; cct?: string } | undefined;
+        const userRole = user?.role;
         const { id } = await params;
-        
+
+        // Fetch the entrega to verify school ownership if director
+        const entrega = await prisma.entrega.findUnique({
+            where: { id },
+            include: { escuela: true }
+        });
+
+        if (!entrega) {
+            return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
+        }
+
+        if (userRole === "director") {
+            if (entrega.escuela.cct !== user?.cct) {
+                return NextResponse.json({ error: "No autorizado para esta escuela" }, { status: 403 });
+            }
+
+            const aiConfig = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
+            const isAiActive = aiConfig?.activoDirectores ?? false;
+            const limit = aiConfig?.limiteIntentos ?? 3;
+
+            if (!isAiActive) {
+                return NextResponse.json({ error: "La pre-revisión con IA no está habilitada para directores" }, { status: 403 });
+            }
+
+            const preRev = await prisma.preRevision.findUnique({ where: { entregaId: id } });
+            const currentAttempts = preRev?.intentosUsados ?? 0;
+
+            if (currentAttempts >= limit) {
+                return NextResponse.json({ error: "Has alcanzado el límite de pre-evaluaciones con IA para esta entrega" }, { status: 403 });
+            }
+
+            // Increment attempts
+            await prisma.preRevision.upsert({
+                where: { entregaId: id },
+                update: { intentosUsados: { increment: 1 } },
+                create: { entregaId: id, resultado: {}, intentosUsados: 1 }
+            });
+        } else if (userRole !== "admin") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+        }
+
         let textoCompleto: string | undefined = undefined;
         try {
             const body = await req.json();
@@ -109,7 +169,15 @@ export async function POST(
             where: { entregaId: id }
         });
 
-        return NextResponse.json({ success: true, resultado: preRevision?.resultado ?? null });
+        const aiConfig = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
+
+        return NextResponse.json({
+            success: true,
+            resultado: preRevision?.resultado ?? null,
+            intentosUsados: preRevision?.intentosUsados ?? 0,
+            limiteIntentos: aiConfig?.limiteIntentos ?? 3,
+            activoDirectores: aiConfig?.activoDirectores ?? false
+        });
     } catch (error: unknown) {
         console.error("POST Pre-revision force error:", error);
         return NextResponse.json({ error: "Error al forzar re-evaluación del pre-dictamen" }, { status: 500 });

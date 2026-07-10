@@ -93,11 +93,44 @@ export async function POST(req: NextRequest) {
             periodoLabel
         );
 
-        // Ejecutar pre-revisión y esperar que termine (con timeout de 60s en Vercel)
-        try {
-            await analizarEntregaConIA(entregaId);
-        } catch (err) {
-            console.error("Error al ejecutar pre-revisión:", err);
+        // Ejecutar pre-revisión respetando la configuración y límites de IA si es director
+        if (userRole === "director") {
+            const aiConfig = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
+            const isAiActive = aiConfig?.activoDirectores ?? false;
+            const limit = aiConfig?.limiteIntentos ?? 3;
+
+            if (isAiActive) {
+                const preRev = await prisma.preRevision.findUnique({ where: { entregaId } });
+                const currentAttempts = preRev?.intentosUsados ?? 0;
+
+                if (currentAttempts < limit) {
+                    // Incrementar el contador de intentos
+                    await prisma.preRevision.upsert({
+                        where: { entregaId },
+                        update: { intentosUsados: { increment: 1 } },
+                        create: { entregaId, resultado: {}, intentosUsados: 1 }
+                    });
+
+                    console.log(`[confirm] AI triggered for director (${currentAttempts + 1}/${limit})`);
+                    try {
+                        await analizarEntregaConIA(entregaId);
+                    } catch (err) {
+                        console.error("Error al ejecutar pre-revisión:", err);
+                    }
+                } else {
+                    console.log(`[confirm] AI skipped: director exceeded quota (${currentAttempts}/${limit})`);
+                }
+            } else {
+                console.log(`[confirm] AI skipped: disabled for directors`);
+            }
+        } else {
+            // Carga por ATP/Admin: siempre evalúa de manera ilimitada
+            console.log(`[confirm] AI triggered for ATP (unlimited)`);
+            try {
+                await analizarEntregaConIA(entregaId);
+            } catch (err) {
+                console.error("Error al ejecutar pre-revisión:", err);
+            }
         }
 
         return NextResponse.json({

@@ -417,13 +417,20 @@ model DocumentoPersonal {
 }
 
 model PreRevision {
-  id        String   @id @default(cuid())
-  entregaId String   @unique
-  resultado Json     // Contiene { cumpleFirmas: boolean, borradorCorreo: string, etc. }
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  entregaId      String   @unique
+  resultado      Json     // Contiene { cumpleFirmas: boolean, borradorCorreo: string, etc. }
+  intentosUsados Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   entrega   Entrega  @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+}
+
+model PreRevisionConfig {
+  id              String  @id @default("singleton")
+  activoDirectores Boolean @default(false)
+  limiteIntentos  Int     @default(3)
 }
 
 model PlantillaEvaluacion {
