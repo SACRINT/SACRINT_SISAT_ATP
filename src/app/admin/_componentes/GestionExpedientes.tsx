@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
     ToggleLeft,
     ToggleRight,
@@ -15,6 +15,8 @@ import {
     Users,
     AlertCircle,
     Eye,
+    Trash2,
+    Upload,
 } from "lucide-react";
 import { getDownloadUrl, getExpedienteDownloadUrl, buildExpedienteFileName } from "@/lib/download-url";
 import {
@@ -110,6 +112,123 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
     const [busy, setBusy] = useState(false);
     const [downloadingZip, setDownloadingZip] = useState(false);
     const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
+ 
+    // ─── Estado para la subida/eliminación administrativa de expedientes ───
+    const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+    const [selectedPersonalId, setSelectedPersonalId] = useState<string | null>(null);
+    const [selectedTipoDoc, setSelectedTipoDoc] = useState<string | null>(null);
+    const [selectedEtiquetaDoc, setSelectedEtiquetaDoc] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    async function handleDeleteDoc(docId: string) {
+        if (!confirm("¿Estás seguro de eliminar este documento del expediente?")) return;
+        setBusy(true);
+        setMessage(null);
+        try {
+            const res = await fetch(`/api/expedientes/documentos/${docId}`, { method: "DELETE" });
+            if (res.ok) {
+                setMessage({ type: "success", text: "✅ Documento eliminado correctamente." });
+                fetchData();
+            } else {
+                const errData = await res.json();
+                setMessage({ type: "error", text: errData.error || "Error al eliminar." });
+            }
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión." });
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    function handleUploadDocClick(personalId: string, tipoDocumento: string, etiqueta?: string) {
+        setSelectedPersonalId(personalId);
+        setSelectedTipoDoc(tipoDocumento);
+        setSelectedEtiquetaDoc(etiqueta || null);
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    }
+
+    async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file || !selectedPersonalId || !selectedTipoDoc) return;
+
+        const uploadKey = `${selectedPersonalId}-${selectedTipoDoc}`;
+        setUploadingDoc(uploadKey);
+        setMessage(null);
+
+        try {
+            const persona = personalList.find(p => p.id === selectedPersonalId);
+            if (!persona) throw new Error("Docente no encontrado");
+
+            const personName = `${persona.apellidoPaterno}_${persona.apellidoMaterno}_${persona.nombre}`;
+
+            // 1. Get Cloudinary signature
+            const signRes = await fetch("/api/sign-cloudinary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    programa: "Expedientes",
+                    cct: persona.escuela.cct,
+                    escuelaNombre: persona.escuela.nombre,
+                    subfolder: personName.replace(/\s+/g, "_"),
+                    originalFilename: file.name,
+                    apellidoPaterno: persona.apellidoPaterno,
+                    apellidoMaterno: persona.apellidoMaterno,
+                    nombre: persona.nombre,
+                    tipoDocumento: selectedTipoDoc,
+                    etiqueta: selectedEtiquetaDoc || null,
+                }),
+            });
+
+            if (!signRes.ok) throw new Error("Error obteniendo firma");
+            const { signature, timestamp, folder, apiKey, cloudName, publicId } = await signRes.json();
+
+            // 2. Upload to Cloudinary
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("api_key", apiKey);
+            formData.append("timestamp", timestamp.toString());
+            formData.append("signature", signature);
+            formData.append("folder", folder);
+            if (publicId) formData.append("public_id", publicId);
+
+            const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!uploadRes.ok) throw new Error("Error subiendo archivo a Cloudinary");
+            const uploadData = await uploadRes.json();
+
+            // 3. Create document record
+            const res = await fetch("/api/expedientes/documentos", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    personalId: selectedPersonalId,
+                    tipoDocumento: selectedTipoDoc,
+                    etiqueta: selectedEtiquetaDoc || null,
+                    archivoNombre: file.name,
+                    archivoDriveId: uploadData.public_id,
+                    archivoDriveUrl: uploadData.secure_url,
+                }),
+            });
+
+            if (!res.ok) throw new Error("Error guardando el documento en base de datos");
+
+            setMessage({ type: "success", text: `✅ "${file.name}" subido al expediente de ${persona.nombre}.` });
+            fetchData();
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message || "Error al subir el documento." });
+        } finally {
+            setUploadingDoc(null);
+            setSelectedPersonalId(null);
+            setSelectedTipoDoc(null);
+            setSelectedEtiquetaDoc(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }
 
     // ─── Data Fetching ─────────────────────────────────
 
@@ -366,6 +485,12 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <input
+                ref={fileInputRef}
+                type="file"
+                style={{ display: "none" }}
+                onChange={handleFileSelected}
+            />
             {/* Message */}
             {message && (
                 <div className={`alert ${message.type === "success" ? "alert-success" : "alert-error"}`}>
@@ -564,6 +689,9 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                                                                     downloadingZip={downloadingPersonZip === persona.id}
                                                                     onViewPdf={(url, title, downloadUrl, fileName) => setViewingPdf({ url, title, downloadUrl, fileName })}
                                                                     busy={busy}
+                                                                    onDeleteDoc={handleDeleteDoc}
+                                                                    onUploadDocClick={handleUploadDocClick}
+                                                                    uploadingDoc={uploadingDoc}
                                                                 />
                                                             );
                                                         })}
@@ -603,6 +731,9 @@ function PersonRow({
     onViewPdf,
     busy,
     id,
+    onDeleteDoc,
+    onUploadDocClick,
+    uploadingDoc,
 }: {
     persona: Personal;
     complete: number;
@@ -614,6 +745,9 @@ function PersonRow({
     onViewPdf: (url: string, title: string, downloadUrl?: string, fileName?: string) => void;
     busy: boolean;
     id?: string;
+    onDeleteDoc: (docId: string) => Promise<void>;
+    onUploadDocClick: (personalId: string, tipoDocumento: string, etiqueta?: string) => void;
+    uploadingDoc: string | null;
 }) {
     const fullName = `${persona.apellidoPaterno} ${persona.apellidoMaterno} ${persona.nombre}`;
     const docColor = completenessColor(complete, TOTAL_REQUIRED_DOCS);
@@ -741,6 +875,34 @@ function PersonRow({
                                                 </span>
                                                 <span style={{ color: noTieneDoc ? "var(--text-muted)" : "inherit" }}>
                                                     {dp.label} {noTieneDoc && <span style={{ fontStyle: "italic", fontSize: "0.7rem", color: "var(--error)" }}>(No cuenta con él)</span>}
+                                                {!hasFile && !noTieneDoc && (
+                                                    <button
+                                                        onClick={() => onUploadDocClick(persona.id, dp.tipo)}
+                                                        disabled={busy || uploadingDoc === `${persona.id}-${dp.tipo}`}
+                                                        style={{
+                                                            marginLeft: "0.5rem",
+                                                            padding: "0.15rem 0.35rem",
+                                                            fontSize: "0.68rem",
+                                                            borderRadius: "4px",
+                                                            background: "var(--bg-secondary)",
+                                                            border: "1px dashed var(--border)",
+                                                            color: "var(--text-secondary)",
+                                                            cursor: "pointer",
+                                                            display: "inline-flex",
+                                                            alignItems: "center",
+                                                            gap: "0.2rem",
+                                                            transition: "all 0.15s ease",
+                                                        }}
+                                                        title={`Subir ${dp.label}`}
+                                                    >
+                                                        {uploadingDoc === `${persona.id}-${dp.tipo}` ? (
+                                                            <Loader2 size={10} className="spin" />
+                                                        ) : (
+                                                            <Upload size={10} />
+                                                        )}
+                                                        <span>Subir</span>
+                                                    </button>
+                                                )}
                                                 </span>
                                             </div>
 
@@ -792,6 +954,14 @@ function PersonRow({
                                                                         >
                                                                             <Download size={14} />
                                                                         </a>
+                                                                        <button
+                                                                            onClick={() => onDeleteDoc(doc.id)}
+                                                                            disabled={busy}
+                                                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
+                                                                            title="Eliminar archivo del expediente"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
                                                                     </>
                                                                 )}
                                                                 <button
@@ -888,6 +1058,14 @@ function PersonRow({
                                                                 >
                                                                     <Download size={14} />
                                                                 </a>
+                                                                <button
+                                                                    onClick={() => onDeleteDoc(doc.id)}
+                                                                    disabled={busy}
+                                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
+                                                                    title="Eliminar archivo del expediente"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
                                                             </>
                                                         );
                                                     })()}

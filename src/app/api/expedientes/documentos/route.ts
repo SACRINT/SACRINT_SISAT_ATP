@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const session = await auth();
     const user = session?.user as { role?: string; cct?: string } | undefined;
 
-    if (!session || user?.role !== "director") {
+    if (!session || (user?.role !== "director" && user?.role !== "admin")) {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
@@ -37,16 +37,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "personalId y tipoDocumento son obligatorios" }, { status: 400 });
     }
 
-    // Verify the personal belongs to this director's school
+    // Verify the personal exists
     const personal = await prisma.personal.findUnique({
         where: { id: personalId },
         include: { escuela: true },
     });
     if (!personal) return NextResponse.json({ error: "Personal no encontrado" }, { status: 404 });
 
-    const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
-    if (!escuela || escuela.id !== personal.escuelaId) {
-        return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    if (user?.role === "director") {
+        const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
+        if (!escuela || escuela.id !== personal.escuelaId) {
+            return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+        }
     }
 
     // Get next orden for this personal's docs

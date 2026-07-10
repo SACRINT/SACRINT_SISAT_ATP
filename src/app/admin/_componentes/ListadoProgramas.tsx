@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronUp, ChevronDown, MessageSquare, Download, Eye, Loader2, FileCheck2, FilePlus2 } from "lucide-react";
+import { ChevronUp, ChevronDown, MessageSquare, Download, Eye, Loader2, FileCheck2, FilePlus2, Trash2, Upload } from "lucide-react";
 import JSZip from "jszip";
 import { MESES, ESTADOS, ESTADO_LABELS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
@@ -53,6 +53,80 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
     const [mergingType, setMergingType]           = useState<"REGISTRO" | "EVIDENCIAS" | null>(null);
     const [mergeProgress, setMergeProgress]       = useState<MergeProgress | null>(null);
     const [showPrefixInput, setShowPrefixInput]   = useState(false);
+
+    // ── Estado para la subida/eliminación administrativa de archivos ──
+    const [deleting, setDeleting] = useState<string | null>(null);
+    const [uploading, setUploading] = useState<string | null>(null);
+    const [selectedEntrega, setSelectedEntrega] = useState<string | null>(null);
+    const [selectedEtiqueta, setSelectedEtiqueta] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    async function handleDeleteFile(archivoId: string) {
+        if (!confirm("¿Estás seguro de eliminar este archivo?")) return;
+        setDeleting(archivoId);
+        onSetMessage(null);
+
+        try {
+            const res = await fetch(`/api/archivos/${archivoId}`, { method: "DELETE" });
+            if (res.ok) {
+                onSetMessage({ type: "success", text: "✅ Archivo de entrega eliminado." });
+                router.refresh();
+            } else {
+                const data = await res.json();
+                onSetMessage({ type: "error", text: data.error || "Error al eliminar el archivo." });
+            }
+        } catch {
+            onSetMessage({ type: "error", text: "Error de conexión." });
+        } finally {
+            setDeleting(null);
+        }
+    }
+
+    function handleUploadClick(entregaId: string, etiqueta?: string) {
+        setSelectedEntrega(entregaId);
+        setSelectedEtiqueta(etiqueta || null);
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    }
+
+    async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file || !selectedEntrega) return;
+
+        const uploadKey = selectedEntrega + (selectedEtiqueta || "");
+        setUploading(uploadKey);
+        onSetMessage(null);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("entregaId", selectedEntrega);
+            if (selectedEtiqueta) {
+                formData.append("etiqueta", selectedEtiqueta);
+            }
+
+            const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            if (res.ok) {
+                onSetMessage({ type: "success", text: `✅ "${file.name}" subido en representación de la escuela.` });
+                router.refresh();
+            } else {
+                const errData = await res.json();
+                onSetMessage({ type: "error", text: errData.error || "Error al subir el archivo." });
+            }
+        } catch (error: any) {
+            onSetMessage({ type: "error", text: error.message || "Error al conectar con el servidor." });
+        } finally {
+            setUploading(null);
+            setSelectedEntrega(null);
+            setSelectedEtiqueta(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }
 
     async function handleDownloadZip(prog: ProgramaAdmin) {
         setDownloadingZip(prog.id);
@@ -210,6 +284,12 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <input
+                ref={fileInputRef}
+                type="file"
+                style={{ display: "none" }}
+                onChange={handleFileSelected}
+            />
             {programas.map((prog) => {
                 const activeEntregas = prog.periodos.filter((p) => p.activo).flatMap((p) => p.entregas);
                 const entregadosProg = activeEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
@@ -453,17 +533,94 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                                         href={fileUrl || "#"}
                                                                                         target="_blank"
                                                                                         rel="noopener noreferrer"
-                                                                                        style={{ background: "none", border: "1px solid var(--border)", borderLeft: "none", borderRadius: "0 4px 4px 0", padding: "0.15rem 0.35rem", color: "var(--text-secondary)", display: "inline-flex", alignItems: "center" }}
+                                                                                        style={{ 
+                                                                                            background: "none", 
+                                                                                            border: "1px solid var(--border)", 
+                                                                                            borderLeft: "none", 
+                                                                                            borderRadius: ent.estado !== "APROBADO" ? "0" : "0 4px 4px 0", 
+                                                                                            padding: "0.15rem 0.35rem", 
+                                                                                            color: "var(--text-secondary)", 
+                                                                                            display: "inline-flex", 
+                                                                                            alignItems: "center" 
+                                                                                        }}
                                                                                         title={`Descargar ${arch.nombre}`}
                                                                                     >
                                                                                         <Download size={12} />
                                                                                     </a>
+                                                                                    {/* Delete */}
+                                                                                    {ent.estado !== "APROBADO" && (
+                                                                                        <button
+                                                                                            onClick={() => handleDeleteFile(arch.id)}
+                                                                                            disabled={deleting === arch.id}
+                                                                                            style={{
+                                                                                                background: "none",
+                                                                                                border: "1px solid var(--border)",
+                                                                                                borderLeft: "none",
+                                                                                                borderRadius: "0 4px 4px 0",
+                                                                                                padding: "0.15rem 0.35rem",
+                                                                                                color: "var(--danger)",
+                                                                                                display: "inline-flex",
+                                                                                                alignItems: "center",
+                                                                                                cursor: "pointer"
+                                                                                            }}
+                                                                                            title="Eliminar archivo"
+                                                                                        >
+                                                                                            {deleting === arch.id ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
+                                                                                        </button>
+                                                                                    )}
                                                                                 </span>
                                                                             );
                                                                         })}
                                                                         <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "flex", alignItems: "center" }}>
                                                                             • Subido: {new Date(ent.archivos[0].createdAt!).toLocaleDateString("es-MX")}
                                                                         </span>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Administrative Upload Buttons */}
+                                                                {ent.estado !== "APROBADO" && (
+                                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.35rem" }}>
+                                                                        {Array.from({ length: prog.numArchivos || 1 }).map((_, i) => {
+                                                                            const etiquetas = prog.etiquetasArchivos || [];
+                                                                            const defaultLabel = etiquetas[i] && etiquetas[i].trim() !== "" ? etiquetas[i] : `Archivo ${i + 1}`;
+                                                                            const displayLabel = (prog.numArchivos || 1) === 1 ? "" : defaultLabel;
+                                                                            const hasFileAlready = displayLabel !== ""
+                                                                                ? ent.archivos.some(a => a.etiqueta === displayLabel)
+                                                                                : ent.archivos.length > 0;
+
+                                                                            if (hasFileAlready) return null;
+
+                                                                            const uploadKey = ent.id + displayLabel;
+
+                                                                            return (
+                                                                                <button
+                                                                                    key={i}
+                                                                                    onClick={() => handleUploadClick(ent.id, displayLabel || undefined)}
+                                                                                    disabled={uploading === uploadKey}
+                                                                                    style={{
+                                                                                        padding: "0.15rem 0.4rem",
+                                                                                        fontSize: "0.7rem",
+                                                                                        borderRadius: "4px",
+                                                                                        background: "var(--bg-secondary)",
+                                                                                        border: "1px dashed var(--border)",
+                                                                                        color: "var(--text-secondary)",
+                                                                                        cursor: "pointer",
+                                                                                        display: "inline-flex",
+                                                                                        alignItems: "center",
+                                                                                        gap: "0.25rem",
+                                                                                        transition: "all 0.15s ease",
+                                                                                    }}
+                                                                                    title={`Subir ${defaultLabel}`}
+                                                                                >
+                                                                                    {uploading === uploadKey ? (
+                                                                                        <Loader2 size={10} className="spin" />
+                                                                                    ) : (
+                                                                                        <Upload size={10} />
+                                                                                    )}
+                                                                                    <span>Subir {defaultLabel}</span>
+                                                                                </button>
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 )}
                                                             </div>
