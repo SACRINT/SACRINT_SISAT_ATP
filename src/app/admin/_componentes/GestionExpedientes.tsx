@@ -99,6 +99,73 @@ function completenessColor(complete: number, total: number): string {
 
 // ─── Component ──────────────────────────────────────────
 
+
+function renderIABadge(validoIA: string | null | undefined, observacionesIA: string | null | undefined, onManualReevaluate?: () => void, loading?: boolean) {
+    if (!validoIA) return null;
+
+    let bg = "#f1f5f9";
+    let color = "#475569";
+    let text = "Pendiente";
+
+    if (validoIA === "PENDIENTE" || loading) {
+        bg = "#fef3c7";
+        color = "#d97706";
+        text = "⏳ Validando...";
+    } else if (validoIA === "APROBADO") {
+        bg = "#dcfce7";
+        color = "#15803d";
+        text = "✓ Validado por SISAT-ATP";
+    } else if (validoIA === "ADVERTENCIA") {
+        bg = "#fffbeb";
+        color = "#b45309";
+        text = "⚠️ Advertencia SISAT-ATP";
+    } else if (validoIA === "RECHAZADO") {
+        bg = "#fee2e2";
+        color = "#b91c1c";
+        text = "❌ Rechazado por SISAT-ATP";
+    }
+
+    return (
+        <span
+            style={{
+                fontSize: "0.68rem",
+                padding: "0.15rem 0.4rem",
+                borderRadius: "4px",
+                background: bg,
+                color: color,
+                fontWeight: 600,
+                cursor: observacionesIA ? "help" : "default",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.25rem",
+                flexShrink: 0
+            }}
+            title={observacionesIA || undefined}
+        >
+            <span>{text}</span>
+            {onManualReevaluate && !loading && validoIA !== "PENDIENTE" && (
+                <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManualReevaluate(); }}
+                    style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "inherit",
+                        padding: 0,
+                        fontSize: "0.75rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        marginLeft: "2px"
+                    }}
+                    title="Forzar análisis de validación de nuevo"
+                >
+                    🔄
+                </button>
+            )}
+        </span>
+    );
+}
+
 export default function GestionExpedientes({ highlightId }: { highlightId?: string }) {
     const [personalList, setPersonalList] = useState<Personal[]>([]);
     const [loading, setLoading] = useState(true);
@@ -727,6 +794,8 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                                                                     onDeleteDoc={handleDeleteDoc}
                                                                     onUploadDocClick={handleUploadDocClick}
                                                                     uploadingDoc={uploadingDoc}
+                                                                    onReEvaluateIA={handleReEvaluateIA}
+                                                                    analyzingIA={analyzingIA}
                                                                 />
                                                             );
                                                         })}
@@ -769,6 +838,8 @@ function PersonRow({
     onDeleteDoc,
     onUploadDocClick,
     uploadingDoc,
+    onReEvaluateIA,
+    analyzingIA,
 }: {
     persona: Personal;
     complete: number;
@@ -783,6 +854,8 @@ function PersonRow({
     onDeleteDoc: (docId: string) => Promise<void>;
     onUploadDocClick: (personalId: string, tipoDocumento: string, etiqueta?: string) => void;
     uploadingDoc: string | null;
+    onReEvaluateIA: (id: string) => Promise<void>;
+    analyzingIA: string | null;
 }) {
     const fullName = `${persona.apellidoPaterno} ${persona.apellidoMaterno} ${persona.nombre}`;
     const docColor = completenessColor(complete, TOTAL_REQUIRED_DOCS);
@@ -997,6 +1070,7 @@ function PersonRow({
                                                                         >
                                                                             <Trash2 size={14} />
                                                                         </button>
+                                                                        {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id)}
                                                                     </>
                                                                 )}
                                                                 <button
@@ -1101,6 +1175,7 @@ function PersonRow({
                                                                 >
                                                                     <Trash2 size={14} />
                                                                 </button>
+                                                                {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id)}
                                                             </>
                                                         );
                                                     })()}

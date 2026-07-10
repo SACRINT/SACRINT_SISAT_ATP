@@ -72,15 +72,15 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     } else if (validoIA === "APROBADO") {
         bg = "#dcfce7";
         color = "#15803d";
-        text = "✓ Validado por IA";
+        text = "✓ Validado por SISAT-ATP";
     } else if (validoIA === "ADVERTENCIA") {
         bg = "#fffbeb";
         color = "#b45309";
-        text = "⚠️ Advertencia IA";
+        text = "⚠️ Advertencia SISAT-ATP";
     } else if (validoIA === "RECHAZADO") {
         bg = "#fee2e2";
         color = "#b91c1c";
-        text = "❌ Rechazado por IA";
+        text = "❌ Rechazado por SISAT-ATP";
     }
 
     return (
