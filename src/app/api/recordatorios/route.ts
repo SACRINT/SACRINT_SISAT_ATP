@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/email";
 
-const resend = new Resend(process.env.RESEND_API_KEY || "dummy_key");
-const FROM_EMAIL = "Centro de Mando ATP <onboarding@resend.dev>";
+
 
 export async function POST(req: NextRequest) {
     try {
@@ -91,31 +90,29 @@ export async function POST(req: NextRequest) {
                     textBody = `El ATP ha marcado su entrega de <strong>${pName}</strong> para el programa <strong>${programa.nombre}</strong> con estado de Corrección. Favor de subir nuevamente los archivos listos a la brevedad.`;
                 }
 
-                const { error: resendError } = await resend.emails.send({
-                    from: FROM_EMAIL,
-                    to: entrega.escuela.email,
-                    subject: subject,
-                    html: `
-                        <div style="font-family: Arial, sans-serif; color: #333;">
-                        <h2 style="color: #dc2626;">Aviso de ${headerTxt}</h2>
-                        <p>Estimado(a) Director(a) de la escuela <strong>${entrega.escuela.nombre}</strong>,</p>
-                        <p>${textBody}</p>
-                        <p>La fecha de entrega para este periodo es: <strong style="color: #dc2626">${fLimite}</strong>.</p>
-                        <p>Le pedimos amablemente completar este requerimiento desde su portal.</p>
-                        
-                        <p style="text-align: center; margin: 30px 0;">
-                            <a href="https://sacrint-sisat-atp.vercel.app" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ir a mi Portal</a>
-                        </p>
-                        <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
-                        <p style="font-size: 12px; color: #888;">Este es un mensaje automático del Sistema de Centro de Mando ATP. Por favor no responda a este correo.</p>
-                        </div>
-                    `,
-                });
-
-                if (resendError) {
-                    console.error("Resend API reportó error enviando a", entrega.escuela.email, resendError);
-                } else {
+                try {
+                    await sendEmail({
+                        to: entrega.escuela.email,
+                        subject: subject,
+                        html: `
+                            <div style="font-family: Arial, sans-serif; color: #333;">
+                            <h2 style="color: #dc2626;">Aviso de ${headerTxt}</h2>
+                            <p>Estimado(a) Director(a) de la escuela <strong>${entrega.escuela.nombre}</strong>,</p>
+                            <p>${textBody}</p>
+                            <p>La fecha de entrega para este periodo es: <strong style="color: #dc2626">${fLimite}</strong>.</p>
+                            <p>Le pedimos amablemente completar este requerimiento desde su portal.</p>
+                            
+                            <p style="text-align: center; margin: 30px 0;">
+                                <a href="https://sacrint-sisat-atp.vercel.app" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Ir a mi Portal</a>
+                            </p>
+                            <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
+                            <p style="font-size: 12px; color: #888;">Este es un mensaje automático del Sistema de Centro de Mando ATP. Por favor no responda a este correo.</p>
+                            </div>
+                        `,
+                    });
                     emailCount++;
+                } catch (errEmail) {
+                    console.error("Error al enviar correo a", entrega.escuela.email, errEmail);
                 }
             } catch (err) {
                 console.error("Excepción al enviar correo a " + entrega.escuela.email, err);

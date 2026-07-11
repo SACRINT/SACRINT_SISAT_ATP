@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/email";
 
-const resend = new Resend(process.env.RESEND_API_KEY || "dummy_key");
-const FROM_EMAIL = "Centro de Mando ATP <onboarding@resend.dev>";
+
 
 export async function POST(req: NextRequest) {
     try {
@@ -94,8 +93,7 @@ export async function POST(req: NextRequest) {
                     </div>
                 `;
 
-                await resend.emails.send({
-                    from: FROM_EMAIL,
+                await sendEmail({
                     to: esc.email,
                     subject: asunto,
                     html: htmlContent,

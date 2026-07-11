@@ -1,9 +1,81 @@
 import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "dummy_key");
 
-// Default sender email (in the free tier, Resend allows sending FROM onboarding@resend.dev)
+// Default sender email (used when falling back to Resend)
 const FROM_EMAIL = "Centro de Mando ATP <onboarding@resend.dev>";
+
+interface SendEmailParams {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+/**
+ * Unified email sending function that uses SMTP (Gmail or custom) if configured,
+ * otherwise falls back to Resend API.
+ */
+export async function sendEmail({ to, subject, html }: SendEmailParams): Promise<{ success: boolean }> {
+  // Check if SMTP is configured
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    try {
+      const host = process.env.SMTP_HOST || "smtp.gmail.com";
+      const port = parseInt(process.env.SMTP_PORT || "465");
+      const secure = process.env.SMTP_SECURE !== "false"; // true by default
+
+      const transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      const from = process.env.SMTP_FROM || `Supervisión Escolar ATP <${process.env.SMTP_USER}>`;
+
+      await transporter.sendMail({
+        from,
+        to,
+        subject,
+        html,
+      });
+
+      console.log(`[SMTP] Email successfully sent to ${to}`);
+      return { success: true };
+    } catch (error) {
+      console.error("[SMTP] Failed to send email, attempting Resend fallback:", error);
+    }
+  }
+
+  // Fallback to Resend if SMTP is not configured or failed
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: FROM_EMAIL,
+        to,
+        subject,
+        html,
+      });
+
+      if (error) {
+        console.error("[Resend] API returned error:", error);
+        throw new Error(error.message);
+      }
+
+      console.log(`[Resend] Email successfully sent to ${to}`);
+      return { success: true };
+    } catch (error) {
+      console.error("[Resend] Failed to send email:", error);
+      throw error;
+    }
+  }
+
+  console.warn("[Email] No SMTP or Resend credentials configured. Simulated email send to:", to);
+  return { success: true };
+}
 
 /**
  * Mails a confirmation when a director uploads a file.
@@ -14,11 +86,8 @@ export async function sendUploadConfirmation(
   programaNombre: string,
   periodoLabel: string
 ) {
-  if (!process.env.RESEND_API_KEY) return;
-
   try {
-    await resend.emails.send({
-      from: FROM_EMAIL,
+    await sendEmail({
       to,
       subject: `✅ Acuse de recibo: ${programaNombre} - ${periodoLabel}`,
       html: `
@@ -33,7 +102,7 @@ export async function sendUploadConfirmation(
           <p>En los próximos días, el ATP revisará sus documentos y le notificará por este medio en caso de requerir alguna corrección o ajuste.</p>
           
           <p style="text-align: center; margin: 30px 0;">
-            <a href="https://sacrint-sisat-atp.vercel.app" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Acceder a la Plataforma</a>
+            <a href="https://sacrint-sisat-atp.vercel.app" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Acceder a la Plataforma</a>
           </p>
 
           <p>Agradecemos su compromiso.</p>
@@ -59,13 +128,10 @@ export async function sendCorrectionNotification(
   adminNombre: string,
   archivoAdjuntoUrl?: string
 ) {
-  if (!process.env.RESEND_API_KEY) return;
-
   const APP_URL = "https://sacrint-sisat-atp.vercel.app";
 
   try {
-    await resend.emails.send({
-      from: FROM_EMAIL,
+    await sendEmail({
       to,
       subject: `⚠️ Corrección requerida: ${programaNombre} - ${periodoLabel}`,
       html: `
@@ -92,7 +158,7 @@ export async function sendCorrectionNotification(
           <p>Por favor, ingrese al sistema para revisar el detalle y subir el archivo corregido a la brevedad posible.</p>
           
           <p style="text-align: center; margin: 30px 0;">
-            <a href="${APP_URL}" style="background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ir a la plataforma para corregir</a>
+            <a href="${APP_URL}" style="background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Ir a la plataforma para corregir</a>
           </p>
 
           <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
@@ -116,15 +182,12 @@ export async function sendTactfulReminder(
   fechaLimite: Date,
   type: "proximo" | "vencido"
 ) {
-  if (!process.env.RESEND_API_KEY) return;
-
   const fechaFormateada = fechaLimite.toLocaleDateString("es-MX", {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
   let subject = "";
   let htmlContent = "";
-
   const APP_URL = "https://sacrint-sisat-atp.vercel.app";
 
   if (type === "proximo") {
@@ -137,7 +200,7 @@ export async function sendTactfulReminder(
           <p><strong>Fecha límite:</strong> ${fechaFormateada}</p>
           <p>Si ya lo tiene listo, le invitamos a subirlo en la plataforma cuando tenga la oportunidad accediendo al siguiente enlace:</p>
           <p style="text-align: center; margin: 30px 0;">
-            <a href="${APP_URL}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Acceder a la Plataforma</a>
+            <a href="${APP_URL}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Acceder a la Plataforma</a>
           </p>
           <p>Si tiene algún inconveniente o duda, estamos a su disposición para apoyarle.</p>
           <p>Le agradecemos de antemano su atención e invaluable compromiso con la educación.</p>
@@ -157,7 +220,7 @@ export async function sendTactfulReminder(
           <p>Nos ponemos en contacto con usted con mucho respeto porque nuestro sistema indica que <strong>ha concluido la fecha límite</strong> para la entrega de <strong>${programaNombre}</strong> (${periodoLabel}), la cual estaba programada para el <strong>${fechaFormateada}</strong>, y aún no registramos su archivo.</p>
           <p>Entendemos perfectamente que pueden surgir imprevistos o contratiempos en las actividades diarias. Le pedimos de la manera más atenta si pudiera subir su archivo a la plataforma a la brevedad posible a través del siguiente enlace, a fin de regularizar su expediente:</p>
           <p style="text-align: center; margin: 30px 0;">
-            <a href="${APP_URL}" style="background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Subir mi Archivo</a>
+            <a href="${APP_URL}" style="background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Subir mi Archivo</a>
           </p>
           <p>Si requiere alguna asesoría o si ha enfrentado algún problema técnico, por favor háganoslo saber; con gusto le brindaremos el apoyo necesario.</p>
           <br>
@@ -171,8 +234,7 @@ export async function sendTactfulReminder(
   }
 
   try {
-    await resend.emails.send({
-      from: FROM_EMAIL,
+    await sendEmail({
       to,
       subject,
       html: htmlContent,
