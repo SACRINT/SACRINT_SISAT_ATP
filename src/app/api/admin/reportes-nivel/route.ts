@@ -37,13 +37,17 @@ export async function GET(req: NextRequest) {
 
         const paragraphs: Paragraph[] = [];
 
+        const today = new Date();
+        const monthToday = today.getMonth() + 1;
+        const semestreLetra = (monthToday >= 8 || monthToday === 1) ? "A" : "B";
+
         // 1. Oficio header
         paragraphs.push(
             new Paragraph({
                 alignment: AlignmentType.RIGHT,
                 children: [
                     new TextRun({
-                        text: `OFICIO NÚMERO: SEP-B/ZONA004/${oficioNum}\n`,
+                        text: `OFICIO NÚMERO: SEP-${semestreLetra}/ZONA004/${oficioNum}\n`,
                         bold: true,
                         size: 22,
                         font: "Arial",

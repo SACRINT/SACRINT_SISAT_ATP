@@ -196,12 +196,16 @@ export async function POST(req: NextRequest) {
             })
         );
 
+        const today = new Date();
+        const monthToday = today.getMonth() + 1;
+        const semestreLetra = (monthToday >= 8 || monthToday === 1) ? "A" : "B";
+
         // 2. Oficio Number & Date
         paragraphs.push(
             new Paragraph({
                 alignment: AlignmentType.RIGHT,
                 children: [
-                    new TextRun({ text: `OFICIO No: SEP-B/ZONA004/${numeroOficio}\n`, bold: true, size: 22, font: "Arial" }),
+                    new TextRun({ text: `OFICIO No: SEP-${semestreLetra}/ZONA004/${numeroOficio}\n`, bold: true, size: 22, font: "Arial" }),
                     new TextRun({ text: `Lugar y Fecha: ${lugarFecha}\n\n`, size: 20, font: "Arial" }),
                 ],
             })

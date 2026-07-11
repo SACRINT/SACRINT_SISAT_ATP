@@ -140,7 +140,7 @@ export default function AdminDashboard({
         escuelaNombre: string;
         programaNombre: string;
     } | null>(null);
-    const [oficioNumInput, setOficioNumInput] = useState("089/2026");
+    const [oficioNumInput, setOficioNumInput] = useState("0");
     const [oficioLugarFechaInput, setOficioLugarFechaInput] = useState("");
     const [oficioTextoAdicional, setOficioTextoAdicional] = useState("");
     const [generatingOficio, setGeneratingOficio] = useState(false);
@@ -1394,7 +1394,7 @@ export default function AdminDashboard({
                                     Número correlativo de Oficio
                                 </label>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>SEP-B/ZONA004/</span>
+                                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{`SEP-${(new Date().getMonth() + 1 >= 8 || new Date().getMonth() + 1 === 1) ? "A" : "B"}/ZONA004/`}</span>
                                     <input
                                         type="text"
                                         className="form-control"

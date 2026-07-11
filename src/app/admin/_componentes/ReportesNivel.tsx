@@ -40,7 +40,7 @@ export default function ReportesNivel() {
     const [programa, setPrograma] = useState<"BANAVIM" | "CEDAVIM" | "DIA_NARANJA">("BANAVIM");
     const [mes, setMes] = useState("Julio");
     const [anio, setAnio] = useState("2026");
-    const [oficioNum, setOficioNum] = useState("118");
+    const [oficioNum, setOficioNum] = useState("0");
     const [tieneAcoso, setTieneAcoso] = useState(false);
 
     // Formulario de acoso
@@ -60,6 +60,11 @@ export default function ReportesNivel() {
     const [copiedSubject, setCopiedSubject] = useState(false);
     const [copiedBody, setCopiedBody] = useState(false);
 
+    // Estados para carga y parseo automático de casos CEDAVIM
+    const [loadingAcoso, setLoadingAcoso] = useState(false);
+    const [acosoSchools, setAcosoSchools] = useState<any[]>([]);
+    const [selectedCaseIdx, setSelectedCaseIdx] = useState(0);
+
     // Cargar lista de escuelas
     useEffect(() => {
         async function fetchEscuelas() {
@@ -69,9 +74,6 @@ export default function ReportesNivel() {
                 if (res.ok) {
                     const data = await res.json();
                     setEscuelasList(data);
-                    if (data.length > 0) {
-                        setEscuelaId(data[0].id);
-                    }
                 }
             } catch (err) {
                 console.error("Error al cargar escuelas:", err);
@@ -82,10 +84,85 @@ export default function ReportesNivel() {
         fetchEscuelas();
     }, []);
 
-    // Escuela seleccionada
+    // Cargar casos de acoso desde archivos Excel subidos por escuelas
+    useEffect(() => {
+        if (programa !== "CEDAVIM") return;
+
+        async function fetchAcosoCasos() {
+            setLoadingAcoso(true);
+            try {
+                const res = await fetch(`/api/admin/reportes-nivel/acoso-casos?mes=${mes}&anio=${anio}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setAcosoSchools(data.schools || []);
+                    if (data.schools && data.schools.length > 0) {
+                        setTieneAcoso(true);
+                        setEscuelaId(data.schools[0].id);
+                        setSelectedCaseIdx(0);
+
+                        const firstCase = data.schools[0].casos[0];
+                        if (firstCase) {
+                            setTipoViolencia(firstCase.tipoViolencia);
+                            setAcciones(firstCase.acciones || "No se especificaron acciones de intervención en el archivo Excel.");
+                            setEstatus(firstCase.estatus);
+                        }
+                    } else {
+                        setTieneAcoso(false);
+                        setEscuelaId(escuelasList[0]?.id || "");
+                        setTipoViolencia("violencia por parte del docente");
+                        setAcciones("reuniones con las personas involucradas, atención y acompañamiento a las y los estudiantes afectados, canalización para atención psicológica, así como acciones preventivas y de fortalecimiento institucional dirigidas a la comunidad educativa");
+                        setEstatus("pendiente");
+                        setSelectedCaseIdx(0);
+                    }
+                }
+            } catch (err) {
+                console.error("Error al cargar casos de acoso:", err);
+            } finally {
+                setLoadingAcoso(false);
+            }
+        }
+        fetchAcosoCasos();
+    }, [programa, mes, anio, escuelasList]);
+
+    const handleSchoolChange = (schoolId: string) => {
+        setEscuelaId(schoolId);
+        setSelectedCaseIdx(0);
+        const schoolObj = acosoSchools.find(s => s.id === schoolId);
+        if (schoolObj && schoolObj.casos && schoolObj.casos.length > 0) {
+            const firstCase = schoolObj.casos[0];
+            setTipoViolencia(firstCase.tipoViolencia);
+            setAcciones(firstCase.acciones || "No se especificaron acciones de intervención en el archivo Excel.");
+            setEstatus(firstCase.estatus);
+        }
+    };
+
+    const handleCaseChange = (idx: number) => {
+        setSelectedCaseIdx(idx);
+        const schoolObj = acosoSchools.find(s => s.id === escuelaId);
+        if (schoolObj && schoolObj.casos && schoolObj.casos[idx]) {
+            const caseObj = schoolObj.casos[idx];
+            setTipoViolencia(caseObj.tipoViolencia);
+            setAcciones(caseObj.acciones || "No se especificaron acciones de intervención en el archivo Excel.");
+            setEstatus(caseObj.estatus);
+        }
+    };
+
+    // Escuela seleccionada (dinámica para CEDAVIM)
     const selectedEscuela = useMemo(() => {
+        if (programa === "CEDAVIM" && tieneAcoso && acosoSchools.length > 0) {
+            const acosoSch = acosoSchools.find(s => s.id === escuelaId);
+            if (acosoSch) {
+                const caseObj = acosoSch.casos[selectedCaseIdx];
+                return {
+                    id: acosoSch.id,
+                    nombre: caseObj ? caseObj.escuela : acosoSch.nombre,
+                    cct: caseObj ? caseObj.cct : acosoSch.cct,
+                    municipio: caseObj ? caseObj.municipio : acosoSch.municipio
+                };
+            }
+        }
         return escuelasList.find((e) => e.id === escuelaId);
-    }, [escuelasList, escuelaId]);
+    }, [escuelasList, escuelaId, tieneAcoso, acosoSchools, selectedCaseIdx, programa]);
 
     // Redacción dinámica del correo
     const emailData = useMemo(() => {
@@ -321,13 +398,13 @@ CCT: 21FMS0020X`;
                             <div style={{ marginBottom: "1rem" }}>
                                 <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Número correlativo de Oficio</label>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>SEP-B/ZONA004/</span>
+                                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{`SEP-${(new Date().getMonth() + 1 >= 8 || new Date().getMonth() + 1 === 1) ? "A" : "B"}/ZONA004/`}</span>
                                     <input
                                         type="text"
                                         className="form-control"
                                         value={oficioNum}
                                         onChange={(e) => setOficioNum(e.target.value)}
-                                        placeholder="118"
+                                        placeholder="0"
                                         style={{ width: "80px" }}
                                     />
                                 </div>
@@ -340,123 +417,128 @@ CCT: 21FMS0020X`;
                         <div className="card" style={{ background: "white", padding: "1.25rem", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "1rem" }}>
                             <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "1rem" }}>Reporte de Casos e Incidencias</h3>
                             
-                            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", marginBottom: "1rem", fontWeight: 600, fontSize: "0.875rem" }}>
-                                <input
-                                    type="checkbox"
-                                    checked={tieneAcoso}
-                                    onChange={(e) => setTieneAcoso(e.target.checked)}
-                                    style={{ width: "16px", height: "16px" }}
-                                />
-                                ¿Se presentaron casos de acoso o violencia en este mes?
-                            </label>
-
-                            {tieneAcoso && (
-                                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                                    {loadingEscuelas ? (
-                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem" }}>
-                                            <Loader2 size={16} className="spin" />
-                                            Cargando escuelas...
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Escuela con el reporte</label>
-                                            <select className="form-control" value={escuelaId} onChange={(e) => setEscuelaId(e.target.value)} style={{ width: "100%" }}>
-                                                {escuelasList.map((esc) => (
-                                                    <option key={esc.id} value={esc.id}>
-                                                        {esc.nombre} ({esc.cct})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    {selectedEscuela && (
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8125rem", background: "var(--bg-secondary)", padding: "0.625rem", borderRadius: "6px" }}>
-                                            <div>
-                                                <strong>CCT:</strong> {selectedEscuela.cct}
-                                            </div>
-                                            <div>
-                                                <strong>Municipio:</strong> {selectedEscuela.municipio || "N/A"}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Tipo de Violencia / Incidencia</label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            value={tipoViolencia}
-                                            onChange={(e) => setTipoViolencia(e.target.value)}
-                                            style={{ width: "100%" }}
-                                            placeholder="Violencia por parte del docente, acoso escolar, etc."
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Acciones de Intervención Implementadas</label>
-                                        <textarea
-                                            className="form-control"
-                                            value={acciones}
-                                            onChange={(e) => setAcciones(e.target.value)}
-                                            style={{ width: "100%", height: "80px", fontSize: "0.8125rem" }}
-                                            placeholder="Reuniones con los padres, actas, canalización psicológica..."
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Estatus del caso</label>
-                                        <select className="form-control" value={estatus} onChange={(e) => setEstatus(e.target.value)} style={{ width: "100%" }}>
-                                            <option value="pendiente">Pendiente</option>
-                                            <option value="concluido">Concluido</option>
-                                        </select>
-                                    </div>
+                            {loadingAcoso ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", padding: "1rem 0" }}>
+                                    <Loader2 size={16} className="spin" />
+                                    Buscando y procesando reportes Excel subidos en este mes...
                                 </div>
+                            ) : (
+                                <>
+                                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", marginBottom: "1rem", fontWeight: 600, fontSize: "0.875rem" }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={tieneAcoso}
+                                            onChange={(e) => setTieneAcoso(e.target.checked)}
+                                            style={{ width: "16px", height: "16px" }}
+                                        />
+                                        ¿Se presentaron casos de acoso o violencia en este mes?
+                                    </label>
+
+                                    {tieneAcoso && (
+                                        <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                                            {acosoSchools.length === 0 ? (
+                                                <div style={{ background: "#fffbeb", border: "1px solid #fef3c7", padding: "0.75rem", borderRadius: "6px", color: "#b45309", fontSize: "0.8125rem", marginBottom: "0.5rem" }}>
+                                                    ⚠️ No se detectaron archivos Excel con reportes de acoso subidos por los directores para este mes. Puedes ingresar los datos manualmente a continuación.
+                                                </div>
+                                            ) : (
+                                                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "0.75rem", borderRadius: "6px", color: "#166534", fontSize: "0.8125rem", marginBottom: "0.5rem" }}>
+                                                    🎉 Se detectaron automáticamente {acosoSchools.length} escuela(s) con reportes de acoso en Excel. Selecciona una a continuación.
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+                                                    {acosoSchools.length > 0 ? "Escuela con reporte (detectada en Excel)" : "Escuela con el reporte (manual)"}
+                                                </label>
+                                                {acosoSchools.length > 0 ? (
+                                                    <select className="form-control" value={escuelaId} onChange={(e) => handleSchoolChange(e.target.value)} style={{ width: "100%" }}>
+                                                        {acosoSchools.map((esc) => (
+                                                            <option key={esc.id} value={esc.id}>
+                                                                {esc.nombre} ({esc.cct})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <select className="form-control" value={escuelaId} onChange={(e) => setEscuelaId(e.target.value)} style={{ width: "100%" }}>
+                                                        {escuelasList.map((esc) => (
+                                                            <option key={esc.id} value={esc.id}>
+                                                                {esc.nombre} ({esc.cct})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                            </div>
+
+                                            {/* Sub-selector si la escuela tiene múltiples casos de acoso en su archivo Excel */}
+                                            {programa === "CEDAVIM" && tieneAcoso && acosoSchools.length > 0 && (acosoSchools.find(s => s.id === escuelaId)?.casos.length || 0) > 1 && (
+                                                <div>
+                                                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem", color: "var(--primary)" }}>
+                                                        Incidencia reportada en el archivo Excel
+                                                    </label>
+                                                    <select 
+                                                        className="form-control" 
+                                                        value={selectedCaseIdx} 
+                                                        onChange={(e) => handleCaseChange(Number(e.target.value))} 
+                                                        style={{ width: "100%", borderColor: "var(--primary)" }}
+                                                    >
+                                                        {(acosoSchools.find(s => s.id === escuelaId)?.casos || []).map((caso: any, idx: number) => (
+                                                            <option key={idx} value={idx}>
+                                                                {idx + 1}. {caso.tipoViolencia} - {caso.escuela} ({caso.cct})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+
+                                            {selectedEscuela && (
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8125rem", background: "var(--bg-secondary)", padding: "0.625rem", borderRadius: "6px" }}>
+                                                    <div>
+                                                        <strong>CCT:</strong> {selectedEscuela.cct}
+                                                    </div>
+                                                    <div>
+                                                        <strong>Municipio:</strong> {selectedEscuela.municipio || "N/A"}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Tipo de Violencia / Incidencia</label>
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    value={tipoViolencia}
+                                                    onChange={(e) => setTipoViolencia(e.target.value)}
+                                                    style={{ width: "100%" }}
+                                                    placeholder="Violencia por parte del docente, acoso escolar, etc."
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Acciones de Intervención Implementadas</label>
+                                                <textarea
+                                                    className="form-control"
+                                                    value={acciones}
+                                                    onChange={(e) => setAcciones(e.target.value)}
+                                                    style={{ width: "100%", height: "80px", fontSize: "0.8125rem" }}
+                                                    placeholder="Reuniones con los padres, actas, canalización psicológica..."
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Estatus del caso</label>
+                                                <select className="form-control" value={estatus} onChange={(e) => setEstatus(e.target.value)} style={{ width: "100%" }}>
+                                                    <option value="pendiente">Pendiente</option>
+                                                    <option value="concluido">Concluido</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
-
-                            <div style={{ marginTop: "1rem" }}>
-                                <button
-                                    onClick={() => handleDownloadTemplate("CONTROL_EXCEL")}
-                                    className="btn btn-outline"
-                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8rem", padding: "0.25rem 0.5rem" }}
-                                >
-                                    <Download size={12} />
-                                    Descargar Excel Control Oficial (CEDAVIM)
-                                </button>
-                            </div>
                         </div>
                     )}
 
-                    {/* Descargas Día Naranja */}
-                    {programa === "DIA_NARANJA" && (
-                        <div className="card" style={{ background: "white", padding: "1.25rem", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "1rem" }}>
-                            <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                                <Info size={16} />
-                                Plantillas Oficiales de Día Naranja (25N)
-                            </h3>
-                            <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
-                                Descarga los formatos Word institucionales para que las escuelas elaboren sus reportes fotográficos y de alumnos participantes:
-                            </p>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                <button
-                                    onClick={() => handleDownloadTemplate("EVIDENCIA_FOTO")}
-                                    className="btn btn-outline"
-                                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "flex-start", fontSize: "0.8125rem" }}
-                                >
-                                    <Download size={14} />
-                                    Formato de Evidencia Fotográfica (.docx)
-                                </button>
-                                <button
-                                    onClick={() => handleDownloadTemplate("REGISTRO_PARTICIPANTES")}
-                                    className="btn btn-outline"
-                                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "flex-start", fontSize: "0.8125rem" }}
-                                >
-                                    <Download size={14} />
-                                    Formato de Registro de Participantes (.docx)
-                                </button>
-                            </div>
-                        </div>
-                    )}
+
 
                     {/* Acciones de Oficios de Supervisión */}
                     {programa !== "DIA_NARANJA" && (

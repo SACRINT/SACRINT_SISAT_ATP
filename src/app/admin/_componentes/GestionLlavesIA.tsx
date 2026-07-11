@@ -208,6 +208,24 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
         }
     };
 
+    const handleTogglePremiumKey = async (id: string, currentPremium: boolean) => {
+        try {
+            const res = await fetch(`/api/admin/api-keys/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ isPremium: !currentPremium }),
+            });
+
+            if (res.ok) {
+                const updated = await res.json();
+                setKeys(keys.map(k => k.id === id ? { ...k, isPremium: updated.isPremium } : k));
+                showMsg(updated.isPremium ? "Clave configurada para Uso Exclusivo ATP" : "Clave configurada para Uso General");
+            }
+        } catch (e) {
+            showMsg("Error al alternar exclusividad de la clave", "error");
+        }
+    };
+
     const handleDeleteKey = async (id: string) => {
         if (!confirm("¿Estás seguro de que deseas eliminar esta clave del pool?")) return;
 
@@ -414,13 +432,27 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
                                                 <td style={{ padding: "0.5rem 0.75rem" }}>{k.label}</td>
                                                 <td style={{ padding: "0.5rem 0.75rem", fontFamily: "monospace" }}>{k.key}</td>
                                                 <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                                                    {k.isPremium ? (
-                                                        <span style={{ background: "#fef9c3", color: "#854d0e", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 600 }}>
-                                                            ⭐ Sí
-                                                        </span>
-                                                    ) : (
-                                                        <span style={{ color: "var(--text-muted)" }}>General</span>
-                                                    )}
+                                                    <button
+                                                        onClick={() => handleTogglePremiumKey(k.id, k.isPremium)}
+                                                        style={{
+                                                            background: "none",
+                                                            border: "none",
+                                                            cursor: "pointer",
+                                                            display: "inline-flex",
+                                                            alignItems: "center"
+                                                        }}
+                                                        title={k.isPremium ? "Hacer de Uso General" : "Hacer de Uso Exclusivo ATP"}
+                                                    >
+                                                        {k.isPremium ? (
+                                                            <span style={{ background: "#fef9c3", color: "#854d0e", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 600 }}>
+                                                                ⭐ Sí
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ background: "#f3f4f6", color: "#4b5563", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 500 }}>
+                                                                General
+                                                            </span>
+                                                        )}
+                                                    </button>
                                                 </td>
                                                 <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
                                                     {k.errorCount > 0 ? (

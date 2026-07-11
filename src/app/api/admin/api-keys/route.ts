@@ -11,6 +11,19 @@ export async function GET() {
         if (!session || (session.user as any)?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
+        // Reactivar automáticamente llaves bloqueadas hace más de 15 minutos
+        const checkTime = new Date(Date.now() - 15 * 60 * 1000);
+        await prisma.apiKey.updateMany({
+            where: {
+                active: false,
+                errorCount: { gte: 5 },
+                updatedAt: { lte: checkTime },
+            },
+            data: {
+                active: true,
+                errorCount: 0,
+            },
+        });
 
         const keys = await prisma.apiKey.findMany({
             orderBy: { createdAt: "desc" },

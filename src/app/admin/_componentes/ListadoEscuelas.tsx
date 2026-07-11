@@ -95,7 +95,9 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
         }
     }
 
-    function handleUploadClick(entregaId: string, etiqueta?: string) {
+    function handleUploadClick(e: React.MouseEvent, entregaId: string, etiqueta?: string) {
+        e.stopPropagation();
+        e.preventDefault();
         setSelectedEntrega(entregaId);
         setSelectedEtiqueta(etiqueta || null);
         if (fileInputRef.current) {
@@ -378,7 +380,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                             return (
                                                                 <button
                                                                     key={i}
-                                                                    onClick={() => handleUploadClick(ent.id, displayLabel || undefined)}
+                                                                    onClick={(e) => handleUploadClick(e, ent.id, displayLabel || undefined)}
                                                                     disabled={uploading === uploadKey}
                                                                     style={{
                                                                         padding: "0.15rem 0.4rem",
@@ -432,12 +434,16 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                                     {/* Eye: open viewer */}
                                                                     {arch.driveUrl && (
                                                                         <button
-                                                                            onClick={() => setViewingPdf({
-                                                                                url: arch.driveUrl!,
-                                                                                title: archTitle,
-                                                                                downloadUrl: fileUrl || undefined,
-                                                                                fileName: arch.nombre || undefined,
-                                                                            })}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                e.preventDefault();
+                                                                                setViewingPdf({
+                                                                                    url: arch.driveUrl!,
+                                                                                    title: archTitle,
+                                                                                    downloadUrl: fileUrl || undefined,
+                                                                                    fileName: arch.nombre || undefined,
+                                                                                });
+                                                                            }}
                                                                             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "1px", display: "inline-flex", alignItems: "center" }}
                                                                             title={`Ver ${archLabel}`}
                                                                         >
@@ -449,11 +455,31 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                                         href={fileUrl || "#"}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
-                                                                        style={{ color: "var(--text-muted)", display: "inline-flex", alignItems: "center", padding: "1px" }}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        style={{ color: "var(--text-muted)", display: "inline-flex", alignItems: "center", padding: "1px", marginRight: "0.25rem" }}
                                                                         title={`Descargar ${archLabel}`}
                                                                     >
                                                                         <Download size={12} />
                                                                     </a>
+                                                                    {/* Delete */}
+                                                                    {ent.estado !== "APROBADO" && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteFile(arch.id); }}
+                                                                            disabled={deleting === arch.id}
+                                                                            style={{
+                                                                                background: "none",
+                                                                                border: "none",
+                                                                                cursor: "pointer",
+                                                                                color: "var(--danger)",
+                                                                                padding: "1px",
+                                                                                display: "inline-flex",
+                                                                                alignItems: "center"
+                                                                            }}
+                                                                            title="Eliminar archivo"
+                                                                        >
+                                                                            {deleting === arch.id ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
+                                                                        </button>
+                                                                    )}
                                                                 </span>
                                                             );
                                                         })}
@@ -466,7 +492,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                                 {ent.estado !== "APROBADO" && (
                                                     <button
-                                                        onClick={() => handleSendReminder(ent.id, esc.nombre)}
+                                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSendReminder(ent.id, esc.nombre); }}
                                                         disabled={sendingReminder === ent.id}
                                                         style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem", opacity: sendingReminder === ent.id ? 0.5 : 1 }}
                                                         title="Enviar Recordatorio Individual"
@@ -498,6 +524,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                 <select
                                                     value={ent.estado}
                                                     onChange={(e) => handleEstadoChange(ent.id, e.target.value)}
+                                                    onClick={(e) => e.stopPropagation()}
                                                     disabled={updatingEstado === ent.id}
                                                     style={{
                                                         padding: "0.25rem 0.5rem", borderRadius: "6px",
@@ -511,7 +538,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                     ))}
                                                 </select>
                                                  <button
-                                                     onClick={() => onSetCorreccionModal({ entregaId: ent.id, escuelaNombre: esc.nombre, history: ent.correcciones, preRevision: (ent as any).preRevision, archivos: ent.archivos })}
+                                                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSetCorreccionModal({ entregaId: ent.id, escuelaNombre: esc.nombre, history: ent.correcciones, preRevision: (ent as any).preRevision, archivos: ent.archivos }); }}
                                                      style={{ background: "none", border: "none", cursor: "pointer", color: "#e67e22", padding: "0.25rem" }}
                                                      title="Enviar corrección / Ver historial"
                                                  >

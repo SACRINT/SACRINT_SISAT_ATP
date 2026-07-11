@@ -33,6 +33,23 @@ export async function callGemini(
     const modelToUse = usePremiumModel ? config.modelPremium : config.modelDefault;
 
     console.log(`[orquestador-ia] Solicitud de IA. Proveedor: ${providerToUse}, Modelo: ${modelToUse}, Premium: ${usePremiumModel}`);
+    // Reactivar automáticamente llaves bloqueadas hace más de 15 minutos
+    const checkTime = new Date(Date.now() - 15 * 60 * 1000);
+    try {
+        await prisma.apiKey.updateMany({
+            where: {
+                active: false,
+                errorCount: { gte: 5 },
+                updatedAt: { lte: checkTime },
+            },
+            data: {
+                active: true,
+                errorCount: 0,
+            },
+        });
+    } catch (err) {
+        console.error("[orquestador-ia] Error reactivando llaves bloqueadas automáticamente:", err);
+    }
 
     // 2. Obtener llaves de API activas para el proveedor seleccionado
     const keys = await prisma.apiKey.findMany({
