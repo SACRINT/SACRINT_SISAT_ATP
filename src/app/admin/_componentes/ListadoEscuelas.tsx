@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Search, FileText, ChevronUp, ChevronDown, MessageSquare, Download, Mail, Eye } from "lucide-react";
+import { Search, FileText, ChevronUp, ChevronDown, MessageSquare, Download, Mail, Eye, Upload, Trash2, Loader2 } from "lucide-react";
 import { MESES, ESTADOS, ESTADO_LABELS } from "@/lib/constants";
 import { EscuelaAdmin } from "@/types";
 import { getEntregaDownloadUrl } from "@/lib/download-url";
@@ -66,6 +66,80 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
     const [updatingEstado, setUpdatingEstado] = useState<string | null>(null);
     const [sendingReminder, setSendingReminder] = useState<string | null>(null);
     const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
+
+    // Estados para subida/eliminación directa (Propuesta 8)
+    const [uploading, setUploading] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState<string | null>(null);
+    const [selectedEntrega, setSelectedEntrega] = useState<string | null>(null);
+    const [selectedEtiqueta, setSelectedEtiqueta] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    async function handleDeleteFile(archivoId: string) {
+        if (!confirm("¿Estás seguro de eliminar este archivo?")) return;
+        setDeleting(archivoId);
+        onSetMessage(null);
+
+        try {
+            const res = await fetch(`/api/archivos/${archivoId}`, { method: "DELETE" });
+            if (res.ok) {
+                onSetMessage({ type: "success", text: "✅ Archivo de entrega eliminado." });
+                router.refresh();
+            } else {
+                const data = await res.json();
+                onSetMessage({ type: "error", text: data.error || "Error al eliminar el archivo." });
+            }
+        } catch {
+            onSetMessage({ type: "error", text: "Error de conexión." });
+        } finally {
+            setDeleting(null);
+        }
+    }
+
+    function handleUploadClick(entregaId: string, etiqueta?: string) {
+        setSelectedEntrega(entregaId);
+        setSelectedEtiqueta(etiqueta || null);
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    }
+
+    async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file || !selectedEntrega) return;
+
+        const uploadKey = selectedEntrega + (selectedEtiqueta || "");
+        setUploading(uploadKey);
+        onSetMessage(null);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("entregaId", selectedEntrega);
+            if (selectedEtiqueta) {
+                formData.append("etiqueta", selectedEtiqueta);
+            }
+
+            const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            if (res.ok) {
+                onSetMessage({ type: "success", text: `✅ "${file.name}" subido en representación de la escuela.` });
+                router.refresh();
+            } else {
+                const errData = await res.json();
+                onSetMessage({ type: "error", text: errData.error || "Error al subir el archivo." });
+            }
+        } catch (error: any) {
+            onSetMessage({ type: "error", text: error.message || "Error al conectar con el servidor." });
+        } finally {
+            setUploading(null);
+            setSelectedEntrega(null);
+            setSelectedEtiqueta(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }
 
     async function handleSendReminder(entregaId: string, escuelaNombre: string) {
         if (!confirm(`¿Seguro que deseas enviar un recordatorio por correo a ${escuelaNombre} para esta entrega?`)) return;
@@ -286,6 +360,53 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                          </span>
                                                      )}
                                                  </div>
+                                                {/* Administrative Upload Buttons */}
+                                                {ent.estado !== "APROBADO" && (
+                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.35rem", marginBottom: "0.35rem" }}>
+                                                        {Array.from({ length: (ent.periodoEntrega.programa as any).numArchivos || 1 }).map((_, i) => {
+                                                            const etiquetas = (ent.periodoEntrega.programa as any).etiquetasArchivos || [];
+                                                            const defaultLabel = etiquetas[i] && etiquetas[i].trim() !== "" ? etiquetas[i] : `Archivo ${i + 1}`;
+                                                            const displayLabel = ((ent.periodoEntrega.programa as any).numArchivos || 1) === 1 ? "" : defaultLabel;
+                                                            const hasFileAlready = displayLabel !== ""
+                                                                ? ent.archivos.some(a => a.etiqueta === displayLabel)
+                                                                : ent.archivos.length > 0;
+
+                                                            if (hasFileAlready) return null;
+
+                                                            const uploadKey = ent.id + displayLabel;
+
+                                                            return (
+                                                                <button
+                                                                    key={i}
+                                                                    onClick={() => handleUploadClick(ent.id, displayLabel || undefined)}
+                                                                    disabled={uploading === uploadKey}
+                                                                    style={{
+                                                                        padding: "0.15rem 0.4rem",
+                                                                        fontSize: "0.7rem",
+                                                                        borderRadius: "4px",
+                                                                        background: "var(--bg-secondary)",
+                                                                        border: "1px dashed var(--border)",
+                                                                        color: "var(--text-secondary)",
+                                                                        cursor: "pointer",
+                                                                        display: "inline-flex",
+                                                                        alignItems: "center",
+                                                                        gap: "0.25rem",
+                                                                        transition: "all 0.15s ease",
+                                                                    }}
+                                                                    title={`Subir ${defaultLabel}`}
+                                                                >
+                                                                    {uploading === uploadKey ? (
+                                                                        <Loader2 size={10} className="spin" />
+                                                                    ) : (
+                                                                        <Upload size={10} />
+                                                                    )}
+                                                                    <span>Subir {defaultLabel}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
                                                 {ent.archivos.length > 0 && (
                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
                                                         {ent.archivos.map((arch, index) => {
@@ -384,6 +505,14 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                     </div>
                 );
             })}
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelected}
+                style={{ display: "none" }}
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.png"
+            />
+
             <PdfViewerModal
                 isOpen={!!viewingPdf}
                 onClose={() => setViewingPdf(null)}
