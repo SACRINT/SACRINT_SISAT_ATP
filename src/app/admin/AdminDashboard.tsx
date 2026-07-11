@@ -37,6 +37,7 @@ import {
     Loader2,
     RefreshCw,
     Sparkles,
+    Mail,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
@@ -61,6 +62,7 @@ import PanelModulos from "./_componentes/PanelModulos";
 import GestionCiclos from "./_componentes/GestionCiclos";
 import GestionPrompts from "./_componentes/GestionPrompts";
 import GestionLlavesIA from "./_componentes/GestionLlavesIA";
+import ReportesNivel from "./_componentes/ReportesNivel";
 
 import { ProgramaAdmin, EscuelaAdmin, Stats, ZonaStat } from "@/types";
 
@@ -104,7 +106,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos" | "gestion-prompts" | "orquestador-ia">("general");
+    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos" | "gestion-prompts" | "orquestador-ia" | "reportes-nivel">("general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -130,6 +132,55 @@ export default function AdminDashboard({
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [searchOpen, setSearchOpen] = useState(false);
     const [expedientesHighlightId, setExpedientesHighlightId] = useState<string>("");
+
+    // Estados para el Oficio de Dictamen individual
+    const [oficioModal, setOficioModal] = useState<{
+        entregaId: string;
+        escuelaNombre: string;
+        programaNombre: string;
+    } | null>(null);
+    const [oficioNumInput, setOficioNumInput] = useState("089/2026");
+    const [oficioLugarFechaInput, setOficioLugarFechaInput] = useState("");
+    const [oficioTextoAdicional, setOficioTextoAdicional] = useState("");
+    const [generatingOficio, setGeneratingOficio] = useState(false);
+
+    async function handleDownloadOficio() {
+        if (!oficioModal) return;
+        setGeneratingOficio(true);
+        setMessage(null);
+        try {
+            const res = await fetch("/api/admin/oficio-dictamen", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    entregaId: oficioModal.entregaId,
+                    numeroOficio: oficioNumInput,
+                    lugarFecha: oficioLugarFechaInput,
+                    textoAdicional: oficioTextoAdicional
+                })
+            });
+
+            if (!res.ok) throw new Error("Error al generar el Oficio.");
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "DICTAMEN_" + oficioModal.programaNombre.toUpperCase() + "_ZONA004_" + oficioModal.escuelaNombre.replace(/[^a-zA-Z0-9]/g, "_") + ".docx";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            
+            setMessage({ type: "success", text: "Oficio de Dictamen generado y descargado." });
+            setOficioModal(null);
+        } catch (err: any) {
+            console.error(err);
+            setMessage({ type: "error", text: err.message || "Error al generar el Oficio" });
+        } finally {
+            setGeneratingOficio(false);
+        }
+    }
     const router = useRouter();
 
     useEffect(() => {
@@ -509,6 +560,10 @@ export default function AdminDashboard({
                                     <ListChecks size={17} />
                                     <span>Avance de Entregas</span>
                                 </button>
+                                <button className={`sidebar-link ${vista === "reportes-nivel" ? "active" : ""}`} onClick={() => navigate("reportes-nivel")}>
+                                    <Mail size={17} />
+                                    <span>Reportes al Nivel</span>
+                                </button>
                             </div>
                         )}
                     </div>
@@ -862,6 +917,12 @@ export default function AdminDashboard({
                 {
                     vista === "expedientes" && (
                         <GestionExpedientes highlightId={expedientesHighlightId} />
+                    )
+                }
+
+                {
+                    vista === "reportes-nivel" && (
+                        <ReportesNivel />
                     )
                 }
 
@@ -1242,6 +1303,96 @@ export default function AdminDashboard({
                     </div>
                 )
             }
+            {/* Modal de Personalización de Oficio de Dictamen */}
+            {oficioModal && (
+                <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                    <div className="modal-card" style={{ maxWidth: "500px" }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <FileText size={20} style={{ color: "var(--primary)" }} />
+                                Emitir Oficio de Dictamen
+                            </h3>
+                            <button
+                                className="modal-close"
+                                onClick={() => setOficioModal(null)}
+                            >
+                                <XIcon size={18} />
+                            </button>
+                        </div>
+                        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", margin: 0 }}>
+                                Rellena los datos institucionales para el oficio membretado dirigido a la dirección de la escuela <strong>{oficioModal.escuelaNombre}</strong>.
+                            </p>
+
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+                                    Número correlativo de Oficio
+                                </label>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>SEP-B/ZONA004/</span>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        value={oficioNumInput}
+                                        onChange={(e) => setOficioNumInput(e.target.value)}
+                                        placeholder="089/2026"
+                                        style={{ width: "100px" }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+                                    Lugar y Fecha del Oficio
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={oficioLugarFechaInput}
+                                    onChange={(e) => setOficioLugarFechaInput(e.target.value)}
+                                    style={{ width: "100%" }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+                                    Observaciones / Texto Adicional (Opcional)
+                                </label>
+                                <textarea
+                                    className="form-control"
+                                    value={oficioTextoAdicional}
+                                    onChange={(e) => setOficioTextoAdicional(e.target.value)}
+                                    placeholder="Agrega comentarios o felicitaciones particulares que se incluirán en el cuerpo del oficio..."
+                                    style={{ width: "100%", height: "100px", fontSize: "0.8125rem" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer" style={{ display: "flex", gap: "0.5rem" }}>
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => setOficioModal(null)}
+                                style={{ flex: 1 }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleDownloadOficio}
+                                disabled={generatingOficio}
+                                style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "center" }}
+                            >
+                                {generatingOficio ? (
+                                    <Loader2 size={16} className="spin" />
+                                ) : (
+                                    <Download size={16} />
+                                )}
+                                Descargar (.docx)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <BuscadorGlobal
                 isOpen={searchOpen}
                 onClose={() => setSearchOpen(false)}
