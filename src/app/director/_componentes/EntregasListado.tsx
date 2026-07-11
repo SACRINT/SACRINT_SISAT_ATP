@@ -613,7 +613,8 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                     resultado: resJson.resultado,
                     intentosUsados: resJson.intentosUsados,
                     limiteIntentos: resJson.limiteIntentos,
-                    activoDirectores: resJson.activoDirectores
+                    activoDirectores: resJson.activoDirectores,
+                    evaluacionActual: true
                 });
                 onSetMessage({ type: "success", text: "✅ Autoevaluación preliminar generada con éxito." });
             } else {

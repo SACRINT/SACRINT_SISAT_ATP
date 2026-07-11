@@ -204,7 +204,8 @@ export async function POST(
             resultado: preRevision?.resultado ?? null,
             intentosUsados: preRevision?.intentosUsados ?? 0,
             limiteIntentos: aiConfig?.limiteIntentos ?? 3,
-            activoDirectores: aiConfig?.activoDirectores ?? false
+            activoDirectores: aiConfig?.activoDirectores ?? false,
+            evaluacionActual: true
         });
     } catch (error: unknown) {
         console.error("POST Pre-revision force error:", error);

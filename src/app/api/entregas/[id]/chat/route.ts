@@ -29,7 +29,7 @@ export async function GET(
         }
 
         const user = session.user as any;
-        if (user.role !== "admin" && user.role !== "atp" && user.id !== entrega.escuelaId) {
+        if (user.role !== "admin" && user.role !== "atp" && user.cct !== entrega.escuela.cct) {
             return NextResponse.json({ error: "No tienes permiso para ver este chat" }, { status: 403 });
         }
 
@@ -83,7 +83,7 @@ export async function POST(
 
         const user = session.user as any;
         // Solo el director propietario de la escuela, o un administrador, pueden usar el chat
-        if (user.role !== "admin" && user.role !== "atp" && user.id !== entrega.escuelaId) {
+        if (user.role !== "admin" && user.role !== "atp" && user.cct !== entrega.escuela.cct) {
             return NextResponse.json({ error: "No tienes permiso para interactuar en este chat" }, { status: 403 });
         }
 
