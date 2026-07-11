@@ -433,7 +433,12 @@ export default function EntregasListado({
                                                 {/* Approved message */}
                                                 {ent.estado === "APROBADO" && (
                                                     <div style={{ textAlign: "center", fontSize: "0.8125rem", color: "var(--success)", fontWeight: 600 }}>
-                                                        ✅ Entrega aprobada
+                                                        <div>✅ Entrega aprobada</div>
+                                                        {ent.cvd && (
+                                                            <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.25rem", fontWeight: 500 }}>
+                                                                CVD: <a href={`/validar-documento?cvd=${ent.cvd}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "monospace", color: "var(--primary)", textDecoration: "none", fontWeight: 700 }} title="Verificar autenticidad digital">{ent.cvd}</a>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

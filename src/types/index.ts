@@ -24,6 +24,8 @@ export interface EntregaAdmin {
     archivos: Archivo[];
     correcciones: CorreccionAdmin[];
     escuela: { id: string; cct: string; nombre: string; localidad: string; total: number };
+    cvd?: string | null;
+    firmaDigital?: string | null;
 }
 
 export interface PeriodoAdmin {
@@ -64,6 +66,8 @@ export interface EscuelaAdmin {
         archivos: Archivo[];
         correcciones: CorreccionAdmin[];
         periodoEntrega: { programa: { nombre: string }; mes: number | null; semestre: number | null };
+        cvd?: string | null;
+        firmaDigital?: string | null;
     }[];
 }
 

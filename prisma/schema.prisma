@@ -120,6 +120,8 @@ model Entrega {
   observacionesATP String?
   fechaSubida      DateTime?
   fechaRevision    DateTime?
+  firmaDigital     String?
+  cvd              String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 

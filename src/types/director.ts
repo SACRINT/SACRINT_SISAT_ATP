@@ -34,6 +34,8 @@ export interface EntregaDirector {
     periodoEntrega: PeriodoEntregaDirector;
     archivos: ArchivoDirector[];
     correcciones: CorreccionDirector[];
+    cvd?: string | null;
+    firmaDigital?: string | null;
 }
 
 export interface ProgramaGroup {

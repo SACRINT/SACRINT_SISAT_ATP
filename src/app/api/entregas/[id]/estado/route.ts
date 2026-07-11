@@ -17,6 +17,24 @@ export async function PATCH(
         const { id } = await params;
         const { estado, observaciones } = await req.json();
 
+        let extraData: any = {};
+        if (estado === "APROBADO") {
+            const current = await prisma.entrega.findUnique({
+                where: { id },
+                include: { escuela: true, periodoEntrega: { include: { programa: true } } }
+            }) as any;
+            if (current && !current.cvd) {
+                const crypto = require("crypto");
+                const randomHex = crypto.randomBytes(4).toString("hex").toUpperCase();
+                const cleanCct = current.escuela.cct.replace(/\s+/g, "");
+                const cvd = `CVD-${cleanCct}-${randomHex}`;
+                const dataToSign = `${current.escuela.id}-${current.periodoEntrega.programa.nombre}-${new Date().toISOString()}-Ing.AlejandroEscamilla`;
+                const signature = crypto.createHash("sha256").update(dataToSign).digest("hex").substring(0, 32).toUpperCase();
+                extraData.cvd = cvd;
+                extraData.firmaDigital = signature;
+            }
+        }
+
         const validEstados = [
             "PENDIENTE",
             "EN_REVISION",
@@ -36,6 +54,7 @@ export async function PATCH(
                 estado,
                 observacionesATP: observaciones ?? undefined,
                 fechaRevision: new Date(),
+                ...extraData
             },
         });
 

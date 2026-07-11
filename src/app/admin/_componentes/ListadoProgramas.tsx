@@ -625,6 +625,27 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                 )}
                                                             </div>
                                                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                                {ent.estado === "APROBADO" && ent.cvd && (
+                                                                    <a 
+                                                                        href={`/validar-documento?cvd=${ent.cvd}`} 
+                                                                        target="_blank" 
+                                                                        rel="noopener noreferrer" 
+                                                                        style={{ 
+                                                                            fontSize: "0.68rem", 
+                                                                            background: "#f0fdf4", 
+                                                                            border: "1px solid #86efac", 
+                                                                            color: "#16a34a", 
+                                                                            padding: "0.15rem 0.35rem", 
+                                                                            borderRadius: "4px", 
+                                                                            textDecoration: "none", 
+                                                                            fontFamily: "monospace",
+                                                                            fontWeight: 700 
+                                                                        }}
+                                                                        title="Verificar firma digital del dictamen"
+                                                                    >
+                                                                        🛡️ {ent.cvd}
+                                                                    </a>
+                                                                )}
                                                                 <select
                                                                     value={ent.estado}
                                                                     onChange={(e) => handleEstadoChange(ent.id, e.target.value)}

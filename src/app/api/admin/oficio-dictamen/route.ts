@@ -151,6 +151,26 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
         }
 
+        // Si la entrega está aprobada pero aún no tiene CVD/firma (ej: registros anteriores), generarlo al vuelo
+        let finalCvd = entrega.cvd;
+        let finalFirma = entrega.firmaDigital;
+        if (entrega.estado === "APROBADO" && !finalCvd) {
+            const crypto = require("crypto");
+            const randomHex = crypto.randomBytes(4).toString("hex").toUpperCase();
+            const cleanCct = entrega.escuela.cct.replace(/\s+/g, "");
+            finalCvd = `CVD-${cleanCct}-${randomHex}`;
+            const dataToSign = `${entrega.escuela.id}-${entrega.periodoEntrega.programa.nombre}-${new Date().toISOString()}-Ing.AlejandroEscamilla`;
+            finalFirma = crypto.createHash("sha256").update(dataToSign).digest("hex").substring(0, 32).toUpperCase();
+
+            await prisma.entrega.update({
+                where: { id: entregaId },
+                data: {
+                    cvd: finalCvd,
+                    firmaDigital: finalFirma
+                }
+            });
+        }
+
         const escuelaNombre = entrega.escuela.nombre;
         const cct = entrega.escuela.cct;
         const director = entrega.escuela.director || "DIRECTOR(A) DEL PLANTEL";
@@ -321,6 +341,24 @@ export async function POST(req: NextRequest) {
                 spacing: { before: 360 },
             })
         );
+
+        // 11. Sello y QR Digital (CVD) - Solo si está aprobado
+        if (entrega.estado === "APROBADO" && finalCvd) {
+            paragraphs.push(new Paragraph({ text: "" }));
+            paragraphs.push(
+                new Paragraph({
+                    alignment: AlignmentType.LEFT,
+                    children: [
+                        new TextRun({ text: "🛡️ VALIDEZ Y SELLO DIGITAL OFICIAL (SISAT-ATP ZONA 004)\n", bold: true, size: 16, font: "Courier New", color: "1e3a8a" }),
+                        new TextRun({ text: `Código CVD: ${finalCvd}\n`, bold: true, size: 16, font: "Courier New", color: "4b5563" }),
+                        new TextRun({ text: `Firma Electrónica: ${finalFirma}\n`, size: 14, font: "Courier New", color: "6b7280" }),
+                        new TextRun({ text: `Enlace de Verificación: https://sacrint-sisat-atp.vercel.app/validar-documento?cvd=${finalCvd}\n`, size: 14, font: "Courier New", color: "2563eb", underline: {} }),
+                        new TextRun({ text: "--------------------------------------------------------------------------------", size: 14, font: "Courier New", color: "d1d5db" }),
+                    ],
+                    spacing: { before: 240, after: 120 },
+                })
+            );
+        }
 
         const doc = new Document({
             sections: [
