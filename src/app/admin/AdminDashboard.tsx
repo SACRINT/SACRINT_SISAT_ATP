@@ -726,6 +726,7 @@ export default function AdminDashboard({
                 {/* ========= VISTA: VISTA GENERAL ========= */}
                 {vista === "general" && (
                     <VistaGeneral
+                        rawEscuelas={escuelas}
                         stats={{
                             ...stats,
                             escuelas: escuelas.map(e => ({

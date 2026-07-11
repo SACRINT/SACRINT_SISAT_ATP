@@ -12,10 +12,14 @@ import {
     BarChart3,
     TrendingUp,
     School,
+    Mail,
+    Sparkles,
+    Check,
     FileCheck2,
     FileMinus,
     ChevronRight,
     MapPin,
+    Loader2,
 } from "lucide-react";
 import type { ZonaStat } from "@/types";
 
@@ -50,6 +54,7 @@ export default function VistaGeneral({
     onSaveAnuncio,
     onExportExcel,
     onNavigateEscuelas,
+    rawEscuelas,
 }: {
     stats: Stats;
     zonaStats?: ZonaStat[];
@@ -59,9 +64,99 @@ export default function VistaGeneral({
     onSaveAnuncio: (anuncio: string) => Promise<boolean>;
     onExportExcel: () => void;
     onNavigateEscuelas?: () => void;
+    rawEscuelas?: any[];
 }) {
     const [anuncio, setAnuncio] = useState(anuncioGlobal || "");
     const [savingAnuncio, setSavingAnuncio] = useState(false);
+
+    // Estados para envío de correo global
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [emailSubject, setEmailSubject] = useState("Aviso Importante - Supervisión Escolar ATP");
+    const [emailBody, setEmailBody] = useState("");
+    const [emailRecipientType, setEmailRecipientType] = useState<"TODOS" | "ALERTAS" | "SELECCIONADOS">("TODOS");
+    const [selectedEscuelas, setSelectedEscuelas] = useState<Record<string, boolean>>({});
+    const [sendingEmails, setSendingEmails] = useState(false);
+    const [emailResult, setEmailResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+    // Inicializar cuerpo del correo cuando se abre el modal
+    const handleOpenEmailModal = () => {
+        setEmailBody(anuncio || "Estimados directores, se les solicita revisar sus pendientes de entregas en la plataforma...");
+        setShowEmailModal(true);
+        setEmailResult(null);
+    };
+
+    const handleSendEmails = async () => {
+        setSendingEmails(true);
+        setEmailResult(null);
+        try {
+            const seleccionadas = Object.keys(selectedEscuelas).filter(id => selectedEscuelas[id]);
+            const res = await fetch("/api/admin/enviar-correo-global", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    asunto: emailSubject,
+                    contenido: emailBody,
+                    tipoDestinatarios: emailRecipientType,
+                    escuelasSeleccionadas: seleccionadas
+                })
+            });
+            if (!res.ok) throw new Error("Error en el servidor al enviar correos.");
+            const data = await res.json();
+            if (data.success) {
+                setEmailResult({ type: "success", text: data.message });
+                setTimeout(() => setShowEmailModal(false), 2000);
+            }
+        } catch (err: any) {
+            console.error(err);
+            setEmailResult({ type: "error", text: err.message || "Error al enviar avisos" });
+        } finally {
+            setSendingEmails(false);
+        }
+    };
+
+    // Analíticas: Detección automática de incidencias frecuentes
+    const commonIssues = useMemo(() => {
+        if (!rawEscuelas) return [];
+        let missingSignatures = 0;
+        let unclearMetas = 0;
+        let incompleteEvidencias = 0;
+        let cctErrors = 0;
+        let reviewedCount = 0;
+
+        rawEscuelas.forEach((esc: any) => {
+            esc.entregas.forEach((ent: any) => {
+                reviewedCount++;
+                const preRev = ent.preRevision;
+                const resultado = preRev?.resultado as any;
+                const obs = ent.observacionesATP || "";
+                const feedbackText = resultado?.borradorCorreo || resultado?.explicacion || "";
+
+                const textToSearch = (obs + " " + feedbackText).toLowerCase();
+
+                if (resultado?.cumpleFirmas === false || textToSearch.includes("firma") || textToSearch.includes("sello") || textToSearch.includes("firmar") || textToSearch.includes("sellado")) {
+                    missingSignatures++;
+                }
+                if (textToSearch.includes("meta") || textToSearch.includes("objetivo") || textToSearch.includes("indicador") || textToSearch.includes("metas")) {
+                    unclearMetas++;
+                }
+                if (textToSearch.includes("evidencia") || textToSearch.includes("foto") || textToSearch.includes("captura") || textToSearch.includes("fotografía")) {
+                    incompleteEvidencias++;
+                }
+                if (textToSearch.includes("cct") || textToSearch.includes("clave de centro") || textToSearch.includes("identificación") || textToSearch.includes("membrete")) {
+                    cctErrors++;
+                }
+            });
+        });
+
+        const total = reviewedCount || 1;
+
+        return [
+            { id: "firmas", label: "Firmas o Sellos Faltantes", count: missingSignatures, pct: Math.round((missingSignatures / total) * 100), color: "#ef4444", desc: "Documentos cargados sin firmas autógrafas o sellos oficiales de la escuela." },
+            { id: "metas", label: "Metas/Objetivos Inconsistentes", count: unclearMetas, pct: Math.round((unclearMetas / total) * 100), color: "#f59e0b", desc: "Metas planteadas sin indicadores medibles o sin concordancia con la rúbrica." },
+            { id: "evidencias", label: "Evidencias Fotográficas Insuficientes", count: incompleteEvidencias, pct: Math.round((incompleteEvidencias / total) * 100), color: "#3b82f6", desc: "Reportes sin fotografías claras o que carecen del moño/vestimenta reglamentaria del Día Naranja." },
+            { id: "cct", label: "Errores de Identificación o CCT", count: cctErrors, pct: Math.round((cctErrors / total) * 100), color: "#8b5cf6", desc: "Datos de membrete o clave de centro de trabajo mal redactados o desactualizados." },
+        ].sort((a, b) => b.count - a.count);
+    }, [rawEscuelas]);
     const [savedOk, setSavedOk] = useState(false);
 
     const entregadas = stats.totalEntregas - stats.noEntregadas;
@@ -425,6 +520,39 @@ export default function VistaGeneral({
                 </div>
             )}
 
+            {/* ─── Análisis de Incidencias Frecuentes ─── */}
+            {rawEscuelas && rawEscuelas.length > 0 && (
+                <div className="card" style={{ padding: "1.25rem", background: "white", border: "1px solid var(--border)" }}>
+                    <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Sparkles size={18} style={{ color: "var(--primary)" }} />
+                        Análisis de Incidencias Frecuentes (Zona Escolar)
+                    </h3>
+                    <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", margin: "-0.5rem 0 1.25rem 0" }}>
+                        Detección automática de observaciones más frecuentes basadas en las revisiones y pre-evaluaciones de la IA.
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "1rem" }}>
+                        {commonIssues.map((issue) => (
+                            <div key={issue.id} style={{ display: "flex", flexDirection: "column", gap: "0.375rem", padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <span style={{ fontSize: "0.8125rem", fontWeight: 700 }}>{issue.label}</span>
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 800, color: issue.color }}>{issue.count} incidencias</span>
+                                </div>
+                                <div style={{ height: "6px", background: "var(--border)", borderRadius: "3px", overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${issue.pct}%`, background: issue.color, borderRadius: "3px" }} />
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.65rem", color: "var(--text-muted)" }}>
+                                    <span>Frecuencia en entregas</span>
+                                    <span>{issue.pct}%</span>
+                                </div>
+                                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.72rem", color: "var(--text-muted)", lineHeight: "1.3" }}>
+                                    {issue.desc}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* ─── Anuncio Global ─── */}
             <div className="card" style={{ background: "#e8f4fd", border: "1px solid #bee5f7" }}>
                 <h3 style={{ color: "#0c5a8e", marginBottom: "0.5rem", fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -445,17 +573,139 @@ export default function VistaGeneral({
                         </span>
                     )}
                     <div style={{ marginLeft: "auto" }}>
-                        <button
-                            className="btn btn-primary"
-                            onClick={handleSave}
-                            disabled={savingAnuncio || anuncio === anuncioGlobal}
-                            style={{ minHeight: "auto", padding: "0.5rem 1rem" }}
-                        >
-                            <Send size={14} /> {savingAnuncio ? "Guardando..." : "Actualizar Aviso"}
-                        </button>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={handleOpenEmailModal}
+                                style={{ minHeight: "auto", padding: "0.5rem 1rem", borderColor: "#0c5a8e", color: "#0c5a8e" }}
+                            >
+                                <Mail size={14} /> Enviar Aviso por Correo
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleSave}
+                                disabled={savingAnuncio || anuncio === anuncioGlobal}
+                                style={{ minHeight: "auto", padding: "0.5rem 1rem" }}
+                            >
+                                <Send size={14} /> {savingAnuncio ? "Guardando..." : "Actualizar Aviso"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {/* Modal de Envío de Aviso por Correo */}
+            {showEmailModal && (
+                <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                    <div className="modal-card" style={{ maxWidth: "550px" }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Mail size={20} style={{ color: "var(--primary)" }} />
+                                Enviar Aviso por Correo Electrónico
+                            </h3>
+                            <button className="modal-close" onClick={() => setShowEmailModal(false)}>
+                                <XCircle size={18} />
+                            </button>
+                        </div>
+                        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            {emailResult && (
+                                <div className={`alert alert-${emailResult.type === "error" ? "danger" : "success"}`} style={{ padding: "0.625rem", borderRadius: "6px", fontSize: "0.8125rem" }}>
+                                    {emailResult.text}
+                                </div>
+                            )}
+
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.375rem" }}>Destinatarios</label>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                                    <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem", cursor: "pointer" }}>
+                                        <input
+                                            type="radio"
+                                            name="recipientType"
+                                            checked={emailRecipientType === "TODOS"}
+                                            onChange={() => setEmailRecipientType("TODOS")}
+                                        />
+                                        Todas las escuelas de la Zona 004 ({stats.escuelas?.length || 0} escuelas)
+                                    </label>
+                                    <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem", cursor: "pointer" }}>
+                                        <input
+                                            type="radio"
+                                            name="recipientType"
+                                            checked={emailRecipientType === "ALERTAS"}
+                                            onChange={() => setEmailRecipientType("ALERTAS")}
+                                        />
+                                        Solo escuelas con entregas pendientes o que requieren corrección
+                                    </label>
+                                    <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem", cursor: "pointer" }}>
+                                        <input
+                                            type="radio"
+                                            name="recipientType"
+                                            checked={emailRecipientType === "SELECCIONADOS"}
+                                            onChange={() => setEmailRecipientType("SELECCIONADOS")}
+                                        />
+                                        Seleccionar escuelas manualmente
+                                    </label>
+                                </div>
+                            </div>
+
+                            {emailRecipientType === "SELECCIONADOS" && stats.escuelas && (
+                                <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "6px", padding: "0.5rem", background: "var(--bg-secondary)" }}>
+                                    {stats.escuelas.map((esc) => (
+                                        <label key={esc.id} style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.75rem", padding: "0.25rem 0", cursor: "pointer" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!selectedEscuelas[esc.id]}
+                                                onChange={(e) => setSelectedEscuelas(prev => ({ ...prev, [esc.id]: e.target.checked }))}
+                                            />
+                                            {esc.nombre} ({esc.cct})
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Asunto del Correo</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={emailSubject}
+                                    onChange={(e) => setEmailSubject(e.target.value)}
+                                    style={{ width: "100%" }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Contenido del Correo</label>
+                                <textarea
+                                    className="form-control"
+                                    rows={6}
+                                    value={emailBody}
+                                    onChange={(e) => setEmailBody(e.target.value)}
+                                    style={{ width: "100%", fontFamily: "inherit", fontSize: "0.8125rem" }}
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer" style={{ display: "flex", gap: "0.5rem" }}>
+                            <button className="btn btn-outline" onClick={() => setShowEmailModal(false)} style={{ flex: 1 }}>
+                                Cancelar
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleSendEmails}
+                                disabled={sendingEmails}
+                                style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "center" }}
+                            >
+                                {sendingEmails ? (
+                                    <Loader2 size={16} className="spin" />
+                                ) : (
+                                    <Send size={16} />
+                                )}
+                                Enviar Correos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
