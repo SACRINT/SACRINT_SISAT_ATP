@@ -38,6 +38,7 @@ import {
     RefreshCw,
     Sparkles,
     Mail,
+    Trash2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
@@ -122,7 +123,7 @@ export default function AdminDashboard({
         setSidebarOpen(false);
     };
     const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas">("programas");
-    const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any } | null>(null);
+    const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
 
@@ -143,6 +144,69 @@ export default function AdminDashboard({
     const [oficioLugarFechaInput, setOficioLugarFechaInput] = useState("");
     const [oficioTextoAdicional, setOficioTextoAdicional] = useState("");
     const [generatingOficio, setGeneratingOficio] = useState(false);
+
+    // Estados para la gestión de archivos por el admin (Propuesta 8)
+    const [uploadingAdminFile, setUploadingAdminFile] = useState(false);
+    const [deletingAdminFileId, setDeletingAdminFileId] = useState<string | null>(null);
+
+    async function handleDeleteUploadedFile(archivoId: string) {
+        if (!confirm("¿Estás seguro de eliminar este archivo en representación del director? Esta acción es irreversible.")) return;
+        setDeletingAdminFileId(archivoId);
+        setMessage(null);
+        try {
+            const res = await fetch(`/api/archivos/${archivoId}`, { method: "DELETE" });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al eliminar el archivo");
+            }
+            // Update local state files list
+            setCorreccionModal(prev => prev ? { ...prev, archivos: prev.archivos?.filter(a => a.id !== archivoId) } : null);
+            setMessage({ type: "success", text: "Archivo eliminado exitosamente." });
+            router.refresh();
+        } catch (err: any) {
+            console.error(err);
+            setMessage({ type: "error", text: err.message || "Error al eliminar archivo" });
+        } finally {
+            setDeletingAdminFileId(null);
+        }
+    }
+
+    async function handleAdminUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+        const files = e.target.files;
+        if (!files || files.length === 0 || !correccionModal) return;
+        setUploadingAdminFile(true);
+        setMessage(null);
+        try {
+            const formData = new FormData();
+            formData.append("entregaId", correccionModal.entregaId);
+            formData.append("file", files[0]);
+
+            const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al subir archivo");
+            }
+
+            const data = await res.json();
+            // Update local state files list
+            setCorreccionModal(prev => prev ? { ...prev, archivos: [...(prev.archivos || []), ...(data.archivos || [])] } : null);
+            setMessage({ type: "success", text: "Archivo subido exitosamente. Iniciando pre-revisión..." });
+            
+            // Trigger automatic AI recheck on new file
+            handleReEvaluate();
+            router.refresh();
+        } catch (err: any) {
+            console.error(err);
+            setMessage({ type: "error", text: err.message || "Error al subir archivo" });
+        } finally {
+            setUploadingAdminFile(false);
+            if (e.target) e.target.value = "";
+        }
+    }
 
     async function handleDownloadOficio() {
         if (!oficioModal) return;

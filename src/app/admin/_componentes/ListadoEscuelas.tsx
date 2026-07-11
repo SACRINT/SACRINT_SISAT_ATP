@@ -13,7 +13,7 @@ import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 interface ListadoEscuelasProps {
     escuelas: EscuelaAdmin[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
-    onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any } | null) => void;
+    onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null) => void;
 }
 
 function getEstadoStyles(estado: string) {
@@ -369,7 +369,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                     ))}
                                                 </select>
                                                  <button
-                                                     onClick={() => onSetCorreccionModal({ entregaId: ent.id, escuelaNombre: esc.nombre, history: ent.correcciones, preRevision: (ent as any).preRevision })}
+                                                     onClick={() => onSetCorreccionModal({ entregaId: ent.id, escuelaNombre: esc.nombre, history: ent.correcciones, preRevision: (ent as any).preRevision, archivos: ent.archivos })}
                                                      style={{ background: "none", border: "none", cursor: "pointer", color: "#e67e22", padding: "0.25rem" }}
                                                      title="Enviar corrección / Ver historial"
                                                  >
