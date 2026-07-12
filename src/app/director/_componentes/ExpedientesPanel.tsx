@@ -76,11 +76,29 @@ const EMPTY_FORM = {
 
 
 function renderIABadge(validoIA: string | null | undefined, observacionesIA: string | null | undefined) {
-    if (!validoIA) return null;
+    if (!validoIA) {
+        return (
+            <span
+                style={{
+                    fontSize: "0.68rem",
+                    padding: "0.15rem 0.35rem",
+                    borderRadius: "4px",
+                    background: "#f1f5f9",
+                    color: "#475569",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    flexShrink: 0
+                }}
+            >
+                ⏳ Sin Validar
+            </span>
+        );
+    }
 
     let bg = "#f1f5f9";
     let color = "#475569";
-    let text = "Pendiente IA";
+    let text = "";
 
     if (validoIA === "PENDIENTE") {
         bg = "#fef3c7";
@@ -89,32 +107,36 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     } else if (validoIA === "APROBADO") {
         bg = "#dcfce7";
         color = "#15803d";
-        text = "✓ Validado por SISAT-ATP";
+        text = "✓";
     } else if (validoIA === "ADVERTENCIA") {
         bg = "#fffbeb";
         color = "#b45309";
-        text = "⚠️ Advertencia SISAT-ATP";
+        text = "⚠️";
     } else if (validoIA === "RECHAZADO") {
         bg = "#fee2e2";
         color = "#b91c1c";
-        text = "❌ Rechazado por SISAT-ATP";
+        text = "❌";
     }
+
+    const badgeTitle = observacionesIA 
+        ? `${validoIA === "APROBADO" ? "Validado por SISAT-ATP" : validoIA === "ADVERTENCIA" ? "Advertencia SISAT-ATP" : "Rechazado por SISAT-ATP"}: ${observacionesIA}`
+        : (validoIA === "APROBADO" ? "✓ Aprobado por SISAT-ATP" : validoIA === "ADVERTENCIA" ? "⚠️ Advertencia SISAT-ATP" : "❌ Rechazado por SISAT-ATP");
 
     return (
         <span
             style={{
-                fontSize: "0.68rem",
-                padding: "0.15rem 0.4rem",
+                fontSize: "0.75rem",
+                padding: "0.15rem 0.35rem",
                 borderRadius: "4px",
                 background: bg,
                 color: color,
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: observacionesIA ? "help" : "default",
                 display: "inline-flex",
                 alignItems: "center",
                 flexShrink: 0
             }}
-            title={observacionesIA || undefined}
+            title={badgeTitle}
         >
             {text}
         </span>

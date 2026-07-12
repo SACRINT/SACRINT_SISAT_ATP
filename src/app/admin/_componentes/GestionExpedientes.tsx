@@ -101,11 +101,37 @@ function completenessColor(complete: number, total: number): string {
 
 
 function renderIABadge(validoIA: string | null | undefined, observacionesIA: string | null | undefined, onManualReevaluate?: () => void, loading?: boolean) {
-    if (!validoIA) return null;
+    if (!validoIA) {
+        if (onManualReevaluate && !loading) {
+            return (
+                <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManualReevaluate(); }}
+                    style={{
+                        background: "#f3f4f6",
+                        color: "#4b5563",
+                        border: "1px solid var(--border)",
+                        padding: "0.15rem 0.35rem",
+                        borderRadius: "4px",
+                        fontSize: "0.68rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.2rem",
+                        flexShrink: 0
+                    }}
+                    title="Analizar con IA"
+                >
+                    🤖 Validar
+                </button>
+            );
+        }
+        return null;
+    }
 
     let bg = "#f1f5f9";
     let color = "#475569";
-    let text = "Pendiente";
+    let text = "";
 
     if (validoIA === "PENDIENTE" || loading) {
         bg = "#fef3c7";
@@ -114,33 +140,37 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     } else if (validoIA === "APROBADO") {
         bg = "#dcfce7";
         color = "#15803d";
-        text = "✓ Validado por SISAT-ATP";
+        text = "✓";
     } else if (validoIA === "ADVERTENCIA") {
         bg = "#fffbeb";
         color = "#b45309";
-        text = "⚠️ Advertencia SISAT-ATP";
+        text = "⚠️";
     } else if (validoIA === "RECHAZADO") {
         bg = "#fee2e2";
         color = "#b91c1c";
-        text = "❌ Rechazado por SISAT-ATP";
+        text = "❌";
     }
+
+    const badgeTitle = observacionesIA 
+        ? `${validoIA === "APROBADO" ? "Validado por SISAT-ATP" : validoIA === "ADVERTENCIA" ? "Advertencia SISAT-ATP" : "Rechazado por SISAT-ATP"}: ${observacionesIA}`
+        : (validoIA === "APROBADO" ? "✓ Aprobado por SISAT-ATP" : validoIA === "ADVERTENCIA" ? "⚠️ Advertencia SISAT-ATP" : "❌ Rechazado por SISAT-ATP");
 
     return (
         <span
             style={{
-                fontSize: "0.68rem",
-                padding: "0.15rem 0.4rem",
+                fontSize: "0.75rem",
+                padding: "0.15rem 0.35rem",
                 borderRadius: "4px",
                 background: bg,
                 color: color,
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: observacionesIA ? "help" : "default",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "0.25rem",
+                gap: "0.2rem",
                 flexShrink: 0
             }}
-            title={observacionesIA || undefined}
+            title={badgeTitle}
         >
             <span>{text}</span>
             {onManualReevaluate && !loading && validoIA !== "PENDIENTE" && (
@@ -152,10 +182,10 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
                         cursor: "pointer",
                         color: "inherit",
                         padding: 0,
-                        fontSize: "0.75rem",
+                        fontSize: "0.7rem",
                         display: "inline-flex",
                         alignItems: "center",
-                        marginLeft: "2px"
+                        marginLeft: "1px"
                     }}
                     title="Forzar análisis de validación de nuevo"
                 >
@@ -203,6 +233,110 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
             setAnalyzingIA(null);
         }
     }
+
+    const [bulkValidatingPerson, setBulkValidatingPerson] = useState<string | null>(null);
+    const [bulkProgressPerson, setBulkProgressPerson] = useState<string>("");
+
+    const [bulkValidatingSchool, setBulkValidatingSchool] = useState<string | null>(null);
+    const [bulkProgressSchool, setBulkProgressSchool] = useState<string>("");
+
+    async function handleBulkValidatePerson(personalId: string) {
+        const persona = personalList.find(p => p.id === personalId);
+        if (!persona) return;
+
+        const pendingDocs = persona.documentos.filter(d => d.archivoDriveUrl && d.validoIA !== "APROBADO");
+        if (pendingDocs.length === 0) return;
+
+        setBulkValidatingPerson(personalId);
+        let count = 0;
+
+        for (const doc of pendingDocs) {
+            count++;
+            setBulkProgressPerson(`${count}/${pendingDocs.length}`);
+            try {
+                const res = await fetch("/api/admin/valida-ia", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: doc.id, modulo: "EXPEDIENTES" })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success && data.result) {
+                        setPersonalList(prev => prev.map(p => {
+                            if (p.id === personalId) {
+                                return {
+                                    ...p,
+                                    documentos: p.documentos.map(d => d.id === doc.id ? { ...d, validoIA: data.result.valido, observacionesIA: data.result.observaciones } : d)
+                                };
+                            }
+                            return p;
+                        }));
+                    }
+                }
+            } catch (err) {
+                console.error(`Error in bulk validation of doc ${doc.id}:`, err);
+            }
+            // Small sleep to prevent rate limits
+            await new Promise(resolve => setTimeout(resolve, 600));
+        }
+
+        setBulkValidatingPerson(null);
+        setBulkProgressPerson("");
+        setMessage({ type: "success", text: "Expediente del docente validado masivamente con éxito." });
+    }
+
+    async function handleBulkValidateSchool(escuelaId: string) {
+        const schoolPersonnel = personalList.filter(p => p.escuelaId === escuelaId);
+        const pendingDocs: { docId: string; personalId: string }[] = [];
+
+        schoolPersonnel.forEach(p => {
+            p.documentos.forEach(d => {
+                if (d.archivoDriveUrl && d.validoIA !== "APROBADO") {
+                    pendingDocs.push({ docId: d.id, personalId: p.id });
+                }
+            });
+        });
+
+        if (pendingDocs.length === 0) return;
+
+        setBulkValidatingSchool(escuelaId);
+        let count = 0;
+
+        for (const item of pendingDocs) {
+            count++;
+            setBulkProgressSchool(`${count}/${pendingDocs.length}`);
+            try {
+                const res = await fetch("/api/admin/valida-ia", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: item.docId, modulo: "EXPEDIENTES" })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success && data.result) {
+                        setPersonalList(prev => prev.map(p => {
+                            if (p.id === item.personalId) {
+                                return {
+                                    ...p,
+                                    documentos: p.documentos.map(d => d.id === item.docId ? { ...d, validoIA: data.result.valido, observacionesIA: data.result.observaciones } : d)
+                                };
+                            }
+                            return p;
+                        }));
+                    }
+                }
+            } catch (err) {
+                console.error(`Error in bulk validation of school doc ${item.docId}:`, err);
+            }
+            // Small sleep to prevent rate limits
+            await new Promise(resolve => setTimeout(resolve, 600));
+        }
+
+        setBulkValidatingSchool(null);
+        setBulkProgressSchool("");
+        setMessage({ type: "success", text: "Todos los documentos de la escuela han sido validados masivamente con éxito." });
+    }
+
     const [todasEscuelas, setTodasEscuelas] = useState<{ id: string; cct: string; nombre: string }[]>([]);
 
     const [expandedEscuela, setExpandedEscuela] = useState<string | null>(null);
@@ -680,13 +814,18 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                 ) : (
                     escuelasArray.map(escuela => {
                         const isExpanded = expandedEscuela === escuela.id || (!!searchTerm && escuela.personal.length > 0);
-                        const filteredPersonal = filterCargo
-                            ? escuela.personal.filter(p => p.cargo === filterCargo)
-                            : escuela.personal;
+                        const schoolPersonnel = personalList.filter(p => p.escuelaId === escuela.id);
+                        const schoolPendingCount = schoolPersonnel.reduce((acc, p) => {
+                            const pending = p.documentos.filter(d => d.archivoDriveUrl && d.validoIA !== "APROBADO").length;
+                            return acc + pending;
+                        }, 0);
                         const totalPersonnel = escuela.personal.length;
                         const completeCount = escuela.personal.filter(
                             p => countCompleteDocs(p.documentos) >= TOTAL_REQUIRED_DOCS
                         ).length;
+                        const filteredPersonal = filterCargo
+                            ? escuela.personal.filter(p => p.cargo === filterCargo)
+                            : escuela.personal;
 
                         return (
                             <div key={escuela.id} className="card" style={{ padding: 0, opacity: (escuela as any).tienePersonal ? 1 : 0.65 }}>
@@ -723,6 +862,37 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                                             }} title={`${completeCount} de ${totalPersonnel} con expediente completo`}>
                                                 {completeCount}/{totalPersonnel} completos
                                             </span>
+                                        )}
+                                        {totalPersonnel > 0 && schoolPendingCount > 0 && (
+                                            <button
+                                                onClick={() => handleBulkValidateSchool(escuela.id)}
+                                                disabled={bulkValidatingSchool === escuela.id || busy}
+                                                className="btn"
+                                                style={{
+                                                    minHeight: "auto",
+                                                    padding: "0.25rem 0.5rem",
+                                                    fontSize: "0.75rem",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "0.25rem",
+                                                    background: "var(--primary)",
+                                                    borderColor: "var(--primary)",
+                                                    color: "white",
+                                                    cursor: "pointer"
+                                                }}
+                                                title={`Validar todos los documentos pendientes de la escuela (${schoolPendingCount})`}
+                                            >
+                                                {bulkValidatingSchool === escuela.id ? (
+                                                    <>
+                                                        <Loader2 size={12} className="spin" style={{ marginRight: "3px" }} />
+                                                        <span>Validando ({bulkProgressSchool})...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span>🤖 Validar Pendientes ({schoolPendingCount})</span>
+                                                    </>
+                                                )}
+                                            </button>
                                         )}
                                         {totalPersonnel > 0 && (
                                             <button
@@ -796,6 +966,9 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                                                                     uploadingDoc={uploadingDoc}
                                                                     onReEvaluateIA={handleReEvaluateIA}
                                                                     analyzingIA={analyzingIA}
+                                                                    onBulkValidatePerson={handleBulkValidatePerson}
+                                                                    bulkValidatingPerson={bulkValidatingPerson}
+                                                                    bulkProgressPerson={bulkProgressPerson}
                                                                 />
                                                             );
                                                         })}
@@ -840,6 +1013,9 @@ function PersonRow({
     uploadingDoc,
     onReEvaluateIA,
     analyzingIA,
+    onBulkValidatePerson,
+    bulkValidatingPerson,
+    bulkProgressPerson,
 }: {
     persona: Personal;
     complete: number;
@@ -856,6 +1032,9 @@ function PersonRow({
     uploadingDoc: string | null;
     onReEvaluateIA: (id: string) => Promise<void>;
     analyzingIA: string | null;
+    onBulkValidatePerson: (personalId: string) => Promise<void>;
+    bulkValidatingPerson: string | null;
+    bulkProgressPerson: string;
 }) {
     const fullName = `${persona.apellidoPaterno} ${persona.apellidoMaterno} ${persona.nombre}`;
     const docColor = completenessColor(complete, TOTAL_REQUIRED_DOCS);
@@ -942,9 +1121,44 @@ function PersonRow({
                             padding: "0.75rem 1rem",
                             borderTop: "1px solid var(--border)",
                         }}>
-                            <p style={{ margin: "0 0 0.5rem", fontWeight: 600, fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                                <FileText size={14} /> Documentos de {persona.nombre}
-                            </p>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                                <p style={{ margin: 0, fontWeight: 600, fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                    <FileText size={14} /> Documentos de {persona.nombre}
+                                </p>
+                                {persona.documentos.some(d => d.archivoDriveUrl && d.validoIA !== "APROBADO") && (
+                                    <button
+                                        onClick={() => onBulkValidatePerson(persona.id)}
+                                        disabled={bulkValidatingPerson === persona.id || busy}
+                                        style={{
+                                            minHeight: "auto",
+                                            padding: "0.25rem 0.5rem",
+                                            fontSize: "0.7rem",
+                                            borderRadius: "4px",
+                                            background: "var(--primary)",
+                                            border: "none",
+                                            color: "white",
+                                            cursor: "pointer",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "0.25rem",
+                                            fontWeight: 700,
+                                            transition: "opacity 0.2s"
+                                        }}
+                                        title="Validar todos los documentos pendientes con IA"
+                                    >
+                                        {bulkValidatingPerson === persona.id ? (
+                                            <>
+                                                <Loader2 size={10} className="spin" />
+                                                <span>Validando ({bulkProgressPerson})...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>🤖 Validar todo el expediente</span>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
 
                             {/* Required documents grid */}
                             <div style={{
@@ -970,25 +1184,28 @@ function PersonRow({
 
                                     return (
                                         <div key={dp.tipo} style={{
-                                            display: "flex", alignItems: "center", justifyContent: "space-between",
-                                            padding: "0.375rem 0.625rem",
+                                            display: "flex", flexDirection: "column", alignItems: "stretch",
+                                            padding: "0.5rem 0.625rem",
                                             borderRadius: "6px",
                                             background: "var(--bg-primary, white)",
                                             border: "1px solid var(--border)",
                                             fontSize: "0.8125rem",
+                                            gap: "0.375rem"
                                         }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                                                <span style={{ color: statusColor, fontSize: "0.875rem" }}>
-                                                    {statusIcon}
-                                                </span>
-                                                <span style={{ color: noTieneDoc ? "var(--text-muted)" : "inherit" }}>
-                                                    {dp.label} {noTieneDoc && <span style={{ fontStyle: "italic", fontSize: "0.7rem", color: "var(--error)" }}>(No cuenta con él)</span>}
+                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", minWidth: 0 }}>
+                                                    <span style={{ color: statusColor, fontSize: "0.875rem", flexShrink: 0 }}>
+                                                        {statusIcon}
+                                                    </span>
+                                                    <span style={{ fontWeight: 600, color: noTieneDoc ? "var(--text-muted)" : "inherit", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                                                        {dp.label} {noTieneDoc && <span style={{ fontStyle: "italic", fontSize: "0.7rem", color: "var(--error)" }}>(No cuenta)</span>}
+                                                    </span>
+                                                </div>
                                                 {!hasFile && !noTieneDoc && (
                                                     <button
                                                         onClick={() => onUploadDocClick(persona.id, dp.tipo)}
                                                         disabled={busy || uploadingDoc === `${persona.id}-${dp.tipo}`}
                                                         style={{
-                                                            marginLeft: "0.5rem",
                                                             padding: "0.15rem 0.35rem",
                                                             fontSize: "0.68rem",
                                                             borderRadius: "4px",
@@ -999,7 +1216,7 @@ function PersonRow({
                                                             display: "inline-flex",
                                                             alignItems: "center",
                                                             gap: "0.2rem",
-                                                            transition: "all 0.15s ease",
+                                                            flexShrink: 0
                                                         }}
                                                         title={`Subir ${dp.label}`}
                                                     >
@@ -1011,11 +1228,10 @@ function PersonRow({
                                                         <span>Subir</span>
                                                     </button>
                                                 )}
-                                                </span>
                                             </div>
 
                                             {docs.length > 0 && (
-                                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", marginTop: "0.25rem", borderTop: "1px solid #f3f4f6", paddingTop: "0.25rem" }}>
                                                     {docs.map(doc => {
                                                         const dlUrl = getExpedienteDownloadUrl({
                                                             url: doc.archivoDriveUrl!,
@@ -1038,53 +1254,55 @@ function PersonRow({
                                                             doc.archivoNombre || "archivo"
                                                         );
                                                         return (
-                                                            <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
-                                                                {doc.archivoDriveUrl && (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={() => onViewPdf(
-                                                                                doc.archivoDriveUrl!,
-                                                                                `${dp.label} — ${persona.apellidoPaterno} ${persona.nombre}`,
-                                                                                dlUrl || undefined,
-                                                                                fileTitle
-                                                                            )}
-                                                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", display: "inline-flex" }}
-                                                                            title={`Ver ${dp.label}`}
-                                                                        >
-                                                                            <Eye size={14} />
-                                                                        </button>
-                                                                        <a
-                                                                            href={dlUrl || "#"}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            style={{ color: "var(--text-secondary)", display: "inline-flex", padding: "2px" }}
-                                                                            title={`Descargar ${dp.label}`}
-                                                                        >
-                                                                            <Download size={14} />
-                                                                        </a>
-                                                                        <button
-                                                                            onClick={() => onDeleteDoc(doc.id)}
-                                                                            disabled={busy}
-                                                                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
-                                                                            title="Eliminar archivo del expediente"
-                                                                        >
-                                                                            <Trash2 size={14} />
-                                                                        </button>
-                                                                        {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id)}
-                                                                    </>
-                                                                )}
-                                                                <button
-                                                                    onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
-                                                                    disabled={busy}
-                                                                    style={{
-                                                                        background: "none", border: "none", cursor: "pointer",
-                                                                        color: doc.bloqueado ? "var(--error)" : "var(--success)",
-                                                                        padding: "2px",
-                                                                    }}
-                                                                    title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
-                                                                >
-                                                                    {doc.bloqueado ? <Lock size={14} /> : <Unlock size={14} />}
-                                                                </button>
+                                                            <div key={doc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                                    {doc.archivoDriveUrl && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => onViewPdf(
+                                                                                    doc.archivoDriveUrl!,
+                                                                                    `${dp.label} — ${persona.apellidoPaterno} ${persona.nombre}`,
+                                                                                    dlUrl || undefined,
+                                                                                    fileTitle
+                                                                                )}
+                                                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", display: "inline-flex" }}
+                                                                                title={`Ver ${dp.label}`}
+                                                                            >
+                                                                                <Eye size={13} />
+                                                                            </button>
+                                                                            <a
+                                                                                href={dlUrl || "#"}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                style={{ color: "var(--text-secondary)", display: "inline-flex", padding: "2px" }}
+                                                                                title={`Descargar ${dp.label}`}
+                                                                            >
+                                                                                <Download size={13} />
+                                                                            </a>
+                                                                            <button
+                                                                                onClick={() => onDeleteDoc(doc.id)}
+                                                                                disabled={busy}
+                                                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
+                                                                                title="Eliminar archivo del expediente"
+                                                                            >
+                                                                                <Trash2 size={13} />
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                    <button
+                                                                        onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
+                                                                        disabled={busy}
+                                                                        style={{
+                                                                            background: "none", border: "none", cursor: "pointer",
+                                                                            color: doc.bloqueado ? "var(--error)" : "var(--success)",
+                                                                            padding: "2px", display: "inline-flex"
+                                                                        }}
+                                                                        title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
+                                                                    >
+                                                                        {doc.bloqueado ? <Lock size={13} /> : <Unlock size={13} />}
+                                                                    </button>
+                                                                </div>
+                                                                {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id)}
                                                             </div>
                                                         );
                                                     })}
@@ -1106,46 +1324,47 @@ function PersonRow({
                                         gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
                                         gap: "0.5rem",
                                     }}>
-                                        {customDocs.map(doc => (
-                                            <div key={doc.id} style={{
-                                                display: "flex", alignItems: "center", justifyContent: "space-between",
-                                                padding: "0.375rem 0.625rem",
-                                                borderRadius: "6px",
-                                                background: "var(--bg-primary, white)",
-                                                border: "1px dashed var(--border)",
-                                                fontSize: "0.8125rem",
-                                            }}>
-                                                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                                                    <span style={{ color: doc.archivoDriveUrl ? "var(--success)" : "var(--error)", fontSize: "0.875rem" }}>
-                                                        {doc.archivoDriveUrl ? "✅" : "❌"}
-                                                    </span>
-                                                    <span>{doc.etiqueta || doc.tipoDocumento}</span>
-                                                </div>
-
-                                                <div style={{ display: "flex", alignItems: "center", gap: "0.125rem" }}>
-                                                    {doc.archivoDriveUrl && (() => {
-                                                        const dlUrl = getExpedienteDownloadUrl({
-                                                            url: doc.archivoDriveUrl!,
-                                                            publicId: doc.archivoDriveId,
-                                                            cct: persona.escuela?.cct || "",
-                                                            apellidoPaterno: persona.apellidoPaterno,
-                                                            apellidoMaterno: persona.apellidoMaterno,
-                                                            nombre: persona.nombre,
-                                                            tipoDocumento: "CUSTOM",
-                                                            etiqueta: doc.etiqueta,
-                                                            nombreOriginal: doc.archivoNombre || "archivo",
-                                                        });
-                                                        const fileTitle = buildExpedienteFileName(
-                                                            persona.escuela?.cct || "",
-                                                            persona.apellidoPaterno,
-                                                            persona.apellidoMaterno,
-                                                            persona.nombre,
-                                                            "CUSTOM",
-                                                            doc.etiqueta,
-                                                            doc.archivoNombre || "archivo"
-                                                        );
-                                                        return (
-                                                            <>
+                                        {customDocs.map(doc => {
+                                            const dlUrl = getExpedienteDownloadUrl({
+                                                url: doc.archivoDriveUrl!,
+                                                publicId: doc.archivoDriveId,
+                                                cct: persona.escuela?.cct || "",
+                                                apellidoPaterno: persona.apellidoPaterno,
+                                                apellidoMaterno: persona.apellidoMaterno,
+                                                nombre: persona.nombre,
+                                                tipoDocumento: "CUSTOM",
+                                                etiqueta: doc.etiqueta,
+                                                nombreOriginal: doc.archivoNombre || "archivo",
+                                            });
+                                            const fileTitle = buildExpedienteFileName(
+                                                persona.escuela?.cct || "",
+                                                persona.apellidoPaterno,
+                                                persona.apellidoMaterno,
+                                                persona.nombre,
+                                                "CUSTOM",
+                                                doc.etiqueta,
+                                                doc.archivoNombre || "archivo"
+                                            );
+                                            return (
+                                                <div key={doc.id} style={{
+                                                    display: "flex", flexDirection: "column", alignItems: "stretch",
+                                                    padding: "0.5rem 0.625rem",
+                                                    borderRadius: "6px",
+                                                    background: "var(--bg-primary, white)",
+                                                    border: "1px dashed var(--border)",
+                                                    fontSize: "0.8125rem",
+                                                    gap: "0.375rem"
+                                                }}>
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                                        <span style={{ color: doc.archivoDriveUrl ? "var(--success)" : "var(--error)", fontSize: "0.875rem" }}>
+                                                            {doc.archivoDriveUrl ? "✅" : "❌"}
+                                                        </span>
+                                                        <span style={{ fontWeight: 600 }}>{doc.etiqueta || doc.tipoDocumento}</span>
+                                                    </div>
+                                                    
+                                                    {doc.archivoDriveUrl && (
+                                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", borderTop: "1px solid #f3f4f6", paddingTop: "0.25rem" }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
                                                                 <button
                                                                     onClick={() => onViewPdf(
                                                                         doc.archivoDriveUrl!,
@@ -1156,7 +1375,7 @@ function PersonRow({
                                                                     style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "2px", display: "inline-flex" }}
                                                                     title={`Ver ${doc.etiqueta || doc.archivoNombre}`}
                                                                 >
-                                                                    <Eye size={14} />
+                                                                    <Eye size={13} />
                                                                 </button>
                                                                 <a
                                                                     href={dlUrl || "#"}
@@ -1165,7 +1384,7 @@ function PersonRow({
                                                                     style={{ color: "var(--text-secondary)", display: "inline-flex", padding: "2px" }}
                                                                     title={`Descargar ${doc.etiqueta || doc.archivoNombre}`}
                                                                 >
-                                                                    <Download size={14} />
+                                                                    <Download size={13} />
                                                                 </a>
                                                                 <button
                                                                     onClick={() => onDeleteDoc(doc.id)}
@@ -1173,27 +1392,27 @@ function PersonRow({
                                                                     style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
                                                                     title="Eliminar archivo del expediente"
                                                                 >
-                                                                    <Trash2 size={14} />
+                                                                    <Trash2 size={13} />
                                                                 </button>
-                                                                {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id)}
-                                                            </>
-                                                        );
-                                                    })()}
-                                                    <button
-                                                        onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
-                                                        disabled={busy}
-                                                        style={{
-                                                            background: "none", border: "none", cursor: "pointer",
-                                                            color: doc.bloqueado ? "var(--error)" : "var(--success)",
-                                                            padding: "2px",
-                                                        }}
-                                                        title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
-                                                    >
-                                                        {doc.bloqueado ? <Lock size={14} /> : <Unlock size={14} />}
-                                                    </button>
+                                                                <button
+                                                                    onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
+                                                                    disabled={busy}
+                                                                    style={{
+                                                                        background: "none", border: "none", cursor: "pointer",
+                                                                        color: doc.bloqueado ? "var(--error)" : "var(--success)",
+                                                                        padding: "2px", display: "inline-flex"
+                                                                    }}
+                                                                    title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
+                                                                >
+                                                                    {doc.bloqueado ? <Lock size={13} /> : <Unlock size={13} />}
+                                                                </button>
+                                                            </div>
+                                                            {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id)}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </>
                             )}
