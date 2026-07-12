@@ -113,22 +113,29 @@ export async function callGemini(
             console.log(`[orquestador-ia] Llamada exitosa con llave: ${keyRecord.label}`);
             return result;
         } catch (err: any) {
-            console.error(`[orquestador-ia] Fallo con la llave "${keyRecord.label}":`, err.message || err);
-            
-            // Incrementar contador de errores
-            const newErrorCount = keyRecord.errorCount + 1;
-            const deactivate = newErrorCount >= 5;
+            const errStr = String(err?.message || "");
+            console.error(`[orquestador-ia] Fallo con la llave "${keyRecord.label}":`, errStr);
 
-            await prisma.apiKey.update({
-                where: { id: keyRecord.id },
-                data: {
-                    errorCount: newErrorCount,
-                    active: !deactivate, // Desactivar automáticamente tras 5 fallos consecutivos
-                },
-            });
+            const isTransient = errStr.includes("(429)") || errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded");
 
-            if (deactivate) {
-                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" desactivada automáticamente tras 5 fallos consecutivos.`);
+            if (!isTransient) {
+                // Incrementar contador de errores (solo para fallos permanentes)
+                const newErrorCount = keyRecord.errorCount + 1;
+                const deactivate = newErrorCount >= 5;
+
+                await prisma.apiKey.update({
+                    where: { id: keyRecord.id },
+                    data: {
+                        errorCount: newErrorCount,
+                        active: !deactivate, // Desactivar automáticamente tras 5 fallos consecutivos
+                    },
+                });
+
+                if (deactivate) {
+                    console.warn(`[orquestador-ia] Llave "${keyRecord.label}" desactivada automáticamente tras 5 fallos consecutivos.`);
+                }
+            } else {
+                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" experimentó un error temporal o de cuota (${errStr}). No se penaliza su contador de errores.`);
             }
         }
     }
@@ -169,19 +176,38 @@ async function executeRequestWithRetry(
     pdfMimeType: string = "application/pdf",
     responseSchema?: any
 ): Promise<string> {
-    switch (provider) {
-        case "gemini":
-            return await callGeminiNative(model, apiKey, systemInstruction, prompt, pdfBuffer, pdfMimeType, responseSchema);
-        case "openai":
-            return await callOpenAiCompatible(`https://api.openai.com/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
-        case "deepseek":
-            return await callOpenAiCompatible(`https://api.deepseek.com/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
-        case "openrouter":
-            return await callOpenAiCompatible(`https://openrouter.ai/api/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
-        case "claude":
-            return await callClaudeNative(model, apiKey, systemInstruction, prompt, pdfBuffer, responseSchema);
-        default:
-            throw new Error(`Proveedor de IA desconocido o no soportado: ${provider}`);
+    let retries = 3;
+    let delay = 1500; // Iniciar con 1.5 segundos
+
+    while (true) {
+        try {
+            switch (provider) {
+                case "gemini":
+                    return await callGeminiNative(model, apiKey, systemInstruction, prompt, pdfBuffer, pdfMimeType, responseSchema);
+                case "openai":
+                    return await callOpenAiCompatible(`https://api.openai.com/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
+                case "deepseek":
+                    return await callOpenAiCompatible(`https://api.deepseek.com/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
+                case "openrouter":
+                    return await callOpenAiCompatible(`https://openrouter.ai/api/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
+                case "claude":
+                    return await callClaudeNative(model, apiKey, systemInstruction, prompt, pdfBuffer, responseSchema);
+                default:
+                    throw new Error(`Proveedor de IA desconocido o no soportado: ${provider}`);
+            }
+        } catch (err: any) {
+            const errStr = String(err?.message || "");
+            const isTransient = errStr.includes("(429)") || errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded");
+
+            if (isTransient && retries > 0) {
+                console.warn(`[orquestador-ia] Error temporal detectado (${errStr}). Reintentando en ${delay}ms... (Intentos restantes: ${retries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                retries--;
+                delay *= 2.5; // Backoff exponencial agresivo
+            } else {
+                throw err;
+            }
+        }
     }
 }
 

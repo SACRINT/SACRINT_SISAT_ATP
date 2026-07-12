@@ -52,7 +52,7 @@ const MODULOS: ModuloInfo[] = [
         icon: <Trophy size={22} />,
         color: "#f59e0b",
         configEndpoint: "/api/admin/eventos-config",
-        dataEndpoint: "/api/admin/eventos-inscripciones",
+        dataEndpoint: "/api/admin/eventos-config",
         countLabel: "escuelas inscritas",
     },
     {
@@ -182,7 +182,7 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                     const res = await fetch(m.dataEndpoint);
                     if (res.ok) {
                         const data = await res.json();
-                        const count = Array.isArray(data) ? data.length : (data.total ?? null);
+                        const count = Array.isArray(data) ? data.length : (data.total ?? data.totalInscripciones ?? null);
                         updates[m.key] = { ...(updates[m.key] || {}), count };
                     }
                 } catch { /* count stays null */ }
