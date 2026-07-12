@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { uploadFileToCloudinary, buildFolderPath } from "@/lib/cloudinary";
 import { sendUploadConfirmation } from "@/lib/email";
 import { buildEntregaFileName } from "@/lib/download-url";
+import { hasBackendAccess } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
     try {
@@ -65,8 +66,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
         }
 
-        // Directors can only upload to their own school
-        const user = session.user as { role?: string; cct?: string } | undefined;
+        // Directors can only upload to their own school, Admins must have write access to avances
+        const user = session.user as { role?: string; dbRole?: string; cct?: string; permisos?: any } | undefined;
         const userRole = user?.role;
         if (userRole === "director") {
             const userCct = user?.cct;
@@ -78,6 +79,10 @@ export async function POST(req: NextRequest) {
                     { error: "Esta entrega ya fue aprobada. No se puede modificar." },
                     { status: 403 }
                 );
+            }
+        } else if (userRole === "admin") {
+            if (!hasBackendAccess(user, "avances", "write")) {
+                return NextResponse.json({ error: "No autorizado (sin permisos de escritura en avances)" }, { status: 403 });
             }
         }
 

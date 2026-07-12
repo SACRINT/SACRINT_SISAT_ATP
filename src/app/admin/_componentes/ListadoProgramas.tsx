@@ -20,6 +20,7 @@ interface ListadoProgramasProps {
     programas: ProgramaAdmin[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
     onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null) => void;
+    readOnly?: boolean;
 }
 
 function getEstadoStyles(estado: string) {
@@ -40,7 +41,7 @@ function getEstadoStyles(estado: string) {
     }
 }
 
-export default function ListadoProgramas({ programas, onSetMessage, onSetCorreccionModal }: ListadoProgramasProps) {
+export default function ListadoProgramas({ programas, onSetMessage, onSetCorreccionModal, readOnly = false }: ListadoProgramasProps) {
     const router = useRouter();
     const [expanded, setExpanded]               = useState<string | null>(null);
     const [expandedPeriodo, setExpandedPeriodo] = useState<string | null>(null);
@@ -548,7 +549,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                                         <Download size={12} />
                                                                                     </a>
                                                                                     {/* Delete */}
-                                                                                    {ent.estado !== "APROBADO" && (
+                                                                                    {ent.estado !== "APROBADO" && !readOnly && (
                                                                                         <button
                                                                                             onClick={() => handleDeleteFile(arch.id)}
                                                                                             disabled={deleting === arch.id}
@@ -578,7 +579,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                 )}
 
                                                                 {/* Administrative Upload Buttons */}
-                                                                {ent.estado !== "APROBADO" && (
+                                                                {ent.estado !== "APROBADO" && !readOnly && (
                                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.35rem" }}>
                                                                         {Array.from({ length: prog.numArchivos || 1 }).map((_, i) => {
                                                                             const etiquetas = prog.etiquetasArchivos || [];
@@ -649,7 +650,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                 <select
                                                                     value={ent.estado}
                                                                     onChange={(e) => handleEstadoChange(ent.id, e.target.value)}
-                                                                    disabled={updatingEstado === ent.id}
+                                                                    disabled={updatingEstado === ent.id || readOnly}
                                                                     style={{
                                                                         padding: "0.25rem 0.5rem", borderRadius: "6px",
                                                                         border: `1px solid ${styles.borderColor}`, background: styles.background,

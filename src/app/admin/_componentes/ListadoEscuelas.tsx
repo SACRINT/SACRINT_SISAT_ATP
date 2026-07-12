@@ -14,6 +14,7 @@ interface ListadoEscuelasProps {
     escuelas: EscuelaAdmin[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
     onSetCorreccionModal: (modal: { entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null) => void;
+    readOnly?: boolean;
 }
 
 function getEstadoStyles(estado: string) {
@@ -58,7 +59,7 @@ function getEstadoStyles(estado: string) {
     }
 }
 
-export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccionModal }: ListadoEscuelasProps) {
+export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccionModal, readOnly = false }: ListadoEscuelasProps) {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("TODOS");
@@ -363,7 +364,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                      )}
                                                  </div>
                                                 {/* Administrative Upload Buttons */}
-                                                {ent.estado !== "APROBADO" && (
+                                                {ent.estado !== "APROBADO" && !readOnly && (
                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.35rem", marginBottom: "0.35rem" }}>
                                                         {Array.from({ length: (ent.periodoEntrega.programa as any).numArchivos || 1 }).map((_, i) => {
                                                             const etiquetas = (ent.periodoEntrega.programa as any).etiquetasArchivos || [];
@@ -462,7 +463,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                                         <Download size={12} />
                                                                     </a>
                                                                     {/* Delete */}
-                                                                    {ent.estado !== "APROBADO" && (
+                                                                    {ent.estado !== "APROBADO" && !readOnly && (
                                                                         <button
                                                                             onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteFile(arch.id); }}
                                                                             disabled={deleting === arch.id}
@@ -490,7 +491,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                 )}
                                             </div>
                                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                                {ent.estado !== "APROBADO" && (
+                                                {ent.estado !== "APROBADO" && !readOnly && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSendReminder(ent.id, esc.nombre); }}
                                                         disabled={sendingReminder === ent.id}
@@ -525,7 +526,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                     value={ent.estado}
                                                     onChange={(e) => handleEstadoChange(ent.id, e.target.value)}
                                                     onClick={(e) => e.stopPropagation()}
-                                                    disabled={updatingEstado === ent.id}
+                                                    disabled={updatingEstado === ent.id || readOnly}
                                                     style={{
                                                         padding: "0.25rem 0.5rem", borderRadius: "6px",
                                                         border: `1px solid ${styles.borderColor}`, background: styles.background,

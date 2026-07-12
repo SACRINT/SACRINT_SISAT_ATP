@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deleteFileFromCloudinary } from "@/lib/cloudinary";
+import { hasBackendAccess } from "@/lib/permissions";
 
 // DELETE: Delete an uploaded file
 export async function DELETE(
@@ -27,12 +28,17 @@ export async function DELETE(
             return NextResponse.json({ error: "Archivo no encontrado" }, { status: 404 });
         }
 
-        // Only directors can delete their own files
-        const userRole = (session.user as { role?: string })?.role;
+        // Only directors can delete their own files, Admins must have write access to avances
+        const user = session.user as { role?: string; dbRole?: string; permisos?: any } | undefined;
+        const userRole = user?.role;
         if (userRole === "director") {
             const userCct = (session.user as { cct?: string })?.cct;
             if (archivo.entrega.escuela.cct !== userCct) {
                 return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+            }
+        } else if (userRole === "admin") {
+            if (!hasBackendAccess(user, "avances", "write")) {
+                return NextResponse.json({ error: "No autorizado (sin permisos de escritura en avances)" }, { status: 403 });
             }
         }
 

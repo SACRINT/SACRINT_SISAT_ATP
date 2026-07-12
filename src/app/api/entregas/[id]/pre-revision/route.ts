@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { analizarEntregaConIA, downloadFile, extractTextFromPdf } from "@/lib/pre-revision";
+import { hasBackendAccess } from "@/lib/permissions";
 
 export const maxDuration = 120; // Allow up to 120 seconds for Gemini + Cloudinary download on Vercel
 
@@ -122,7 +123,7 @@ export async function POST(
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
-        const user = session.user as { role?: string; cct?: string } | undefined;
+        const user = session.user as { role?: string; cct?: string; dbRole?: string; permisos?: any } | undefined;
         const userRole = user?.role;
         const { id } = await params;
 
@@ -132,6 +133,9 @@ export async function POST(
         if (action === "reset") {
             if (userRole !== "admin") {
                 return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+            }
+            if (!hasBackendAccess(user, "avances", "write")) {
+                return NextResponse.json({ error: "No autorizado (sin permisos de escritura en avances)" }, { status: 403 });
             }
             const updated = await prisma.preRevision.upsert({
                 where: { entregaId: id },
@@ -183,6 +187,10 @@ export async function POST(
             });
         } else if (userRole !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+        } else {
+            if (!hasBackendAccess(user, "avances", "write")) {
+                return NextResponse.json({ error: "No autorizado (sin permisos de escritura en avances)" }, { status: 403 });
+            }
         }
 
         let textoCompleto: string | undefined = undefined;

@@ -960,12 +960,14 @@ export default function AdminDashboard({
                                 programas={programas}
                                 onSetMessage={setMessage}
                                 onSetCorreccionModal={setCorreccionModal}
+                                readOnly={!hasAccess("avances", "write")}
                             />
                         ) : (
                             <ListadoEscuelas
                                 escuelas={escuelas}
                                 onSetMessage={setMessage}
                                 onSetCorreccionModal={setCorreccionModal}
+                                readOnly={!hasAccess("avances", "write")}
                             />
                         )}
                     </div>
@@ -1140,23 +1142,25 @@ export default function AdminDashboard({
                                         <Sparkles size={14} style={{ color: "var(--primary)" }} /> Pre-dictamen con IA no generado
                                     </h4>
                                     <p style={{ margin: "0 0 0.5rem", color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                                        Este documento se subió antes de activar la IA o no ha sido analizado. ¿Deseas evaluarlo ahora?
+                                        Este documento se subió antes de activar la IA o no ha sido analizado.
                                     </p>
-                                    <button
-                                        onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
-                                        disabled={reEvaluating}
-                                        style={{
-                                            display: "inline-flex", alignItems: "center", gap: "0.375rem",
-                                            padding: "0.25rem 0.5rem", fontSize: "0.75rem", borderRadius: "4px",
-                                            background: "var(--primary)", color: "white", border: "none", cursor: "pointer"
-                                        }}
-                                    >
-                                        {reEvaluating ? (
-                                            <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Analizando...</>
-                                        ) : (
-                                            <><RefreshCw size={12} /> Generar Pre-dictamen con IA</>
-                                        )}
-                                    </button>
+                                    {hasAccess("avances", "write") && (
+                                        <button
+                                            onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
+                                            disabled={reEvaluating}
+                                            style={{
+                                                display: "inline-flex", alignItems: "center", gap: "0.375rem",
+                                                padding: "0.25rem 0.5rem", fontSize: "0.75rem", borderRadius: "4px",
+                                                background: "var(--primary)", color: "white", border: "none", cursor: "pointer"
+                                            }}
+                                        >
+                                            {reEvaluating ? (
+                                                <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Analizando...</>
+                                            ) : (
+                                                <><RefreshCw size={12} /> Generar Pre-dictamen con IA</>
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
                             ) : (() => {
                                 const res = correccionModal.preRevision.resultado;
@@ -1285,21 +1289,23 @@ export default function AdminDashboard({
                                                 <div style={{ padding: "0.5rem", background: "white", border: "1px solid #fecaca", borderRadius: "6px", color: "#b91c1c" }}>
                                                     <p style={{ margin: 0, fontWeight: 600 }}>⚠️ La pre-revisión automática falló o está incompleta:</p>
                                                     <p style={{ margin: "0.25rem 0 0.5rem", fontSize: "0.75rem", color: "#4b5563" }}>{res.explicacion}</p>
-                                                    <button
-                                                        onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
-                                                        disabled={reEvaluating}
-                                                        style={{
-                                                            display: "inline-flex", alignItems: "center", gap: "0.375rem",
-                                                            padding: "0.25rem 0.5rem", fontSize: "0.75rem", borderRadius: "4px",
-                                                            background: "#dc2626", color: "white", border: "none", cursor: "pointer"
-                                                        }}
-                                                    >
-                                                        {reEvaluating ? (
-                                                            <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Re-evaluando...</>
-                                                        ) : (
-                                                            <><RefreshCw size={12} /> Re-intentar análisis con IA</>
-                                                        )}
-                                                    </button>
+                                                    {hasAccess("avances", "write") && (
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
+                                                            disabled={reEvaluating}
+                                                            style={{
+                                                                display: "inline-flex", alignItems: "center", gap: "0.375rem",
+                                                                padding: "0.25rem 0.5rem", fontSize: "0.75rem", borderRadius: "4px",
+                                                                background: "#dc2626", color: "white", border: "none", cursor: "pointer"
+                                                            }}
+                                                        >
+                                                            {reEvaluating ? (
+                                                                <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Re-evaluando...</>
+                                                            ) : (
+                                                                <><RefreshCw size={12} /> Re-intentar análisis con IA</>
+                                                            )}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <>
@@ -1345,37 +1351,41 @@ export default function AdminDashboard({
                                                                 >
                                                                     <Download size={11} /> Descargar Reporte (.docx)
                                                                 </a>
-                                                                <button
-                                                                    onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
-                                                                    disabled={reEvaluating}
-                                                                    style={{
-                                                                        fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
-                                                                        background: "#e2e8f0", color: "#1e293b", border: "1px solid #cbd5e1", cursor: "pointer",
-                                                                        display: "inline-flex", alignItems: "center", gap: "0.25rem"
-                                                                    }}
-                                                                >
-                                                                    {reEvaluating ? (
-                                                                        <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Re-evaluando...</>
-                                                                    ) : (
-                                                                        <><RefreshCw size={11} /> Re-evaluar</>
-                                                                    )}
-                                                                </button>
-                                                                <button
-                                                                    onClick={(e) => { e.preventDefault(); handleResetAttempts(); }}
-                                                                    disabled={resettingAttempts}
-                                                                    style={{
-                                                                        fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
-                                                                        background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a", cursor: "pointer",
-                                                                        display: "inline-flex", alignItems: "center", gap: "0.25rem"
-                                                                    }}
-                                                                    title="Reiniciar contador de autoevaluaciones realizadas por el director"
-                                                                >
-                                                                    {resettingAttempts ? (
-                                                                        <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Reiniciando...</>
-                                                                    ) : (
-                                                                        <><RefreshCw size={11} /> Reiniciar Intentos ({correccionModal.preRevision?.intentosUsados ?? 0})</>
-                                                                    )}
-                                                                </button>
+                                                                {hasAccess("avances", "write") && (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={(e) => { e.preventDefault(); handleReEvaluate(); }}
+                                                                            disabled={reEvaluating}
+                                                                            style={{
+                                                                                fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
+                                                                                background: "#e2e8f0", color: "#1e293b", border: "1px solid #cbd5e1", cursor: "pointer",
+                                                                                display: "inline-flex", alignItems: "center", gap: "0.25rem"
+                                                                            }}
+                                                                        >
+                                                                            {reEvaluating ? (
+                                                                                <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Re-evaluando...</>
+                                                                            ) : (
+                                                                                <><RefreshCw size={11} /> Re-evaluar</>
+                                                                            )}
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => { e.preventDefault(); handleResetAttempts(); }}
+                                                                            disabled={resettingAttempts}
+                                                                            style={{
+                                                                                fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
+                                                                                background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a", cursor: "pointer",
+                                                                                display: "inline-flex", alignItems: "center", gap: "0.25rem"
+                                                                            }}
+                                                                            title="Reiniciar contador de autoevaluaciones realizadas por el director"
+                                                                        >
+                                                                            {resettingAttempts ? (
+                                                                                <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Reiniciando...</>
+                                                                            ) : (
+                                                                                <><RefreshCw size={11} /> Reiniciar Intentos ({correccionModal.preRevision?.intentosUsados ?? 0})</>
+                                                                            )}
+                                                                        </button>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <div style={{
@@ -1429,49 +1439,63 @@ export default function AdminDashboard({
                                 </div>
                             )}
 
-                            <textarea
-                                value={correccionTexto}
-                                onChange={(e) => setCorreccionTexto(e.target.value)}
-                                placeholder="Escribe las correcciones necesarias..."
-                                style={{
-                                    width: "100%", minHeight: "120px", padding: "0.75rem",
-                                    borderRadius: "8px", border: "1px solid var(--border)",
-                                    fontFamily: "inherit", fontSize: "0.875rem", resize: "vertical",
-                                }}
-                            />
+                            {hasAccess("avances", "write") ? (
+                                <>
+                                    <textarea
+                                        value={correccionTexto}
+                                        onChange={(e) => setCorreccionTexto(e.target.value)}
+                                        placeholder="Escribe las correcciones necesarias..."
+                                        style={{
+                                            width: "100%", minHeight: "120px", padding: "0.75rem",
+                                            borderRadius: "8px", border: "1px solid var(--border)",
+                                            fontFamily: "inherit", fontSize: "0.875rem", resize: "vertical",
+                                        }}
+                                    />
 
-                            <div style={{ marginTop: "1rem" }}>
-                                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--text)" }}>
-                                    Adjuntar Archivo de Corrección (Opcional)
-                                </label>
-                                <input
-                                    type="file"
-                                    className="form-control"
-                                    onChange={(e) => setCorreccionFile(e.target.files ? e.target.files[0] : null)}
-                                    style={{ padding: "0.5rem", fontSize: "0.875rem" }}
-                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.png"
-                                />
-                            </div>
+                                    <div style={{ marginTop: "1rem" }}>
+                                        <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--text)" }}>
+                                            Adjuntar Archivo de Corrección (Opcional)
+                                        </label>
+                                        <input
+                                            type="file"
+                                            className="form-control"
+                                            onChange={(e) => setCorreccionFile(e.target.files ? e.target.files[0] : null)}
+                                            style={{ padding: "0.5rem", fontSize: "0.875rem" }}
+                                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.png"
+                                        />
+                                    </div>
 
-                            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-                                <button
-                                    className="btn btn-outline"
-                                    onClick={() => { setCorreccionModal(null); setCorreccionTexto(""); setCorreccionFile(null); }}
-                                    style={{ flex: 1 }}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    className="btn btn-primary"
-                                    onClick={handleSendCorreccion}
-                                    disabled={sendingCorreccion || (!correccionTexto.trim() && !correccionFile)}
-                                    style={{ flex: 1 }}
-                                >
-                                    {sendingCorreccion ? "Enviando..." : (
-                                        <><Send size={16} /> Enviar</>
-                                    )}
-                                </button>
-                            </div>
+                                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+                                        <button
+                                            className="btn btn-outline"
+                                            onClick={() => { setCorreccionModal(null); setCorreccionTexto(""); setCorreccionFile(null); }}
+                                            style={{ flex: 1 }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={handleSendCorreccion}
+                                            disabled={sendingCorreccion || (!correccionTexto.trim() && !correccionFile)}
+                                            style={{ flex: 1 }}
+                                        >
+                                            {sendingCorreccion ? "Enviando..." : (
+                                                <><Send size={16} /> Enviar</>
+                                            )}
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{ display: "flex", marginTop: "1rem" }}>
+                                    <button
+                                        className="btn btn-outline"
+                                        onClick={() => { setCorreccionModal(null); setCorreccionTexto(""); setCorreccionFile(null); }}
+                                        style={{ flex: 1 }}
+                                    >
+                                        Cerrar
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )

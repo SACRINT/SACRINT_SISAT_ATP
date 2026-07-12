@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadFileToCloudinary, buildFolderPath } from "@/lib/cloudinary";
 import { sendCorrectionNotification } from "@/lib/email";
+import { hasBackendAccess } from "@/lib/permissions";
 
 // POST: ATP sends correction to a delivery
 export async function POST(
@@ -11,9 +12,12 @@ export async function POST(
 ) {
     try {
         const session = await auth();
-        const user = session?.user as { role?: string; email?: string } | undefined;
+        const user = session?.user as { role?: string; email?: string; dbRole?: string; permisos?: any } | undefined;
         if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        }
+        if (!hasBackendAccess(user, "avances", "write")) {
+            return NextResponse.json({ error: "No autorizado (sin permisos de escritura en avances)" }, { status: 403 });
         }
 
         const { id } = await params;
