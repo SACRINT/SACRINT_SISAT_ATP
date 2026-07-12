@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import * as XLSX from "xlsx";
+import { downloadFile } from "@/lib/pre-revision";
 
 const MESES_MAP: Record<string, number> = {
     "Enero": 1,
@@ -77,10 +78,8 @@ export async function GET(req: NextRequest) {
 
             if (excelFile && excelFile.driveUrl) {
                 try {
-                    const fileRes = await fetch(excelFile.driveUrl);
-                    if (fileRes.ok) {
-                        const buffer = await fileRes.arrayBuffer();
-                        const workbook = XLSX.read(new Uint8Array(buffer), { type: "array" });
+                    const buffer = await downloadFile(excelFile.driveUrl);
+                    const workbook = XLSX.read(buffer, { type: "buffer" });
                         
                         let sheetName = workbook.SheetNames.find(
                             name => name.toUpperCase() === mes.toUpperCase()
@@ -143,7 +142,6 @@ export async function GET(req: NextRequest) {
                                 });
                             }
                         }
-                    }
                 } catch (err) {
                     console.error(`Error parsing excel for school ${ent.escuela.nombre}:`, err);
                 }
