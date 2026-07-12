@@ -9,7 +9,50 @@ interface AdminUser {
     nombre: string;
     email: string;
     role: string;
+    permisos?: any;
 }
+
+const SECCIONES = [
+    { key: "general", label: "Vista General (Dashboard)" },
+    { key: "avances", label: "Avance de Entregas" },
+    { key: "reportesNivel", label: "Reportes al Nivel" },
+    { key: "escuelas", label: "Escuelas" },
+    { key: "programas", label: "Programas" },
+    { key: "periodos", label: "Periodos" },
+    { key: "fechas", label: "Fechas y Tareas" },
+    { key: "ciclos", label: "Ciclos Escolares" },
+    { key: "formatos", label: "Formatos y Plantillas" },
+    { key: "rubricas", label: "Rúbricas y Prompts de IA" },
+    { key: "orquestador", label: "Orquestador de IA" },
+    { key: "modulosControl", label: "Módulos Especiales (Control)" },
+    { key: "eventos", label: "Módulo: Eventos Culturales" },
+    { key: "circular05", label: "Módulo: Circular 03" },
+    { key: "olimpiada", label: "Módulo: Olimpiada Matemáticas" },
+    { key: "paec", label: "Módulo: Encuentro PAEC" },
+    { key: "capems", label: "Módulo: Fichas CAPEMS" },
+    { key: "expedientes", label: "Módulo: Expedientes Personal" },
+] as const;
+
+const DEFAULT_PERMISOS: Record<string, string> = {
+    general: "LECTURA",
+    avances: "LECTURA",
+    reportesNivel: "NINGUNO",
+    escuelas: "NINGUNO",
+    programas: "NINGUNO",
+    periodos: "NINGUNO",
+    fechas: "NINGUNO",
+    ciclos: "NINGUNO",
+    formatos: "LECTURA",
+    rubricas: "NINGUNO",
+    orquestador: "NINGUNO",
+    modulosControl: "NINGUNO",
+    eventos: "NINGUNO",
+    circular05: "NINGUNO",
+    olimpiada: "NINGUNO",
+    paec: "NINGUNO",
+    capems: "NINGUNO",
+    expedientes: "NINGUNO",
+};
 
 export default function GestionATPs() {
     const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -24,11 +67,13 @@ export default function GestionATPs() {
         email: string;
         password?: string;
         role: string;
+        permisos: Record<string, string>;
     }>({
         nombre: "",
         email: "",
         password: "",
         role: "ATP_LECTOR",
+        permisos: { ...DEFAULT_PERMISOS },
     });
 
     useEffect(() => {
@@ -58,6 +103,7 @@ export default function GestionATPs() {
                 email: admin.email,
                 password: "", // Contraseña vacía al editar, solo se actualiza si escriben
                 role: admin.role,
+                permisos: { ...DEFAULT_PERMISOS, ...(admin.permisos || {}) },
             });
         } else {
             setEditingId(null);
@@ -66,6 +112,7 @@ export default function GestionATPs() {
                 email: "",
                 password: "",
                 role: "ATP_LECTOR",
+                permisos: { ...DEFAULT_PERMISOS },
             });
         }
         setIsModalOpen(true);
@@ -237,7 +284,7 @@ export default function GestionATPs() {
                     display: "flex", alignItems: "center", justifyContent: "center",
                     padding: "1rem", zIndex: 1000
                 }}>
-                    <div className="card fade-in" style={{ width: "100%", maxWidth: "500px" }}>
+                    <div className="card fade-in" style={{ width: "100%", maxWidth: "550px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
                             <h2 style={{ fontSize: "1.25rem", margin: 0 }}>
                                 {editingId ? "Editar Usuario ATP" : "Nuevo Usuario ATP"}
@@ -314,6 +361,94 @@ export default function GestionATPs() {
                                     </div>
                                 </div>
                             </div>
+
+                            {formData.role !== "SUPER_ADMIN" && (
+                                <div style={{ marginTop: "0.5rem" }}>
+                                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>
+                                        Configuración de Permisos por Sección
+                                    </label>
+                                    <div style={{ 
+                                        maxHeight: "220px", 
+                                        overflowY: "auto", 
+                                        border: "1px solid var(--border)", 
+                                        borderRadius: "6px",
+                                        background: "var(--bg)",
+                                        fontSize: "0.8125rem"
+                                    }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                            <thead>
+                                                <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1 }}>
+                                                    <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600 }}>Sección</th>
+                                                    <th style={{ textAlign: "center", padding: "0.5rem 0.25rem", fontWeight: 600, width: "80px" }}>Ninguno</th>
+                                                    <th style={{ textAlign: "center", padding: "0.5rem 0.25rem", fontWeight: 600, width: "80px" }}>Lectura</th>
+                                                    <th style={{ textAlign: "center", padding: "0.5rem 0.25rem", fontWeight: 600, width: "80px" }}>Escritura</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {SECCIONES.map((sec) => {
+                                                    const currentVal = formData.permisos[sec.key] || "NINGUNO";
+                                                    return (
+                                                        <tr key={sec.key} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                            <td style={{ padding: "0.5rem 0.75rem", fontWeight: 500 }}>{sec.label}</td>
+                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`permiso-${sec.key}`}
+                                                                    checked={currentVal === "NINGUNO"}
+                                                                    onChange={() => {
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            permisos: {
+                                                                                ...prev.permisos,
+                                                                                [sec.key]: "NINGUNO"
+                                                                            }
+                                                                        }));
+                                                                    }}
+                                                                    style={{ cursor: "pointer" }}
+                                                                />
+                                                            </td>
+                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`permiso-${sec.key}`}
+                                                                    checked={currentVal === "LECTURA"}
+                                                                    onChange={() => {
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            permisos: {
+                                                                                ...prev.permisos,
+                                                                                [sec.key]: "LECTURA"
+                                                                            }
+                                                                        }));
+                                                                    }}
+                                                                    style={{ cursor: "pointer" }}
+                                                                />
+                                                            </td>
+                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`permiso-${sec.key}`}
+                                                                    checked={currentVal === "ESCRITURA"}
+                                                                    onChange={() => {
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            permisos: {
+                                                                                ...prev.permisos,
+                                                                                [sec.key]: "ESCRITURA"
+                                                                            }
+                                                                        }));
+                                                                    }}
+                                                                    style={{ cursor: "pointer" }}
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
 
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
                                 <button type="button" className="btn btn-outline" onClick={handleCloseModal} disabled={isLoading}>

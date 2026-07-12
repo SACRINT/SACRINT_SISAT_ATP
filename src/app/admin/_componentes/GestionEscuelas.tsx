@@ -15,7 +15,7 @@ type Escuela = {
     ultimoIngreso?: Date | string | null;
 };
 
-export default function GestionEscuelas({ inicialEscuelas, programas }: { inicialEscuelas: Escuela[], programas: ProgramaAdmin[] }) {
+export default function GestionEscuelas({ inicialEscuelas, programas, readOnly = false }: { inicialEscuelas: Escuela[], programas: ProgramaAdmin[], readOnly?: boolean }) {
     const [escuelas, setEscuelas] = useState<Escuela[]>(inicialEscuelas);
     const [selectedId, setSelectedId] = useState<string>("");
     const [isEditing, setIsEditing] = useState(false);
@@ -181,9 +181,11 @@ export default function GestionEscuelas({ inicialEscuelas, programas }: { inicia
                         Agrega nuevas escuelas, dale de baja o edita sus datos.
                     </p>
                 </div>
-                <button className="btn btn-primary" onClick={startCreating}>
-                    <Plus size={18} /> Agregar Escuela
-                </button>
+                {!readOnly && (
+                    <button className="btn btn-primary" onClick={startCreating}>
+                        <Plus size={18} /> Agregar Escuela
+                    </button>
+                )}
             </div>
 
             {message && (
@@ -218,7 +220,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas }: { inicia
                 <div className="card fade-in">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: "1rem" }}>
                         <h3 style={{ margin: 0, color: "var(--text)" }}>{isCreating ? "Nueva Escuela" : "Datos Generales"}</h3>
-                        {!isEditingMode && selectedEscuela ? (
+                        {!isEditingMode && selectedEscuela && !readOnly ? (
                             <div style={{ display: "flex", gap: "0.5rem" }}>
                                 <button className="btn btn-outline" onClick={() => setIsEditing(true)}>
                                     <Edit2 size={16} /> Modificar Datos

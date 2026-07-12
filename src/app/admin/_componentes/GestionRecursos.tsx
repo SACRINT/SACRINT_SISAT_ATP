@@ -7,9 +7,11 @@ import { useRouter } from "next/navigation";
 export default function GestionRecursos({
     recursos,
     programas,
+    readOnly = false,
 }: {
     recursos: any[];
     programas: any[];
+    readOnly?: boolean;
 }) {
     const router = useRouter();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -135,13 +137,15 @@ export default function GestionRecursos({
                         Sube machotes, manuales y plantillas institucionales para que los directores los descarguen.
                     </p>
                 </div>
-                <button
-                    className="btn btn-primary"
-                    onClick={openCreateModal}
-                    style={{ whiteSpace: "nowrap" }}
-                >
-                    <Upload size={18} /> Subir Nuevo Recurso
-                </button>
+                {!readOnly && (
+                    <button
+                        className="btn btn-primary"
+                        onClick={openCreateModal}
+                        style={{ whiteSpace: "nowrap" }}
+                    >
+                        <Upload size={18} /> Subir Nuevo Recurso
+                    </button>
+                )}
             </div>
 
             {message && (
@@ -205,23 +209,27 @@ export default function GestionRecursos({
                                                         <ExternalLink size={16} />
                                                     </a>
                                                 )}
-                                                <button
-                                                    onClick={() => openEditModal(recurso)}
-                                                    className="btn btn-outline"
-                                                    style={{ padding: "0.3rem 0.6rem", color: "var(--primary)", borderColor: "var(--primary)" }}
-                                                    title="Editar formato"
-                                                >
-                                                    <FileText size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(recurso.id, recurso.titulo)}
-                                                    disabled={deletingId === recurso.id}
-                                                    className="btn btn-outline"
-                                                    style={{ padding: "0.3rem 0.6rem", color: "var(--danger)", borderColor: "var(--danger)" }}
-                                                    title="Eliminar formato"
-                                                >
-                                                    {deletingId === recurso.id ? <span className="spin">⌛</span> : <Trash2 size={16} />}
-                                                </button>
+                                                {!readOnly && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => openEditModal(recurso)}
+                                                            className="btn btn-outline"
+                                                            style={{ padding: "0.3rem 0.6rem", color: "var(--primary)", borderColor: "var(--primary)" }}
+                                                            title="Editar formato"
+                                                        >
+                                                            <FileText size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(recurso.id, recurso.titulo)}
+                                                            disabled={deletingId === recurso.id}
+                                                            className="btn btn-outline"
+                                                            style={{ padding: "0.3rem 0.6rem", color: "var(--danger)", borderColor: "var(--danger)" }}
+                                                            title="Eliminar formato"
+                                                        >
+                                                            {deletingId === recurso.id ? <span className="spin">⌛</span> : <Trash2 size={16} />}
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

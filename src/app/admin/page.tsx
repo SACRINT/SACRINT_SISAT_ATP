@@ -143,6 +143,7 @@ export default async function AdminPage() {
             anuncioGlobal={ciclo.anuncioGlobal || ""}
             userName={(session.user as any)?.name || "Admin"}
             dbRole={(session.user as any)?.dbRole || "ATP_LECTOR"}
+            permisos={(session.user as any)?.permisos || null}
             sidebarConfig={sidebarConfig}
         />
     );

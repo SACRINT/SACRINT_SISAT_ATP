@@ -71,7 +71,7 @@ const MODELS: Record<string, { value: string; label: string }[]> = {
     ]
 };
 
-export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg: { type: "success" | "error"; text: string } | null) => void }) {
+export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { onSetMessage?: (msg: { type: "success" | "error"; text: string } | null) => void; readOnly?: boolean }) {
     const [config, setConfig] = useState<ConfigData>({
         activoDirectores: false,
         limiteIntentos: 3,
@@ -315,6 +315,7 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
                                         setConfig({ ...config, providerDefault: prov, modelDefault: defaultModel });
                                     }}
                                     style={{ width: "100%", padding: "0.375rem" }}
+                                    disabled={readOnly}
                                 >
                                     {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                                 </select>
@@ -327,6 +328,7 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
                                     value={config.modelDefault}
                                     onChange={(e) => setConfig({ ...config, modelDefault: e.target.value })}
                                     style={{ width: "100%", padding: "0.375rem" }}
+                                    disabled={readOnly}
                                 >
                                     {(MODELS[config.providerDefault] || []).map(m => (
                                         <option key={m.value} value={m.value}>{m.label}</option>
@@ -355,6 +357,7 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
                                         setConfig({ ...config, providerPremium: prov, modelPremium: defaultModel });
                                     }}
                                     style={{ width: "100%", padding: "0.375rem" }}
+                                    disabled={readOnly}
                                 >
                                     {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                                 </select>
@@ -367,6 +370,7 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
                                     value={config.modelPremium}
                                     onChange={(e) => setConfig({ ...config, modelPremium: e.target.value })}
                                     style={{ width: "100%", padding: "0.375rem" }}
+                                    disabled={readOnly}
                                 >
                                     {(MODELS[config.providerPremium] || []).map(m => (
                                         <option key={m.value} value={m.value}>{m.label}</option>
@@ -377,17 +381,19 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
 
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-                        <button 
-                            type="submit" 
-                            className="btn btn-primary" 
-                            disabled={savingConfig}
-                            style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem" }}
-                        >
-                            {savingConfig && <Loader2 size={16} className="spin" />}
-                            Guardar Configuración de Modelos
-                        </button>
-                    </div>
+                    {!readOnly && (
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.5rem" }}>
+                            <button 
+                                type="submit" 
+                                className="btn btn-primary" 
+                                disabled={savingConfig}
+                                style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem" }}
+                            >
+                                {savingConfig && <Loader2 size={16} className="spin" />}
+                                Guardar Configuración de Modelos
+                            </button>
+                        </div>
+                    )}
                 </form>
             </div>
 
@@ -434,10 +440,11 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
                                                 <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
                                                     <button
                                                         onClick={() => handleTogglePremiumKey(k.id, k.isPremium)}
+                                                        disabled={readOnly}
                                                         style={{
                                                             background: "none",
                                                             border: "none",
-                                                            cursor: "pointer",
+                                                            cursor: readOnly ? "default" : "pointer",
                                                             display: "inline-flex",
                                                             alignItems: "center"
                                                         }}
@@ -466,32 +473,37 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
                                                 <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
                                                     <button
                                                         onClick={() => handleToggleKey(k.id, k.active)}
-                                                        style={{ background: "none", border: "none", cursor: "pointer", color: k.active ? "var(--success)" : "var(--text-muted)", display: "inline-flex" }}
+                                                        disabled={readOnly}
+                                                        style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", color: k.active ? "var(--success)" : "var(--text-muted)", display: "inline-flex" }}
                                                     >
                                                         {k.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
                                                     </button>
                                                 </td>
                                                 <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                                                    <div style={{ display: "flex", justifyContent: "center", gap: "0.25rem" }}>
-                                                        {k.errorCount > 0 && (
+                                                    {readOnly ? (
+                                                        <span style={{ color: "var(--text-muted)" }}>-</span>
+                                                    ) : (
+                                                        <div style={{ display: "flex", justifyContent: "center", gap: "0.25rem" }}>
+                                                            {k.errorCount > 0 && (
+                                                                <button
+                                                                    onClick={() => handleResetErrorCount(k.id)}
+                                                                    className="btn btn-outline"
+                                                                    style={{ padding: "2px 6px", fontSize: "0.7rem", color: "var(--warning)", borderColor: "var(--warning)" }}
+                                                                    title="Reiniciar contador de errores y reactivar clave"
+                                                                >
+                                                                    <RotateCw size={12} /> Reiniciar
+                                                                </button>
+                                                            )}
                                                             <button
-                                                                onClick={() => handleResetErrorCount(k.id)}
+                                                                onClick={() => handleDeleteKey(k.id)}
                                                                 className="btn btn-outline"
-                                                                style={{ padding: "2px 6px", fontSize: "0.7rem", color: "var(--warning)", borderColor: "var(--warning)" }}
-                                                                title="Reiniciar contador de errores y reactivar clave"
+                                                                style={{ padding: "2px 6px", color: "var(--error)", borderColor: "var(--error)" }}
+                                                                title="Eliminar clave"
                                                             >
-                                                                <RotateCw size={12} /> Reiniciar
+                                                                <Trash2 size={12} />
                                                             </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => handleDeleteKey(k.id)}
-                                                            className="btn btn-outline"
-                                                            style={{ padding: "2px 6px", color: "var(--error)", borderColor: "var(--error)" }}
-                                                            title="Eliminar clave"
-                                                        >
-                                                            <Trash2 size={12} />
-                                                        </button>
-                                                    </div>
+                                                        </div>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );
@@ -502,79 +514,80 @@ export default function GestionLlavesIA({ onSetMessage }: { onSetMessage?: (msg:
                     )}
                 </div>
 
-                {/* Add New API Key Form */}
-                <div className="card" style={{ background: "white", padding: "1.5rem", borderRadius: "10px", border: "1px solid var(--border)" }}>
-                    <h3 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Plus size={20} style={{ color: "var(--primary)" }} /> Registrar Nueva Clave de API
-                    </h3>
+                {!readOnly && (
+                    <div className="card" style={{ background: "white", padding: "1.5rem", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                        <h3 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Plus size={20} style={{ color: "var(--primary)" }} /> Registrar Nueva Clave de API
+                        </h3>
 
-                    <form onSubmit={handleAddKey} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", alignItems: "end" }}>
-                        
-                        <div>
-                            <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Proveedor de IA</label>
-                            <select
-                                className="form-control"
-                                value={newProvider}
-                                onChange={(e) => setNewProvider(e.target.value)}
-                                style={{ width: "100%", padding: "0.375rem" }}
-                            >
-                                {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                            </select>
-                        </div>
+                        <form onSubmit={handleAddKey} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", alignItems: "end" }}>
+                            
+                            <div>
+                                <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Proveedor de IA</label>
+                                <select
+                                    className="form-control"
+                                    value={newProvider}
+                                    onChange={(e) => setNewProvider(e.target.value)}
+                                    style={{ width: "100%", padding: "0.375rem" }}
+                                >
+                                    {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                                </select>
+                            </div>
 
-                        <div>
-                            <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Etiqueta Descriptiva</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                placeholder="ej. Gemini Cuenta Gratuita 1"
-                                value={newLabel}
-                                onChange={(e) => setNewLabel(e.target.value)}
-                                style={{ width: "100%", padding: "0.375rem" }}
-                                required
-                            />
-                        </div>
+                            <div>
+                                <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Etiqueta Descriptiva</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="ej. Gemini Cuenta Gratuita 1"
+                                    value={newLabel}
+                                    onChange={(e) => setNewLabel(e.target.value)}
+                                    style={{ width: "100%", padding: "0.375rem" }}
+                                    required
+                                />
+                            </div>
 
-                        <div>
-                            <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Clave de API (Key)</label>
-                            <input
-                                type="password"
-                                className="form-control"
-                                placeholder="Pegar clave de API"
-                                value={newKeyString}
-                                onChange={(e) => setNewKeyString(e.target.value)}
-                                style={{ width: "100%", padding: "0.375rem" }}
-                                required
-                            />
-                        </div>
+                            <div>
+                                <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Clave de API (Key)</label>
+                                <input
+                                    type="password"
+                                    className="form-control"
+                                    placeholder="Pegar clave de API"
+                                    value={newKeyString}
+                                    onChange={(e) => setNewKeyString(e.target.value)}
+                                    style={{ width: "100%", padding: "0.375rem" }}
+                                    required
+                                />
+                            </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", height: "38px" }}>
-                            <input
-                                type="checkbox"
-                                id="isPremiumKey"
-                                checked={newIsPremium}
-                                onChange={(e) => setNewIsPremium(e.target.checked)}
-                                style={{ width: "16px", height: "16px" }}
-                            />
-                            <label htmlFor="isPremiumKey" style={{ fontSize: "0.75rem", fontWeight: 600, cursor: "pointer" }}>
-                                ⭐ Usar solo para ATP (Premium)
-                            </label>
-                        </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", height: "38px" }}>
+                                <input
+                                    type="checkbox"
+                                    id="isPremiumKey"
+                                    checked={newIsPremium}
+                                    onChange={(e) => setNewIsPremium(e.target.checked)}
+                                    style={{ width: "16px", height: "16px" }}
+                                />
+                                <label htmlFor="isPremiumKey" style={{ fontSize: "0.75rem", fontWeight: 600, cursor: "pointer" }}>
+                                    ⭐ Usar solo para ATP (Premium)
+                                </label>
+                            </div>
 
-                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                            <button
-                                type="submit"
-                                className="btn btn-primary"
-                                disabled={submittingKey}
-                                style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", width: "100%", justifyContent: "center" }}
-                            >
-                                {submittingKey ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
-                                Registrar Clave
-                            </button>
-                        </div>
+                            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={submittingKey}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", width: "100%", justifyContent: "center" }}
+                                >
+                                    {submittingKey ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
+                                    Registrar Clave
+                                </button>
+                            </div>
 
-                    </form>
-                </div>
+                        </form>
+                    </div>
+                )}
 
             </div>
 

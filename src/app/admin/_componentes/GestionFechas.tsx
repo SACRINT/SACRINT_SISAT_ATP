@@ -5,8 +5,10 @@ import { Calendar, PlusCircle, Save, X, RefreshCw, Trophy } from "lucide-react";
 
 export default function GestionFechas({
     programas,
+    readOnly = false,
 }: {
     programas: any[];
+    readOnly?: boolean;
 }) {
     const [fechas, setFechas] = useState<Record<string, string>>({});
     const [savingPeriodoId, setSavingPeriodoId] = useState<string | null>(null);
@@ -153,13 +155,15 @@ export default function GestionFechas({
                         Configura los días límite de entrega y crea comisiones extraordinarias.
                     </p>
                 </div>
-                <button
-                    className="btn btn-primary"
-                    onClick={() => setIsModalOpen(true)}
-                    style={{ whiteSpace: "nowrap" }}
-                >
-                    <PlusCircle size={18} /> Crear Tarea Extraordinaria
-                </button>
+                {!readOnly && (
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => setIsModalOpen(true)}
+                        style={{ whiteSpace: "nowrap" }}
+                    >
+                        <PlusCircle size={18} /> Crear Tarea Extraordinaria
+                    </button>
+                )}
             </div>
 
             {message && (
@@ -203,6 +207,7 @@ export default function GestionFechas({
                                                 style={{ width: "150px" }}
                                                 value={currentVal}
                                                 onChange={(e) => handleDateChange(periodo.id, e.target.value)}
+                                                disabled={readOnly}
                                             />
                                             {isDirty && (
                                                 <button
@@ -268,6 +273,7 @@ export default function GestionFechas({
                                                 style={{ width: "150px" }}
                                                 value={currentVal}
                                                 onChange={(e) => setModuloFechas(prev => ({ ...prev, [mod.id]: e.target.value }))}
+                                                disabled={readOnly}
                                             />
                                             {isDirty && (
                                                 <button

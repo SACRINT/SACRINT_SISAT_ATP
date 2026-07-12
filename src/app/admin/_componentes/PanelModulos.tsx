@@ -131,7 +131,7 @@ function formatFechaLimite(iso: string | null): string {
 
 // ─── Component ──────────────────────────────────────────────────────────
 
-export default function PanelModulos({ sidebarConfig }: { sidebarConfig: SidebarConfig }) {
+export default function PanelModulos({ sidebarConfig, readOnly = false }: { sidebarConfig: SidebarConfig, readOnly?: boolean }) {
     const router = useRouter();
 
     const [states, setStates] = useState<Record<string, ModuloState>>(() => {
@@ -445,8 +445,8 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                                     {/* Toggle activo */}
                                     <button
                                         onClick={() => handleToggle(modulo)}
-                                        disabled={state.toggling}
-                                        style={{ background: "none", border: "none", cursor: "pointer", flexShrink: 0, padding: "4px" }}
+                                        disabled={readOnly || state.toggling}
+                                        style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", flexShrink: 0, padding: "4px" }}
                                         title={state.activo ? "Desactivar módulo" : "Activar módulo"}
                                     >
                                         {state.toggling
@@ -485,11 +485,11 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                                     {/* Sidebar visibility chip */}
                                     <button
                                         onClick={() => handleToggleSidebar(modulo.key)}
-                                        disabled={isSavingSidebar}
+                                        disabled={readOnly || isSavingSidebar}
                                         style={{
                                             display: "inline-flex", alignItems: "center", gap: "0.25rem",
                                             fontSize: "0.7rem", padding: "0.125rem 0.5rem",
-                                            borderRadius: "9999px", cursor: "pointer",
+                                            borderRadius: "9999px", cursor: readOnly ? "default" : "pointer",
                                             background: sidebarVisible ? "#dbeafe" : "var(--bg-secondary)",
                                             color: sidebarVisible ? "#1d4ed8" : "var(--text-muted)",
                                             border: "none", fontWeight: 600,
@@ -524,6 +524,7 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                                         type="datetime-local"
                                         className="form-control"
                                         value={state.fechaInput}
+                                        disabled={readOnly}
                                         onChange={e => setStates(prev => ({
                                             ...prev,
                                             [modulo.key]: { ...prev[modulo.key], fechaInput: e.target.value },
@@ -533,7 +534,7 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                                     <button
                                         className="btn btn-primary"
                                         onClick={() => handleSaveFecha(modulo)}
-                                        disabled={state.savingFecha}
+                                        disabled={readOnly || state.savingFecha}
                                         style={{ minHeight: "auto", padding: "0.375rem 0.75rem", fontSize: "0.8rem", flexShrink: 0 }}
                                     >
                                         {state.savingFecha ? <Loader2 size={14} className="spin" /> : "Guardar"}
@@ -579,8 +580,8 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                         {/* Toggle */}
                         <button
                             onClick={handleToggleAI}
-                            disabled={aiToggling}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", flexShrink: 0 }}
+                            disabled={readOnly || aiToggling}
+                            style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", padding: "4px", flexShrink: 0 }}
                             title={aiActivo ? "Desactivar para directores" : "Activar para directores"}
                         >
                             {aiToggling ? (
@@ -610,11 +611,12 @@ export default function PanelModulos({ sidebarConfig }: { sidebarConfig: Sidebar
                                 value={aiLimite}
                                 onChange={e => setAiLimite(Math.max(1, parseInt(e.target.value) || 1))}
                                 style={{ width: "90px", fontSize: "0.8rem", padding: "0.375rem 0.5rem" }}
+                                disabled={readOnly}
                             />
                             <button
                                 className="btn btn-primary"
                                 onClick={handleSaveAILimite}
-                                disabled={aiSaving}
+                                disabled={readOnly || aiSaving}
                                 style={{ minHeight: "auto", padding: "0.375rem 0.75rem", fontSize: "0.8rem" }}
                             >
                                 {aiSaving ? <Loader2 size={14} className="spin" /> : "Establecer Límite"}

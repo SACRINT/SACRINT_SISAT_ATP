@@ -33,7 +33,7 @@ interface EscuelaPAEC {
     fecha: string;
 }
 
-export default function GestionEncuentroPAEC() {
+export default function GestionEncuentroPAEC({ readOnly = false }: { readOnly?: boolean }) {
     const [loading, setLoading] = useState(true);
     const [activo, setActivo] = useState(false);
     const [toggling, setToggling] = useState(false);
@@ -174,17 +174,19 @@ export default function GestionEncuentroPAEC() {
             ) : (
                 <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)", flex: 1 }}>No cargado</span>
             )}
-            <label className="btn btn-primary" style={{ fontSize: "0.8125rem", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }}>
-                {uploading ? <><Loader2 size={16} className="spin" /> Subiendo...</> : <><Upload size={16} /> {url ? "Reemplazar" : "Subir"}</>}
-                <input
-                    ref={ref}
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadFile(f, field); }}
-                    disabled={uploading}
-                    style={{ display: "none" }}
-                />
-            </label>
+            {!readOnly && (
+                <label className="btn btn-primary" style={{ fontSize: "0.8125rem", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }}>
+                    {uploading ? <><Loader2 size={16} className="spin" /> Subiendo...</> : <><Upload size={16} /> {url ? "Reemplazar" : "Subir"}</>}
+                    <input
+                        ref={ref}
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadFile(f, field); }}
+                        disabled={uploading}
+                        style={{ display: "none" }}
+                    />
+                </label>
+            )}
         </div>
     );
 
@@ -201,12 +203,13 @@ export default function GestionEncuentroPAEC() {
                     </button>
                     <button
                         onClick={handleToggle}
-                        disabled={toggling}
+                        disabled={readOnly || toggling}
                         style={{
                             display: "flex", alignItems: "center", gap: "0.5rem",
-                            background: "none", border: "none", cursor: "pointer",
+                            background: "none", border: "none", cursor: readOnly ? "default" : "pointer",
                             fontSize: "1rem", fontWeight: 600,
                             color: activo ? "var(--success)" : "var(--danger)",
+                            opacity: readOnly ? 0.7 : 1,
                         }}
                     >
                         {toggling ? <Loader2 size={24} className="spin" /> : activo ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
@@ -279,13 +282,15 @@ export default function GestionEncuentroPAEC() {
                                         </div>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => handleCancelInscripcion(esc.id, esc.nombre)}
-                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.25rem" }}
-                                    title="Cancelar inscripción"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                {!readOnly && (
+                                    <button
+                                        onClick={() => handleCancelInscripcion(esc.id, esc.nombre)}
+                                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.25rem" }}
+                                        title="Cancelar inscripción"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </div>
 
                             {expanded[esc.id] && (

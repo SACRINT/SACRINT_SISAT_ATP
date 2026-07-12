@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
                 email: true,
                 nombre: true,
                 role: true,
+                permisos: true,
             },
             orderBy: { nombre: "asc" }
         });
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
                 email: data.email,
                 password: hashedPassword,
                 role: data.role || "ATP_LECTOR",
+                permisos: data.permisos || null,
             }
         });
 
@@ -58,7 +60,8 @@ export async function POST(request: NextRequest) {
             id: admin.id,
             nombre: admin.nombre,
             email: admin.email,
-            role: admin.role
+            role: admin.role,
+            permisos: admin.permisos,
         });
     } catch {
         return NextResponse.json({ error: "Error al crear administrador" }, { status: 500 });

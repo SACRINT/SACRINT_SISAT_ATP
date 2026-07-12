@@ -31,9 +31,10 @@ interface SidebarConfig {
 interface GestionPeriodosProps {
     programas: ProgramaAdmin[];
     sidebarConfig: SidebarConfig;
+    readOnly?: boolean;
 }
 
-export default function GestionPeriodos({ programas, sidebarConfig }: GestionPeriodosProps) {
+export default function GestionPeriodos({ programas, sidebarConfig, readOnly = false }: { programas: ProgramaAdmin[], sidebarConfig: SidebarConfig, readOnly?: boolean }) {
     const router = useRouter();
     const [togglingPeriodo, setTogglingPeriodo] = useState<string | null>(null);
     const [sidebarState, setSidebarState] = useState<SidebarConfig>(sidebarConfig);
@@ -215,7 +216,7 @@ export default function GestionPeriodos({ programas, sidebarConfig }: GestionPer
                         <button
                             className="btn btn-primary"
                             onClick={handleDesactivarTodosFantasmas}
-                            disabled={bulkBusy !== null}
+                            disabled={readOnly || bulkBusy !== null}
                             style={{ whiteSpace: "nowrap", background: "#d97706", border: "none", minHeight: "auto", padding: "0.5rem 1rem" }}
                         >
                             <ZapOff size={15} />
@@ -366,7 +367,7 @@ export default function GestionPeriodos({ programas, sidebarConfig }: GestionPer
                                                         {/* Right: toggle */}
                                                         <button
                                                             onClick={() => handleTogglePeriodo(periodo.id, !periodo.activo)}
-                                                            disabled={togglingPeriodo === periodo.id}
+                                                            disabled={readOnly || togglingPeriodo === periodo.id}
                                                             style={{
                                                                 background: "none", border: "none", cursor: "pointer",
                                                                 color: periodo.activo
@@ -427,7 +428,7 @@ export default function GestionPeriodos({ programas, sidebarConfig }: GestionPer
                                 </div>
                                 <button
                                     onClick={() => handleToggleVisibility(item.key, !isVisible)}
-                                    disabled={togglingVisibility === item.key}
+                                    disabled={readOnly || togglingVisibility === item.key}
                                     style={{
                                         background: "none", border: "none", cursor: "pointer",
                                         color: isVisible ? "var(--success)" : "var(--text-muted)",

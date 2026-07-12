@@ -74,16 +74,20 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     } else if (validoIA === "APROBADO") {
         bg = "#dcfce7";
         color = "#15803d";
-        text = "✓ Validado por SISAT-ATP";
+        text = "✓";
     } else if (validoIA === "ADVERTENCIA") {
         bg = "#fffbeb";
         color = "#b45309";
-        text = "⚠️ Advertencia SISAT-ATP";
+        text = "⚠️";
     } else if (validoIA === "RECHAZADO") {
         bg = "#fee2e2";
         color = "#b91c1c";
-        text = "❌ Rechazado por SISAT-ATP";
+        text = "❌";
     }
+
+    const badgeTitle = observacionesIA 
+        ? `${validoIA === "APROBADO" ? "Validado por SISAT-ATP" : validoIA === "ADVERTENCIA" ? "Advertencia SISAT-ATP" : "Rechazado por SISAT-ATP"}: ${observacionesIA}`
+        : (validoIA === "APROBADO" ? "✓ Aprobado por SISAT-ATP" : validoIA === "ADVERTENCIA" ? "⚠️ Advertencia SISAT-ATP" : "❌ Rechazado por SISAT-ATP");
 
     return (
         <span
@@ -100,7 +104,7 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
                 gap: "0.25rem",
                 flexShrink: 0
             }}
-            title={observacionesIA || undefined}
+            title={badgeTitle}
         >
             <span>{text}</span>
             {onManualReevaluate && !loading && validoIA !== "PENDIENTE" && (
@@ -126,7 +130,7 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     );
 }
 
-export default function GestionCapems() {
+export default function GestionCapems({ readOnly = false }: { readOnly?: boolean }) {
     const router = useRouter();
     const [section, setSection] = useState<TabSection>("resumen");
     const [fichas, setFichas] = useState<Ficha[]>([]);
@@ -533,20 +537,22 @@ export default function GestionCapems() {
                     <h3 style={{ marginBottom: "1rem" }}>Catálogo de Fichas ({fichas.length})</h3>
 
                     {/* Add ficha */}
-                    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-                        <input
-                            type="text"
-                            className="form-control"
-                            placeholder="Nombre de la nueva ficha..."
-                            value={newFichaName}
-                            onChange={e => setNewFichaName(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && handleAddFicha()}
-                            style={{ flex: 1 }}
-                        />
-                        <button className="btn btn-primary" onClick={handleAddFicha} disabled={busy || !newFichaName.trim()}>
-                            <Plus size={18} /> Agregar
-                        </button>
-                    </div>
+                    {!readOnly && (
+                        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Nombre de la nueva ficha..."
+                                value={newFichaName}
+                                onChange={e => setNewFichaName(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && handleAddFicha()}
+                                style={{ flex: 1 }}
+                            />
+                            <button className="btn btn-primary" onClick={handleAddFicha} disabled={busy || !newFichaName.trim()}>
+                                <Plus size={18} /> Agregar
+                            </button>
+                        </div>
+                    )}
 
                     {/* Fichas list */}
                     <div style={{ borderTop: "1px solid var(--border)" }}>
@@ -579,46 +585,48 @@ export default function GestionCapems() {
                                             <span style={{ color: "var(--text-muted)", marginRight: "0.5rem" }}>{ficha.orden}.</span>
                                             {ficha.nombre}
                                         </span>
-                                        <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
-                                            <button
-                                                onClick={() => handleReorderFichas(i, "up")}
-                                                disabled={i === 0}
-                                                style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
-                                                title="Mover arriba"
-                                            >
-                                                <ArrowUp size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleReorderFichas(i, "down")}
-                                                disabled={i === fichas.length - 1}
-                                                style={{ background: "none", border: "none", cursor: i === fichas.length - 1 ? "default" : "pointer", color: i === fichas.length - 1 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
-                                                title="Mover abajo"
-                                            >
-                                                <ArrowDown size={16} />
-                                            </button>
-                                            <span style={{ width: "1px", height: "18px", background: "var(--border)", margin: "0 0.125rem" }} />
-                                            <button
-                                                onClick={() => handleUpdateFicha(ficha.id, { activo: !ficha.activo })}
-                                                style={{ background: "none", border: "none", cursor: "pointer", color: ficha.activo ? "var(--success)" : "var(--text-muted)" }}
-                                                title={ficha.activo ? "Desactivar" : "Activar"}
-                                            >
-                                                {ficha.activo ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
-                                            </button>
-                                            <button
-                                                onClick={() => { setEditingFicha(ficha.id); setEditFichaName(ficha.nombre); }}
-                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }}
-                                                title="Editar nombre"
-                                            >
-                                                <Edit3 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteFicha(ficha.id)}
-                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)" }}
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                        {!readOnly && (
+                                            <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+                                                <button
+                                                    onClick={() => handleReorderFichas(i, "up")}
+                                                    disabled={i === 0}
+                                                    style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
+                                                    title="Mover arriba"
+                                                >
+                                                    <ArrowUp size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleReorderFichas(i, "down")}
+                                                    disabled={i === fichas.length - 1}
+                                                    style={{ background: "none", border: "none", cursor: i === fichas.length - 1 ? "default" : "pointer", color: i === fichas.length - 1 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
+                                                    title="Mover abajo"
+                                                >
+                                                    <ArrowDown size={16} />
+                                                </button>
+                                                <span style={{ width: "1px", height: "18px", background: "var(--border)", margin: "0 0.125rem" }} />
+                                                <button
+                                                    onClick={() => handleUpdateFicha(ficha.id, { activo: !ficha.activo })}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: ficha.activo ? "var(--success)" : "var(--text-muted)" }}
+                                                    title={ficha.activo ? "Desactivar" : "Activar"}
+                                                >
+                                                    {ficha.activo ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                                                </button>
+                                                <button
+                                                    onClick={() => { setEditingFicha(ficha.id); setEditFichaName(ficha.nombre); }}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }}
+                                                    title="Editar nombre"
+                                                >
+                                                    <Edit3 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteFicha(ficha.id)}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)" }}
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -633,20 +641,22 @@ export default function GestionCapems() {
                     <h3 style={{ marginBottom: "1rem" }}>CAPEMS del Ciclo ({capems.length})</h3>
 
                     {/* Add CAPEM */}
-                    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-                        <input
-                            type="text"
-                            className="form-control"
-                            placeholder="Nombre del CAPEM extra (ej: CAPEM 7)..."
-                            value={newCapemName}
-                            onChange={e => setNewCapemName(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && handleAddCapem()}
-                            style={{ flex: 1 }}
-                        />
-                        <button className="btn btn-primary" onClick={handleAddCapem} disabled={busy || !newCapemName.trim()}>
-                            <Plus size={18} /> Agregar
-                        </button>
-                    </div>
+                    {!readOnly && (
+                        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Nombre del CAPEM extra (ej: CAPEM 7)..."
+                                value={newCapemName}
+                                onChange={e => setNewCapemName(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && handleAddCapem()}
+                                style={{ flex: 1 }}
+                            />
+                            <button className="btn btn-primary" onClick={handleAddCapem} disabled={busy || !newCapemName.trim()}>
+                                <Plus size={18} /> Agregar
+                            </button>
+                        </div>
+                    )}
 
                     {/* CAPEMS list */}
                     <div style={{ borderTop: "1px solid var(--border)" }}>
@@ -682,46 +692,48 @@ export default function GestionCapems() {
                                                 {registros.filter(r => r.capemId === capem.id).length} registros
                                             </span>
                                         </span>
-                                        <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
-                                            <button
-                                                onClick={() => handleReorderCapems(i, "up")}
-                                                disabled={i === 0}
-                                                style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
-                                                title="Mover arriba"
-                                            >
-                                                <ArrowUp size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleReorderCapems(i, "down")}
-                                                disabled={i === capems.length - 1}
-                                                style={{ background: "none", border: "none", cursor: i === capems.length - 1 ? "default" : "pointer", color: i === capems.length - 1 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
-                                                title="Mover abajo"
-                                            >
-                                                <ArrowDown size={16} />
-                                            </button>
-                                            <span style={{ width: "1px", height: "18px", background: "var(--border)", margin: "0 0.125rem" }} />
-                                            <button
-                                                onClick={() => handleUpdateCapem(capem.id, { activo: !capem.activo })}
-                                                style={{ background: "none", border: "none", cursor: "pointer", color: capem.activo ? "var(--success)" : "var(--text-muted)" }}
-                                                title={capem.activo ? "Desactivar" : "Activar"}
-                                            >
-                                                {capem.activo ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
-                                            </button>
-                                            <button
-                                                onClick={() => { setEditingCapem(capem.id); setEditCapemName(capem.nombre); }}
-                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }}
-                                                title="Editar nombre"
-                                            >
-                                                <Edit3 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteCapem(capem.id)}
-                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)" }}
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                        {!readOnly && (
+                                            <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+                                                <button
+                                                    onClick={() => handleReorderCapems(i, "up")}
+                                                    disabled={i === 0}
+                                                    style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
+                                                    title="Mover arriba"
+                                                >
+                                                    <ArrowUp size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleReorderCapems(i, "down")}
+                                                    disabled={i === capems.length - 1}
+                                                    style={{ background: "none", border: "none", cursor: i === capems.length - 1 ? "default" : "pointer", color: i === capems.length - 1 ? "var(--border)" : "var(--text-muted)", padding: "2px" }}
+                                                    title="Mover abajo"
+                                                >
+                                                    <ArrowDown size={16} />
+                                                </button>
+                                                <span style={{ width: "1px", height: "18px", background: "var(--border)", margin: "0 0.125rem" }} />
+                                                <button
+                                                    onClick={() => handleUpdateCapem(capem.id, { activo: !capem.activo })}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: capem.activo ? "var(--success)" : "var(--text-muted)" }}
+                                                    title={capem.activo ? "Desactivar" : "Activar"}
+                                                >
+                                                    {capem.activo ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                                                </button>
+                                                <button
+                                                    onClick={() => { setEditingCapem(capem.id); setEditCapemName(capem.nombre); }}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }}
+                                                    title="Editar nombre"
+                                                >
+                                                    <Edit3 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteCapem(capem.id)}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)" }}
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -880,17 +892,23 @@ export default function GestionCapems() {
                                                                         )}
                                                                     </td>
                                                                     <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                                                                        <button
-                                                                            onClick={() => handleToggleBloqueo(reg.id, !reg.bloqueado)}
-                                                                            disabled={busy}
-                                                                            style={{
-                                                                                background: "none", border: "none", cursor: "pointer",
-                                                                                color: reg.bloqueado ? "var(--error)" : "var(--success)",
-                                                                            }}
-                                                                            title={reg.bloqueado ? "Desbloquear" : "Bloquear"}
-                                                                        >
-                                                                            {reg.bloqueado ? <Lock size={18} /> : <Unlock size={18} />}
-                                                                        </button>
+                                                                        {readOnly ? (
+                                                                            <span style={{ color: reg.bloqueado ? "var(--error)" : "var(--success)" }}>
+                                                                                {reg.bloqueado ? <Lock size={18} /> : <Unlock size={18} />}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() => handleToggleBloqueo(reg.id, !reg.bloqueado)}
+                                                                                disabled={busy}
+                                                                                style={{
+                                                                                    background: "none", border: "none", cursor: "pointer",
+                                                                                    color: reg.bloqueado ? "var(--error)" : "var(--success)",
+                                                                                }}
+                                                                                title={reg.bloqueado ? "Desbloquear" : "Bloquear"}
+                                                                            >
+                                                                                {reg.bloqueado ? <Lock size={18} /> : <Unlock size={18} />}
+                                                                            </button>
+                                                                        )}
                                                                     </td>
                                                                 </tr>
                                                             ))}

@@ -19,10 +19,11 @@ export async function PUT(
         const data = await request.json();
 
         // Si se envía contraseña, la actualizamos
-        const updateData: Record<string, string> = {};
+        const updateData: any = {};
         if (data.nombre) updateData.nombre = data.nombre;
         if (data.email) updateData.email = data.email;
         if (data.role) updateData.role = data.role;
+        if (data.permisos !== undefined) updateData.permisos = data.permisos;
 
         if (data.password && data.password.trim() !== "") {
             updateData.password = await bcrypt.hash(data.password, 12);
@@ -31,7 +32,7 @@ export async function PUT(
         const admin = await prisma.admin.update({
             where: { id },
             data: updateData,
-            select: { id: true, nombre: true, email: true, role: true }
+            select: { id: true, nombre: true, email: true, role: true, permisos: true }
         });
 
         return NextResponse.json(admin);

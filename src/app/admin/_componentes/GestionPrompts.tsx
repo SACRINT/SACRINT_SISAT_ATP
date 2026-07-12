@@ -11,7 +11,7 @@ interface PromptTemplate {
     activo: boolean;
 }
 
-export default function GestionPrompts() {
+export default function GestionPrompts({ readOnly = false }: { readOnly?: boolean }) {
     const [templates, setTemplates] = useState<PromptTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [savingId, setSavingId] = useState<string | null>(null);
@@ -175,6 +175,7 @@ export default function GestionPrompts() {
                                     setTemplates(prev => prev.map(p => p.id === currentTemplate.id ? { ...p, nombre: val } : p));
                                 }}
                                 style={{ width: "100%", fontWeight: 600 }}
+                                disabled={readOnly}
                             />
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -190,6 +191,7 @@ export default function GestionPrompts() {
                                     setTemplates(prev => prev.map(p => p.id === currentTemplate.id ? { ...p, activo: checked } : p));
                                 }}
                                 style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                                disabled={readOnly}
                             />
                         </div>
                     </div>
@@ -211,35 +213,44 @@ export default function GestionPrompts() {
                                 fontFamily: "monospace", fontSize: "0.8125rem", resize: "vertical",
                                 background: "var(--bg-secondary)", color: "var(--text)", lineHeight: "1.5"
                             }}
+                            disabled={readOnly}
                         />
                     </div>
 
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-                        <button
-                            className="btn btn-outline"
-                            onClick={() => handleReset(currentTemplate)}
-                            disabled={resettingId !== null || savingId !== null}
-                            style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", borderColor: "#e67e22", color: "#e67e22" }}
-                        >
-                            {resettingId === currentTemplate.id ? (
-                                <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Restableciendo...</>
-                            ) : (
-                                <><RotateCcw size={15} /> Restablecer por Defecto</>
-                            )}
-                        </button>
+                        {readOnly ? (
+                            <span style={{ fontSize: "0.875rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                                🔒 Modo de sólo lectura. No tienes permisos para modificar las rúbricas o prompts.
+                            </span>
+                        ) : (
+                            <>
+                                <button
+                                    className="btn btn-outline"
+                                    onClick={() => handleReset(currentTemplate)}
+                                    disabled={resettingId !== null || savingId !== null}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", borderColor: "#e67e22", color: "#e67e22" }}
+                                >
+                                    {resettingId === currentTemplate.id ? (
+                                        <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Restableciendo...</>
+                                    ) : (
+                                        <><RotateCcw size={15} /> Restablecer por Defecto</>
+                                    )}
+                                </button>
 
-                        <button
-                            className="btn btn-primary"
-                            onClick={() => handleSave(currentTemplate)}
-                            disabled={savingId !== null || resettingId !== null}
-                            style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem" }}
-                        >
-                            {savingId === currentTemplate.id ? (
-                                <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Guardando...</>
-                            ) : (
-                                <><Save size={15} /> Guardar Cambios</>
-                            )}
-                        </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() => handleSave(currentTemplate)}
+                                    disabled={savingId !== null || resettingId !== null}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem" }}
+                                >
+                                    {savingId === currentTemplate.id ? (
+                                        <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Guardando...</>
+                                    ) : (
+                                        <><Save size={15} /> Guardar Cambios</>
+                                    )}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             ) : (

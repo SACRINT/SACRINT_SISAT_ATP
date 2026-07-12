@@ -55,7 +55,7 @@ interface EscuelaEvento {
 
 // ─── Component ───────────────────────────────────
 
-export default function GestionEventos() {
+export default function GestionEventos({ readOnly = false }: { readOnly?: boolean }) {
     const [activo, setActivo] = useState(false);
     const [categorias, setCategorias] = useState<Categoria[]>([]);
     const [escuelas, setEscuelas] = useState<EscuelaEvento[]>([]);
@@ -357,13 +357,14 @@ export default function GestionEventos() {
                     </div>
                     <button
                         onClick={handleToggle}
-                        disabled={toggling}
+                        disabled={readOnly || toggling}
                         style={{
                             display: "flex", alignItems: "center", gap: "0.5rem",
                             padding: "0.75rem 1.5rem", borderRadius: "10px", border: "none",
                             background: activo ? "var(--success)" : "#ef4444",
                             color: "white", fontWeight: 700, fontSize: "0.9375rem",
-                            cursor: toggling ? "wait" : "pointer",
+                            cursor: readOnly ? "default" : toggling ? "wait" : "pointer",
+                            opacity: readOnly ? 0.7 : 1,
                             transition: "all 0.3s",
                         }}
                     >
@@ -513,17 +514,19 @@ export default function GestionEventos() {
                             {esc.inscrita ? (
                                 <>
                                     <CheckCircle2 size={16} style={{ color: "var(--success)" }} />
-                                    <button
-                                        onClick={() => handleCancelInscripcion(esc.id, esc.nombre)}
-                                        disabled={cancellingId === esc.id}
-                                        title="Cancelar inscripción"
-                                        style={{
-                                            background: "none", border: "none", cursor: "pointer",
-                                            color: "var(--danger)", padding: "0.15rem",
-                                        }}
-                                    >
-                                        {cancellingId === esc.id ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
-                                    </button>
+                                    {!readOnly && (
+                                        <button
+                                            onClick={() => handleCancelInscripcion(esc.id, esc.nombre)}
+                                            disabled={cancellingId === esc.id}
+                                            title="Cancelar inscripción"
+                                            style={{
+                                                background: "none", border: "none", cursor: "pointer",
+                                                color: "var(--danger)", padding: "0.15rem",
+                                            }}
+                                        >
+                                            {cancellingId === esc.id ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
+                                        </button>
+                                    )}
                                 </>
                             ) : (
                                 <XCircle size={16} style={{ color: "var(--text-muted)" }} />
@@ -587,14 +590,18 @@ export default function GestionEventos() {
                                     <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "auto" }}>
                                         {cat.disciplinas.length} disciplinas
                                     </span>
-                                    <button onClick={() => { setEditingCatId(cat.id); setEditCatNombre(cat.nombre); setEditCatColor(cat.color); }}
-                                        title="Editar categoría" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.15rem" }}>
-                                        <Pencil size={14} />
-                                    </button>
-                                    <button onClick={() => handleDeleteCategoria(cat.id, cat.nombre)}
-                                        title="Eliminar categoría" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.15rem" }}>
-                                        <Trash2 size={14} />
-                                    </button>
+                                    {!readOnly && (
+                                        <>
+                                            <button onClick={() => { setEditingCatId(cat.id); setEditCatNombre(cat.nombre); setEditCatColor(cat.color); }}
+                                                title="Editar categoría" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.15rem" }}>
+                                                <Pencil size={14} />
+                                            </button>
+                                            <button onClick={() => handleDeleteCategoria(cat.id, cat.nombre)}
+                                                title="Eliminar categoría" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.15rem" }}>
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -645,16 +652,20 @@ export default function GestionEventos() {
                                                 <Users size={12} style={{ display: "inline", verticalAlign: "text-bottom", marginRight: "0.2rem" }} />
                                                 {disc.minParticipantes === disc.maxParticipantes ? disc.minParticipantes : `${disc.minParticipantes}-${disc.maxParticipantes}`}
                                             </span>
-                                            <button onClick={() => {
-                                                setEditingDiscId(disc.id);
-                                                setEditDisc({ nombre: disc.nombre, tipo: disc.tipo, min: disc.minParticipantes, max: disc.maxParticipantes, grupo: disc.grupoExclusion || "" });
-                                            }} title="Editar" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.1rem" }}>
-                                                <Pencil size={13} />
-                                            </button>
-                                            <button onClick={() => handleDeleteDisciplina(disc.id, disc.nombre)}
-                                                title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.1rem" }}>
-                                                <Trash2 size={13} />
-                                            </button>
+                                            {!readOnly && (
+                                                <>
+                                                    <button onClick={() => {
+                                                        setEditingDiscId(disc.id);
+                                                        setEditDisc({ nombre: disc.nombre, tipo: disc.tipo, min: disc.minParticipantes, max: disc.maxParticipantes, grupo: disc.grupoExclusion || "" });
+                                                    }} title="Editar" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.1rem" }}>
+                                                        <Pencil size={13} />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteDisciplina(disc.id, disc.nombre)}
+                                                        title="Eliminar" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.1rem" }}>
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                </>
+                                            )}
                                         </span>
                                     </>
                                 )}
@@ -662,67 +673,71 @@ export default function GestionEventos() {
                         ))}
 
                         {/* ── Add discipline to this category ── */}
-                        {addingDiscToCat === cat.id ? (
-                            <div style={{ display: "flex", gap: "0.4rem", padding: "0.5rem 1.25rem 0.5rem 2.5rem", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
-                                <input value={newDisc.nombre} onChange={e => setNewDisc(p => ({ ...p, nombre: e.target.value }))}
-                                    placeholder="Nombre disciplina" style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 4, padding: "0.25rem 0.5rem", fontSize: "0.8rem" }} />
-                                <select value={newDisc.tipo} onChange={e => setNewDisc(p => ({ ...p, tipo: e.target.value }))}
-                                    style={{ border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}>
-                                    <option value="simple">simple</option>
-                                    <option value="individual">individual</option>
-                                    <option value="equipo">equipo</option>
-                                    <option value="grupo">grupo</option>
-                                </select>
-                                <input type="number" value={newDisc.min} onChange={e => setNewDisc(p => ({ ...p, min: +e.target.value }))} min={1}
-                                    style={{ width: 45, textAlign: "center", border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}
-                                    title="Mín" />
-                                <span style={{ fontSize: "0.7rem" }}>-</span>
-                                <input type="number" value={newDisc.max} onChange={e => setNewDisc(p => ({ ...p, max: +e.target.value }))} min={1}
-                                    style={{ width: 45, textAlign: "center", border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}
-                                    title="Máx" />
-                                <button onClick={() => handleAddDisciplina(cat.id)} disabled={savingCrud || !newDisc.nombre.trim()}
-                                    style={{ background: "var(--success)", color: "white", border: "none", borderRadius: 4, padding: "0.25rem 0.6rem", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                                    <Save size={12} /> Guardar
-                                </button>
-                                <button onClick={() => { setAddingDiscToCat(null); setNewDisc({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" }); }}
-                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
-                                    <X size={14} />
-                                </button>
-                            </div>
-                        ) : (
-                            <div style={{ padding: "0.4rem 1.25rem 0.4rem 2.5rem", borderBottom: "1px solid var(--border)" }}>
-                                <button onClick={() => { setAddingDiscToCat(cat.id); setNewDisc({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" }); }}
-                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "0.75rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                                    <Plus size={13} /> Agregar disciplina
-                                </button>
-                            </div>
+                        {!readOnly && (
+                            addingDiscToCat === cat.id ? (
+                                <div style={{ display: "flex", gap: "0.4rem", padding: "0.5rem 1.25rem 0.5rem 2.5rem", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
+                                    <input value={newDisc.nombre} onChange={e => setNewDisc(p => ({ ...p, nombre: e.target.value }))}
+                                        placeholder="Nombre disciplina" style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 4, padding: "0.25rem 0.5rem", fontSize: "0.8rem" }} />
+                                    <select value={newDisc.tipo} onChange={e => setNewDisc(p => ({ ...p, tipo: e.target.value }))}
+                                        style={{ border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}>
+                                        <option value="simple">simple</option>
+                                        <option value="individual">individual</option>
+                                        <option value="equipo">equipo</option>
+                                        <option value="grupo">grupo</option>
+                                    </select>
+                                    <input type="number" value={newDisc.min} onChange={e => setNewDisc(p => ({ ...p, min: +e.target.value }))} min={1}
+                                        style={{ width: 45, textAlign: "center", border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}
+                                        title="Mín" />
+                                    <span style={{ fontSize: "0.7rem" }}>-</span>
+                                    <input type="number" value={newDisc.max} onChange={e => setNewDisc(p => ({ ...p, max: +e.target.value }))} min={1}
+                                        style={{ width: 45, textAlign: "center", border: "1px solid var(--border)", borderRadius: 4, padding: "0.2rem", fontSize: "0.75rem" }}
+                                        title="Máx" />
+                                    <button onClick={() => handleAddDisciplina(cat.id)} disabled={savingCrud || !newDisc.nombre.trim()}
+                                        style={{ background: "var(--success)", color: "white", border: "none", borderRadius: 4, padding: "0.25rem 0.6rem", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                        <Save size={12} /> Guardar
+                                    </button>
+                                    <button onClick={() => { setAddingDiscToCat(null); setNewDisc({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" }); }}
+                                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ padding: "0.4rem 1.25rem 0.4rem 2.5rem", borderBottom: "1px solid var(--border)" }}>
+                                    <button onClick={() => { setAddingDiscToCat(cat.id); setNewDisc({ nombre: "", tipo: "simple", min: 1, max: 1, grupo: "" }); }}
+                                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "0.75rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                        <Plus size={13} /> Agregar disciplina
+                                    </button>
+                                </div>
+                            )
                         )}
                     </div>
                 ))}
 
                 {/* ── Add category ── */}
-                {addingCat ? (
-                    <div style={{ display: "flex", gap: "0.5rem", padding: "0.75rem 1.25rem", alignItems: "center", borderTop: "2px solid var(--border)" }}>
-                        <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)}
-                            style={{ width: 28, height: 28, border: "none", padding: 0, cursor: "pointer" }} />
-                        <input value={newCatNombre} onChange={e => setNewCatNombre(e.target.value)}
-                            placeholder="Nombre de nueva categoría" style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 4, padding: "0.3rem 0.6rem", fontSize: "0.8125rem" }} />
-                        <button onClick={handleAddCategoria} disabled={savingCrud || !newCatNombre.trim()}
-                            style={{ background: "var(--success)", color: "white", border: "none", borderRadius: 6, padding: "0.4rem 1rem", fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                            <Save size={14} /> Guardar
-                        </button>
-                        <button onClick={() => { setAddingCat(false); setNewCatNombre(""); }}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
-                            <X size={16} />
-                        </button>
-                    </div>
-                ) : (
-                    <div style={{ padding: "0.75rem 1.25rem", borderTop: "2px solid var(--border)" }}>
-                        <button onClick={() => setAddingCat(true)}
-                            style={{ background: "none", border: "1px dashed var(--border)", borderRadius: 6, padding: "0.5rem 1rem", cursor: "pointer", color: "var(--primary)", fontWeight: 600, fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "0.3rem", width: "100%", justifyContent: "center" }}>
-                            <Plus size={16} /> Agregar nueva categoría
-                        </button>
-                    </div>
+                {!readOnly && (
+                    addingCat ? (
+                        <div style={{ display: "flex", gap: "0.5rem", padding: "0.75rem 1.25rem", alignItems: "center", borderTop: "2px solid var(--border)" }}>
+                            <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)}
+                                style={{ width: 28, height: 28, border: "none", padding: 0, cursor: "pointer" }} />
+                            <input value={newCatNombre} onChange={e => setNewCatNombre(e.target.value)}
+                                placeholder="Nombre de nueva categoría" style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 4, padding: "0.3rem 0.6rem", fontSize: "0.8125rem" }} />
+                            <button onClick={handleAddCategoria} disabled={savingCrud || !newCatNombre.trim()}
+                                style={{ background: "var(--success)", color: "white", border: "none", borderRadius: 6, padding: "0.4rem 1rem", fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                                <Save size={14} /> Guardar
+                            </button>
+                            <button onClick={() => { setAddingCat(false); setNewCatNombre(""); }}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                                <X size={16} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ padding: "0.75rem 1.25rem", borderTop: "2px solid var(--border)" }}>
+                            <button onClick={() => setAddingCat(true)}
+                                style={{ background: "none", border: "1px dashed var(--border)", borderRadius: 6, padding: "0.5rem 1rem", cursor: "pointer", color: "var(--primary)", fontWeight: 600, fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "0.3rem", width: "100%", justifyContent: "center" }}>
+                                <Plus size={16} /> Agregar nueva categoría
+                            </button>
+                        </div>
+                    )
                 )}
             </div>
 

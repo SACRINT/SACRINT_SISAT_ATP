@@ -72,16 +72,20 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     } else if (validoIA === "APROBADO") {
         bg = "#dcfce7";
         color = "#15803d";
-        text = "✓ Validado por SISAT-ATP";
+        text = "✓";
     } else if (validoIA === "ADVERTENCIA") {
         bg = "#fffbeb";
         color = "#b45309";
-        text = "⚠️ Advertencia SISAT-ATP";
+        text = "⚠️";
     } else if (validoIA === "RECHAZADO") {
         bg = "#fee2e2";
         color = "#b91c1c";
-        text = "❌ Rechazado por SISAT-ATP";
+        text = "❌";
     }
+
+    const badgeTitle = observacionesIA 
+        ? `${validoIA === "APROBADO" ? "Validado por SISAT-ATP" : validoIA === "ADVERTENCIA" ? "Advertencia SISAT-ATP" : "Rechazado por SISAT-ATP"}: ${observacionesIA}`
+        : (validoIA === "APROBADO" ? "✓ Aprobado por SISAT-ATP" : validoIA === "ADVERTENCIA" ? "⚠️ Advertencia SISAT-ATP" : "❌ Rechazado por SISAT-ATP");
 
     return (
         <span
@@ -97,7 +101,7 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
                 alignItems: "center",
                 flexShrink: 0
             }}
-            title={observacionesIA || undefined}
+            title={badgeTitle}
         >
             {text}
         </span>

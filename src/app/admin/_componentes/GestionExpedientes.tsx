@@ -100,9 +100,9 @@ function completenessColor(complete: number, total: number): string {
 // ─── Component ──────────────────────────────────────────
 
 
-function renderIABadge(validoIA: string | null | undefined, observacionesIA: string | null | undefined, onManualReevaluate?: () => void, loading?: boolean) {
+function renderIABadge(validoIA: string | null | undefined, observacionesIA: string | null | undefined, onManualReevaluate?: () => void, loading?: boolean, readOnly = false) {
     if (!validoIA) {
-        if (onManualReevaluate && !loading) {
+        if (onManualReevaluate && !loading && !readOnly) {
             return (
                 <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManualReevaluate(); }}
@@ -173,7 +173,7 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
             title={badgeTitle}
         >
             <span>{text}</span>
-            {onManualReevaluate && !loading && validoIA !== "PENDIENTE" && (
+            {onManualReevaluate && !loading && validoIA !== "PENDIENTE" && !readOnly && (
                 <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManualReevaluate(); }}
                     style={{
@@ -196,7 +196,7 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     );
 }
 
-export default function GestionExpedientes({ highlightId }: { highlightId?: string }) {
+export default function GestionExpedientes({ highlightId, readOnly = false }: { highlightId?: string; readOnly?: boolean }) {
     const [personalList, setPersonalList] = useState<Personal[]>([]);
     const [loading, setLoading] = useState(true);
     const [moduleActive, setModuleActive] = useState(false);
@@ -863,7 +863,7 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                                                 {completeCount}/{totalPersonnel} completos
                                             </span>
                                         )}
-                                        {totalPersonnel > 0 && schoolPendingCount > 0 && (
+                                        {totalPersonnel > 0 && schoolPendingCount > 0 && !readOnly && (
                                             <button
                                                 onClick={() => handleBulkValidateSchool(escuela.id)}
                                                 disabled={bulkValidatingSchool === escuela.id || busy}
@@ -969,6 +969,7 @@ export default function GestionExpedientes({ highlightId }: { highlightId?: stri
                                                                     onBulkValidatePerson={handleBulkValidatePerson}
                                                                     bulkValidatingPerson={bulkValidatingPerson}
                                                                     bulkProgressPerson={bulkProgressPerson}
+                                                                    readOnly={readOnly}
                                                                 />
                                                             );
                                                         })}
@@ -1016,6 +1017,7 @@ function PersonRow({
     onBulkValidatePerson,
     bulkValidatingPerson,
     bulkProgressPerson,
+    readOnly = false,
 }: {
     persona: Personal;
     complete: number;
@@ -1035,6 +1037,7 @@ function PersonRow({
     onBulkValidatePerson: (personalId: string) => Promise<void>;
     bulkValidatingPerson: string | null;
     bulkProgressPerson: string;
+    readOnly?: boolean;
 }) {
     const fullName = `${persona.apellidoPaterno} ${persona.apellidoMaterno} ${persona.nombre}`;
     const docColor = completenessColor(complete, TOTAL_REQUIRED_DOCS);
@@ -1125,7 +1128,7 @@ function PersonRow({
                                 <p style={{ margin: 0, fontWeight: 600, fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
                                     <FileText size={14} /> Documentos de {persona.nombre}
                                 </p>
-                                {persona.documentos.some(d => d.archivoDriveUrl && d.validoIA !== "APROBADO") && (
+                                {persona.documentos.some(d => d.archivoDriveUrl && d.validoIA !== "APROBADO") && !readOnly && (
                                     <button
                                         onClick={() => onBulkValidatePerson(persona.id)}
                                         disabled={bulkValidatingPerson === persona.id || busy}
@@ -1201,7 +1204,7 @@ function PersonRow({
                                                         {dp.label} {noTieneDoc && <span style={{ fontStyle: "italic", fontSize: "0.7rem", color: "var(--error)" }}>(No cuenta)</span>}
                                                     </span>
                                                 </div>
-                                                {!hasFile && !noTieneDoc && (
+                                                {!hasFile && !noTieneDoc && !readOnly && (
                                                     <button
                                                         onClick={() => onUploadDocClick(persona.id, dp.tipo)}
                                                         disabled={busy || uploadingDoc === `${persona.id}-${dp.tipo}`}
@@ -1254,8 +1257,8 @@ function PersonRow({
                                                             doc.archivoNombre || "archivo"
                                                         );
                                                         return (
-                                                            <div key={doc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                                                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                            <div key={doc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", flexShrink: 0 }}>
                                                                     {doc.archivoDriveUrl && (
                                                                         <>
                                                                             <button
@@ -1279,30 +1282,34 @@ function PersonRow({
                                                                             >
                                                                                 <Download size={13} />
                                                                             </a>
-                                                                            <button
-                                                                                onClick={() => onDeleteDoc(doc.id)}
-                                                                                disabled={busy}
-                                                                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
-                                                                                title="Eliminar archivo del expediente"
-                                                                            >
-                                                                                <Trash2 size={13} />
-                                                                            </button>
+                                                                            {!readOnly && (
+                                                                                <button
+                                                                                    onClick={() => onDeleteDoc(doc.id)}
+                                                                                    disabled={busy}
+                                                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
+                                                                                    title="Eliminar archivo del expediente"
+                                                                                >
+                                                                                    <Trash2 size={13} />
+                                                                                </button>
+                                                                            )}
                                                                         </>
                                                                     )}
-                                                                    <button
-                                                                        onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
-                                                                        disabled={busy}
-                                                                        style={{
-                                                                            background: "none", border: "none", cursor: "pointer",
-                                                                            color: doc.bloqueado ? "var(--error)" : "var(--success)",
-                                                                            padding: "2px", display: "inline-flex"
-                                                                        }}
-                                                                        title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
-                                                                    >
-                                                                        {doc.bloqueado ? <Lock size={13} /> : <Unlock size={13} />}
-                                                                    </button>
+                                                                    {!readOnly && (
+                                                                        <button
+                                                                            onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
+                                                                            disabled={busy}
+                                                                            style={{
+                                                                                background: "none", border: "none", cursor: "pointer",
+                                                                                color: doc.bloqueado ? "var(--error)" : "var(--success)",
+                                                                                padding: "2px", display: "inline-flex"
+                                                                            }}
+                                                                            title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
+                                                                        >
+                                                                            {doc.bloqueado ? <Lock size={13} /> : <Unlock size={13} />}
+                                                                        </button>
+                                                                    )}
                                                                 </div>
-                                                                {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id)}
+                                                                {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id, readOnly)}
                                                             </div>
                                                         );
                                                     })}
@@ -1363,8 +1370,8 @@ function PersonRow({
                                                     </div>
                                                     
                                                     {doc.archivoDriveUrl && (
-                                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", borderTop: "1px solid #f3f4f6", paddingTop: "0.25rem" }}>
-                                                            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", borderTop: "1px solid #f3f4f6", paddingTop: "0.25rem", flexWrap: "wrap" }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", flexShrink: 0 }}>
                                                                 <button
                                                                     onClick={() => onViewPdf(
                                                                         doc.archivoDriveUrl!,
@@ -1386,28 +1393,32 @@ function PersonRow({
                                                                 >
                                                                     <Download size={13} />
                                                                 </a>
-                                                                <button
-                                                                    onClick={() => onDeleteDoc(doc.id)}
-                                                                    disabled={busy}
-                                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
-                                                                    title="Eliminar archivo del expediente"
-                                                                >
-                                                                    <Trash2 size={13} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
-                                                                    disabled={busy}
-                                                                    style={{
-                                                                        background: "none", border: "none", cursor: "pointer",
-                                                                        color: doc.bloqueado ? "var(--error)" : "var(--success)",
-                                                                        padding: "2px", display: "inline-flex"
-                                                                    }}
-                                                                    title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
-                                                                >
-                                                                    {doc.bloqueado ? <Lock size={13} /> : <Unlock size={13} />}
-                                                                </button>
+                                                                {!readOnly && (
+                                                                    <button
+                                                                        onClick={() => onDeleteDoc(doc.id)}
+                                                                        disabled={busy}
+                                                                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "2px", display: "inline-flex" }}
+                                                                        title="Eliminar archivo del expediente"
+                                                                    >
+                                                                        <Trash2 size={13} />
+                                                                    </button>
+                                                                )}
+                                                                {!readOnly && (
+                                                                    <button
+                                                                        onClick={() => onToggleBloqueo(doc.id, !doc.bloqueado)}
+                                                                        disabled={busy}
+                                                                        style={{
+                                                                            background: "none", border: "none", cursor: "pointer",
+                                                                            color: doc.bloqueado ? "var(--error)" : "var(--success)",
+                                                                            padding: "2px", display: "inline-flex"
+                                                                        }}
+                                                                        title={doc.bloqueado ? "Desbloquear" : "Bloquear"}
+                                                                    >
+                                                                        {doc.bloqueado ? <Lock size={13} /> : <Unlock size={13} />}
+                                                                    </button>
+                                                                )}
                                                             </div>
-                                                            {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id)}
+                                                            {renderIABadge(doc.validoIA, doc.observacionesIA, () => onReEvaluateIA(doc.id), analyzingIA === doc.id, readOnly)}
                                                         </div>
                                                     )}
                                                 </div>

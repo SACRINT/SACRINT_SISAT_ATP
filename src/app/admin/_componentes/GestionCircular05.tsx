@@ -31,7 +31,7 @@ interface Config {
     zonaDestinatario: string;
 }
 
-export default function GestionCircular05() {
+export default function GestionCircular05({ readOnly = false }: { readOnly?: boolean }) {
     const [config, setConfig] = useState<Config | null>(null);
     const [descargas, setDescargas] = useState<DescargaInfo[]>([]);
     const [loading, setLoading] = useState(true);
@@ -232,13 +232,14 @@ export default function GestionCircular05() {
                     </div>
                     <button
                         onClick={toggleActivo}
-                        disabled={updating}
+                        disabled={readOnly || updating}
                         style={{
                             display: "flex", alignItems: "center", gap: "0.5rem",
                             padding: "0.75rem 1.5rem", borderRadius: "10px", border: "none",
                             background: config?.activo ? "var(--success)" : "#ef4444",
                             color: "white", fontWeight: 700, fontSize: "0.9375rem",
-                            cursor: updating ? "not-allowed" : "pointer",
+                            cursor: readOnly ? "default" : updating ? "not-allowed" : "pointer",
+                            opacity: readOnly ? 0.7 : 1,
                             transition: "all 0.3s",
                         }}
                     >
@@ -263,25 +264,27 @@ export default function GestionCircular05() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "0.75rem" }}>
                     <div>
                         <label style={labelStyle}>Nombre del Destinatario</label>
-                        <input style={inputStyle} value={destinatario} onChange={(e) => setDestinatario(e.target.value)} />
+                        <input style={inputStyle} value={destinatario} onChange={(e) => setDestinatario(e.target.value)} disabled={readOnly} />
                     </div>
                     <div>
                         <label style={labelStyle}>Cargo/Zona</label>
-                        <input style={inputStyle} value={cargoDestinatario} onChange={(e) => setCargoDestinatario(e.target.value)} placeholder="Ej: SUPERVISOR ESCOLAR DE LA ZONA 004 DE BACHILLERATOS GENERALES" />
+                        <input style={inputStyle} value={cargoDestinatario} onChange={(e) => setCargoDestinatario(e.target.value)} placeholder="Ej: SUPERVISOR ESCOLAR DE LA ZONA 004 DE BACHILLERATOS GENERALES" disabled={readOnly} />
                     </div>
                     <div>
                         <label style={labelStyle}>Ubicado en</label>
-                        <input style={inputStyle} value={zonaDestinatario} onChange={(e) => setZonaDestinatario(e.target.value)} placeholder="Ej: VENUSTIANO CARRANZA, PUEBLA." />
+                        <input style={inputStyle} value={zonaDestinatario} onChange={(e) => setZonaDestinatario(e.target.value)} placeholder="Ej: VENUSTIANO CARRANZA, PUEBLA." disabled={readOnly} />
                     </div>
                 </div>
-                <button
-                    className="btn btn-primary"
-                    onClick={guardarDestinatario}
-                    disabled={updating}
-                    style={{ marginTop: "0.75rem" }}
-                >
-                    {updating ? "Guardando..." : "💾 Guardar Cambios"}
-                </button>
+                {!readOnly && (
+                    <button
+                        className="btn btn-primary"
+                        onClick={guardarDestinatario}
+                        disabled={updating}
+                        style={{ marginTop: "0.75rem" }}
+                    >
+                        {updating ? "Guardando..." : "💾 Guardar Cambios"}
+                    </button>
+                )}
             </div>
 
             {/* ═══ Catálogo de Disciplinas ═══ */}
@@ -294,31 +297,32 @@ export default function GestionCircular05() {
                     Las disciplinas aquí configuradas aparecerán como opciones en el formulario del director.
                 </p>
 
-                {/* Formulario agregar */}
-                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-                    <input
-                        style={{ ...inputStyle, flex: 2, minWidth: "200px" }}
-                        value={nuevaDisc.nombre}
-                        onChange={(e) => setNuevaDisc(p => ({ ...p, nombre: e.target.value }))}
-                        placeholder="Nombre de la disciplina (ej: CANTO SOLISTA)"
-                        onKeyDown={(e) => e.key === "Enter" && agregarDisciplina()}
-                    />
-                    <input
-                        style={{ ...inputStyle, flex: 1, minWidth: "150px" }}
-                        value={nuevaDisc.area}
-                        onChange={(e) => setNuevaDisc(p => ({ ...p, area: e.target.value }))}
-                        placeholder="Área (ej: Cultural)"
-                        onKeyDown={(e) => e.key === "Enter" && agregarDisciplina()}
-                    />
-                    <button
-                        className="btn btn-primary"
-                        onClick={agregarDisciplina}
-                        disabled={discLoading || !nuevaDisc.nombre.trim()}
-                        style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem", whiteSpace: "nowrap" }}
-                    >
-                        <Plus size={14} /> Agregar
-                    </button>
-                </div>
+                {!readOnly && (
+                    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+                        <input
+                            style={{ ...inputStyle, flex: 2, minWidth: "200px" }}
+                            value={nuevaDisc.nombre}
+                            onChange={(e) => setNuevaDisc(p => ({ ...p, nombre: e.target.value }))}
+                            placeholder="Nombre de la disciplina (ej: CANTO SOLISTA)"
+                            onKeyDown={(e) => e.key === "Enter" && agregarDisciplina()}
+                        />
+                        <input
+                            style={{ ...inputStyle, flex: 1, minWidth: "150px" }}
+                            value={nuevaDisc.area}
+                            onChange={(e) => setNuevaDisc(p => ({ ...p, area: e.target.value }))}
+                            placeholder="Área (ej: Cultural)"
+                            onKeyDown={(e) => e.key === "Enter" && agregarDisciplina()}
+                        />
+                        <button
+                            className="btn btn-primary"
+                            onClick={agregarDisciplina}
+                            disabled={discLoading || !nuevaDisc.nombre.trim()}
+                            style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem", whiteSpace: "nowrap" }}
+                        >
+                            <Plus size={14} /> Agregar
+                        </button>
+                    </div>
+                )}
 
                 {/* Tabla de disciplinas */}
                 {disciplinas.length > 0 ? (
@@ -352,7 +356,8 @@ export default function GestionCircular05() {
                                         <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
                                             <button
                                                 onClick={() => toggleDisciplina(disc)}
-                                                style={{ background: "none", border: "none", cursor: "pointer" }}
+                                                disabled={readOnly}
+                                                style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer" }}
                                                 title={disc.activo ? "Desactivar" : "Activar"}
                                             >
                                                 {disc.activo
@@ -361,7 +366,9 @@ export default function GestionCircular05() {
                                             </button>
                                         </td>
                                         <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                                            {editandoId === disc.id ? (
+                                            {readOnly ? (
+                                                <span style={{ color: "var(--text-muted)" }}>-</span>
+                                            ) : editandoId === disc.id ? (
                                                 <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
                                                     <button onClick={guardarEdicion} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--success)" }} title="Guardar"><Save size={16} /></button>
                                                     <button onClick={() => setEditandoId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }} title="Cancelar"><X size={16} /></button>

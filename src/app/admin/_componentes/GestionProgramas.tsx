@@ -21,7 +21,7 @@ interface ProgramaAdmin {
     periodos: PeriodoAdmin[];
 }
 
-export default function GestionProgramas({ inicialProgramas }: { inicialProgramas: ProgramaAdmin[] }) {
+export default function GestionProgramas({ inicialProgramas, readOnly = false }: { inicialProgramas: ProgramaAdmin[]; readOnly?: boolean }) {
     const [programas, setProgramas] = useState<ProgramaAdmin[]>(inicialProgramas);
 
     useEffect(() => {
@@ -247,9 +247,11 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                         Crea o edita los programas operativos, la periodicidad de entregas y el total de formatos o evidencias que la escuela te debe enviar en cada entrega.
                     </p>
                 </div>
-                <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <Plus size={18} /> Nuevo Programa
-                </button>
+                {!readOnly && (
+                    <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Plus size={18} /> Nuevo Programa
+                    </button>
+                )}
             </div>
 
             {message && !isModalOpen && (
@@ -267,24 +269,26 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                                     <FileText size={18} color="var(--primary)" />
                                     {prog.nombre}
                                 </h3>
-                                <div style={{ display: "flex", gap: "0.5rem" }}>
-                                    <button
-                                        className="btn-icon"
-                                        onClick={() => handleOpenModal(prog)}
-                                        style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.25rem" }}
-                                        title="Editar Programa"
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
-                                    <button
-                                        className="btn-icon"
-                                        onClick={() => handleDelete(prog.id, prog.periodos?.length || 0)}
-                                        style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: "0.25rem" }}
-                                        title="Eliminar Programa"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
+                                {!readOnly && (
+                                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                                        <button
+                                            className="btn-icon"
+                                            onClick={() => handleOpenModal(prog)}
+                                            style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.25rem" }}
+                                            title="Editar Programa"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            className="btn-icon"
+                                            onClick={() => handleDelete(prog.id, prog.periodos?.length || 0)}
+                                            style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: "0.25rem" }}
+                                            title="Eliminar Programa"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", minHeight: "2.5rem" }}>
                                 {prog.descripcion || <em style={{ color: "var(--border)" }}>Sin descripción</em>}
@@ -298,28 +302,30 @@ export default function GestionProgramas({ inicialProgramas }: { inicialPrograma
                                 <Layers size={12} /> {prog.numArchivos} Documento(s) req.
                             </span>
 
-                            <div style={{ width: "100%", marginTop: "0.5rem", paddingTop: "0.75rem", borderTop: "1px dashed var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            {!readOnly && (
+                                <div style={{ width: "100%", marginTop: "0.5rem", paddingTop: "0.75rem", borderTop: "1px dashed var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                        <button
+                                            onClick={() => handleToggleAuto(prog.id, prog.recordatorioAuto || false)}
+                                            disabled={isLoading}
+                                            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", color: prog.recordatorioAuto ? "var(--primary)" : "var(--text-muted)" }}
+                                            title="Activar o desactivar recordatorios diarios a las 8AM"
+                                        >
+                                            {prog.recordatorioAuto ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                                            <span style={{ fontSize: "0.75rem", fontWeight: prog.recordatorioAuto ? 600 : 400 }}>Auto-Reminders</span>
+                                        </button>
+                                    </div>
                                     <button
-                                        onClick={() => handleToggleAuto(prog.id, prog.recordatorioAuto || false)}
+                                        className="btn btn-outline"
+                                        style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", display: "flex", alignItems: "center", gap: "0.25rem", borderColor: "var(--primary)", color: "var(--primary)" }}
+                                        onClick={() => handleOpenSendModal(prog.id, prog.nombre)}
                                         disabled={isLoading}
-                                        style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", color: prog.recordatorioAuto ? "var(--primary)" : "var(--text-muted)" }}
-                                        title="Activar o desactivar recordatorios diarios a las 8AM"
+                                        title="Disparar correos manualmente eligiendo estados"
                                     >
-                                        {prog.recordatorioAuto ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                                        <span style={{ fontSize: "0.75rem", fontWeight: prog.recordatorioAuto ? 600 : 400 }}>Auto-Reminders</span>
+                                        <Send size={12} /> Recordatorio Manual
                                     </button>
                                 </div>
-                                <button
-                                    className="btn btn-outline"
-                                    style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", display: "flex", alignItems: "center", gap: "0.25rem", borderColor: "var(--primary)", color: "var(--primary)" }}
-                                    onClick={() => handleOpenSendModal(prog.id, prog.nombre)}
-                                    disabled={isLoading}
-                                    title="Disparar correos manualmente eligiendo estados"
-                                >
-                                    <Send size={12} /> Recordatorio Manual
-                                </button>
-                            </div>
+                            )}
                         </div>
                     </div>
                 ))}

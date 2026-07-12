@@ -83,6 +83,7 @@ export default function AdminDashboard({
     anuncioGlobal,
     userName,
     dbRole,
+    permisos,
     sidebarConfig,
 }: {
     programas: ProgramaAdmin[];
@@ -93,6 +94,7 @@ export default function AdminDashboard({
     ciclo: string;
     userName: string;
     dbRole: string;
+    permisos: any;
     cicloId: string;
     cicloObj: { id: string; nombre: string; activo: boolean; anuncioGlobal: string | null };
     todosCiclos: { id: string; nombre: string; activo: boolean; inicio: string; fin: string }[];
@@ -115,12 +117,71 @@ export default function AdminDashboard({
         modulos: true,
     });
 
+    const getSectionKey = (v: typeof vista): string => {
+        switch (v) {
+            case "general": return "general";
+            case "avances": return "avances";
+            case "reportes-nivel": return "reportesNivel";
+            case "gestion-escuelas": return "escuelas";
+            case "gestion-programas": return "programas";
+            case "gestion-periodos": return "periodos";
+            case "gestion-fechas": return "fechas";
+            case "gestion-ciclos": return "ciclos";
+            case "recursos": return "formatos";
+            case "gestion-prompts": return "rubricas";
+            case "orquestador-ia": return "orquestador";
+            case "modulos-control": return "modulosControl";
+            case "eventos": return "eventos";
+            case "circular05": return "circular05";
+            case "olimpiada": return "olimpiada";
+            case "paec": return "paec";
+            case "capems": return "capems";
+            case "expedientes": return "expedientes";
+            case "gestion-atps": return "seguridad";
+            default: return "general";
+        }
+    };
+
+    const hasAccess = (seccion: string, tipo: "read" | "write" = "read"): boolean => {
+        if (dbRole === "SUPER_ADMIN") return true;
+        if (seccion === "seguridad") return false; // Solo Super Admin accede a seguridad
+
+        if (!permisos) {
+            // Retrocompatibilidad para usuarios antiguos sin permisos guardados
+            const isMonitoringOrModule = [
+                "general", "avances", "reportesNivel", 
+                "eventos", "circular05", "olimpiada", "paec", "capems", "expedientes", "formatos"
+            ].includes(seccion);
+            
+            if (dbRole === "ATP_EDITOR") {
+                if (isMonitoringOrModule) return true;
+                return tipo === "read";
+            }
+            if (isMonitoringOrModule) return tipo === "read";
+            return false;
+        }
+
+        const userPermiso = permisos[seccion] || "NINGUNO";
+        if (userPermiso === "ESCRITURA") return true;
+        if (userPermiso === "LECTURA") return tipo === "read";
+        return false;
+    };
+
+    useEffect(() => {
+        const secKey = getSectionKey(vista);
+        if (!hasAccess(secKey, "read")) {
+            setVista("general");
+        }
+    }, [vista]);
+
     const toggleGroup = (key: string) =>
         setGroupOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
     const navigate = (v: typeof vista) => {
-        setVista(v);
-        setSidebarOpen(false);
+        if (hasAccess(getSectionKey(v), "read")) {
+            setVista(v);
+            setSidebarOpen(false);
+        }
     };
     const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas">("programas");
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null>(null);
@@ -616,18 +677,24 @@ export default function AdminDashboard({
                         </button>
                         {groupOpen.monitoreo && (
                             <div className="sidebar-group-items">
-                                <button className={`sidebar-link ${vista === "general" ? "active" : ""}`} onClick={() => navigate("general")}>
-                                    <BarChart3 size={17} />
-                                    <span>Vista General</span>
-                                </button>
-                                <button className={`sidebar-link ${vista === "avances" ? "active" : ""}`} onClick={() => navigate("avances")}>
-                                    <ListChecks size={17} />
-                                    <span>Avance de Entregas</span>
-                                </button>
-                                <button className={`sidebar-link ${vista === "reportes-nivel" ? "active" : ""}`} onClick={() => navigate("reportes-nivel")}>
-                                    <Mail size={17} />
-                                    <span>Reportes al Nivel</span>
-                                </button>
+                                {hasAccess("general", "read") && (
+                                    <button className={`sidebar-link ${vista === "general" ? "active" : ""}`} onClick={() => navigate("general")}>
+                                        <BarChart3 size={17} />
+                                        <span>Vista General</span>
+                                    </button>
+                                )}
+                                {hasAccess("avances", "read") && (
+                                    <button className={`sidebar-link ${vista === "avances" ? "active" : ""}`} onClick={() => navigate("avances")}>
+                                        <ListChecks size={17} />
+                                        <span>Avance de Entregas</span>
+                                    </button>
+                                )}
+                                {hasAccess("reportesNivel", "read") && (
+                                    <button className={`sidebar-link ${vista === "reportes-nivel" ? "active" : ""}`} onClick={() => navigate("reportes-nivel")}>
+                                        <Mail size={17} />
+                                        <span>Reportes al Nivel</span>
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -646,27 +713,37 @@ export default function AdminDashboard({
                         </button>
                         {groupOpen.config && (
                             <div className="sidebar-group-items">
-                                <button className={`sidebar-link ${vista === "gestion-escuelas" ? "active" : ""}`} onClick={() => navigate("gestion-escuelas")}>
-                                    <School size={17} />
-                                    <span>Escuelas</span>
-                                </button>
-                                <button className={`sidebar-link ${vista === "gestion-programas" ? "active" : ""}`} onClick={() => navigate("gestion-programas")}>
-                                    <Layers size={17} />
-                                    <span>Programas</span>
-                                </button>
-                                <button className={`sidebar-link ${vista === "gestion-periodos" ? "active" : ""}`} onClick={() => navigate("gestion-periodos")}>
-                                    <Clock size={17} />
-                                    <span>Periodos</span>
-                                </button>
-                                <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => navigate("gestion-fechas")}>
-                                    <Calendar size={17} />
-                                    <span>Fechas y Tareas</span>
-                                </button>
-                                <button className={`sidebar-link ${vista === "gestion-ciclos" ? "active" : ""}`} onClick={() => navigate("gestion-ciclos")}>
-                                    <Calendar size={17} />
-                                    <span>Ciclos Escolares</span>
-                                </button>
-                                {sidebarConfig.showRecursos && (
+                                {hasAccess("escuelas", "read") && (
+                                    <button className={`sidebar-link ${vista === "gestion-escuelas" ? "active" : ""}`} onClick={() => navigate("gestion-escuelas")}>
+                                        <School size={17} />
+                                        <span>Escuelas</span>
+                                    </button>
+                                )}
+                                {hasAccess("programas", "read") && (
+                                    <button className={`sidebar-link ${vista === "gestion-programas" ? "active" : ""}`} onClick={() => navigate("gestion-programas")}>
+                                        <Layers size={17} />
+                                        <span>Programas</span>
+                                    </button>
+                                )}
+                                {hasAccess("periodos", "read") && (
+                                    <button className={`sidebar-link ${vista === "gestion-periodos" ? "active" : ""}`} onClick={() => navigate("gestion-periodos")}>
+                                        <Clock size={17} />
+                                        <span>Periodos</span>
+                                    </button>
+                                )}
+                                {hasAccess("fechas", "read") && (
+                                    <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => navigate("gestion-fechas")}>
+                                        <Calendar size={17} />
+                                        <span>Fechas y Tareas</span>
+                                    </button>
+                                )}
+                                {hasAccess("ciclos", "read") && (
+                                    <button className={`sidebar-link ${vista === "gestion-ciclos" ? "active" : ""}`} onClick={() => navigate("gestion-ciclos")}>
+                                        <Calendar size={17} />
+                                        <span>Ciclos Escolares</span>
+                                    </button>
+                                )}
+                                {sidebarConfig.showRecursos && hasAccess("formatos", "read") && (
                                     <button className={`sidebar-link ${vista === "recursos" ? "active" : ""}`} onClick={() => navigate("recursos")}>
                                         <BookMarked size={17} />
                                         <span>Formatos y Plantillas</span>
@@ -678,21 +755,27 @@ export default function AdminDashboard({
                                         <span>Accesos y Seguridad</span>
                                     </button>
                                 )}
-                                 <button className={`sidebar-link ${vista === "gestion-prompts" ? "active" : ""}`} onClick={() => navigate("gestion-prompts")}>
-                                     <Settings2 size={17} />
-                                     <span>Rúbricas y Prompts de IA</span>
-                                 </button>
-                                <button className={`sidebar-link ${vista === "orquestador-ia" ? "active" : ""}`} onClick={() => navigate("orquestador-ia")}>
-                                    <Sparkles size={18} /> Orquestador de IA
-                                </button>
-                                {/* Panel de módulos — always visible in config */}
-                                <button className={`sidebar-link ${vista === "modulos-control" ? "active" : ""}`} onClick={() => navigate("modulos-control")}>
-                                    <FolderOpen size={17} />
-                                    <span>Módulos Especiales</span>
-                                    {activeModulesCount > 0 && (
-                                        <span className="sidebar-badge" style={{ marginLeft: "auto" }}>{activeModulesCount}</span>
-                                    )}
-                                </button>
+                                {hasAccess("rubricas", "read") && (
+                                    <button className={`sidebar-link ${vista === "gestion-prompts" ? "active" : ""}`} onClick={() => navigate("gestion-prompts")}>
+                                        <Settings2 size={17} />
+                                        <span>Rúbricas y Prompts de IA</span>
+                                    </button>
+                                )}
+                                {hasAccess("orquestador", "read") && (
+                                    <button className={`sidebar-link ${vista === "orquestador-ia" ? "active" : ""}`} onClick={() => navigate("orquestador-ia")}>
+                                        <Sparkles size={18} /> Orquestador de IA
+                                    </button>
+                                )}
+                                {/* Panel de módulos — always visible in config if they have access to it */}
+                                {hasAccess("modulosControl", "read") && (
+                                    <button className={`sidebar-link ${vista === "modulos-control" ? "active" : ""}`} onClick={() => navigate("modulos-control")}>
+                                        <FolderOpen size={17} />
+                                        <span>Módulos Especiales</span>
+                                        {activeModulesCount > 0 && (
+                                            <span className="sidebar-badge" style={{ marginLeft: "auto" }}>{activeModulesCount}</span>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -715,37 +798,37 @@ export default function AdminDashboard({
                             </button>
                             {groupOpen.modulos && (
                                 <div className="sidebar-group-items">
-                                    {sidebarConfig.showEventos && (
+                                    {sidebarConfig.showEventos && hasAccess("eventos", "read") && (
                                         <button className={`sidebar-link ${vista === "eventos" ? "active" : ""}`} onClick={() => navigate("eventos")}>
                                             <Trophy size={17} />
                                             <span>Eventos Culturales</span>
                                         </button>
                                     )}
-                                    {sidebarConfig.showCircular05 && (
+                                    {sidebarConfig.showCircular05 && hasAccess("circular05", "read") && (
                                         <button className={`sidebar-link ${vista === "circular05" ? "active" : ""}`} onClick={() => navigate("circular05")}>
                                             <FileText size={17} />
                                             <span>Circular 03</span>
                                         </button>
                                     )}
-                                    {sidebarConfig.showOlimpiada && (
+                                    {sidebarConfig.showOlimpiada && hasAccess("olimpiada", "read") && (
                                         <button className={`sidebar-link ${vista === "olimpiada" ? "active" : ""}`} onClick={() => navigate("olimpiada")}>
                                             <GraduationCap size={17} />
                                             <span>Olimpiada Matemáticas</span>
                                         </button>
                                     )}
-                                    {sidebarConfig.showPAEC && (
+                                    {sidebarConfig.showPAEC && hasAccess("paec", "read") && (
                                         <button className={`sidebar-link ${vista === "paec" ? "active" : ""}`} onClick={() => navigate("paec")}>
                                             <Lightbulb size={17} />
                                             <span>Encuentro PAEC</span>
                                         </button>
                                     )}
-                                    {sidebarConfig.showCapems && (
+                                    {sidebarConfig.showCapems && hasAccess("capems", "read") && (
                                         <button className={`sidebar-link ${vista === "capems" ? "active" : ""}`} onClick={() => navigate("capems")}>
                                             <BookMarked size={17} />
                                             <span>Fichas CAPEMS</span>
                                         </button>
                                     )}
-                                    {sidebarConfig.showExpedientes && (
+                                    {sidebarConfig.showExpedientes && hasAccess("expedientes", "read") && (
                                         <button className={`sidebar-link ${vista === "expedientes" ? "active" : ""}`} onClick={() => navigate("expedientes")}>
                                             <Users size={17} />
                                             <span>Expedientes Personal</span>
@@ -890,15 +973,26 @@ export default function AdminDashboard({
 
                 {/* ========= VISTA: GESTIÓN DE PERIODOS ========= */}
                 {vista === "gestion-periodos" && (
-                    <GestionPeriodos programas={programas} sidebarConfig={sidebarConfig} />
+                    <GestionPeriodos 
+                        programas={programas} 
+                        sidebarConfig={sidebarConfig} 
+                        readOnly={!hasAccess("periodos", "write")}
+                    />
                 )}
                 {/* ========= VISTA: GESTIÓN DE FECHAS Y TAREAS EXTRAORDINARIAS ========= */}
                 {vista === "gestion-fechas" && (
-                    <GestionFechas programas={programas} />
+                    <GestionFechas 
+                        programas={programas} 
+                        readOnly={!hasAccess("fechas", "write")}
+                    />
                 )}
                 {/* ========= VISTA: GESTIÓN DE CICLOS ESCOLARES ========= */}
                 {vista === "gestion-ciclos" && (
-                    <GestionCiclos todosCiclos={todosCiclos} onSetMessage={setMessage} />
+                    <GestionCiclos 
+                        todosCiclos={todosCiclos} 
+                        onSetMessage={setMessage} 
+                        readOnly={!hasAccess("ciclos", "write")}
+                    />
                 )}
                 {/* ========= VISTA: GESTIÓN DE ESCUELAS ========= */}
                 {
@@ -913,6 +1007,7 @@ export default function AdminDashboard({
                                 email: e.email ?? null,
                                 ultimoIngreso: e.ultimoIngreso ?? null
                             }))}
+                            readOnly={!hasAccess("escuelas", "write")}
                         />
                     )
                 }
@@ -920,14 +1015,21 @@ export default function AdminDashboard({
                 {/* ========= VISTA: GESTIÓN DE PROGRAMAS ========= */}
                 {
                     vista === "gestion-programas" && (
-                        <GestionProgramas inicialProgramas={programas} />
+                        <GestionProgramas 
+                            inicialProgramas={programas} 
+                            readOnly={!hasAccess("programas", "write")}
+                        />
                     )
                 }
 
                 {/* ========= VISTA: RECURSOS Y FORMATOS ========= */}
                 {
                     vista === "recursos" && (
-                        <GestionRecursos recursos={recursos} programas={programas} />
+                        <GestionRecursos 
+                            recursos={recursos} 
+                            programas={programas} 
+                            readOnly={!hasAccess("formatos", "write")}
+                        />
                     )
                 }
 
@@ -940,48 +1042,51 @@ export default function AdminDashboard({
 
                 {/* ========= VISTA: PANEL DE MÓDULOS ESPECIALES ========= */}
                 {vista === "modulos-control" && (
-                    <PanelModulos sidebarConfig={sidebarConfig} />
+                    <PanelModulos 
+                        sidebarConfig={sidebarConfig} 
+                        readOnly={!hasAccess("modulosControl", "write")}
+                    />
                 )}
 
 
                 {
                     vista === "eventos" && (
-                        <GestionEventos />
+                        <GestionEventos readOnly={!hasAccess("eventos", "write")} />
                     )
                 }
 
                 {/* ========= VISTA: CIRCULAR 05 ========= */}
                 {
                     vista === "circular05" && (
-                        <GestionCircular05 />
+                        <GestionCircular05 readOnly={!hasAccess("circular05", "write")} />
                     )
                 }
 
                 {/* ========= VISTA: OLIMPIADA MATEMÁTICAS ========= */}
                 {
                     vista === "olimpiada" && (
-                        <GestionOlimpiada />
+                        <GestionOlimpiada readOnly={!hasAccess("olimpiada", "write")} />
                     )
                 }
 
                 {/* ========= VISTA: ENCUENTRO PAEC ========= */}
                 {
                     vista === "paec" && (
-                        <GestionEncuentroPAEC />
+                        <GestionEncuentroPAEC readOnly={!hasAccess("paec", "write")} />
                     )
                 }
 
                 {/* ========= VISTA: FICHAS CAPEMS ========= */}
                 {
                     vista === "capems" && (
-                        <GestionCapems />
+                        <GestionCapems readOnly={!hasAccess("capems", "write")} />
                     )
                 }
 
                 {/* ========= VISTA: EXPEDIENTES DE PERSONAL ========= */}
                 {
                     vista === "expedientes" && (
-                        <GestionExpedientes highlightId={expedientesHighlightId} />
+                        <GestionExpedientes highlightId={expedientesHighlightId} readOnly={!hasAccess("expedientes", "write")} />
                     )
                 }
 
@@ -994,14 +1099,17 @@ export default function AdminDashboard({
                 {/* ========= VISTA: RÚBRICAS Y PROMPTS DE IA ========= */}
                 {
                     vista === "gestion-prompts" && (
-                        <GestionPrompts />
+                        <GestionPrompts readOnly={!hasAccess("rubricas", "write")} />
                     )
                 }
 
                 {/* ========= VISTA: ORQUESTADOR DE IA ========= */}
                 {
                     vista === "orquestador-ia" && (
-                        <GestionLlavesIA onSetMessage={setMessage} />
+                        <GestionLlavesIA 
+                            onSetMessage={setMessage} 
+                            readOnly={!hasAccess("orquestador", "write")}
+                        />
                     )
                 }
             </main >

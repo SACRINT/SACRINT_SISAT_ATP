@@ -25,7 +25,7 @@ interface EscuelaOlimpiada {
     fecha: string;
 }
 
-export default function GestionOlimpiada() {
+export default function GestionOlimpiada({ readOnly = false }: { readOnly?: boolean }) {
     const [loading, setLoading] = useState(true);
     const [activo, setActivo] = useState(false);
     const [toggling, setToggling] = useState(false);
@@ -153,12 +153,13 @@ export default function GestionOlimpiada() {
                     </button>
                     <button
                         onClick={handleToggle}
-                        disabled={toggling}
+                        disabled={readOnly || toggling}
                         style={{
                             display: "flex", alignItems: "center", gap: "0.5rem",
-                            background: "none", border: "none", cursor: "pointer",
+                            background: "none", border: "none", cursor: readOnly ? "default" : "pointer",
                             fontSize: "1rem", fontWeight: 600,
                             color: activo ? "var(--success)" : "var(--danger)",
+                            opacity: readOnly ? 0.7 : 1,
                         }}
                     >
                         {toggling ? <Loader2 size={24} className="spin" /> : activo ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
@@ -200,20 +201,22 @@ export default function GestionOlimpiada() {
                             No se ha subido la convocatoria aún
                         </span>
                     )}
-                    <label
-                        className="btn btn-primary"
-                        style={{ fontSize: "0.8125rem", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }}
-                    >
-                        {uploading ? <><Loader2 size={16} className="spin" /> Subiendo...</> : <><Upload size={16} /> {convocatoriaUrl ? "Reemplazar" : "Subir Convocatoria"}</>}
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".pdf,.doc,.docx"
-                            onChange={handleUploadConvocatoria}
-                            disabled={uploading}
-                            style={{ display: "none" }}
-                        />
-                    </label>
+                    {!readOnly && (
+                        <label
+                            className="btn btn-primary"
+                            style={{ fontSize: "0.8125rem", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }}
+                        >
+                            {uploading ? <><Loader2 size={16} className="spin" /> Subiendo...</> : <><Upload size={16} /> {convocatoriaUrl ? "Reemplazar" : "Subir Convocatoria"}</>}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf,.doc,.docx"
+                                onChange={handleUploadConvocatoria}
+                                disabled={uploading}
+                                style={{ display: "none" }}
+                            />
+                        </label>
+                    )}
                 </div>
             </div>
 
@@ -257,13 +260,15 @@ export default function GestionOlimpiada() {
                                     </h4>
                                     <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{esc.cct}</span>
                                 </div>
-                                <button
-                                    onClick={() => handleCancelInscripcion(esc.id, esc.nombre)}
-                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.25rem" }}
-                                    title="Cancelar inscripción"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                {!readOnly && (
+                                    <button
+                                        onClick={() => handleCancelInscripcion(esc.id, esc.nombre)}
+                                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: "0.25rem" }}
+                                        title="Cancelar inscripción"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </div>
                             <div style={{ marginTop: "0.75rem" }}>
                                 <div style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>

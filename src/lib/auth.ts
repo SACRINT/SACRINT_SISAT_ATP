@@ -28,6 +28,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             name: admin.nombre,
                             role: "admin",
                             dbRole: admin.role,
+                            permisos: admin.permisos,
                         };
                     }
                 }
@@ -64,20 +65,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
-                const customUser = user as { role?: string; dbRole?: string; cct?: string };
+                const customUser = user as { role?: string; dbRole?: string; cct?: string; permisos?: any };
                 token.role = customUser.role;
                 token.dbRole = customUser.dbRole;
                 token.cct = customUser.cct;
+                token.permisos = customUser.permisos;
             }
             return token;
         },
         async session({ session, token }) {
             if (session.user) {
-                const customSessionUser = session.user as { id?: string; role?: unknown; dbRole?: unknown; cct?: unknown };
+                const customSessionUser = session.user as { id?: string; role?: unknown; dbRole?: unknown; cct?: unknown; permisos?: unknown };
                 customSessionUser.id = token.sub;
                 customSessionUser.role = token.role;
                 customSessionUser.dbRole = token.dbRole;
                 customSessionUser.cct = token.cct;
+                customSessionUser.permisos = token.permisos;
             }
             return session;
         },

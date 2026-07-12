@@ -14,9 +14,11 @@ type Ciclo = {
 export default function GestionCiclos({
     todosCiclos: inicialCiclos,
     onSetMessage,
+    readOnly = false,
 }: {
     todosCiclos: Ciclo[];
     onSetMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
+    readOnly?: boolean;
 }) {
     const [ciclos, setCiclos] = useState<Ciclo[]>(inicialCiclos);
     const [nombre, setNombre] = useState("");
@@ -113,67 +115,68 @@ export default function GestionCiclos({
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem", alignItems: "start" }}>
                 
-                {/* FORMULARIO DE CREACIÓN */}
-                <div className="card">
-                    <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "1rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <PlusCircle size={18} color="var(--primary)" />
-                        <span>Crear Nuevo Ciclo Escolar</span>
+                {!readOnly && (
+                    <div className="card">
+                        <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "1rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <PlusCircle size={18} color="var(--primary)" />
+                            <span>Crear Nuevo Ciclo Escolar</span>
+                        </div>
+
+                        <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, marginBottom: "0.375rem" }}>
+                                    Nombre del Ciclo
+                                </label>
+                                <input
+                                    type="text"
+                                    className="input"
+                                    placeholder="Ej: 2026-2027"
+                                    value={nombre}
+                                    onChange={(e) => setNombre(e.target.value)}
+                                    required
+                                    style={{ width: "100%" }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, marginBottom: "0.375rem" }}>
+                                    Fecha de Inicio
+                                </label>
+                                <input
+                                    type="date"
+                                    className="input"
+                                    value={inicio}
+                                    onChange={(e) => setInicio(e.target.value)}
+                                    required
+                                    style={{ width: "100%" }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, marginBottom: "0.375rem" }}>
+                                    Fecha de Fin
+                                </label>
+                                <input
+                                    type="date"
+                                    className="input"
+                                    value={fin}
+                                    onChange={(e) => setFin(e.target.value)}
+                                    required
+                                    style={{ width: "100%" }}
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={submitting}
+                                style={{ marginTop: "0.5rem", width: "100%" }}
+                            >
+                                {submitting ? "Creando..." : "Crear Ciclo Escolar"}
+                            </button>
+                        </form>
                     </div>
-
-                    <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                        <div>
-                            <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, marginBottom: "0.375rem" }}>
-                                Nombre del Ciclo
-                            </label>
-                            <input
-                                type="text"
-                                className="input"
-                                placeholder="Ej: 2026-2027"
-                                value={nombre}
-                                onChange={(e) => setNombre(e.target.value)}
-                                required
-                                style={{ width: "100%" }}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, marginBottom: "0.375rem" }}>
-                                Fecha de Inicio
-                            </label>
-                            <input
-                                type="date"
-                                className="input"
-                                value={inicio}
-                                onChange={(e) => setInicio(e.target.value)}
-                                required
-                                style={{ width: "100%" }}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, marginBottom: "0.375rem" }}>
-                                Fecha de Fin
-                            </label>
-                            <input
-                                type="date"
-                                className="input"
-                                value={fin}
-                                onChange={(e) => setFin(e.target.value)}
-                                required
-                                style={{ width: "100%" }}
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            className="btn btn-primary"
-                            disabled={submitting}
-                            style={{ marginTop: "0.5rem", width: "100%" }}
-                        >
-                            {submitting ? "Creando..." : "Crear Ciclo Escolar"}
-                        </button>
-                    </form>
-                </div>
+                )}
 
                 {/* LISTADO DE CICLOS */}
                 <div className="card" style={{ padding: 0 }}>
@@ -237,7 +240,7 @@ export default function GestionCiclos({
                                         </span>
                                     </div>
 
-                                    {!c.activo && (
+                                    {!c.activo && !readOnly && (
                                         <button
                                             onClick={() => handleActivar(c.id, c.nombre)}
                                             disabled={activatingId !== null}
