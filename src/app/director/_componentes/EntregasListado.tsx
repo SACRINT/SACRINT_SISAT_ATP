@@ -884,6 +884,26 @@ function PreRevisionChat({
         }
     };
 
+    const handleClearChat = async () => {
+        if (!confirm("¿Estás seguro de que deseas borrar toda la conversación e iniciar una nueva desde cero?")) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/entregas/${entregaId}/chat`, {
+                method: "DELETE"
+            });
+            if (res.ok) {
+                setMessages([]);
+            } else {
+                alert("Error al borrar la conversación");
+            }
+        } catch (e) {
+            console.error("Error clearing chat:", e);
+            alert("Error de conexión");
+        }
+    };
+
     return (
         <div style={{
             position: "fixed",
@@ -918,13 +938,34 @@ function PreRevisionChat({
                             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{programaNombre}</span>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        type="button"
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
-                    >
-                        <XIcon size={20} />
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        {messages.length > 0 && (
+                            <button
+                                onClick={handleClearChat}
+                                type="button"
+                                title="Reiniciar chat (Borrar conversación)"
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: "var(--danger)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    padding: "4px"
+                                }}
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                        <button
+                            onClick={onClose}
+                            type="button"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
+                        >
+                            <XIcon size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Messages Body */}

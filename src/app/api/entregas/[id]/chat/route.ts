@@ -171,3 +171,42 @@ Reglas de Comportamiento:
         return NextResponse.json({ error: error.message || "Error al procesar el chat" }, { status: 500 });
     }
 }
+
+// DELETE - Borrar el historial de chat para una entrega
+export async function DELETE(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const session = await auth();
+        if (!session) {
+            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        }
+
+        const { id: entregaId } = await params;
+
+        // Validar que la entrega exista y que pertenezca a la escuela del director (si es rol director)
+        const entrega = await prisma.entrega.findUnique({
+            where: { id: entregaId },
+            include: { escuela: true },
+        });
+
+        if (!entrega) {
+            return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
+        }
+
+        const user = session.user as any;
+        if (user.role !== "admin" && user.role !== "atp" && user.cct !== entrega.escuela.cct) {
+            return NextResponse.json({ error: "No tienes permiso para borrar este chat" }, { status: 403 });
+        }
+
+        // Borrar todos los mensajes del chat
+        await prisma.chatMensaje.deleteMany({
+            where: { entregaId },
+        });
+
+        return NextResponse.json({ success: true, message: "Chat reiniciado con éxito" });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message || "Error al reiniciar el chat" }, { status: 500 });
+    }
+}
