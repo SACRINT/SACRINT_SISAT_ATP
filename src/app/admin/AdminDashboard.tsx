@@ -1124,7 +1124,7 @@ export default function AdminDashboard({
                         display: "flex", alignItems: "center", justifyContent: "center",
                         padding: "1rem", zIndex: 1000,
                     }}>
-                        <div className="card" style={{ maxWidth: "500px", width: "100%" }}>
+                        <div className="card" style={{ maxWidth: "720px", width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
                             <h3 style={{ marginBottom: "0.5rem" }}>
                                 <MessageSquare size={20} /> Enviar Corrección
                             </h3>
@@ -1404,8 +1404,8 @@ export default function AdminDashboard({
                                                         <div style={{
                                                             margin: 0, padding: "0.5rem 0.75rem", background: "white",
                                                             border: "1px solid var(--border)", borderRadius: "6px",
-                                                            maxHeight: "150px", overflowY: "auto",
-                                                            fontSize: "0.78rem", color: "var(--text)", lineHeight: "1.4"
+                                                            maxHeight: "400px", overflowY: "auto",
+                                                            fontSize: "0.78rem", color: "var(--text)", lineHeight: "1.5"
                                                         }}>
                                                             <div className="markdown-feedback" style={{ whiteSpace: "pre-wrap" }}>
                                                                 {res.borradorCorreo}

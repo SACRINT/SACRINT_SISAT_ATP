@@ -487,20 +487,34 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                             padding: "0.05rem 0.3rem",
                                                                             borderRadius: "4px",
                                                                             fontWeight: 700,
-                                                                            background: (ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false
-                                                                                ? "#fdf2f2"
-                                                                                : "#f0fdf4",
-                                                                            color: (ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false
-                                                                                ? "#dc2626"
-                                                                                : "#16a34a",
-                                                                            border: `1px solid ${(ent as any).preRevision.resultado.tieneIncidencias || (ent as any).preRevision.resultado.aprobado === false ? "#f87171" : "#86efac"}`
+                                                                            background: (() => {
+                                                                                const r = (ent as any).preRevision.resultado;
+                                                                                const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
+                                                                                const isError = isAiType && !r.borradorCorreo;
+                                                                                return (r.tieneIncidencias || r.aprobado === false || isError) ? '#fdf2f2' : '#f0fdf4';
+                                                                            })(),
+                                                                            color: (() => {
+                                                                                const r = (ent as any).preRevision.resultado;
+                                                                                const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
+                                                                                const isError = isAiType && !r.borradorCorreo;
+                                                                                return (r.tieneIncidencias || r.aprobado === false || isError) ? '#dc2626' : '#16a34a';
+                                                                            })(),
+                                                                            border: (() => {
+                                                                                const r = (ent as any).preRevision.resultado;
+                                                                                const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
+                                                                                const isError = isAiType && !r.borradorCorreo;
+                                                                                return `1px solid ${(r.tieneIncidencias || r.aprobado === false || isError) ? '#f87171' : '#86efac'}`;
+                                                                            })()
                                                                         }}>
                                                                             🔍 Pre-dictamen: {
-                                                                                (ent as any).preRevision.resultado.tieneIncidencias
-                                                                                    ? "⚠️ Con Incidencias"
-                                                                                    : (ent as any).preRevision.resultado.aprobado === false
-                                                                                        ? "⚠️ Firma/Sello Faltante"
-                                                                                        : "✓ Correcto"
+                                                                                (() => {
+                                                                                    const r = (ent as any).preRevision.resultado;
+                                                                                    const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
+                                                                                    if (isAiType && !r.borradorCorreo) return '⚠️ Error IA (Re-evaluar)';
+                                                                                    if (r.tieneIncidencias) return '⚠️ Con Incidencias';
+                                                                                    if (r.aprobado === false) return '⚠️ Firma/Sello Faltante';
+                                                                                    return '✓ Correcto';
+                                                                                })()
                                                                             }
                                                                         </span>
                                                                     )}

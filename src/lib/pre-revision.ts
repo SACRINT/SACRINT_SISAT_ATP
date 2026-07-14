@@ -721,26 +721,33 @@ Responde únicamente en formato JSON con la siguiente estructura:
                         required: ["aprobado", "puntuacion", "observaciones", "estadoRecomendado"]
                     };
 
-                    console.log(`[pre-revision] Starting multi-part parallel evaluation with Gemini (3 parts)...`);
+                    console.log(`[pre-revision] Starting multi-part SEQUENTIAL evaluation with Gemini (3 parts)...`);
 
-                    const calls = prompts.map(async (pPrompt, idx) => {
+                    // Execute sequentially to avoid exhausting the Gemini API key pool via concurrent 429 rate-limit errors
+                    const results: any[] = [];
+                    for (let idx = 0; idx < prompts.length; idx++) {
+                        const pPrompt = prompts[idx];
                         let rawRes = "";
                         if (extractedText) {
-                            console.log(`[pre-revision] Calling Gemini for Part ${idx + 1} with EXTRACTED TEXT (${pPrompt.length} chars).`);
+                            console.log(`[pre-revision] Calling Gemini for Part ${idx + 1}/3 with EXTRACTED TEXT (${pPrompt.length} chars).`);
                             rawRes = await callGemini(systemInstruction, pPrompt, undefined, undefined, responseSchema);
                         } else {
                             if (!buffer) {
                                 console.log(`[pre-revision] Downloading file for binary fallback (Part ${idx + 1}): ${file.nombre}...`);
                                 buffer = await downloadFile(file.driveUrl!);
                             }
-                            console.log(`[pre-revision] Calling Gemini for Part ${idx + 1} with BINARY PDF BUFFER and prompt (${pPrompt.length} chars).`);
+                            console.log(`[pre-revision] Calling Gemini for Part ${idx + 1}/3 with BINARY PDF BUFFER and prompt (${pPrompt.length} chars).`);
                             rawRes = await callGemini(systemInstruction, pPrompt, buffer, "application/pdf", responseSchema);
                         }
-                        console.log(`[pre-revision] Gemini response for Part ${idx + 1} received. Length: ${rawRes.length} chars.`);
-                        return cleanAndParseGeminiJson(rawRes);
-                    });
+                        console.log(`[pre-revision] Gemini response for Part ${idx + 1}/3 received. Length: ${rawRes.length} chars.`);
+                        results.push(cleanAndParseGeminiJson(rawRes));
+                        // Small pause between calls to reduce key pool pressure
+                        if (idx < prompts.length - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 800));
+                        }
+                    }
 
-                    const [part1, part2, part3] = await Promise.all(calls);
+                    const [part1, part2, part3] = results;
 
                     // Combine results
                     const aprobadoFinal = part1.aprobado && part2.aprobado && part3.aprobado;
