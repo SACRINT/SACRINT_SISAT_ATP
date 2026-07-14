@@ -33,8 +33,8 @@ export async function callGemini(
     const modelToUse = usePremiumModel ? config.modelPremium : config.modelDefault;
 
     console.log(`[orquestador-ia] Solicitud de IA. Proveedor: ${providerToUse}, Modelo: ${modelToUse}, Premium: ${usePremiumModel}`);
-    // Reactivar automáticamente llaves bloqueadas hace más de 15 minutos
-    const checkTime = new Date(Date.now() - 15 * 60 * 1000);
+    // Reactivar automáticamente llaves bloqueadas hace más de 5 minutos
+    const checkTime = new Date(Date.now() - 5 * 60 * 1000);
     try {
         await prisma.apiKey.updateMany({
             where: {
@@ -88,9 +88,10 @@ export async function callGemini(
     }
 
     // 4. Intentar realizar la llamada rotando las llaves del pool
-    for (const keyRecord of keys) {
+    for (let ki = 0; ki < keys.length; ki++) {
+        const keyRecord = keys[ki];
         try {
-            console.log(`[orquestador-ia] Intentando llamada con llave "${keyRecord.label}" (ID: ${keyRecord.id})`);
+            console.log(`[orquestador-ia] Intentando llamada con llave "${keyRecord.label}" (${ki + 1}/${keys.length})`);
             const result = await executeRequestWithRetry(
                 providerToUse,
                 modelToUse,
@@ -116,7 +117,7 @@ export async function callGemini(
             const errStr = String(err?.message || "");
             console.error(`[orquestador-ia] Fallo con la llave "${keyRecord.label}":`, errStr);
 
-            const isTransient = errStr.includes("(429)") || errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded");
+            const isTransient = errStr.includes("(429)") || errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded") || errStr.toLowerCase().includes("resource_exhausted");
 
             if (!isTransient) {
                 // Incrementar contador de errores (solo para fallos permanentes)
@@ -135,7 +136,12 @@ export async function callGemini(
                     console.warn(`[orquestador-ia] Llave "${keyRecord.label}" desactivada automáticamente tras 5 fallos consecutivos.`);
                 }
             } else {
-                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" experimentó un error temporal o de cuota (${errStr}). No se penaliza su contador de errores.`);
+                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" experimentó rate limit (${errStr}). Pasando a siguiente llave...`);
+            }
+
+            // Small stagger between key attempts to avoid hammering the same rate-limit window
+            if (ki < keys.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 300));
             }
         }
     }
@@ -176,8 +182,12 @@ async function executeRequestWithRetry(
     pdfMimeType: string = "application/pdf",
     responseSchema?: any
 ): Promise<string> {
-    let retries = 3;
-    let delay = 1500; // Iniciar con 1.5 segundos
+    // For 429 rate-limit errors, we do NOT retry the same key - we throw immediately so
+    // the pool rotation in callGemini can try the next key. Retrying the same 429-limited
+    // key wastes time (14s per key × 12 keys = 168s > Vercel 120s limit → 504 timeout).
+    // Only retry truly transient network errors (503, fetch failed) once with a short delay.
+    let retries = 1;
+    let delay = 2000;
 
     while (true) {
         try {
@@ -197,19 +207,24 @@ async function executeRequestWithRetry(
             }
         } catch (err: any) {
             const errStr = String(err?.message || "");
-            const isTransient = errStr.includes("(429)") || errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded");
+            const is429 = errStr.includes("(429)") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded") || errStr.toLowerCase().includes("resource_exhausted");
+            const isNetworkError = errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.includes("TimeoutError") || errStr.includes("AbortError");
 
-            if (isTransient && retries > 0) {
-                console.warn(`[orquestador-ia] Error temporal detectado (${errStr}). Reintentando en ${delay}ms... (Intentos restantes: ${retries})`);
+            if (is429) {
+                // Immediately propagate - let pool rotation try next key
+                console.warn(`[orquestador-ia] Rate limit (429) en esta llave. Pasando a la siguiente inmediatamente.`);
+                throw err;
+            } else if (isNetworkError && retries > 0) {
+                console.warn(`[orquestador-ia] Error de red (${errStr}). Reintentando en ${delay}ms... (Intentos restantes: ${retries})`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 retries--;
-                delay *= 2.5; // Backoff exponencial agresivo
             } else {
                 throw err;
             }
         }
     }
 }
+
 
 /**
  * API nativa de Google Gemini (generativelanguage.googleapis.com)
