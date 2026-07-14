@@ -185,6 +185,134 @@ export interface PreRevisionResult {
     puntuacion?: string;
 }
 
+function parsePercentage(scoreStr: string): number {
+    const match = scoreStr.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+}
+
+function obtenerPartesEvaluacion(
+    modulo: "PMC" | "PAEC" | "INFORME_FINAL",
+    templateContent: string,
+    escuelaNombre: string,
+    escuelaCct: string,
+    textoOriginalPMC: string,
+    extractedText: string
+) {
+    let partes: { titulo: string; enfoque: string }[] = [];
+
+    if (modulo === "INFORME_FINAL") {
+        partes = [
+            {
+                titulo: "Sección I: Coherencia General con el PMC Planeado y Diagnóstico de Resultados",
+                enfoque: `Analiza la estructura general del Informe Final de PMC de la escuela ${escuelaNombre} (${escuelaCct}) en comparación con el PMC planeado originalmente:
+1. Compara si el Informe Final aborda las mismas prioridades, objetivos y metas que se establecieron en el PMC original.
+2. Evalúa si el diagnóstico de resultados al final del ciclo escolar refleja con veracidad los logros y retrocesos del plantel.
+3. Evalúa si se incluyeron todas las secciones requeridas.`
+            },
+            {
+                titulo: "Sección II: Evaluación de Metas y Justificación de Desviaciones",
+                enfoque: `Analiza a detalle las metas del Informe Final de PMC de la escuela ${escuelaNombre} (${escuelaCct}):
+1. Evalúa cuáles metas se cumplieron y cuáles quedaron inconclusas o no se cumplieron.
+2. Examina minuciosamente si las justificaciones presentadas para las metas no cumplidas son válidas, sólidas y orientadas a la mejora futura, o si son simples evasivas.
+3. Comprueba si el porcentaje de cumplimiento reportado es congruente con la realidad descrita.`
+            },
+            {
+                titulo: "Sección III: Análisis de Evidencias, Impacto y Recomendaciones Finales",
+                enfoque: `Analiza las evidencias y el impacto reportado en el Informe Final de PMC de la escuela ${escuelaNombre} (${escuelaCct}):
+1. Evalúa si las evidencias presentadas (ej. reportes, listas, ligas a fotografías) son suficientes, idóneas y demuestran el cumplimiento real de las metas.
+2. Identifica el impacto general logrado en el plantel y la comunidad escolar.
+3. Genera conclusiones claras y recomendaciones específicas para el próximo ciclo escolar.`
+            }
+        ];
+    } else if (modulo === "PAEC") {
+        partes = [
+            {
+                titulo: "Sección I: Diagnóstico Comunitario y Planteamiento del Problema (PAEC)",
+                enfoque: `Analiza el Proyecto Escolar Comunitario (PEC/PAEC) de la escuela ${escuelaNombre} (${escuelaCct}):
+1. Evalúa si presenta un diagnóstico comunitario participativo real.
+2. Comprueba si las problemáticas del entorno (sociales, ambientales, de salud, de convivencia, etc.) están plenamente identificadas y delimitadas.
+3. Determina si el problema seleccionado es pertinente y prioritario para la comunidad escolar.`
+            },
+            {
+                titulo: "Sección II: Vinculación con la Comunidad y Coherencia de Objetivos (PAEC)",
+                enfoque: `Analiza los objetivos del Proyecto Escolar Comunitario (PEC/PAEC) de la escuela ${escuelaNombre} (${escuelaCct}):
+1. Evalúa si los objetivos y metas del proyecto se alinean directamente a resolver la problemática delimitada.
+2. Verifica si se promueve una vinculación real con padres de familia, instituciones públicas, comités comunitarios u otros actores locales.
+3. Analiza si se respeta el enfoque de la Nueva Escuela Mexicana.`
+            },
+            {
+                titulo: "Sección III: Plan de Acción, Responsabilidades y Evaluación (PAEC)",
+                enfoque: `Analiza el Plan de Acción del Proyecto Escolar Comunitario (PEC/PAEC) de la escuela ${escuelaNombre} (${escuelaCct}):
+1. Revisa las acciones planteadas: si son viables, lógicas, calendarizadas y con responsables definidos.
+2. Evalúa las evidencias de cumplimiento propuestas y los indicadores de evaluación.
+3. Genera recomendaciones y observaciones de mejora específicas.`
+            }
+        ];
+    } else {
+        partes = [
+            {
+                titulo: "Sección I: Estructura General, Diagnóstico y FODA (PMC)",
+                enfoque: `Analiza el Plan de Mejora Continua (PMC) de la escuela ${escuelaNombre} (${escuelaCct}):
+1. Revisa si el documento contiene la estructura formal solicitada (Presentación, Objetivos, Diagnóstico, FODA, Plan de Acción, Firmas/Sellos).
+2. Evalúa la calidad de la contextualización y diagnóstico (uso de estadísticas de aprovechamiento escolar, deserción, rezago, estado de infraestructura y entorno socioeconómico).
+3. Revisa la solidez del análisis FODA y la correcta priorización de categorías/necesidades con base en el diagnóstico.`
+            },
+            {
+                titulo: "Sección II: Coherencia de Objetivos, Metas e Indicadores (PMC)",
+                enfoque: `Analiza los Objetivos, Metas e Indicadores del Plan de Mejora Continua (PMC) de la escuela ${escuelaNombre} (${escuelaCct}):
+1. Evalúa si los objetivos redactados son claros, atienden las causas raíz de las problemáticas prioritarias y son viables.
+2. Examina si las metas son SMART (específicas, medibles, alcanzables, realistas y con tiempo definido) y si tienen coherencia directa con los objetivos.
+3. Verifica la pertinencia de los indicadores propuestos para medir el avance.`
+            },
+            {
+                titulo: "Sección III: Plan de Acción (Estrategias, Acciones, Responsables y Evidencias) (PMC)",
+                enfoque: `Analiza el Plan de Acción del Plan de Mejora Continua (PMC) de la escuela ${escuelaNombre} (${escuelaCct}):
+1. Revisa si las estrategias y acciones son lógicas, suficientes y viables para lograr las metas.
+2. Verifica si se asignan responsables específicos y fechas límite lógicas.
+3. Evalúa si las evidencias/entregables definidos son idóneos y suficientes para comprobar el cumplimiento. Genera observaciones finales y recomendaciones concretas de mejora.`
+            }
+        ];
+    }
+
+    return partes.map((parte, index) => {
+        let p = `A continuación se presenta el prompt maestro de evaluación oficial que define los lineamientos y rúbricas a evaluar:
+---
+${templateContent}
+---
+
+Evalúa el documento entregado por el plantel: ${escuelaNombre} (${escuelaCct}).
+Esta es la PARTE ${index + 1} de la evaluación, enfocada en: **${parte.titulo}**.
+
+Pautas específicas para esta parte:
+${parte.enfoque}`;
+
+        if (modulo === "INFORME_FINAL" && textoOriginalPMC) {
+            p += `
+
+A continuación se proporciona el texto o análisis del PLAN DE MEJORA CONTINUA (PMC) original planeado por la escuela para este ciclo escolar. Úsalo como referencia obligatoria para comparar el Informe Final con las metas, actividades y categorías del PMC original:
+----------------------------------
+${textoOriginalPMC.slice(0, 12000)}
+----------------------------------`;
+        }
+
+        p += `
+
+${extractedText 
+    ? "Texto extraído del documento entregado para tu evaluación:\n" + extractedText
+    : "El documento se incluye en formato binario para tu análisis."
+}
+
+Debes responder ÚNICAMENTE en formato JSON con la siguiente estructura de esquema:
+{
+  "aprobado": true,
+  "puntuacion": "Porcentaje de cumplimiento asignado a esta parte (ej. '70%')",
+  "observaciones": "Tu informe detallado para esta sección en Markdown (aproximadamente 350-500 palabras), describiendo con precisión fortalezas, áreas de oportunidad, omisiones o inconsistencias encontradas y recomendaciones de mejora.",
+  "estadoRecomendado": "APROBADO"
+}`;
+        return p;
+    });
+}
+
 /**
  * Downloads a file as buffer from a URL (e.g. Cloudinary secure URL)
  */
@@ -580,39 +708,8 @@ Responde únicamente en formato JSON con la siguiente estructura:
                         console.log(`[pre-revision] Using provided pre-extracted text. Characters: ${extractedText.length}`);
                     }
                     
-                    let geminiRawRes = "";
+                    const prompts = obtenerPartesEvaluacion(modulo, templateContent, escuelaNombre, escuelaCct, textoOriginalPMC, extractedText);
                     const systemInstruction = "Eres un Asesor Técnico Pedagógico (ATP) experto en evaluación y planeación escolar.";
- 
-                    let prompt = `A continuación se presenta el prompt maestro de evaluación oficial de la supervisión que define los lineamientos y rúbricas a evaluar:
----
-${templateContent}
----
- 
-Evalúa el documento entregado por el plantel: ${escuelaNombre} (${escuelaCct}).`;
-
-                    if (modulo === "INFORME_FINAL" && textoOriginalPMC) {
-                        prompt += `
-
-A continuación se proporciona el texto o análisis del PLAN DE MEJORA CONTINUA (PMC) original planeado por la escuela para este ciclo escolar. Úsalo como referencia obligatoria para comparar el Informe Final con las metas, actividades y categorías del PMC original:
-----------------------------------
-${textoOriginalPMC.slice(0, 12000)}
-----------------------------------`;
-                    }
-
-                    prompt += `
-
-${extractedText 
-    ? "Texto extraído del documento actual entregado para tu evaluación:\n" + extractedText
-    : "El documento se incluye en formato binario para tu análisis."
-}
- 
-Debes responder en formato JSON.
-IMPORTANTE - DETALLE Y EXTENSIÓN:
-- En la sección "observaciones", redacta un informe de pre-revisión completo, exhaustivo y detallado (de aproximadamente 1000 a 1500 palabras).
-- Describe con precisión cada hallazgo, fortaleza, área de oportunidad e inconsistencia detectada.
-- Utiliza títulos, subtítulos y viñetas en Markdown dentro de la cadena de texto para dar una estructura sumamente clara.
-- Sé específico citando partes del texto analizado si es necesario.`;
-
                     const responseSchema = {
                         type: "OBJECT",
                         properties: {
@@ -623,28 +720,59 @@ IMPORTANTE - DETALLE Y EXTENSIÓN:
                         },
                         required: ["aprobado", "puntuacion", "observaciones", "estadoRecomendado"]
                     };
- 
-                    if (extractedText) {
-                        console.log(`[pre-revision] Calling Gemini with EXTRACTED TEXT (${prompt.length} chars). No binary sent.`);
-                        geminiRawRes = await callGemini(systemInstruction, prompt, undefined, undefined, responseSchema);
-                    } else {
-                        if (!buffer) {
-                            console.log(`[pre-revision] Downloading file for binary fallback: ${file.nombre}...`);
-                            buffer = await downloadFile(file.driveUrl!);
+
+                    console.log(`[pre-revision] Starting multi-part parallel evaluation with Gemini (3 parts)...`);
+
+                    const calls = prompts.map(async (pPrompt, idx) => {
+                        let rawRes = "";
+                        if (extractedText) {
+                            console.log(`[pre-revision] Calling Gemini for Part ${idx + 1} with EXTRACTED TEXT (${pPrompt.length} chars).`);
+                            rawRes = await callGemini(systemInstruction, pPrompt, undefined, undefined, responseSchema);
+                        } else {
+                            if (!buffer) {
+                                console.log(`[pre-revision] Downloading file for binary fallback (Part ${idx + 1}): ${file.nombre}...`);
+                                buffer = await downloadFile(file.driveUrl!);
+                            }
+                            console.log(`[pre-revision] Calling Gemini for Part ${idx + 1} with BINARY PDF BUFFER and prompt (${pPrompt.length} chars).`);
+                            rawRes = await callGemini(systemInstruction, pPrompt, buffer, "application/pdf", responseSchema);
                         }
-                        console.log(`[pre-revision] Calling Gemini with BINARY PDF BUFFER (${buffer.length} bytes) and prompt (${prompt.length} chars).`);
-                        geminiRawRes = await callGemini(systemInstruction, prompt, buffer, "application/pdf", responseSchema);
-                    }
-                    console.log(`[pre-revision] Gemini response received. Length: ${geminiRawRes.length} chars.`);
- 
-                    const parsed = cleanAndParseGeminiJson(geminiRawRes);
+                        console.log(`[pre-revision] Gemini response for Part ${idx + 1} received. Length: ${rawRes.length} chars.`);
+                        return cleanAndParseGeminiJson(rawRes);
+                    });
+
+                    const [part1, part2, part3] = await Promise.all(calls);
+
+                    // Combine results
+                    const aprobadoFinal = part1.aprobado && part2.aprobado && part3.aprobado;
+                    const estadoRecomendadoFinal = (part1.estadoRecomendado === "REQUIERE_CORRECCION" || part2.estadoRecomendado === "REQUIERE_CORRECCION" || part3.estadoRecomendado === "REQUIERE_CORRECCION")
+                        ? "REQUIERE_CORRECCION"
+                        : "APROBADO";
+
+                    const score1 = parsePercentage(part1.puntuacion || "0%");
+                    const score2 = parsePercentage(part2.puntuacion || "0%");
+                    const score3 = parsePercentage(part3.puntuacion || "0%");
+                    const scoreAvg = Math.round((score1 + score2 + score3) / 3);
+                    const puntuacionFinal = `${scoreAvg}%`;
+
+                    const observacionesFinal = `# Informe de Pre-Revisión del ${modulo === "INFORME_FINAL" ? "Informe Final del PMC" : modulo === "PAEC" ? "Proyecto Escolar Comunitario (PEC)" : "Plan de Mejora Continua (PMC)"}
+
+Este informe presenta una evaluación exhaustiva y detallada del documento entregado por el plantel, con base en la rúbrica oficial de la supervisión.
+
+## I. Estructura General y Diagnóstico / Contexto
+${part1.observaciones}
+
+## II. Objetivos, Metas / Logros y Coherencia
+${part2.observaciones}
+
+## III. Plan de Acción / Evidencias y Recomendaciones
+${part3.observaciones}`;
 
                     resultado = {
                         tipo: modulo,
-                        aprobado: !!parsed.aprobado,
-                        explicacion: `Puntuación obtenida: ${parsed.puntuacion || "N/D"}. Ver detalles de observaciones en el panel de control.`,
-                        borradorCorreo: parsed.observaciones || "Sin observaciones específicas.",
-                        tieneIncidencias: parsed.estadoRecomendado === "REQUIERE_CORRECCION"
+                        aprobado: aprobadoFinal,
+                        explicacion: `Puntuación obtenida: ${puntuacionFinal}. Ver detalles de observaciones en el panel de control.`,
+                        borradorCorreo: observacionesFinal,
+                        tieneIncidencias: estadoRecomendadoFinal === "REQUIERE_CORRECCION"
                     };
 
                 } catch (e: any) {

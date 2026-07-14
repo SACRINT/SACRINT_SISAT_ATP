@@ -1132,6 +1132,13 @@ export default function AdminDashboard({
                                 Para: <strong>{correccionModal.escuelaNombre}</strong>
                             </p>
 
+                            {message && (
+                                <div className={`alert ${message.type === "success" ? "alert-success" : "alert-error"}`} style={{ marginBottom: "1rem", padding: "0.5rem 0.75rem", fontSize: "0.8125rem", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                                    <span style={{ flex: 1, color: "inherit" }}>{message.text}</span>
+                                    <button onClick={() => setMessage(null)} style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 700, fontSize: "1rem", color: "inherit", paddingLeft: "0.5rem" }}>×</button>
+                                </div>
+                            )}
+
                             {/* 🔍 Observaciones Preliminares de la Supervisión (IA) */}
                             {(!correccionModal.preRevision || !correccionModal.preRevision.resultado) ? (
                                 <div style={{
@@ -1151,7 +1158,8 @@ export default function AdminDashboard({
                                             style={{
                                                 display: "inline-flex", alignItems: "center", gap: "0.375rem",
                                                 padding: "0.25rem 0.5rem", fontSize: "0.75rem", borderRadius: "4px",
-                                                background: "var(--primary)", color: "white", border: "none", cursor: "pointer"
+                                                background: reEvaluating ? "#60a5fa" : "var(--primary)", color: "white", border: "none",
+                                                cursor: reEvaluating ? "not-allowed" : "pointer"
                                             }}
                                         >
                                             {reEvaluating ? (
@@ -1296,7 +1304,9 @@ export default function AdminDashboard({
                                                             style={{
                                                                 display: "inline-flex", alignItems: "center", gap: "0.375rem",
                                                                 padding: "0.25rem 0.5rem", fontSize: "0.75rem", borderRadius: "4px",
-                                                                background: "#dc2626", color: "white", border: "none", cursor: "pointer"
+                                                                background: reEvaluating ? "#ef4444" : "#dc2626", color: "white", border: "none",
+                                                                cursor: reEvaluating ? "not-allowed" : "pointer",
+                                                                opacity: reEvaluating ? 0.7 : 1
                                                             }}
                                                         >
                                                             {reEvaluating ? (
@@ -1358,7 +1368,10 @@ export default function AdminDashboard({
                                                                             disabled={reEvaluating}
                                                                             style={{
                                                                                 fontSize: "0.68rem", padding: "0.15rem 0.4rem", borderRadius: "4px",
-                                                                                background: "#e2e8f0", color: "#1e293b", border: "1px solid #cbd5e1", cursor: "pointer",
+                                                                                background: reEvaluating ? "#dbeafe" : "#e2e8f0",
+                                                                                color: reEvaluating ? "#1e40af" : "#1e293b",
+                                                                                border: reEvaluating ? "1px solid #bfdbfe" : "1px solid #cbd5e1",
+                                                                                cursor: reEvaluating ? "not-allowed" : "pointer",
                                                                                 display: "inline-flex", alignItems: "center", gap: "0.25rem"
                                                                             }}
                                                                         >
