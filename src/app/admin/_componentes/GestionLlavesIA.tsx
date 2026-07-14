@@ -264,6 +264,32 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
         }
     };
 
+    const [resettingAll, setResettingAll] = useState(false);
+    const handleResetAllKeys = async (provider: string = "gemini") => {
+        if (!confirm(`¿Reactivar y limpiar errores de TODAS las llaves de ${provider}? Esto restablece el pool completo.`)) return;
+        setResettingAll(true);
+        try {
+            const res = await fetch("/api/admin/api-keys", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ provider }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                showMsg(`✅ Reset de emergencia: ${data.reactivadas} llaves de ${provider} reactivadas y errores limpiados`);
+                await fetchData();
+            } else {
+                const err = await res.json();
+                showMsg(err.error || "Error en reset de emergencia", "error");
+            }
+        } catch (e) {
+            showMsg("Error de conexión en reset de emergencia", "error");
+        } finally {
+            setResettingAll(false);
+        }
+    };
+
+
     if (loading) {
         return (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "300px" }}>
@@ -285,6 +311,45 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
                     Administra las llaves de API disponibles y configura qué modelos de IA procesan las autoevaluaciones.
                 </p>
             </div>
+
+            {/* Alerta de emergencia si hay llaves fallando */}
+            {keys.some(k => !k.active || k.errorCount > 0) && (
+                <div style={{
+                    padding: "0.75rem 1rem", borderRadius: "8px",
+                    background: "#fef2f2", border: "2px solid #fca5a5",
+                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem",
+                    flexWrap: "wrap"
+                }}>
+                    <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontWeight: 700, color: "#991b1b", fontSize: "0.875rem" }}>
+                            ⚠️ {keys.filter(k => !k.active).length} llaves inactivas · {keys.filter(k => k.errorCount > 0).length} con errores acumulados.
+                        </p>
+                        <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", color: "#7f1d1d" }}>
+                            Si las evaluaciones están fallando con "Todas las llaves fallaron", usa el botón de reset.
+                        </p>
+                    </div>
+                    {!readOnly && (
+                        <button
+                            onClick={() => handleResetAllKeys("gemini")}
+                            disabled={resettingAll}
+                            style={{
+                                padding: "0.5rem 1rem", borderRadius: "6px",
+                                background: resettingAll ? "#fee2e2" : "#dc2626", color: "white",
+                                border: "none", cursor: resettingAll ? "not-allowed" : "pointer",
+                                fontWeight: 700, fontSize: "0.8125rem",
+                                display: "inline-flex", alignItems: "center", gap: "0.375rem",
+                                whiteSpace: "nowrap", flexShrink: 0
+                            }}
+                        >
+                            {resettingAll ? (
+                                <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Reseteando...</>
+                            ) : (
+                                <><RotateCw size={14} /> 🆘 Reset de Emergencia (Reactivar Todas)</>
+                            )}
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Model Configuration */}
             <div className="card" style={{ background: "white", padding: "1.5rem", borderRadius: "10px", border: "1px solid var(--border)" }}>

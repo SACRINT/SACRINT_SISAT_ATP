@@ -11,8 +11,8 @@ export async function GET() {
         if (!session || (session.user as any)?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
-        // Reactivar automáticamente llaves bloqueadas hace más de 15 minutos
-        const checkTime = new Date(Date.now() - 15 * 60 * 1000);
+        // Reactivar automáticamente llaves bloqueadas hace más de 5 minutos
+        const checkTime = new Date(Date.now() - 5 * 60 * 1000);
         await prisma.apiKey.updateMany({
             where: {
                 active: false,
@@ -79,5 +79,28 @@ export async function POST(req: Request) {
         }, { status: 201 });
     } catch (error: any) {
         return NextResponse.json({ error: error.message || "Error al registrar la llave" }, { status: 500 });
+    }
+}
+
+// PUT - Reset de emergencia: reactivar TODAS las llaves de un proveedor (reinicia errorCount)
+export async function PUT(req: Request) {
+    try {
+        const session = await auth();
+        if (!session || (session.user as any)?.role !== "admin") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        }
+
+        const body = await req.json().catch(() => ({}));
+        const provider = body.provider || "gemini";
+
+        const updated = await prisma.apiKey.updateMany({
+            where: { provider },
+            data: { active: true, errorCount: 0 },
+        });
+
+        console.log(`[admin] Reset de emergencia: ${updated.count} llaves de ${provider} reactivadas.`);
+        return NextResponse.json({ success: true, reactivadas: updated.count, provider });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message || "Error en reset de emergencia" }, { status: 500 });
     }
 }
