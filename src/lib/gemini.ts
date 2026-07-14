@@ -249,6 +249,7 @@ async function callGeminiNative(
         generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.2,
+            maxOutputTokens: 8192,
             responseSchema: responseSchema || undefined,
         },
     };
@@ -293,6 +294,7 @@ async function callOpenAiCompatible(
         model,
         messages,
         temperature: 0.2,
+        max_tokens: 4000,
     };
 
     if (responseSchema) {
