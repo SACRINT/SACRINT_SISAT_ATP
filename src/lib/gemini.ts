@@ -146,7 +146,68 @@ export async function callGemini(
         }
     }
 
-    throw new Error(`[orquestador-ia] Todas las llaves del pool para el proveedor ${providerToUse} fallaron.`);
+    // ---- FALLBACK 1: Variable de entorno para el mismo proveedor ----
+    const fallbackEnvKey = getFallbackEnvKey(providerToUse);
+    if (fallbackEnvKey) {
+        console.log(`[orquestador-ia] Pool de DB agotado. Intentando llave de entorno (.env) para ${providerToUse}...`);
+        try {
+            const result = await executeRequestWithRetry(providerToUse, modelToUse, fallbackEnvKey, systemInstruction, prompt, pdfBuffer, pdfMimeType, responseSchema);
+            console.log(`[orquestador-ia] ✅ Llave de entorno para ${providerToUse} funcionó.`);
+            return result;
+        } catch (envErr: any) {
+            console.warn(`[orquestador-ia] Llave de entorno para ${providerToUse} también falló: ${envErr.message}`);
+        }
+    }
+
+    // ---- FALLBACK 2: Otros proveedores configurados en la BD ----
+    // Orden de preferencia: openrouter → deepseek → openai → claude → gemini
+    const fallbackProviderOrder = ["openrouter", "deepseek", "openai", "claude", "gemini"].filter(p => p !== providerToUse);
+    const defaultModelByProvider: Record<string, string> = {
+        openrouter: "google/gemini-2.5-flash",
+        deepseek: "deepseek-chat",
+        openai: "gpt-4o-mini",
+        claude: "claude-3-5-sonnet-20241022",
+        gemini: "gemini-2.5-flash",
+    };
+
+    for (const altProvider of fallbackProviderOrder) {
+        // Primero probar llave de entorno para el proveedor alternativo
+        const altEnvKey = getFallbackEnvKey(altProvider);
+        if (altEnvKey) {
+            try {
+                console.log(`[orquestador-ia] Intentando proveedor alternativo: ${altProvider} (env var)...`);
+                const result = await executeRequestWithRetry(altProvider, defaultModelByProvider[altProvider], altEnvKey, systemInstruction, prompt, undefined, pdfMimeType, responseSchema);
+                console.log(`[orquestador-ia] ✅ Proveedor alternativo ${altProvider} (env var) funcionó.`);
+                return result;
+            } catch (altEnvErr: any) {
+                console.warn(`[orquestador-ia] Proveedor alternativo ${altProvider} (env) falló: ${altEnvErr.message}`);
+            }
+        }
+
+        // Luego probar llaves del pool de BD para ese proveedor alternativo
+        try {
+            const altKeys = await prisma.apiKey.findMany({
+                where: { provider: altProvider, active: true },
+                orderBy: { errorCount: "asc" },
+            });
+            if (altKeys.length > 0) {
+                console.log(`[orquestador-ia] Intentando proveedor alternativo: ${altProvider} (${altKeys.length} llaves en BD)...`);
+                for (const altKey of altKeys) {
+                    try {
+                        const result = await executeRequestWithRetry(altProvider, defaultModelByProvider[altProvider] || altKey.label, altKey.key, systemInstruction, prompt, undefined, pdfMimeType, responseSchema);
+                        console.log(`[orquestador-ia] ✅ Proveedor alternativo ${altProvider} llave "${altKey.label}" funcionó.`);
+                        return result;
+                    } catch (altKeyErr: any) {
+                        console.warn(`[orquestador-ia] Proveedor alternativo ${altProvider} llave "${altKey.label}" falló: ${altKeyErr.message}`);
+                    }
+                }
+            }
+        } catch (dbErr) {
+            console.warn(`[orquestador-ia] Error consultando llaves para ${altProvider}:`, dbErr);
+        }
+    }
+
+    throw new Error(`[orquestador-ia] Todos los proveedores de IA disponibles fallaron. Pool de ${providerToUse} agotado y sin alternativas funcionando.`);
 }
 
 /**
