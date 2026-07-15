@@ -299,7 +299,11 @@ async function callGeminiNative(
     pdfMimeType: string = "application/pdf",
     responseSchema?: any
 ): Promise<string> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    let targetModel = model;
+    if (model === "gemini-1.5-flash") targetModel = "gemini-flash-latest";
+    if (model === "gemini-1.5-pro") targetModel = "gemini-pro-latest";
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
     const parts: any[] = [];
     if (pdfBuffer) {
