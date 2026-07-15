@@ -108,7 +108,7 @@ export async function POST(
             }
         }
 
-        const systemInstruction = `Eres el "Copiloto IA" (Asistente de Correcciones), una herramienta de inteligencia artificial especializada en planeación y gestión escolar para la Supervisión Escolar.
+        const systemInstruction = `Eres el Asistente de Correcciones Virtual de SISAT-ATP, una herramienta especializada en planeación y gestión escolar para la Supervisión Escolar.
 Tu única misión es guiar, asesorar y responder dudas al Director de la escuela "${escuelaNombre}" (CCT: ${escuelaCct}) sobre cómo mejorar y solventar las observaciones preliminares de su documento "${programaNombre}".
 
 A continuación tienes el contexto del estado actual:
@@ -127,10 +127,10 @@ Reglas de Comportamiento:
         // 4. Formatear la conversación para la API
         let promptWithHistory = "A continuación se muestra el historial del chat:\n\n";
         for (const msg of prevMensajes) {
-            const senderName = msg.role === "user" ? "Director" : "Copiloto IA";
+            const senderName = msg.role === "user" ? "Director" : "Asistente";
             promptWithHistory += `[${senderName}]: ${msg.content}\n`;
         }
-        promptWithHistory += `[Director]: ${message}\n[Copiloto IA]:`;
+        promptWithHistory += `[Director]: ${message}\n[Asistente]:`;
 
         // 5. Llamar al orquestador multiproveedor
         console.log(`[copiloto-chat] Solicitando respuesta de IA para entrega ${entregaId} y mensaje de ${message.length} chars...`);
