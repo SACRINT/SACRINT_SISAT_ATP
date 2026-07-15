@@ -215,8 +215,11 @@ export async function POST(
             activoDirectores: aiConfig?.activoDirectores ?? false,
             evaluacionActual: true
         });
-    } catch (error: unknown) {
+    } catch (error: any) {
         console.error("POST Pre-revision force error:", error);
-        return NextResponse.json({ error: "Error al forzar re-evaluación del pre-dictamen" }, { status: 500 });
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const isRateLimit = errorMsg.toLowerCase().includes("agotado") || errorMsg.toLowerCase().includes("quota") || errorMsg.toLowerCase().includes("429") || errorMsg.toLowerCase().includes("limit");
+        const status = isRateLimit ? 429 : 500;
+        return NextResponse.json({ error: errorMsg }, { status });
     }
 }

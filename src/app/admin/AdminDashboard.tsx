@@ -184,6 +184,7 @@ export default function AdminDashboard({
         }
     };
     const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas">("programas");
+    const [searchTermAvance, setSearchTermAvance] = useState("");
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
@@ -482,7 +483,7 @@ export default function AdminDashboard({
                 }
             }
             
-            setMessage({ type: "success", text: "Evaluando la entrega con Inteligencia Artificial (Gemini)..." });
+            setMessage({ type: "success", text: "Iniciando la pre-evaluación automática de la entrega..." });
             const res = await fetch(`/api/entregas/${correccionModal.entregaId}/pre-revision`, {
                 method: "POST",
                 headers: {
@@ -492,7 +493,7 @@ export default function AdminDashboard({
             });
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || "Error al evaluar con IA");
+                throw new Error(errData.error || "Error al realizar la pre-evaluación");
             }
             const data = await res.json();
             if (data.success && data.resultado) {
@@ -576,7 +577,7 @@ export default function AdminDashboard({
                             </div>
                             <div>
                                 <div style={{ fontSize: "0.9375rem", fontWeight: 800, color: "var(--text)", lineHeight: 1.1 }}>SISAT-ATP</div>
-                                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", lineHeight: 1.2 }}>Supervisión · Automatización</div>
+                                <div style={{ fontSize: "0.52rem", color: "var(--text-muted)", lineHeight: 1.25, maxWidth: "180px", whiteSpace: "normal" }}>Sistema Inteligente de Supervisión Administrativa Tecnológica y Automatización Técnica Pedagógica</div>
                             </div>
                         </div>
                         <button
@@ -957,17 +958,41 @@ export default function AdminDashboard({
                                 Avance por Escuela
                             </button>
                         </div>
+ 
+                        <div style={{ marginBottom: "1.25rem", position: "relative" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "white", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", maxWidth: "350px", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
+                                <Search size={15} style={{ color: "var(--text-muted, #94a3b8)" }} />
+                                <input
+                                    type="text"
+                                    placeholder={avanceTab === "programas" ? "Buscar por programa..." : "Buscar por escuela o CCT..."}
+                                    value={searchTermAvance}
+                                    onChange={(e) => setSearchTermAvance(e.target.value)}
+                                    style={{ border: "none", outline: "none", width: "100%", fontSize: "0.8125rem", color: "var(--text)" }}
+                                />
+                                {searchTermAvance && (
+                                    <button 
+                                        onClick={() => setSearchTermAvance("")} 
+                                        style={{ border: "none", background: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "0.75rem", padding: "0 2px" }}
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+                        </div>
 
                         {avanceTab === "programas" ? (
                             <ListadoProgramas
-                                programas={programas}
+                                programas={programas.filter(p => p.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()))}
                                 onSetMessage={setMessage}
                                 onSetCorreccionModal={setCorreccionModal}
                                 readOnly={!hasAccess("avances", "write")}
                             />
                         ) : (
                             <ListadoEscuelas
-                                escuelas={escuelas}
+                                escuelas={escuelas.filter(e => 
+                                    e.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()) ||
+                                    e.cct.toLowerCase().includes(searchTermAvance.toLowerCase())
+                                )}
                                 onSetMessage={setMessage}
                                 onSetCorreccionModal={setCorreccionModal}
                                 readOnly={!hasAccess("avances", "write")}
@@ -1315,7 +1340,7 @@ export default function AdminDashboard({
                                                             {reEvaluating ? (
                                                                 <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Re-evaluando...</>
                                                             ) : (
-                                                                <><RefreshCw size={12} /> Re-intentar análisis con IA</>
+                                                                <><RefreshCw size={12} /> Re-intentar pre-evaluación automática</>
                                                             )}
                                                         </button>
                                                     )}

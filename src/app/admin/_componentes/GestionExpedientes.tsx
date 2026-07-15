@@ -224,11 +224,11 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
                     }
                     return p;
                 }));
-                setMessage({ type: "success", text: "Documento re-evaluado exitosamente por la IA." });
+                setMessage({ type: "success", text: "Documento re-evaluado exitosamente por el sistema." });
             }
         } catch (err: any) {
             console.error(err);
-            setMessage({ type: "error", text: err.message || "Error al re-evaluar con IA" });
+            setMessage({ type: "error", text: err.message || "Error al re-evaluar el documento" });
         } finally {
             setAnalyzingIA(null);
         }

@@ -1,14 +1,14 @@
 # Memoria Técnica y Mapa de Arquitectura - SISAT-ATP
 
-Este documento sirve como mapa y memoria técnica del proyecto **SISAT-ATP (Centro de Mando de Supervisión Escolar)**. Su objetivo es proporcionar un entendimiento rápido de la estructura, base de datos, lógica de negocio y flujos de datos para reducir el consumo de tokens y acelerar el desarrollo en futuras sesiones de pair programming.
+Este documento sirve como mapa y memoria técnica del proyecto **SISAT-ATP (Sistema Inteligente de Supervisión Administrativa Tecnológica y Automatización Técnica Pedagógica)**. Su objetivo es proporcionar un entendimiento rápido de la estructura, base de datos, lógica de negocio y flujos de datos para reducir el consumo de tokens y acelerar el desarrollo en futuras sesiones de pair programming.
 
 ---
 
 ## 1. Resumen y Stack Tecnológico
 
 El proyecto es un **portal de control escolar y monitoreo administrativo** dividido en dos perfiles principales:
-* **Administradores y Asesores Técnico Pedagógicos (ATPs)**: Monitorean entregas, validan documentos con Inteligencia Artificial, asignan correcciones, autorizan inscripciones a eventos y gestionan la configuración del sistema.
-* **Directores de Escuela**: Suben planes escolares (PMC/PAEC), administran expedientes de su personal, cargan fichas CAPEMS, inscriben alumnos a eventos y resuelven observaciones asistidos por un Copiloto de IA.
+* **Administradores y Asesores Técnico Pedagógicos (ATPs)**: Monitorean entregas, validan documentos mediante el sistema de validación automática, asignan correcciones, autorizan inscripciones a eventos y gestionan la configuración del sistema.
+* **Directores de Escuela**: Suben planes escolares (PMC/PAEC), administran expedientes de su personal, cargan fichas CAPEMS, inscriben alumnos a eventos y resuelven observaciones asistidos por un Asistente de Correcciones automatizado.
 
 ### Stack Tecnológico:
 * **Framework**: Next.js 16 (App Router, SSR/CSR híbrido).
@@ -17,7 +17,7 @@ El proyecto es un **portal de control escolar y monitoreo administrativo** divid
 * **Autenticación**: NextAuth.js con estrategia JWT (`credentials` para login de Admin y de Escuela/CCT).
 * **Almacenamiento de Archivos**: Cloudinary (API Node.js en backend).
 * **Servicio de Correo**: Resend (envío automatizado de avisos de observaciones y correcciones).
-* **Inteligencia Artificial**: Gemini API (modelos `gemini-2.5-flash` y `gemini-2.5-pro` administrados por ApiKeys dinámicas desde base de datos).
+* **Validación Automatizada**: Gemini API (modelos `gemini-2.0-flash` y `gemini-2.5-pro` administrados por ApiKeys dinámicas desde base de datos).
 
 ---
 
@@ -91,24 +91,24 @@ src/
 ### A. Subida y Evaluación Automática de Planeaciones (PMC / PAEC)
 1. El **Director** sube un PDF/DOCX en su portal.
 2. La API `/api/upload` sube el archivo a Cloudinary.
-3. Al subirlo, se gatilla la **Pre-revisión con IA** (`/api/entregas/[id]/pre-revision`):
+3. Al subirlo, se gatilla la **Pre-evaluación automática** (`/api/entregas/[id]/pre-revision`):
    * Se descarga temporalmente el documento.
    * Si es PDF, se extrae el texto usando `pdfjs-dist` en el backend. Si es DOCX, se parsea mediante `jszip`.
    * Se lee la plantilla/rúbrica correspondiente de la base de datos (`PlantillaEvaluacion`).
-   * Se envía a **Gemini** pidiendo un análisis de firmas oficiales y contenido estruturado de planeación escolar.
+   * Se envía al motor de evaluación pidiendo un análisis de firmas oficiales y contenido estructurado de planeación escolar.
    * El resultado se guarda en `PreRevision` y se le muestra al director como una autoevaluación inmediata.
-4. El **Director** puede abrir el chat ("Asistente de Correcciones"), el cual le responde contextualmente basándose en las observaciones preliminares de la IA para guiarle en su redacción sin salir del contexto de su escuela.
+4. El **Director** puede abrir el chat ("Asistente de Correcciones"), el cual le responde contextualmente basándose en las observaciones preliminares para guiarle en su redacción sin salir del contexto de su escuela.
 5. El **ATP** revisa el avance. Si detecta fallos, puede usar el modal de "Enviar Corrección" para registrar observaciones adicionales, las cuales envían un correo automatizado vía Resend al correo de la escuela.
 
-### B. Validación de Documentos de Personal y CAPEMS con IA OCR
+### B. Validación de Documentos de Personal y CAPEMS con OCR
 1. El director sube una ficha CAPEM o un documento de identidad (CURP, Título, Cédula) en formato imagen o PDF.
-2. La interfaz permite solicitar una validación de la IA (`🤖 Validar`).
+2. La interfaz permite solicitar una validación automática (`🤖 Validar`).
 3. El backend llama a `/api/admin/valida-ia` pasándole el ID del registro y el módulo.
-4. El helper `ocr-validator.ts` descarga el archivo, lo convierte a Base64 si es imagen y llama a Gemini usando **Structured Outputs** (JSON Schema) para validar:
+4. El helper `ocr-validator.ts` descarga el archivo, lo convierte a Base64 si es imagen y llama al motor de evaluación usando **Structured Outputs** (JSON Schema) para validar:
    * Si el documento pertenece a la persona correcta (coincidencia de nombres).
    * Si está legible y vigente.
    * Si tiene firmas y sellos oficiales (para CAPEMS).
-5. La IA responde con un estatus: `APROBADO`, `ADVERTENCIA` o `RECHAZADO` junto a una nota explicativa de diagnóstico que se visualiza en la interfaz.
+5. El sistema responde con un estatus: `APROBADO`, `ADVERTENCIA` o `RECHAZADO` junto a una nota explicativa de diagnóstico que se visualiza en la interfaz.
 
 ---
 

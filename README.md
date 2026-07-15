@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SISAT-ATP: Centro de Control de Supervisión
 
-## Getting Started
+**SISAT-ATP** es el **Sistema Inteligente de Supervisión Administrativa Tecnológica y Automatización Técnica Pedagógica**, una plataforma web moderna diseñada para la supervisión de bachilleratos de la zona escolar. Su objetivo principal es automatizar la recepción, pre-evaluación y retroalimentación de planes escolares y evidencias entregadas por las escuelas del ciclo escolar.
 
-First, run the development server:
+---
+
+## 🛠️ Tecnologías y Arquitectura
+
+- **Framework**: [Next.js](https://nextjs.org/) (App Router, Server Actions, API Routes)
+- **Base de Datos**: PostgreSQL alojado en [Neon](https://neon.tech/) gestionado con [Prisma ORM](https://www.prisma.io/)
+- **Procesamiento de Archivos**: Cloudinary para almacenamiento temporal, extracción local de texto (PDF/Word)
+- **Motor de Evaluación**: Inteligencia Artificial (Google Gemini API) con un orquestador multiproveedor que rotación de llaves, control de errores y fallbacks automáticos.
+- **Notificaciones**: Envío de correos oficiales mediante Resend / Nodemailer.
+
+---
+
+## 📂 Módulos del Sistema
+
+1. **Monitoreo y Avances**: Tableros de control con avance porcentual de entregas de documentos PMC, PAEC, etc.
+2. **Pre-evaluación Automática**: Asistente automático que lee documentos y genera observaciones preliminares detalladas con base en rúbricas.
+3. **Control de Accesos**: Permisos granulares de lectura y escritura para Asesores Técnicos Pedagógicos (ATPs).
+4. **Validación de Expedientes**: Detección de validez de títulos, cédulas y documentos personales mediante OCR y análisis visual.
+5. **Verificación CVD**: Generación de firmas digitales SHA-256 y códigos CVD verificables públicamente mediante QR.
+6. **Reportes al Nivel**: Redacción automática y consolidación de reportes de acoso escolar (CEDAVIM) y Día Naranja (25N).
+
+---
+
+## 🚀 Comenzar Desarrollo
+
+Primero, configura tu entorno con el archivo `.env` en la raíz (usando variables de base de datos y llaves de API necesarias).
+
+Luego, inicia el servidor de desarrollo:
 
 ```bash
 npm run dev
-# or
+# o
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver la aplicación corriendo localmente.

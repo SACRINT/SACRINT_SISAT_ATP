@@ -257,9 +257,13 @@ export default function EntregasListado({
                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
                                                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                                                         <span style={{ fontWeight: 600 }}>{getPeriodoLabel(ent)}</span>
-                                                        {ent.periodoEntrega.fechaLimite && (
+                                                        {ent.periodoEntrega.fechaLimite ? (
                                                             <span style={{ fontSize: "0.75rem", color: "var(--danger)", padding: "0.1rem 0.4rem", background: "var(--danger-light, #fee2e2)", borderRadius: "12px", fontWeight: 500 }}>
                                                                 Vence: {new Date(ent.periodoEntrega.fechaLimite).toLocaleDateString("es-MX", { day: '2-digit', month: 'long', year: 'numeric' })}
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", padding: "0.1rem 0.4rem", background: "#f1f5f9", borderRadius: "12px", fontWeight: 500 }}>
+                                                                Sin fecha límite
                                                             </span>
                                                         )}
                                                     </div>
@@ -988,7 +992,7 @@ function PreRevisionChat({
                         lineHeight: 1.4,
                         marginBottom: "0.5rem"
                     }}>
-                        👋 <strong>¡Hola!</strong> Soy tu Copiloto IA de correcciones. Puedes preguntarme dudas sobre cómo resolver las observaciones de tu <strong>{programaNombre}</strong>. Por ejemplo: <em>"¿Cómo redacto mejor mi meta del ámbito 1?"</em> o <em>"Dame ideas para justificar la subcategoría A"</em>.
+                        👋 <strong>¡Hola!</strong> Soy tu asistente virtual de correcciones de SISAT-ATP. Puedes preguntarme dudas sobre cómo resolver las observaciones de tu <strong>{programaNombre}</strong>. Por ejemplo: <em>"¿Cómo redacto mejor mi meta del ámbito 1?"</em> o <em>"Dame ideas para justificar la subcategoría A"</em>.
                     </div>
 
                     {loading ? (

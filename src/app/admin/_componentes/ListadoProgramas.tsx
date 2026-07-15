@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronUp, ChevronDown, MessageSquare, Download, Eye, Loader2, FileCheck2, FilePlus2, Trash2, Upload } from "lucide-react";
+import { ChevronUp, ChevronDown, MessageSquare, Download, Eye, Loader2, FileCheck2, FilePlus2, Trash2, Upload, RefreshCw } from "lucide-react";
 import JSZip from "jszip";
 import { MESES, ESTADOS, ESTADO_LABELS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
@@ -48,6 +48,56 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
     const [updatingEstado, setUpdatingEstado]   = useState<string | null>(null);
     const [downloadingZip, setDownloadingZip]   = useState<string | null>(null);
     const [viewingPdf, setViewingPdf]           = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
+    const [reEvaluatingId, setReEvaluatingId]   = useState<string | null>(null);
+
+    async function handleReEvaluate(entregaId: string) {
+        setReEvaluatingId(entregaId);
+        onSetMessage(null);
+        try {
+            // 1. Obtener información de páginas
+            const infoRes = await fetch(`/api/entregas/${entregaId}/pre-revision?action=info`);
+            if (!infoRes.ok) {
+                const errData = await infoRes.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al obtener información del archivo");
+            }
+            const info = await infoRes.json();
+            
+            let textoCompleto = "";
+            if (info.format === "pdf" && info.totalPages > 0) {
+                const totalPages = info.totalPages;
+                const chunkSize = 15;
+                for (let start = 1; start <= totalPages; start += chunkSize) {
+                    const end = Math.min(start + chunkSize - 1, totalPages);
+                    const extractRes = await fetch(
+                        `/api/entregas/${entregaId}/pre-revision?action=extract&start=${start}&end=${end}`
+                    );
+                    if (!extractRes.ok) throw new Error(`Error al extraer texto de páginas ${start}-${end}`);
+                    const extractData = await extractRes.json();
+                    textoCompleto += (extractData.text || "") + "\n";
+                }
+            }
+
+            // 2. Ejecutar POST
+            const res = await fetch(`/api/entregas/${entregaId}/pre-revision`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ textoCompleto })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al re-evaluar la entrega");
+            }
+
+            onSetMessage({ type: "success", text: "✅ Pre-evaluación completada con éxito." });
+            router.refresh();
+        } catch (err: any) {
+            console.error(err);
+            onSetMessage({ type: "error", text: err.message || "Error al conectar con el servidor" });
+        } finally {
+            setReEvaluatingId(null);
+        }
+    }
 
     // ── Estado para la unificación de PDFs (Día Naranja) ──
     const [mergePrefix, setMergePrefix]           = useState(DEFAULT_PREFIX);
@@ -482,41 +532,61 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                                                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                                                     <span>{ent.escuela.cct}</span>
                                                                     {(ent as any).preRevision && (
-                                                                        <span style={{
-                                                                            fontSize: "0.68rem",
-                                                                            padding: "0.05rem 0.3rem",
-                                                                            borderRadius: "4px",
-                                                                            fontWeight: 700,
-                                                                            background: (() => {
-                                                                                const r = (ent as any).preRevision.resultado;
-                                                                                const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
-                                                                                const isError = isAiType && !r.borradorCorreo;
-                                                                                return (r.tieneIncidencias || r.aprobado === false || isError) ? '#fdf2f2' : '#f0fdf4';
-                                                                            })(),
-                                                                            color: (() => {
-                                                                                const r = (ent as any).preRevision.resultado;
-                                                                                const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
-                                                                                const isError = isAiType && !r.borradorCorreo;
-                                                                                return (r.tieneIncidencias || r.aprobado === false || isError) ? '#dc2626' : '#16a34a';
-                                                                            })(),
-                                                                            border: (() => {
-                                                                                const r = (ent as any).preRevision.resultado;
-                                                                                const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
-                                                                                const isError = isAiType && !r.borradorCorreo;
-                                                                                return `1px solid ${(r.tieneIncidencias || r.aprobado === false || isError) ? '#f87171' : '#86efac'}`;
-                                                                            })()
-                                                                        }}>
-                                                                            🔍 Pre-dictamen: {
-                                                                                (() => {
+                                                                        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                                                                            <span style={{
+                                                                                fontSize: "0.68rem",
+                                                                                padding: "0.05rem 0.3rem",
+                                                                                borderRadius: "4px",
+                                                                                fontWeight: 700,
+                                                                                background: (() => {
                                                                                     const r = (ent as any).preRevision.resultado;
                                                                                     const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
-                                                                                    if (isAiType && !r.borradorCorreo) return '⚠️ Error IA (Re-evaluar)';
-                                                                                    if (r.tieneIncidencias) return '⚠️ Con Incidencias';
-                                                                                    if (r.aprobado === false) return '⚠️ Firma/Sello Faltante';
-                                                                                    return '✓ Correcto';
+                                                                                    const isError = isAiType && !r.borradorCorreo;
+                                                                                    return (r.tieneIncidencias || r.aprobado === false || isError) ? '#fdf2f2' : '#f0fdf4';
+                                                                                })(),
+                                                                                color: (() => {
+                                                                                    const r = (ent as any).preRevision.resultado;
+                                                                                    const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
+                                                                                    const isError = isAiType && !r.borradorCorreo;
+                                                                                    return (r.tieneIncidencias || r.aprobado === false || isError) ? '#dc2626' : '#16a34a';
+                                                                                })(),
+                                                                                border: (() => {
+                                                                                    const r = (ent as any).preRevision.resultado;
+                                                                                    const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
+                                                                                    const isError = isAiType && !r.borradorCorreo;
+                                                                                    return `1px solid ${(r.tieneIncidencias || r.aprobado === false || isError) ? '#f87171' : '#86efac'}`;
                                                                                 })()
-                                                                            }
-                                                                        </span>
+                                                                            }}>
+                                                                                🔍 Pre-dictamen: {
+                                                                                    (() => {
+                                                                                        const r = (ent as any).preRevision.resultado;
+                                                                                        const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
+                                                                                        if (isAiType && !r.borradorCorreo) return '⚠️ Error (Re-evaluar)';
+                                                                                        if (r.tieneIncidencias) return '⚠️ Con Incidencias';
+                                                                                        if (r.aprobado === false) return '⚠️ Firma/Sello Faltante';
+                                                                                        return '✓ Correcto';
+                                                                                    })()
+                                                                                }
+                                                                            </span>
+                                                                            {!readOnly && (
+                                                                                <button
+                                                                                    onClick={(e) => { e.preventDefault(); handleReEvaluate(ent.id); }}
+                                                                                    disabled={reEvaluatingId === ent.id}
+                                                                                    style={{
+                                                                                        background: "white", border: "1px solid var(--border)", borderRadius: "4px",
+                                                                                        padding: "2px 4px", display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                                                                        cursor: reEvaluatingId === ent.id ? "not-allowed" : "pointer", color: "var(--primary)"
+                                                                                    }}
+                                                                                    title="Re-evaluar esta entrega individualmente"
+                                                                                >
+                                                                                    {reEvaluatingId === ent.id ? (
+                                                                                        <Loader2 size={10} className="spin" />
+                                                                                    ) : (
+                                                                                        <RefreshCw size={10} />
+                                                                                    )}
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                                 {ent.archivos.length > 0 && (

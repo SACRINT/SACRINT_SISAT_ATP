@@ -708,60 +708,70 @@ Responde únicamente en formato JSON con la siguiente estructura:
                         console.log(`[pre-revision] Using provided pre-extracted text. Characters: ${extractedText.length}`);
                     }
                     
-                    const prompts = obtenerPartesEvaluacion(modulo, templateContent, escuelaNombre, escuelaCct, textoOriginalPMC, extractedText);
-                    const systemInstruction = "Eres un Asesor Técnico Pedagógico (ATP) experto en evaluación y planeación escolar.";
-                    const responseSchema = {
-                        type: "OBJECT",
-                        properties: {
-                            aprobado: { type: "BOOLEAN" },
-                            puntuacion: { type: "STRING" },
-                            observaciones: { type: "STRING" },
-                            estadoRecomendado: { type: "STRING", enum: ["APROBADO", "REQUIERE_CORRECCION"] }
-                        },
-                        required: ["aprobado", "puntuacion", "observaciones", "estadoRecomendado"]
-                    };
+                    if (!extractedText || extractedText.trim().length < 100) {
+                        console.warn(`[pre-revision] Extracted text too short (${extractedText?.length || 0} chars) for delivery ${entregaId}. Generating illegible warning.`);
+                        resultado = {
+                            tipo: modulo,
+                            aprobado: false,
+                            explicacion: "El documento subido no contiene texto extraíble (ilegible, escaneado sin OCR o vacío). Por favor, suba una versión legible o digitalizada directamente.",
+                            borradorCorreo: `# Documento Ilegible o Escaneado sin OCR\n\nEl sistema de validación de la plataforma SISAT-ATP ha detectado que el archivo entregado no contiene texto digital extraíble.\n\n### Posibles causas:\n1. El archivo PDF es una imagen escaneada directamente sin haberle aplicado reconocimiento óptico de caracteres (OCR).\n2. El archivo de Word o PDF está vacío o corrupto.\n\n### ¿Cómo solucionarlo?\nPor favor, genere el documento PDF directamente desde su procesador de textos (ej. Microsoft Word haciendo clic en "Guardar como PDF") y evite escanear la hoja impresa, para que la plataforma pueda validar su contenido de manera automática.`,
+                            tieneIncidencias: true
+                        };
+                    } else {
+                        const prompts = obtenerPartesEvaluacion(modulo, templateContent, escuelaNombre, escuelaCct, textoOriginalPMC, extractedText);
+                        const systemInstruction = "Eres un Asesor Técnico Pedagógico (ATP) experto en evaluación y planeación escolar.";
+                        const responseSchema = {
+                            type: "OBJECT",
+                            properties: {
+                                aprobado: { type: "BOOLEAN" },
+                                puntuacion: { type: "STRING" },
+                                observaciones: { type: "STRING" },
+                                estadoRecomendado: { type: "STRING", enum: ["APROBADO", "REQUIERE_CORRECCION"] }
+                            },
+                            required: ["aprobado", "puntuacion", "observaciones", "estadoRecomendado"]
+                        };
 
-                    console.log(`[pre-revision] Starting multi-part SEQUENTIAL evaluation with Gemini (3 parts)...`);
+                        console.log(`[pre-revision] Starting multi-part SEQUENTIAL evaluation with Gemini (3 parts)...`);
 
-                    // Execute sequentially to avoid exhausting the Gemini API key pool via concurrent 429 rate-limit errors
-                    const results: any[] = [];
-                    for (let idx = 0; idx < prompts.length; idx++) {
-                        const pPrompt = prompts[idx];
-                        let rawRes = "";
-                        if (extractedText) {
-                            console.log(`[pre-revision] Calling Gemini for Part ${idx + 1}/3 with EXTRACTED TEXT (${pPrompt.length} chars).`);
-                            rawRes = await callGemini(systemInstruction, pPrompt, undefined, undefined, responseSchema);
-                        } else {
-                            if (!buffer) {
-                                console.log(`[pre-revision] Downloading file for binary fallback (Part ${idx + 1}): ${file.nombre}...`);
-                                buffer = await downloadFile(file.driveUrl!);
+                        // Execute sequentially to avoid exhausting the Gemini API key pool via concurrent 429 rate-limit errors
+                        const results: any[] = [];
+                        for (let idx = 0; idx < prompts.length; idx++) {
+                            const pPrompt = prompts[idx];
+                            let rawRes = "";
+                            if (extractedText) {
+                                console.log(`[pre-revision] Calling Gemini for Part ${idx + 1}/3 with EXTRACTED TEXT (${pPrompt.length} chars).`);
+                                rawRes = await callGemini(systemInstruction, pPrompt, undefined, undefined, responseSchema);
+                            } else {
+                                if (!buffer) {
+                                    console.log(`[pre-revision] Downloading file for binary fallback (Part ${idx + 1}): ${file.nombre}...`);
+                                    buffer = await downloadFile(file.driveUrl!);
+                                }
+                                console.log(`[pre-revision] Calling Gemini for Part ${idx + 1}/3 with BINARY PDF BUFFER and prompt (${pPrompt.length} chars).`);
+                                rawRes = await callGemini(systemInstruction, pPrompt, buffer, "application/pdf", responseSchema);
                             }
-                            console.log(`[pre-revision] Calling Gemini for Part ${idx + 1}/3 with BINARY PDF BUFFER and prompt (${pPrompt.length} chars).`);
-                            rawRes = await callGemini(systemInstruction, pPrompt, buffer, "application/pdf", responseSchema);
+                            console.log(`[pre-revision] Gemini response for Part ${idx + 1}/3 received. Length: ${rawRes.length} chars.`);
+                            results.push(cleanAndParseGeminiJson(rawRes));
+                            // Small pause between calls to reduce key pool pressure
+                            if (idx < prompts.length - 1) {
+                                await new Promise(resolve => setTimeout(resolve, 800));
+                            }
                         }
-                        console.log(`[pre-revision] Gemini response for Part ${idx + 1}/3 received. Length: ${rawRes.length} chars.`);
-                        results.push(cleanAndParseGeminiJson(rawRes));
-                        // Small pause between calls to reduce key pool pressure
-                        if (idx < prompts.length - 1) {
-                            await new Promise(resolve => setTimeout(resolve, 800));
-                        }
-                    }
 
-                    const [part1, part2, part3] = results;
+                        const [part1, part2, part3] = results;
 
-                    // Combine results
-                    const aprobadoFinal = part1.aprobado && part2.aprobado && part3.aprobado;
-                    const estadoRecomendadoFinal = (part1.estadoRecomendado === "REQUIERE_CORRECCION" || part2.estadoRecomendado === "REQUIERE_CORRECCION" || part3.estadoRecomendado === "REQUIERE_CORRECCION")
-                        ? "REQUIERE_CORRECCION"
-                        : "APROBADO";
+                        // Combine results
+                        const aprobadoFinal = part1.aprobado && part2.aprobado && part3.aprobado;
+                        const estadoRecomendadoFinal = (part1.estadoRecomendado === "REQUIERE_CORRECCION" || part2.estadoRecomendado === "REQUIERE_CORRECCION" || part3.estadoRecomendado === "REQUIERE_CORRECCION")
+                            ? "REQUIERE_CORRECCION"
+                            : "APROBADO";
 
-                    const score1 = parsePercentage(part1.puntuacion || "0%");
-                    const score2 = parsePercentage(part2.puntuacion || "0%");
-                    const score3 = parsePercentage(part3.puntuacion || "0%");
-                    const scoreAvg = Math.round((score1 + score2 + score3) / 3);
-                    const puntuacionFinal = `${scoreAvg}%`;
+                        const score1 = parsePercentage(part1.puntuacion || "0%");
+                        const score2 = parsePercentage(part2.puntuacion || "0%");
+                        const score3 = parsePercentage(part3.puntuacion || "0%");
+                        const scoreAvg = Math.round((score1 + score2 + score3) / 3);
+                        const puntuacionFinal = `${scoreAvg}%`;
 
-                    const observacionesFinal = `# Informe de Pre-Revisión del ${modulo === "INFORME_FINAL" ? "Informe Final del PMC" : modulo === "PAEC" ? "Proyecto Escolar Comunitario (PEC)" : "Plan de Mejora Continua (PMC)"}
+                        const observacionesFinal = `# Informe de Pre-Revisión del ${modulo === "INFORME_FINAL" ? "Informe Final del PMC" : modulo === "PAEC" ? "Proyecto Escolar Comunitario (PEC)" : "Plan de Mejora Continua (PMC)"}
 
 Este informe presenta una evaluación exhaustiva y detallada del documento entregado por el plantel, con base en la rúbrica oficial de la supervisión.
 
@@ -774,13 +784,14 @@ ${part2.observaciones}
 ## III. Plan de Acción / Evidencias y Recomendaciones
 ${part3.observaciones}`;
 
-                    resultado = {
-                        tipo: modulo,
-                        aprobado: aprobadoFinal,
-                        explicacion: `Puntuación obtenida: ${puntuacionFinal}. Ver detalles de observaciones en el panel de control.`,
-                        borradorCorreo: observacionesFinal,
-                        tieneIncidencias: estadoRecomendadoFinal === "REQUIERE_CORRECCION"
-                    };
+                        resultado = {
+                            tipo: modulo,
+                            aprobado: aprobadoFinal,
+                            explicacion: `Puntuación obtenida: ${puntuacionFinal}. Ver detalles de observaciones en el panel de control.`,
+                            borradorCorreo: observacionesFinal,
+                            tieneIncidencias: estadoRecomendadoFinal === "REQUIERE_CORRECCION"
+                        };
+                    }
 
                 } catch (e: any) {
                     console.error(`Error analyzing PMC/PAEC delivery ${entregaId}:`, e);
