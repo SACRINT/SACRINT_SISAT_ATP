@@ -276,8 +276,8 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
             } catch (err) {
                 console.error(`Error in bulk validation of doc ${doc.id}:`, err);
             }
-            // Small sleep to prevent rate limits
-            await new Promise(resolve => setTimeout(resolve, 600));
+            // Small sleep to prevent rate limits (3.5s stagger matches Gemini free tier 15 RPM)
+            await new Promise(resolve => setTimeout(resolve, 3500));
         }
 
         setBulkValidatingPerson(null);
@@ -328,9 +328,10 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
             } catch (err) {
                 console.error(`Error in bulk validation of school doc ${item.docId}:`, err);
             }
-            // Small sleep to prevent rate limits
-            await new Promise(resolve => setTimeout(resolve, 600));
+            // Small sleep to prevent rate limits (3.5s stagger matches Gemini free tier 15 RPM)
+            await new Promise(resolve => setTimeout(resolve, 3500));
         }
+
 
         setBulkValidatingSchool(null);
         setBulkProgressSchool("");

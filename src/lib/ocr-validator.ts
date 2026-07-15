@@ -99,14 +99,6 @@ El tipo de documento que debe ser es: "FICHA_CAPEMS" / "Ficha CAPEMS" con el nom
         return result;
     } catch (err: any) {
         console.error(`[ocr-validator] Error validando registro CAPEMS ${registroId}:`, err);
-        // Marcar con advertencia por error técnico
-        await prisma.capemFichaRegistro.update({
-            where: { id: registroId },
-            data: {
-                validoIA: "ADVERTENCIA",
-                observacionesIA: `Error técnico en análisis automático: ${err.message || err}`
-            }
-        }).catch(() => {});
         throw err;
     }
 }
@@ -160,14 +152,7 @@ El tipo de documento requerido es: "${documento.tipoDocumento}" ${documento.etiq
         return result;
     } catch (err: any) {
         console.error(`[ocr-validator] Error validando documento personal ${documentoId}:`, err);
-        // Marcar con advertencia por error técnico
-        await prisma.documentoPersonal.update({
-            where: { id: documentoId },
-            data: {
-                validoIA: "ADVERTENCIA",
-                observacionesIA: `Error técnico en análisis automático: ${err.message || err}`
-            }
-        }).catch(() => {});
         throw err;
     }
 }
+
