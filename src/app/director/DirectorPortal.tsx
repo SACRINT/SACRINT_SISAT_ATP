@@ -19,6 +19,7 @@ import {
     X as XIcon,
     CheckCircle2,
     Search,
+    Key,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
@@ -31,10 +32,11 @@ import OlimpiadaMatematicas from "./_componentes/OlimpiadaMatematicas";
 import EncuentroPAEC from "./_componentes/EncuentroPAEC";
 import CapemsPanel from "./_componentes/CapemsPanel";
 import ExpedientesPanel from "./_componentes/ExpedientesPanel";
+import AjustesApiPanel from "./_componentes/AjustesApiPanel";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
-type TabType = "entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes";
+type TabType = "entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "configuracion";
 
 export default function DirectorPortal({
     escuela,
@@ -114,6 +116,7 @@ export default function DirectorPortal({
         paec: "Encuentro PAEC",
         capems: "Fichas CAPEMS",
         expedientes: "Expedientes",
+        configuracion: "Ajustes de API",
     };
 
     return (
@@ -309,6 +312,17 @@ export default function DirectorPortal({
                             ))}
                         </div>
                     )}
+                    
+                    {/* Settings section */}
+                    <div style={{ marginTop: "1rem" }}>
+                        <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem" }}>
+                            Ajustes
+                        </div>
+                        <button className={`sidebar-link ${tab === "configuracion" ? "active" : ""}`} onClick={() => navigate("configuracion")}>
+                            <Key size={17} />
+                            <span>Ajustes de API</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Footer */}
@@ -412,6 +426,10 @@ export default function DirectorPortal({
 
                 {tab === "expedientes" && isExpedientesActive && (
                     <ExpedientesPanel escuela={escuela} highlightPersonId={expedientesHighlightId} />
+                )}
+
+                {tab === "configuracion" && (
+                    <AjustesApiPanel escuela={escuela} />
                 )}
             </main>
             <BuscadorGlobal

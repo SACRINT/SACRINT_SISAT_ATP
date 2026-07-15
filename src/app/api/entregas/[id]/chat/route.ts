@@ -140,7 +140,8 @@ Reglas de Comportamiento:
             undefined, // no enviamos binario en el chat en cada mensaje por rendimiento
             "application/pdf",
             undefined, // no forzamos JSON schema en el chat conversacional para mayor soltura
-            false // usar modelo estándar para directores
+            false, // usar modelo estándar para directores
+            entrega.escuelaId
         );
 
         // 6. Guardar los mensajes en la base de datos de manera atómica

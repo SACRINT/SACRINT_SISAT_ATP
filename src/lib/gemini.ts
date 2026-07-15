@@ -19,7 +19,8 @@ export async function callGemini(
     pdfBuffer?: Buffer,
     pdfMimeType: string = "application/pdf",
     responseSchema?: any,
-    usePremiumModel: boolean = false
+    usePremiumModel: boolean = false,
+    escuelaId?: string
 ): Promise<string> {
     // 1. Cargar la configuración actual de IA
     let config = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
@@ -31,6 +32,31 @@ export async function callGemini(
 
     const providerToUse = usePremiumModel ? config.providerPremium : config.providerDefault;
     const modelToUse = usePremiumModel ? config.modelPremium : config.modelDefault;
+
+    // 1.1 Si hay escuelaId y el proveedor es Gemini, verificar si tiene llave propia
+    if (escuelaId && providerToUse === "gemini") {
+        try {
+            const escuela = await prisma.escuela.findUnique({
+                where: { id: escuelaId },
+                select: { geminiApiKey: true }
+            });
+            if (escuela?.geminiApiKey && escuela.geminiApiKey.trim() !== "") {
+                console.log(`[orquestador-ia] Usando la API Key de Gemini personalizada de la escuela (ID: ${escuelaId})`);
+                return await executeRequestWithRetry(
+                    providerToUse,
+                    modelToUse,
+                    escuela.geminiApiKey.trim(),
+                    systemInstruction,
+                    prompt,
+                    pdfBuffer,
+                    pdfMimeType,
+                    responseSchema
+                );
+            }
+        } catch (dbErr) {
+            console.error("[orquestador-ia] Error al buscar API Key de escuela, usando pool general:", dbErr);
+        }
+    }
 
     console.log(`[orquestador-ia] Solicitud de IA. Proveedor: ${providerToUse}, Modelo: ${modelToUse}, Premium: ${usePremiumModel}`);
     // Reactivar automáticamente llaves bloqueadas hace más de 5 minutos

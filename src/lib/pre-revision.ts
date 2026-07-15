@@ -424,7 +424,7 @@ Responde únicamente en formato JSON con la siguiente estructura:
   "explanation": "Breve explicación detallada de lo encontrado (máximo 2 líneas)"
 }`;
 
-                    const rawResponse = await callGemini(systemInstruction, prompt, buffer);
+                    const rawResponse = await callGemini(systemInstruction, prompt, buffer, undefined, undefined, false, entrega.escuelaId);
                     const parsed = JSON.parse(rawResponse);
 
                     reportes.push({
@@ -533,7 +533,7 @@ Responde únicamente en formato JSON con la siguiente estructura:
 }`;
 
                         try {
-                            const rawResponse = await callGemini(systemInstruction, prompt);
+                            const rawResponse = await callGemini(systemInstruction, prompt, undefined, undefined, undefined, false, entrega.escuelaId);
                             const parsed = JSON.parse(rawResponse);
                             borradorCorreo = parsed.email_draft || "";
                         } catch (e) {
@@ -576,7 +576,7 @@ Responde únicamente en formato JSON con la siguiente estructura:
   "explanation": "Breve explicación del análisis visual (máximo 2 líneas)"
 }`;
 
-                    const rawResponse = await callGemini(systemInstruction, prompt, buffer);
+                    const rawResponse = await callGemini(systemInstruction, prompt, buffer, undefined, undefined, false, entrega.escuelaId);
                     const parsed = JSON.parse(rawResponse);
 
                     resultado = {
@@ -740,14 +740,14 @@ Responde únicamente en formato JSON con la siguiente estructura:
                             let rawRes = "";
                             if (extractedText) {
                                 console.log(`[pre-revision] Calling Gemini for Part ${idx + 1}/3 with EXTRACTED TEXT (${pPrompt.length} chars).`);
-                                rawRes = await callGemini(systemInstruction, pPrompt, undefined, undefined, responseSchema);
+                                 rawRes = await callGemini(systemInstruction, pPrompt, undefined, undefined, responseSchema, false, entrega.escuelaId);
                             } else {
                                 if (!buffer) {
                                     console.log(`[pre-revision] Downloading file for binary fallback (Part ${idx + 1}): ${file.nombre}...`);
                                     buffer = await downloadFile(file.driveUrl!);
                                 }
                                 console.log(`[pre-revision] Calling Gemini for Part ${idx + 1}/3 with BINARY PDF BUFFER and prompt (${pPrompt.length} chars).`);
-                                rawRes = await callGemini(systemInstruction, pPrompt, buffer, "application/pdf", responseSchema);
+                                rawRes = await callGemini(systemInstruction, pPrompt, buffer, "application/pdf", responseSchema, false, entrega.escuelaId);
                             }
                             console.log(`[pre-revision] Gemini response for Part ${idx + 1}/3 received. Length: ${rawRes.length} chars.`);
                             results.push(cleanAndParseGeminiJson(rawRes));
