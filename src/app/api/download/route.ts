@@ -53,9 +53,12 @@ function buildSignedUrl(
     format: string,
     resourceType: string
 ): string {
+    // Si es un recurso raw, la extensión ya viene incluida en el publicId.
+    // Pasar format a private_download_url causaría una doble extensión (ej. .docx.docx).
+    const formatToUse = resourceType === "raw" ? "" : format;
     return cloudinary.utils.private_download_url(
         publicId,
-        format,
+        formatToUse,
         {
             resource_type: resourceType as "image" | "raw" | "video",
             type: "upload",

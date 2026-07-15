@@ -784,17 +784,12 @@ ${part3.observaciones}`;
 
                 } catch (e: any) {
                     console.error(`Error analyzing PMC/PAEC delivery ${entregaId}:`, e);
-                    resultado = {
-                        tipo: modulo,
-                        aprobado: false,
-                        explicacion: `Error en análisis automático: ${e.message}`,
-                        tieneIncidencias: true
-                    };
+                    throw e;
                 }
             }
         }
 
-        // Save result in DB
+        // Save result in DB (only executed if no error was thrown)
         if (resultado) {
             await prisma.preRevision.upsert({
                 where: { entregaId },
@@ -811,5 +806,6 @@ ${part3.observaciones}`;
 
     } catch (error) {
         console.error(`Critical error in analizarEntregaConIA for delivery ${entregaId}:`, error);
+        throw error;
     }
 }

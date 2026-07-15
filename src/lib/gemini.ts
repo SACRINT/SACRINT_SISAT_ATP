@@ -167,7 +167,7 @@ export async function callGemini(
         deepseek: "deepseek-chat",
         openai: "gpt-4o-mini",
         claude: "claude-3-5-sonnet-20241022",
-        gemini: "gemini-2.5-flash",
+        gemini: "gemini-2.0-flash",
     };
 
     for (const altProvider of fallbackProviderOrder) {

@@ -490,7 +490,10 @@ export default function AdminDashboard({
                 },
                 body: JSON.stringify({ textoCompleto })
             });
-            if (!res.ok) throw new Error("Error al evaluar con IA");
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al evaluar con IA");
+            }
             const data = await res.json();
             if (data.success && data.resultado) {
                 setCorreccionModal(prev => prev ? { ...prev, preRevision: { resultado: data.resultado } } : null);
