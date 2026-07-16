@@ -340,13 +340,15 @@ export async function downloadFile(url: string): Promise<Buffer> {
                     }
 
                     try {
-                        const signedUrl = cloudinary.utils.private_download_url(id, parsed.format, {
+                        const formatToUse = resType === "raw" ? "" : parsed.format;
+                        const signedUrl = cloudinary.utils.private_download_url(id, formatToUse, {
                             resource_type: resType as "image" | "raw" | "video",
                             type: "upload",
                         });
 
                         console.log(`[pre-revision] Trying to download signed url with resType: ${resType}, id: ${id}`);
-                        const res = await fetch(signedUrl, {
+                        const encodedSignedUrl = encodeURI(signedUrl);
+                        const res = await fetch(encodedSignedUrl, {
                             signal: AbortSignal.timeout(10000)
                         });
                         if (res.ok) {
