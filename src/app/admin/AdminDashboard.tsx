@@ -448,7 +448,6 @@ export default function AdminDashboard({
             setSendingCorreccion(false);
         }
     }
-
     async function handleReEvaluate() {
         if (!correccionModal) return;
         setReEvaluating(true);
@@ -496,12 +495,34 @@ export default function AdminDashboard({
                 throw new Error(errData.error || "Error al realizar la pre-evaluación");
             }
             const data = await res.json();
-            if (data.success && data.resultado) {
-                setCorreccionModal(prev => prev ? { ...prev, preRevision: { resultado: data.resultado } } : null);
-                setMessage({ type: "success", text: "Pre-dictamen generado exitosamente por la IA" });
-                router.refresh();
+            
+            // Iniciar Polling (esperar a que la evaluación en segundo plano se complete)
+            if (data.success) {
+                let attempts = 0;
+                const maxAttempts = 30; // 30 intentos * 3 segundos = 90 segundos máximo
+                while (attempts < maxAttempts) {
+                    attempts++;
+                    setMessage({ 
+                        type: "success", 
+                        text: `Analizando el documento con IA... Por favor espera (reintento ${attempts}/${maxAttempts})` 
+                    });
+                    
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    const pollRes = await fetch(`/api/entregas/${correccionModal.entregaId}/pre-revision`);
+                    if (!pollRes.ok) continue;
+                    
+                    const pollData = await pollRes.json();
+                    if (pollData.evaluacionActual && pollData.resultado && pollData.resultado.tipo) {
+                        setCorreccionModal(prev => prev ? { ...prev, preRevision: { resultado: pollData.resultado } } : null);
+                        setMessage({ type: "success", text: "✅ Pre-dictamen generado exitosamente por la IA" });
+                        router.refresh();
+                        return; // Salir de la función con éxito
+                    }
+                }
+                throw new Error("El análisis de la IA está tomando más tiempo de lo esperado. Por favor, refresca la página en unos momentos.");
             } else {
-                throw new Error("No se pudo obtener el resultado de la evaluación");
+                throw new Error("No se pudo iniciar el análisis de la IA");
             }
         } catch (error: any) {
             setMessage({ type: "error", text: error.message || "Error al conectar con el servidor" });

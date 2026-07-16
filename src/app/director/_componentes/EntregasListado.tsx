@@ -573,7 +573,6 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
             setLoading(false);
         }
     }, [hasUploadedFiles, fetchConfig]);
-
     async function handleReEvaluate() {
         setEvaluating(true);
         setStatusText("Obteniendo información del archivo...");
@@ -617,17 +616,36 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
             }
             
             const resJson = await res.json();
-            if (resJson.success && resJson.resultado) {
-                setData({
-                    resultado: resJson.resultado,
-                    intentosUsados: resJson.intentosUsados,
-                    limiteIntentos: resJson.limiteIntentos,
-                    activoDirectores: resJson.activoDirectores,
-                    evaluacionActual: true
-                });
-                onSetMessage({ type: "success", text: "✅ Autoevaluación preliminar generada con éxito." });
+            
+            // Iniciar Polling (esperar a que la evaluación en segundo plano se complete)
+            if (resJson.success) {
+                let attempts = 0;
+                const maxAttempts = 30; // 30 intentos * 3 segundos = 90 segundos máximo
+                while (attempts < maxAttempts) {
+                    attempts++;
+                    setStatusText(`Analizando el documento preliminarmente con IA... Por favor espera (reintento ${attempts}/${maxAttempts})`);
+                    
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    const pollRes = await fetch(`/api/entregas/${entregaId}/pre-revision`);
+                    if (!pollRes.ok) continue;
+                    
+                    const pollData = await pollRes.json();
+                    if (pollData.evaluacionActual && pollData.resultado && pollData.resultado.tipo) {
+                        setData({
+                            resultado: pollData.resultado,
+                            intentosUsados: pollData.intentosUsados,
+                            limiteIntentos: pollData.limiteIntentos,
+                            activoDirectores: pollData.activoDirectores,
+                            evaluacionActual: true
+                        });
+                        onSetMessage({ type: "success", text: "✅ Autoevaluación preliminar generada con éxito." });
+                        return; // Salir de la función con éxito
+                    }
+                }
+                throw new Error("El análisis de la IA está tomando más tiempo de lo esperado. Por favor, refresca la página en unos momentos.");
             } else {
-                throw new Error("No se pudo obtener el resultado de la evaluación");
+                throw new Error("No se pudo iniciar el análisis de la IA");
             }
         } catch (error: any) {
             onSetMessage({ type: "error", text: error.message || "Error al conectar con el servidor" });

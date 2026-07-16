@@ -199,8 +199,12 @@ export async function POST(
             textoCompleto = body.textoCompleto;
         } catch (_) {}
 
-        await analizarEntregaConIA(id, textoCompleto);
+        // Disparar la pre-evaluación en segundo plano de forma asíncrona para no causar Timeout (504)
+        analizarEntregaConIA(id, textoCompleto).catch(err => {
+            console.error("Error al ejecutar pre-revisión en segundo plano (POST):", err);
+        });
 
+        // Obtener el estado actual (que estará procesándose/limpio)
         const preRevision = await prisma.preRevision.findUnique({
             where: { entregaId: id }
         });
@@ -209,11 +213,12 @@ export async function POST(
 
         return NextResponse.json({
             success: true,
+            processing: true,
             resultado: preRevision?.resultado ?? null,
             intentosUsados: preRevision?.intentosUsados ?? 0,
             limiteIntentos: aiConfig?.limiteIntentos ?? 3,
             activoDirectores: aiConfig?.activoDirectores ?? false,
-            evaluacionActual: true
+            evaluacionActual: false
         });
     } catch (error: any) {
         console.error("POST Pre-revision force error:", error);
