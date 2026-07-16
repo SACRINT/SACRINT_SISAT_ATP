@@ -394,21 +394,23 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                                  fontSize: "0.68rem",
                                                                  padding: "0.05rem 0.3rem",
                                                                  borderRadius: "4px",
-                                                                 fontWeight: 700,
                                                                  background: (() => {
                                                                      const r = (ent as any).preRevision.resultado;
+                                                                     if (!r || !r.tipo) return '#f8fafc';
                                                                      const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
                                                                      const isError = isAiType && !r.borradorCorreo;
                                                                      return (r.tieneIncidencias || r.aprobado === false || isError) ? '#fdf2f2' : '#f0fdf4';
                                                                  })(),
                                                                  color: (() => {
                                                                      const r = (ent as any).preRevision.resultado;
+                                                                     if (!r || !r.tipo) return '#64748b';
                                                                      const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
                                                                      const isError = isAiType && !r.borradorCorreo;
                                                                      return (r.tieneIncidencias || r.aprobado === false || isError) ? '#dc2626' : '#16a34a';
                                                                  })(),
                                                                  border: (() => {
                                                                      const r = (ent as any).preRevision.resultado;
+                                                                     if (!r || !r.tipo) return '1px solid #cbd5e1';
                                                                      const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
                                                                      const isError = isAiType && !r.borradorCorreo;
                                                                      return `1px solid ${(r.tieneIncidencias || r.aprobado === false || isError) ? '#f87171' : '#86efac'}`;
@@ -417,6 +419,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                                  🔍 Pre-dictamen: {
                                                                      (() => {
                                                                          const r = (ent as any).preRevision.resultado;
+                                                                         if (!r || !r.tipo) return 'Pendiente';
                                                                          const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
                                                                          if (isAiType && !r.borradorCorreo) return '⚠️ Error (Re-evaluar)';
                                                                          if (r.tieneIncidencias) return '⚠️ Con Incidencias';

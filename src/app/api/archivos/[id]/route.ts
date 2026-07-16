@@ -58,6 +58,15 @@ export async function DELETE(
         // Delete from database
         await prisma.archivo.delete({ where: { id } });
 
+        // Delete previous pre-revision so that it forces a new clean analysis with remaining files
+        try {
+            await prisma.preRevision.delete({
+                where: { entregaId: archivo.entregaId }
+            });
+        } catch (e) {
+            // Ignore if it didn't exist
+        }
+
         // If no more ENTREGA files, reset entrega status
         const remainingFiles = await prisma.archivo.count({
             where: { entregaId: archivo.entregaId, tipo: "ENTREGA" },

@@ -1168,7 +1168,7 @@ export default function AdminDashboard({
                             )}
 
                             {/* 🔍 Observaciones Preliminares de la Supervisión (IA) */}
-                            {(!correccionModal.preRevision || !correccionModal.preRevision.resultado) ? (
+                            {(!correccionModal.preRevision || !correccionModal.preRevision.resultado || !correccionModal.preRevision.resultado.tipo) ? (
                                 <div style={{
                                     marginBottom: "1rem", padding: "0.75rem", borderRadius: "8px",
                                     border: "1px solid #e2e8f0", background: "#f8fafc", fontSize: "0.8125rem"

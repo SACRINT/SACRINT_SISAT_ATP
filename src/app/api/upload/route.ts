@@ -151,6 +151,15 @@ export async function POST(req: NextRequest) {
             },
         });
 
+        // Delete previous pre-revision so that it goes back to "Not generated" and forces a new clean analysis
+        try {
+            await prisma.preRevision.delete({
+                where: { entregaId }
+            });
+        } catch (e) {
+            // If no previous pre-revision exists, ignore error
+        }
+
         // Enviar acuse de recibo por email
         await sendUploadConfirmation(
             escuela.email,
