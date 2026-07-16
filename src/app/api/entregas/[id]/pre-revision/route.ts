@@ -58,9 +58,14 @@ export async function GET(
             }
             
             // For PDF, download and count pages
-            const buffer = await downloadFile(file.driveUrl!);
-            const resPdf = await extractTextFromPdf(buffer, { start: 1, end: 1 });
-            return NextResponse.json({ format: "pdf", totalPages: resPdf.total });
+            try {
+                const buffer = await downloadFile(file.driveUrl!);
+                const resPdf = await extractTextFromPdf(buffer, { start: 1, end: 1 });
+                return NextResponse.json({ format: "pdf", totalPages: resPdf.total });
+            } catch (err: any) {
+                console.error("[pre-revision] Error in info action:", err);
+                return NextResponse.json({ error: `Error al leer el archivo PDF: ${err.message || err}` }, { status: 400 });
+            }
         }
 
         // ── CHUNKING ACTION: extract ──
@@ -79,9 +84,14 @@ export async function GET(
                 return NextResponse.json({ error: "Archivo principal no encontrado" }, { status: 404 });
             }
             
-            const buffer = await downloadFile(file.driveUrl!);
-            const resPdf = await extractTextFromPdf(buffer, { start, end });
-            return NextResponse.json({ text: resPdf.text });
+            try {
+                const buffer = await downloadFile(file.driveUrl!);
+                const resPdf = await extractTextFromPdf(buffer, { start, end });
+                return NextResponse.json({ text: resPdf.text });
+            } catch (err: any) {
+                console.error("[pre-revision] Error in extract action:", err);
+                return NextResponse.json({ error: `Error al extraer texto: ${err.message || err}` }, { status: 400 });
+            }
         }
 
         // ── DEFAULT ACTION: Get saved pre-revision ──

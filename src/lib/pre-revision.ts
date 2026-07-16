@@ -199,29 +199,38 @@ function obtenerPartesEvaluacion(
     extractedText: string
 ) {
     let partes: { titulo: string; enfoque: string }[] = [];
+    let customTemplateContent = templateContent;
 
     if (modulo === "INFORME_FINAL") {
+        // Rúbrica de evaluación específica para el Informe Final de Cierre,
+        // evitando evaluar el documento como si fuera la planeación de metas iniciales.
+        customTemplateContent = `LINEAMIENTOS DE EVALUACIÓN DE INFORME FINAL (CERRADO):
+1. Estructura y Coherencia General: Verificar que se presenten las secciones de cierre (resultados por categoría, evidencias, autoevaluación, firmas/sellos). Comparar los resultados con las metas originales planeadas.
+2. Evaluación de Resultados y Justificación de Metas Inconclusas: Evaluar el grado de cumplimiento reportado y si las metas que no se cumplieron al 100% cuentan con justificaciones válidas, razonables y reflexivas sobre las dificultades enfrentadas.
+3. Evidencias de Cumplimiento: Evaluar que las evidencias reportadas (como actas, oficios, convenios, reportes de vinculación) sean válidas, legibles y demuestren el cumplimiento real y el impacto, no simples listas vacías ni fotografías sin descripción.
+4. Recomendaciones Finales: Evaluar las propuestas de mejora sugeridas para el próximo ciclo escolar.`;
+
         partes = [
             {
                 titulo: "Sección I: Coherencia General con el PMC Planeado y Diagnóstico de Resultados",
-                enfoque: `Analiza la estructura general del Informe Final de PMC de la escuela ${escuelaNombre} (${escuelaCct}) en comparación con el PMC planeado originalmente:
-1. Compara si el Informe Final aborda las mismas prioridades, objetivos y metas que se establecieron en el PMC original.
-2. Evalúa si el diagnóstico de resultados al final del ciclo escolar refleja con veracidad los logros y retrocesos del plantel.
-3. Evalúa si se incluyeron todas las secciones requeridas.`
+                enfoque: `Analiza la estructura del Informe Final de PMC de la escuela ${escuelaNombre} (${escuelaCct}) en comparación con el PMC planeado originalmente:
+1. Compara si el Informe Final aborda las mismas categorías, prioridades y metas que se planearon en el PMC original.
+2. Evalúa si el diagnóstico final describe adecuadamente los avances y resultados del ciclo escolar terminado.
+3. Comprueba si el documento cuenta con todas las secciones de cierre requeridas.`
             },
             {
-                titulo: "Sección II: Evaluación de Metas y Justificación de Desviaciones",
-                enfoque: `Analiza a detalle las metas del Informe Final de PMC de la escuela ${escuelaNombre} (${escuelaCct}):
-1. Evalúa cuáles metas se cumplieron y cuáles quedaron inconclusas o no se cumplieron.
-2. Examina minuciosamente si las justificaciones presentadas para las metas no cumplidas son válidas, sólidas y orientadas a la mejora futura, o si son simples evasivas.
-3. Comprueba si el porcentaje de cumplimiento reportado es congruente con la realidad descrita.`
+                titulo: "Sección II: Evaluación de Resultados y Justificación de Metas Inconclusas",
+                enfoque: `Analiza a detalle las metas y resultados del Informe Final:
+1. Evalúa el estado de cumplimiento reportado para cada meta.
+2. Examina minuciosamente si las justificaciones presentadas para las metas no cumplidas al 100% son válidas, sólidas y proponen acciones de mejora para el futuro.
+3. Comprueba la coherencia interna de los resultados con el reporte de avances.`
             },
             {
                 titulo: "Sección III: Análisis de Evidencias, Impacto y Recomendaciones Finales",
-                enfoque: `Analiza las evidencias y el impacto reportado en el Informe Final de PMC de la escuela ${escuelaNombre} (${escuelaCct}):
-1. Evalúa si las evidencias presentadas (ej. reportes, listas, ligas a fotografías) son suficientes, idóneas y demuestran el cumplimiento real de las metas.
-2. Identifica el impacto general logrado en el plantel y la comunidad escolar.
-3. Genera conclusiones claras y recomendaciones específicas para el próximo ciclo escolar.`
+                enfoque: `Analiza las evidencias y el impacto final del plantel:
+1. Evalúa si las evidencias entregadas (reportes, convenios, oficios, constancias) demuestran documentalmente el cumplimiento efectivo de las metas.
+2. Determina si las evidencias son de carácter analítico y de calidad, o si son meros registros de asistencia y fotos sin contexto.
+3. Genera conclusiones claras y recomendaciones específicas de mejora para planear el siguiente ciclo escolar.`
             }
         ];
     } else if (modulo === "PAEC") {
@@ -243,7 +252,7 @@ function obtenerPartesEvaluacion(
             {
                 titulo: "Sección III: Plan de Acción, Responsabilidades y Evaluación (PAEC)",
                 enfoque: `Analiza el Plan de Acción del Proyecto Escolar Comunitario (PEC/PAEC) de la escuela ${escuelaNombre} (${escuelaCct}):
-1. Revisa las acciones planteadas: si son viables, lógicas, calendarizadas y con responsables definidos.
+1. Revisa las acciones planteadas: si son viables, lógicas, calendarizadas and con responsables definidos.
 2. Evalúa las evidencias de cumplimiento propuestas y los indicadores de evaluación.
 3. Genera recomendaciones y observaciones de mejora específicas.`
             }
@@ -277,11 +286,16 @@ function obtenerPartesEvaluacion(
     return partes.map((parte, index) => {
         let p = `A continuación se presenta el prompt maestro de evaluación oficial que define los lineamientos y rúbricas a evaluar:
 ---
-${templateContent}
+${customTemplateContent}
 ---
 
 Evalúa el documento entregado por el plantel: ${escuelaNombre} (${escuelaCct}).
 Esta es la PARTE ${index + 1} de la evaluación, enfocada en: **${parte.titulo}**.
+
+¡ADVERTENCIA CRÍTICA PARA EL EVALUADOR!:
+El documento entregado es un INFORME FINAL (cierre de ciclo). Reporta RESULTADOS PASADOS y no planes futuros.
+NO debes criticar que las metas ya estén ejecutadas ni exigir que se formulen metas SMART a futuro dentro de este informe.
+Tu tarea es valorar exclusivamente el nivel de logro de los resultados, si las desviaciones están bien justificadas y si las evidencias reportadas demuestran el cumplimiento real.
 
 Pautas específicas para esta parte:
 ${parte.enfoque}`;
@@ -348,8 +362,7 @@ export async function downloadFile(url: string): Promise<Buffer> {
                         });
 
                         console.log(`[pre-revision] Trying to download signed url with resType: ${resType}, id: ${id}`);
-                        const encodedSignedUrl = encodeURI(signedUrl);
-                        const res = await fetch(encodedSignedUrl, {
+                        const res = await fetch(signedUrl, {
                             signal: AbortSignal.timeout(10000)
                         });
                         if (res.ok) {
