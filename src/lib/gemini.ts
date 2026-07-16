@@ -364,7 +364,7 @@ async function callGeminiNative(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(55000), // 55s timeout: fail fast before Vercel's 120s function limit
+        signal: AbortSignal.timeout(15000), // 15s timeout: fail fast to allow pool rotation within Vercel's 60s limit
     });
 
     if (!res.ok) {
@@ -423,7 +423,7 @@ async function callOpenAiCompatible(
         method: "POST",
         headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(55000), // 55s timeout
+        signal: AbortSignal.timeout(15000), // 15s timeout
     });
 
     if (!res.ok) {
@@ -488,7 +488,7 @@ async function callClaudeNative(
             "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(55000), // 55s timeout
+        signal: AbortSignal.timeout(15000), // 15s timeout
     });
 
     if (!res.ok) {

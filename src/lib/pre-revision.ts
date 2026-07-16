@@ -322,9 +322,9 @@ export async function downloadFile(url: string): Promise<Buffer> {
             const parsed = parseCloudinaryUrl(url);
             if (parsed) {
                 cloudinary.config({
-                    cloud_name: process.env.CLDIN_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME,
-                    api_key: process.env.CLDIN_API_KEY || process.env.CLOUDINARY_API_KEY,
-                    api_secret: process.env.CLDIN_API_SECRET || process.env.CLOUDINARY_API_SECRET,
+                    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                    api_key: process.env.CLOUDINARY_API_KEY,
+                    api_secret: process.env.CLOUDINARY_API_SECRET,
                     secure: true,
                 });
 
@@ -371,7 +371,13 @@ export async function downloadFile(url: string): Promise<Buffer> {
 
     // --- SEGUNDA LÍNEA DE DEFENSA: Proxy Local (robusto y validado en producción) ---
     try {
-        const localProxyUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/download?url=${encodeURIComponent(url)}`;
+        let baseUrl = "http://localhost:3000";
+        if (process.env.VERCEL_URL) {
+            baseUrl = `https://${process.env.VERCEL_URL}`;
+        } else if (process.env.NEXTAUTH_URL) {
+            baseUrl = process.env.NEXTAUTH_URL;
+        }
+        const localProxyUrl = `${baseUrl}/api/download?url=${encodeURIComponent(url)}`;
         console.log(`[pre-revision] Attempting fallback download via local proxy: ${localProxyUrl}`);
         const res = await fetch(localProxyUrl, {
             signal: AbortSignal.timeout(15000),
