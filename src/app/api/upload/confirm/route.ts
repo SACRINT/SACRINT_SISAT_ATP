@@ -85,13 +85,13 @@ export async function POST(req: NextRequest) {
             periodoLabel = `Semestre ${periodo.semestre}`;
         }
 
-        // Enviar acuse de recibo por email
-        await sendUploadConfirmation(
+        // Enviar acuse de recibo por email en segundo plano (evita timeouts)
+        sendUploadConfirmation(
             escuela.email,
             escuela.nombre,
             programa.nombre,
             periodoLabel
-        );
+        ).catch(err => console.error("Error al enviar confirmación de correo:", err));
 
         // Ejecutar pre-revisión respetando la configuración y límites de IA si es director
         if (userRole === "director") {
@@ -112,11 +112,10 @@ export async function POST(req: NextRequest) {
                     });
 
                     console.log(`[confirm] AI triggered for director (${currentAttempts + 1}/${limit})`);
-                    try {
-                        await analizarEntregaConIA(entregaId);
-                    } catch (err) {
-                        console.error("Error al ejecutar pre-revisión:", err);
-                    }
+                    // Disparar en segundo plano para evitar timeouts de Vercel (Hobby limits)
+                    analizarEntregaConIA(entregaId).catch(err => {
+                        console.error("Error al ejecutar pre-revisión en segundo plano:", err);
+                    });
                 } else {
                     console.log(`[confirm] AI skipped: director exceeded quota (${currentAttempts}/${limit})`);
                 }
@@ -126,11 +125,10 @@ export async function POST(req: NextRequest) {
         } else {
             // Carga por ATP/Admin: siempre evalúa de manera ilimitada
             console.log(`[confirm] AI triggered for ATP (unlimited)`);
-            try {
-                await analizarEntregaConIA(entregaId);
-            } catch (err) {
-                console.error("Error al ejecutar pre-revisión:", err);
-            }
+            // Disparar en segundo plano para evitar timeouts de Vercel
+            analizarEntregaConIA(entregaId).catch(err => {
+                console.error("Error al ejecutar pre-revisión en segundo plano:", err);
+            });
         }
 
         return NextResponse.json({

@@ -344,6 +344,7 @@ export async function downloadFile(url: string): Promise<Buffer> {
                         const signedUrl = cloudinary.utils.private_download_url(id, formatToUse, {
                             resource_type: resType as "image" | "raw" | "video",
                             type: "upload",
+                            attachment: true, // Paridad total con /api/download
                         });
 
                         console.log(`[pre-revision] Trying to download signed url with resType: ${resType}, id: ${id}`);
@@ -366,6 +367,25 @@ export async function downloadFile(url: string): Promise<Buffer> {
         } catch (e: any) {
             console.error("[pre-revision] Error generating signed Cloudinary URL:", e);
         }
+    }
+
+    // --- SEGUNDA LÍNEA DE DEFENSA: Proxy Local (robusto y validado en producción) ---
+    try {
+        const localProxyUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/download?url=${encodeURIComponent(url)}`;
+        console.log(`[pre-revision] Attempting fallback download via local proxy: ${localProxyUrl}`);
+        const res = await fetch(localProxyUrl, {
+            signal: AbortSignal.timeout(15000),
+            headers: { "User-Agent": "SISAT-ATP/1.0" }
+        });
+        if (res.ok) {
+            console.log(`[pre-revision] Local proxy download success!`);
+            const arrayBuffer = await res.arrayBuffer();
+            return Buffer.from(arrayBuffer);
+        } else {
+            console.warn(`[pre-revision] Local proxy download failed with status: ${res.status}`);
+        }
+    } catch (proxyErr) {
+        console.warn(`[pre-revision] Error calling local proxy download:`, proxyErr);
     }
 
     console.log(`[pre-revision] Falling back to direct fetch for URL: ${url}`);
