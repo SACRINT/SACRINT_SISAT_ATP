@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadFileToCloudinary } from "@/lib/cloudinary";
 import crypto from "crypto";
-import { GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
                 const aiKey = apiKeyRecord?.key || process.env.GEMINI_API_KEY;
                 
                 if (aiKey) {
-                    const ai = new GoogleGenerativeAI({ apiKey: aiKey });
+                    const ai = new GoogleGenAI({ apiKey: aiKey });
                     const prompt = `
 Eres un asistente para el sistema SISAT-ATP.
 A continuación te proporciono el texto extraído de una plantilla de documento Word (Constancia, Oficio, etc.).
