@@ -79,6 +79,8 @@ export async function POST(req: NextRequest) {
         const formData = await req.formData();
         const file = formData.get("file") as File;
         const nombre = formData.get("nombre") as string;
+        const tiposDestinatarioRaw = formData.get("tiposDestinatario") as string | null;
+        const tiposDestinatario: string[] = tiposDestinatarioRaw ? JSON.parse(tiposDestinatarioRaw) : ["DIRECTOR"];
 
         if (!file || !nombre) {
             return NextResponse.json({ error: "Faltan datos requeridos (file, nombre)" }, { status: 400 });
@@ -204,7 +206,8 @@ ${extractedText.substring(0, 8000)}`;
                 archivoDriveUrl: url,
                 hash,
                 estado: "NUEVA",
-                configuracionCampos: camposDetectados
+                configuracionCampos: camposDetectados,
+                tiposDestinatario,
             }
         });
 

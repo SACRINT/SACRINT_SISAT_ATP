@@ -95,7 +95,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     try {
         const body = await req.json();
-        const { configuracionCampos, estado } = body;
+        const { configuracionCampos, estado, tiposDestinatario } = body;
 
         const plantillaActual = await prisma.plantillaDocumento.findUnique({ where: { id } });
         if (!plantillaActual) {
@@ -158,6 +158,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 estado: estado || "CONFIGURADA",
                 archivoDriveId: nuevoDriveId,
                 archivoDriveUrl: nuevaUrl,
+                ...(tiposDestinatario !== undefined && { tiposDestinatario }),
             }
         });
 

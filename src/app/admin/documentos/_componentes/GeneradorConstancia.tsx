@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import dayjs from "dayjs";
 
-type Plantilla = { id: string; nombre: string; estado: string; configuracionCampos: any[] };
+type Plantilla = { id: string; nombre: string; estado: string; configuracionCampos: any[]; tiposDestinatario: string[] };
 type Escuela = { id: string; cct: string; nombre: string; localidad: string; municipio: string; directorTexto: string; expediente: any; personal?: any[] };
 
 export default function GeneradorConstancia() {
@@ -179,58 +179,92 @@ export default function GeneradorConstancia() {
 
     const plantillaInfo = plantillas.find(p => p.id === plantillaSeleccionada);
 
+    // Filtrar plantillas según el tipo de destinatario seleccionado
+    const plantillasFiltradas = plantillas.filter(p =>
+        !p.tiposDestinatario || p.tiposDestinatario.length === 0 || p.tiposDestinatario.includes(tipoDestinatario)
+    );
+
     return (
         <div style={{ maxWidth: "800px" }}>
             <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "1.5rem", color: "var(--text)" }}>Generador de Documentos</h2>
-            
+
+            {/* ── Paso 1: Tipo de Destinatario ── */}
+            <div style={{ marginBottom: "1.5rem", padding: "1.25rem", background: "var(--bg-secondary, #f8fafc)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Paso 1 — ¿Para quién es la constancia?
+                </label>
+                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                    {[
+                        { valor: "DIRECTOR", etiqueta: "👤 Director(a) de Escuela" },
+                        { valor: "PERSONAL", etiqueta: "📋 Personal de Escuela" },
+                        { valor: "ATP",      etiqueta: "🧑‍🏫 ATP (Zona)" },
+                    ].map(({ valor, etiqueta }) => {
+                        const activo = tipoDestinatario === valor;
+                        return (
+                            <button
+                                key={valor}
+                                type="button"
+                                onClick={() => {
+                                    setTipoDestinatario(valor as any);
+                                    setPlantillaSeleccionada("");
+                                    setEscuelaSeleccionada("");
+                                    setPersonalSeleccionado("");
+                                    setAtpSeleccionado("");
+                                }}
+                                style={{
+                                    padding: "0.625rem 1.125rem",
+                                    border: `2px solid ${activo ? "var(--primary)" : "var(--border)"}`,
+                                    borderRadius: "8px", cursor: "pointer",
+                                    background: activo ? "var(--primary)" : "var(--surface)",
+                                    color: activo ? "white" : "var(--text-secondary)",
+                                    fontWeight: activo ? 700 : 400,
+                                    fontSize: "0.875rem",
+                                    transition: "all 0.15s ease",
+                                }}
+                            >
+                                {etiqueta}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
-                <div>
+                {/* ── Paso 2: Plantilla (filtrada por tipo) ── */}
+                <div style={{ gridColumn: "1 / -1" }}>
                     <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
-                        Seleccionar Documento (Plantilla)
+                        Paso 2 — Seleccionar Documento (Plantilla)
                     </label>
-                    <select 
-                        className="form-control"
-                        value={plantillaSeleccionada} 
-                        onChange={(e) => setPlantillaSeleccionada(e.target.value)}
-                    >
-                        <option value="">-- Selecciona --</option>
-                        {plantillas.map(p => (
-                            <option key={p.id} value={p.id}>{p.nombre}</option>
-                        ))}
-                    </select>
+                    {plantillasFiltradas.length === 0 ? (
+                        <div style={{ padding: "0.75rem", background: "var(--warning-bg, #fffbeb)", border: "1px solid var(--warning, #f59e0b)", borderRadius: "8px", color: "var(--warning-text, #b45309)", fontSize: "0.875rem" }}>
+                            ⚠️ No hay plantillas configuradas para <strong>{tipoDestinatario}</strong>. Sube una en la pestaña <strong>Gestión de Plantillas</strong> y asígnale este tipo.
+                        </div>
+                    ) : (
+                        <select
+                            className="form-control"
+                            value={plantillaSeleccionada}
+                            onChange={(e) => setPlantillaSeleccionada(e.target.value)}
+                        >
+                            <option value="">-- Selecciona una plantilla --</option>
+                            {plantillasFiltradas.map(p => (
+                                <option key={p.id} value={p.id}>{p.nombre}</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
-                <div>
-                    <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
-                        Tipo de Destinatario
-                    </label>
-                    <select 
-                        className="form-control"
-                        value={tipoDestinatario} 
-                        onChange={(e: any) => {
-                            setTipoDestinatario(e.target.value);
-                            setEscuelaSeleccionada("");
-                            setPersonalSeleccionado("");
-                            setAtpSeleccionado("");
-                        }}
-                    >
-                        <option value="DIRECTOR">Director(a) de Escuela</option>
-                        <option value="PERSONAL">Personal de Escuela</option>
-                        <option value="ATP">Asesor Técnico Pedagógico (ATP)</option>
-                    </select>
-                </div>
-
+                {/* ── Paso 3: Selección de persona ── */}
                 {(tipoDestinatario === "DIRECTOR" || tipoDestinatario === "PERSONAL") && (
                     <div>
                         <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
-                            Seleccionar Escuela / Centro de Trabajo
+                            Paso 3 — Seleccionar Escuela / Centro de Trabajo
                         </label>
-                        <select 
+                        <select
                             className="form-control"
-                            value={escuelaSeleccionada} 
+                            value={escuelaSeleccionada}
                             onChange={(e) => {
                                 setEscuelaSeleccionada(e.target.value);
-                                setPersonalSeleccionado(""); 
+                                setPersonalSeleccionado("");
                             }}
                             disabled={!plantillaSeleccionada}
                         >
@@ -247,9 +281,9 @@ export default function GeneradorConstancia() {
                         <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
                             Seleccionar Personal
                         </label>
-                        <select 
+                        <select
                             className="form-control"
-                            value={personalSeleccionado} 
+                            value={personalSeleccionado}
                             onChange={(e) => setPersonalSeleccionado(e.target.value)}
                         >
                             <option value="">-- Selecciona --</option>
@@ -265,9 +299,9 @@ export default function GeneradorConstancia() {
                         <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
                             Seleccionar ATP
                         </label>
-                        <select 
+                        <select
                             className="form-control"
-                            value={atpSeleccionado} 
+                            value={atpSeleccionado}
                             onChange={(e) => setAtpSeleccionado(e.target.value)}
                             disabled={!plantillaSeleccionada || !autoridades}
                         >

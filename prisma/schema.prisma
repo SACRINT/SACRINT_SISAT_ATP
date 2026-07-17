@@ -537,18 +537,19 @@ model DirectorExpediente {
 }
 
 model PlantillaDocumento {
-  id                 String   @id @default(cuid())
-  nombre             String   // Ej. "Constancia de No Adeudo 2025"
-  archivoNombre      String   // Nombre del docx original
-  archivoDriveId     String   // Cloudinary public_id
-  archivoDriveUrl    String   // Cloudinary URL
-  hash               String   // Para detectar subidas del mismo archivo
-  estado             String   @default("NUEVA") // NUEVA | CONFIGURADA
-  configuracionCampos Json?   // Mapeo detectado por IA y aprobado por Admin
-  
+  id                  String   @id @default(cuid())
+  nombre              String   // Ej. "Constancia de No Adeudo 2025"
+  archivoNombre       String   // Nombre del docx original
+  archivoDriveId      String   // Cloudinary public_id
+  archivoDriveUrl     String   // Cloudinary URL
+  hash                String   // Para detectar subidas del mismo archivo
+  estado              String   @default("NUEVA") // NUEVA | CONFIGURADA
+  configuracionCampos Json?    // Mapeo detectado por IA y aprobado por Admin
+  tiposDestinatario   String[] @default([]) // ["DIRECTOR","ATP","PERSONAL"]
+
   documentosGenerados DocumentoAdministrativo[]
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model DocumentoAdministrativo {

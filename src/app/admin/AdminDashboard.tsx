@@ -1068,7 +1068,8 @@ export default function AdminDashboard({
                                 zonaEscolar: e.zonaEscolar,
                                 director: e.director ?? null,
                                 email: e.email ?? null,
-                                ultimoIngreso: e.ultimoIngreso ?? null
+                                ultimoIngreso: e.ultimoIngreso ?? null,
+                                directorExpediente: e.directorExpediente ?? null,
                             }))}
                             readOnly={!hasAccess("escuelas", "write")}
                         />

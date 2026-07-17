@@ -58,6 +58,13 @@ export interface EscuelaAdmin {
     director?: string | null;
     email?: string | null;
     ultimoIngreso?: string | Date | null;
+    directorExpediente?: {
+        id?: string;
+        rfc?: string | null;
+        curp?: string | null;
+        clavePresupuestal?: string | null;
+        fechaIngreso?: Date | string | null;
+    } | null;
     total: number;
     entregas: {
         id: string;
