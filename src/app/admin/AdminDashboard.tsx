@@ -185,6 +185,7 @@ export default function AdminDashboard({
     };
     const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas">("programas");
     const [searchTermAvance, setSearchTermAvance] = useState("");
+    // Modal state for evaluation (Admin)
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null>(null);
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
@@ -514,7 +515,7 @@ export default function AdminDashboard({
                     
                     const pollData = await pollRes.json();
                     if (pollData.evaluacionActual && pollData.resultado && pollData.resultado.tipo) {
-                        setCorreccionModal(prev => prev ? { ...prev, preRevision: { resultado: pollData.resultado } } : null);
+                        setCorreccionModal(prev => prev ? { ...prev, preRevision: { resultado: pollData.resultado, intentosUsados: pollData.intentosUsados, updatedAt: pollData.updatedAt } } : null);
                         setMessage({ type: "success", text: "✅ Pre-dictamen generado exitosamente por la IA" });
                         router.refresh();
                         return; // Salir de la función con éxito
@@ -1381,7 +1382,10 @@ export default function AdminDashboard({
                                                     
                                                     <div style={{ marginTop: "0.5rem" }}>
                                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
-                                                            <span style={{ fontWeight: 600, color: "var(--text-muted)" }}>📝 Retroalimentación Generada:</span>
+                                                            <span style={{ fontWeight: 600, color: "var(--text-muted)" }}>
+                                                                📝 Retroalimentación Generada
+                                                                {correccionModal.preRevision?.updatedAt && ` (${new Date(correccionModal.preRevision.updatedAt).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })})`}:
+                                                            </span>
                                                             <div style={{ display: "flex", gap: "0.375rem" }}>
                                                                 <button
                                                                     onClick={(e) => {

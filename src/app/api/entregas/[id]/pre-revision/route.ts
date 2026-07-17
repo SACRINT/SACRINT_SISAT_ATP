@@ -115,7 +115,8 @@ export async function GET(
             intentosUsados: preRevision ? preRevision.intentosUsados : 0,
             limiteIntentos: aiConfig?.limiteIntentos ?? 3,
             activoDirectores: aiConfig?.activoDirectores ?? false,
-            evaluacionActual: tieneEvaluacionActual
+            evaluacionActual: tieneEvaluacionActual,
+            updatedAt: preRevision ? preRevision.updatedAt : null
         });
     } catch (error: unknown) {
         console.error("GET Pre-revision error:", error);

@@ -540,6 +540,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
         limiteIntentos: number;
         activoDirectores: boolean;
         evaluacionActual?: boolean;
+        updatedAt?: string;
     } | null>(null);
     const [loading, setLoading] = useState(true);
     const [evaluating, setEvaluating] = useState(false);
@@ -637,8 +638,10 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                             intentosUsados: pollData.intentosUsados,
                             limiteIntentos: pollData.limiteIntentos,
                             activoDirectores: pollData.activoDirectores,
-                            evaluacionActual: true
+                            evaluacionActual: true,
+                            updatedAt: pollData.updatedAt
                         });
+                        setEvaluating(false);
                         onSetMessage({ type: "success", text: "✅ Autoevaluación preliminar generada con éxito." });
                         return; // Salir de la función con éxito
                     }
@@ -720,6 +723,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                         }}
                     >
                         {showDetails ? "Ocultar observaciones preliminares" : "Ver observaciones preliminares"}
+                        {data?.updatedAt && ` (${new Date(data.updatedAt).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })})`}
                     </button>
 
                     {showDetails && (
