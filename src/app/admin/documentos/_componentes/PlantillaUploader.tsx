@@ -267,7 +267,7 @@ export default function PlantillaUploader() {
                         </div>
 
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
-                            <button onClick={() => { setPlantillaRevisar(null); setConfigurandoCampos(false); }} style={{ padding: "0.5rem 1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
+                            <button onClick={() => setPlantillaRevisar(null)} style={{ padding: "0.5rem 1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
                             <button onClick={confirmarMapeo} style={{ padding: "0.5rem 1rem", background: "var(--success, #16a34a)", color: "white", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontWeight: 600 }}>Guardar y Confirmar</button>
                         </div>
                     </div>
