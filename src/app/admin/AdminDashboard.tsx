@@ -1070,6 +1070,7 @@ export default function AdminDashboard({
                                 email: e.email ?? null,
                                 ultimoIngreso: e.ultimoIngreso ?? null,
                                 directorExpediente: e.directorExpediente ?? null,
+                                personal: e.personal ?? [],
                             }))}
                             readOnly={!hasAccess("escuelas", "write")}
                         />

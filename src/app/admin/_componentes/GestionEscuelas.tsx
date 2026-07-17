@@ -21,6 +21,15 @@ type Escuela = {
         clavePresupuestal?: string | null;
         fechaIngreso?: Date | string | null;
     } | null;
+    // Personal con cargo RESPONSABLE para cruzar datos del director
+    personal?: {
+        curp?: string | null;
+        rfc?: string | null;
+        clavePresupuestal?: string | null;
+        fechaIngreso?: Date | string | null;
+        telefono?: string | null;
+        correoElectronico?: string | null;
+    }[];
 };
 
 export default function GestionEscuelas({ inicialEscuelas, programas, readOnly = false }: { inicialEscuelas: Escuela[], programas: ProgramaAdmin[], readOnly?: boolean }) {
@@ -64,6 +73,16 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         if (id) {
             const esc = escuelas.find(sc => sc.id === id);
             if (esc) {
+                // Cruzar directorExpediente con el Personal RESPONSABLE.
+                // directorExpediente tiene prioridad; se usa personal[0] para llenar huecos.
+                const responsable = esc.personal?.[0] ?? null;
+                const exp = esc.directorExpediente;
+
+                const getRFC              = exp?.rfc              || responsable?.rfc              || "";
+                const getCURP             = exp?.curp             || responsable?.curp             || "";
+                const getClavePresup      = exp?.clavePresupuestal|| responsable?.clavePresupuestal|| "";
+                const getFechaIngreso     = exp?.fechaIngreso     || responsable?.fechaIngreso     || null;
+
                 setFormData({
                     cct: esc.cct,
                     nombre: esc.nombre,
@@ -73,10 +92,10 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     director: esc.director || "",
                     email: esc.email || "",
                     password: "",
-                    rfc: esc.directorExpediente?.rfc || "",
-                    curp: esc.directorExpediente?.curp || "",
-                    clavePresupuestal: esc.directorExpediente?.clavePresupuestal || "",
-                    fechaIngreso: esc.directorExpediente?.fechaIngreso ? new Date(esc.directorExpediente.fechaIngreso).toISOString().split('T')[0] : "",
+                    rfc: getRFC,
+                    curp: getCURP,
+                    clavePresupuestal: getClavePresup,
+                    fechaIngreso: getFechaIngreso ? new Date(getFechaIngreso).toISOString().split('T')[0] : "",
                 });
 
                 // Fetch configuraciones

@@ -65,6 +65,19 @@ export interface EscuelaAdmin {
         clavePresupuestal?: string | null;
         fechaIngreso?: Date | string | null;
     } | null;
+    // Personal con cargo RESPONSABLE (el director lo captura en Expedientes)
+    personal?: {
+        id: string;
+        nombre: string;
+        apellidoPaterno: string;
+        apellidoMaterno: string;
+        curp?: string | null;
+        rfc?: string | null;
+        clavePresupuestal?: string | null;
+        fechaIngreso?: Date | string | null;
+        telefono?: string | null;
+        correoElectronico?: string | null;
+    }[];
     total: number;
     entregas: {
         id: string;

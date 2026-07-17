@@ -64,6 +64,23 @@ export default async function AdminPage() {
             total: true,
             ultimoIngreso: true,
             directorExpediente: true,
+            // Incluir el personal con cargo RESPONSABLE para cruzar datos del director
+            personal: {
+                where: { cargo: "RESPONSABLE" },
+                select: {
+                    id: true,
+                    nombre: true,
+                    apellidoPaterno: true,
+                    apellidoMaterno: true,
+                    curp: true,
+                    rfc: true,
+                    clavePresupuestal: true,
+                    fechaIngreso: true,
+                    telefono: true,
+                    correoElectronico: true,
+                },
+                take: 1,
+            },
             entregas: {
                 where: {
                     periodoEntrega: { cicloEscolarId: ciclo.id, activo: true },
