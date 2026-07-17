@@ -329,6 +329,16 @@ model AdminSidebarConfig {
   showExpedientes Boolean @default(true)
 }
 
+// ─── Autoridades Educativas (Constancias) ────────
+
+model AutoridadesConfig {
+  id                  String @id @default("singleton")
+  supervisor          String @default("C. SUPERVISOR(A)")
+  coordinadorRegional String @default("C. COORDINADOR(A) REGIONAL")
+  directorNivel       String @default("C. DIRECTOR(A) DEL NIVEL")
+  atp                 String @default("C. ASESOR(A) TÉCNICO PEDAGÓGICO")
+}
+
 // ─── CAPEMS ─────────────────────────────────────────
 
 model Ficha {

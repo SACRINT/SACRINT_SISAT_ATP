@@ -3,6 +3,7 @@
 import { useState } from "react";
 import PlantillaUploader from "./_componentes/PlantillaUploader";
 import GeneradorConstancia from "./_componentes/GeneradorConstancia";
+import AutoridadesConfigPanel from "./_componentes/AutoridadesConfigPanel";
 
 export default function DocumentosAdministrativosPage() {
     const [activeTab, setActiveTab] = useState("generar");
@@ -35,11 +36,22 @@ export default function DocumentosAdministrativosPage() {
                 >
                     Gestión de Plantillas
                 </button>
+                <button
+                    onClick={() => setActiveTab("autoridades")}
+                    className={`py-2 px-4 font-semibold text-sm transition-colors ${
+                        activeTab === "autoridades"
+                            ? "border-b-2 border-blue-600 text-blue-600"
+                            : "text-gray-500 hover:text-gray-700"
+                    }`}
+                >
+                    Autoridades Educativas
+                </button>
             </div>
 
             <div className="bg-white rounded-xl shadow p-6">
                 {activeTab === "generar" && <GeneradorConstancia />}
                 {activeTab === "plantillas" && <PlantillaUploader />}
+                {activeTab === "autoridades" && <AutoridadesConfigPanel />}
             </div>
         </div>
     );

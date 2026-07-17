@@ -10,6 +10,8 @@ type Escuela = {
     cct: string;
     nombre: string;
     localidad?: string | null;
+    municipio?: string | null;
+    zonaEscolar?: string | null;
     director: string | null;
     email: string | null;
     ultimoIngreso?: Date | string | null;
@@ -25,10 +27,12 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     const router = useRouter();
 
     // Form state
-    const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; director: string; email: string; password?: string }>({
+    const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar: string; director: string; email: string; password?: string }>({
         cct: "",
         nombre: "",
         localidad: "",
+        municipio: "",
+        zonaEscolar: "",
         director: "",
         email: "",
         password: "",
@@ -54,6 +58,8 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     cct: esc.cct,
                     nombre: esc.nombre,
                     localidad: esc.localidad || "",
+                    municipio: esc.municipio || "",
+                    zonaEscolar: esc.zonaEscolar || "",
                     director: esc.director || "",
                     email: esc.email || "",
                     password: "",
@@ -83,7 +89,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         setIsCreating(true);
         setIsEditing(false);
         setMessage(null);
-        setFormData({ cct: "", nombre: "", localidad: "", director: "", email: "", password: "" });
+        setFormData({ cct: "", nombre: "", localidad: "", municipio: "", zonaEscolar: "", director: "", email: "", password: "" });
         setConfiguraciones({});
     };
 
@@ -237,7 +243,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                     } else {
                                         setIsEditing(false);
                                         if (selectedEscuela) {
-                                            setFormData({ cct: selectedEscuela.cct, nombre: selectedEscuela.nombre, localidad: selectedEscuela.localidad || "", director: selectedEscuela.director || "", email: selectedEscuela.email || "", password: "" });
+                                            setFormData({ cct: selectedEscuela.cct, nombre: selectedEscuela.nombre, localidad: selectedEscuela.localidad || "", municipio: selectedEscuela.municipio || "", zonaEscolar: selectedEscuela.zonaEscolar || "", director: selectedEscuela.director || "", email: selectedEscuela.email || "", password: "" });
                                         }
                                     }
                                 }} disabled={saving}>
@@ -316,6 +322,40 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                 placeholder="Ej: Puebla, Pue."
                                 style={{
                                     ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !selectedEscuela?.localidad ? "italic" : "normal", color: !selectedEscuela?.localidad ? "var(--text-muted)" : "inherit" } : {}),
+                                }}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                                <BadgeIcon icon={<MapPin size={14} />} /> Municipio
+                            </label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={isEditingMode ? formData.municipio : (selectedEscuela?.municipio || "No especificado")}
+                                onChange={(e) => setFormData({ ...formData, municipio: e.target.value })}
+                                disabled={!isEditingMode}
+                                placeholder="Ej: Venustiano Carranza"
+                                style={{
+                                    ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !selectedEscuela?.municipio ? "italic" : "normal", color: !selectedEscuela?.municipio ? "var(--text-muted)" : "inherit" } : {}),
+                                }}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                                <BadgeIcon icon={<MapPin size={14} />} /> Zona Escolar
+                            </label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={isEditingMode ? formData.zonaEscolar : (selectedEscuela?.zonaEscolar || "No especificado")}
+                                onChange={(e) => setFormData({ ...formData, zonaEscolar: e.target.value })}
+                                disabled={!isEditingMode}
+                                placeholder="Ej: 004"
+                                style={{
+                                    ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !selectedEscuela?.zonaEscolar ? "italic" : "normal", color: !selectedEscuela?.zonaEscolar ? "var(--text-muted)" : "inherit" } : {}),
                                 }}
                             />
                         </div>

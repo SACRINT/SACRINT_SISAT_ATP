@@ -75,12 +75,23 @@ export async function POST(req: NextRequest) {
             linebreaks: true,
         });
 
+        // Autoridades Educativas Config
+        const autoridadesConfig = await prisma.autoridadesConfig.findUnique({
+            where: { id: "singleton" }
+        });
+
         // Configurar los datos detectados. Los 'datosFinales' es un objeto clave-valor 
         // donde la clave es la Etiqueta (campoPlantilla detectado) y el valor es lo que el admin introdujo.
-        // Ej: datosFinales = { "Nombre del director": "Alejandro", "RFC": "1234" }
-        // docxtemplater expects the keys to match exactly what is inside {} in the document.
+        // Además inyectamos las Autoridades Educativas
+        const renderData = {
+            ...datosFinales,
+            SUPERVISOR: autoridadesConfig?.supervisor || "C. SUPERVISOR(A)",
+            COORDINADOR_REGIONAL: autoridadesConfig?.coordinadorRegional || "C. COORDINADOR(A) REGIONAL",
+            DIRECTOR_NIVEL: autoridadesConfig?.directorNivel || "C. DIRECTOR(A) DEL NIVEL",
+            ATP: autoridadesConfig?.atp || "C. ASESOR(A) TÉCNICO PEDAGÓGICO"
+        };
         
-        doc.render(datosFinales);
+        doc.render(renderData);
 
         const generatedBuf = doc.getZip().generate({
             type: "nodebuffer",

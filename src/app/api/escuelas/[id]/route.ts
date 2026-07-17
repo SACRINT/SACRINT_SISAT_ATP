@@ -18,12 +18,14 @@ export async function PUT(
         const escuelaId = params.id;
 
         const data = await request.json();
-        const { nombre, email, director, password } = data;
+        const { nombre, email, director, password, municipio, zonaEscolar } = data;
 
         const updateData: Record<string, string | undefined> = {
             nombre: typeof nombre === "string" ? nombre : undefined,
             email: typeof email === "string" ? email : undefined,
             director: typeof director === "string" ? director : undefined,
+            municipio: typeof municipio === "string" ? municipio : undefined,
+            zonaEscolar: typeof zonaEscolar === "string" ? zonaEscolar : undefined,
         };
 
         if (password && password.trim().length > 0) {

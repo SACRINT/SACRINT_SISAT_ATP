@@ -66,8 +66,21 @@ export async function POST(req: NextRequest) {
         
         const zip = new PizZip(templateBuffer);
         const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+
+        // Autoridades Educativas Config
+        const autoridadesConfig = await prisma.autoridadesConfig.findUnique({
+            where: { id: "singleton" }
+        });
+
+        const renderData = {
+            ...datosFinales,
+            SUPERVISOR: autoridadesConfig?.supervisor || "C. SUPERVISOR(A)",
+            COORDINADOR_REGIONAL: autoridadesConfig?.coordinadorRegional || "C. COORDINADOR(A) REGIONAL",
+            DIRECTOR_NIVEL: autoridadesConfig?.directorNivel || "C. DIRECTOR(A) DEL NIVEL",
+            ATP: autoridadesConfig?.atp || "C. ASESOR(A) TÉCNICO PEDAGÓGICO"
+        };
         
-        doc.render(datosFinales);
+        doc.render(renderData);
         const generatedBuf = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
 
         const fileName = `${plantilla.nombre.replace(/\s+/g, '_')}_Personal_${Date.now()}.docx`;
