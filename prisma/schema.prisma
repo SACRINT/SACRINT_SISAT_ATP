@@ -334,9 +334,32 @@ model AdminSidebarConfig {
 model AutoridadesConfig {
   id                  String @id @default("singleton")
   supervisor          String @default("C. SUPERVISOR(A)")
+  supervisorRFC       String @default("")
+  supervisorFecha     String @default("")
+  supervisorClave     String @default("")
+
   coordinadorRegional String @default("C. COORDINADOR(A) REGIONAL")
   directorNivel       String @default("C. DIRECTOR(A) DEL NIVEL")
-  atp                 String @default("C. ASESOR(A) TÉCNICO PEDAGÓGICO")
+
+  atp1Nombre          String @default("")
+  atp1RFC             String @default("")
+  atp1Fecha           String @default("")
+  atp1Clave           String @default("")
+
+  atp2Nombre          String @default("")
+  atp2RFC             String @default("")
+  atp2Fecha           String @default("")
+  atp2Clave           String @default("")
+
+  atp3Nombre          String @default("")
+  atp3RFC             String @default("")
+  atp3Fecha           String @default("")
+  atp3Clave           String @default("")
+
+  atp4Nombre          String @default("")
+  atp4RFC             String @default("")
+  atp4Fecha           String @default("")
+  atp4Clave           String @default("")
 }
 
 // ─── CAPEMS ─────────────────────────────────────────

@@ -75,9 +75,27 @@ export async function POST(req: NextRequest) {
         const renderData = {
             ...datosFinales,
             SUPERVISOR: autoridadesConfig?.supervisor || "C. SUPERVISOR(A)",
+            SUPERVISOR_RFC: autoridadesConfig?.supervisorRFC || "",
+            SUPERVISOR_FECHA: autoridadesConfig?.supervisorFecha || "",
+            SUPERVISOR_CLAVE: autoridadesConfig?.supervisorClave || "",
             COORDINADOR_REGIONAL: autoridadesConfig?.coordinadorRegional || "C. COORDINADOR(A) REGIONAL",
             DIRECTOR_NIVEL: autoridadesConfig?.directorNivel || "C. DIRECTOR(A) DEL NIVEL",
-            ATP: autoridadesConfig?.atp || "C. ASESOR(A) TÉCNICO PEDAGÓGICO"
+            ATP1_NOMBRE: autoridadesConfig?.atp1Nombre || "",
+            ATP1_RFC: autoridadesConfig?.atp1RFC || "",
+            ATP1_FECHA: autoridadesConfig?.atp1Fecha || "",
+            ATP1_CLAVE: autoridadesConfig?.atp1Clave || "",
+            ATP2_NOMBRE: autoridadesConfig?.atp2Nombre || "",
+            ATP2_RFC: autoridadesConfig?.atp2RFC || "",
+            ATP2_FECHA: autoridadesConfig?.atp2Fecha || "",
+            ATP2_CLAVE: autoridadesConfig?.atp2Clave || "",
+            ATP3_NOMBRE: autoridadesConfig?.atp3Nombre || "",
+            ATP3_RFC: autoridadesConfig?.atp3RFC || "",
+            ATP3_FECHA: autoridadesConfig?.atp3Fecha || "",
+            ATP3_CLAVE: autoridadesConfig?.atp3Clave || "",
+            ATP4_NOMBRE: autoridadesConfig?.atp4Nombre || "",
+            ATP4_RFC: autoridadesConfig?.atp4RFC || "",
+            ATP4_FECHA: autoridadesConfig?.atp4Fecha || "",
+            ATP4_CLAVE: autoridadesConfig?.atp4Clave || "",
         };
         
         doc.render(renderData);
