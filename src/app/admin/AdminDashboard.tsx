@@ -59,6 +59,7 @@ import GestionEncuentroPAEC from "./_componentes/GestionEncuentroPAEC";
 import GestionCircular05 from "./_componentes/GestionCircular05";
 import GestionCapems from "./_componentes/GestionCapems";
 import GestionExpedientes from "./_componentes/GestionExpedientes";
+import DocumentosAdmin from "./documentos/page";
 import PanelModulos from "./_componentes/PanelModulos";
 import GestionCiclos from "./_componentes/GestionCiclos";
 import GestionPrompts from "./_componentes/GestionPrompts";
@@ -109,7 +110,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "modulos-control" | "gestion-ciclos" | "gestion-prompts" | "orquestador-ia" | "reportes-nivel">("general");
+    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "modulos-control" | "gestion-ciclos" | "gestion-prompts" | "orquestador-ia" | "reportes-nivel">("general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -137,6 +138,7 @@ export default function AdminDashboard({
             case "paec": return "paec";
             case "capems": return "capems";
             case "expedientes": return "expedientes";
+            case "documentos": return "documentos";
             case "gestion-atps": return "seguridad";
             default: return "general";
         }
@@ -150,7 +152,7 @@ export default function AdminDashboard({
             // Retrocompatibilidad para usuarios antiguos sin permisos guardados
             const isMonitoringOrModule = [
                 "general", "avances", "reportesNivel", 
-                "eventos", "circular05", "olimpiada", "paec", "capems", "expedientes", "formatos"
+                "eventos", "circular05", "olimpiada", "paec", "capems", "expedientes", "documentos", "formatos"
             ].includes(seccion);
             
             if (dbRole === "ATP_EDITOR") {
@@ -566,7 +568,7 @@ export default function AdminDashboard({
         sidebarConfig.showExpedientes,
     ].filter(Boolean).length;
 
-    const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "capems", "expedientes"].includes(vista);
+    const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "capems", "expedientes", "documentos"].includes(vista);
     const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos", "gestion-prompts", "orquestador-ia"].includes(vista);
 
     return (
@@ -860,6 +862,12 @@ export default function AdminDashboard({
                                             <span>Expedientes Personal</span>
                                         </button>
                                     )}
+                                    {hasAccess("documentos", "read") && (
+                                        <button className={`sidebar-link ${vista === "documentos" ? "active" : ""}`} onClick={() => navigate("documentos")}>
+                                            <FileText size={17} />
+                                            <span>Documentos Admin</span>
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1132,6 +1140,13 @@ export default function AdminDashboard({
                 {
                     vista === "capems" && (
                         <GestionCapems readOnly={!hasAccess("capems", "write")} />
+                    )
+                }
+
+                {/* ========= VISTA: DOCUMENTOS ADMINISTRATIVOS ========= */}
+                {
+                    vista === "documentos" && (
+                        <DocumentosAdmin />
                     )
                 }
 

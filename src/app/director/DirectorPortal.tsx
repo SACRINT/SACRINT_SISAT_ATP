@@ -33,10 +33,11 @@ import EncuentroPAEC from "./_componentes/EncuentroPAEC";
 import CapemsPanel from "./_componentes/CapemsPanel";
 import ExpedientesPanel from "./_componentes/ExpedientesPanel";
 import AjustesApiPanel from "./_componentes/AjustesApiPanel";
+import DocumentosPanel from "./_componentes/DocumentosPanel";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
-type TabType = "entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "configuracion";
+type TabType = "entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "configuracion";
 
 export default function DirectorPortal({
     escuela,
@@ -68,6 +69,7 @@ export default function DirectorPortal({
     isPAECActive?: boolean;
     isCapemsActive?: boolean;
     isExpedientesActive?: boolean;
+    isDocumentosActive?: boolean;
 }) {
     const [tab, setTab] = useState<TabType>("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -104,6 +106,7 @@ export default function DirectorPortal({
         { key: "paec", label: "Encuentro PAEC", icon: <Lightbulb size={17} />, active: isPAECActive },
         { key: "capems", label: "Fichas CAPEMS", icon: <BookMarked size={17} />, active: isCapemsActive },
         { key: "expedientes", label: "Expedientes", icon: <Users size={17} />, active: isExpedientesActive },
+        { key: "documentos", label: "Generador Constancias", icon: <FileText size={17} />, active: isDocumentosActive },
     ];
     const activeSpecialModules = specialModules.filter(m => m.active);
 
@@ -116,6 +119,7 @@ export default function DirectorPortal({
         paec: "Encuentro PAEC",
         capems: "Fichas CAPEMS",
         expedientes: "Expedientes",
+        documentos: "Generar Documentos",
         configuracion: "Ajustes de API",
     };
 
@@ -426,6 +430,10 @@ export default function DirectorPortal({
 
                 {tab === "expedientes" && isExpedientesActive && (
                     <ExpedientesPanel escuela={escuela} highlightPersonId={expedientesHighlightId} />
+                )}
+
+                {tab === "documentos" && isDocumentosActive && (
+                    <DocumentosPanel escuela={escuela} hasApiKey={!!escuela.geminiApiKey} />
                 )}
 
                 {tab === "configuracion" && (

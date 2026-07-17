@@ -133,6 +133,7 @@ export default async function DirectorPage() {
             isPAECActive={isPAECActive}
             isCapemsActive={isCapemsActive}
             isExpedientesActive={isExpedientesActive}
+            isDocumentosActive={true}
         />
     );
 }

@@ -63,6 +63,8 @@ model Escuela {
   descargasCircular05 Circular05Descarga[]
   capemRegistros CapemFichaRegistro[]
   personal Personal[]
+  directorExpediente DirectorExpediente?
+  documentosAdmin DocumentoAdministrativo[]
 }
 
 model CicloEscolar {
@@ -404,6 +406,7 @@ model Personal {
 
   escuela    Escuela             @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
   documentos DocumentoPersonal[]
+  documentosAdmin DocumentoAdministrativo[]
 }
 
 model DocumentoPersonal {
@@ -475,4 +478,62 @@ model ChatMensaje {
   createdAt DateTime @default(now())
 
   entrega   Entrega  @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+}
+
+// ─── Documentos Administrativos ──────────────────
+
+model DirectorExpediente {
+  id                 String    @id @default(cuid())
+  nombreCompleto     String
+  rfc                String?
+  curp               String?
+  fechaIngreso       DateTime?
+  clavePresupuestal  String?
+  telefono           String?
+  correo             String?
+  
+  // Relación con su escuela actual (una o ninguna si está en transición)
+  escuelaActualId    String?   @unique
+  escuelaActual      Escuela?  @relation(fields: [escuelaActualId], references: [id])
+  
+  // Historial y Documentos
+  documentosGenerados DocumentoAdministrativo[]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model PlantillaDocumento {
+  id                 String   @id @default(cuid())
+  nombre             String   // Ej. "Constancia de No Adeudo 2025"
+  archivoNombre      String   // Nombre del docx original
+  archivoDriveId     String   // Cloudinary public_id
+  archivoDriveUrl    String   // Cloudinary URL
+  hash               String   // Para detectar subidas del mismo archivo
+  estado             String   @default("NUEVA") // NUEVA | CONFIGURADA
+  configuracionCampos Json?   // Mapeo detectado por IA y aprobado por Admin
+  
+  documentosGenerados DocumentoAdministrativo[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model DocumentoAdministrativo {
+  id                 String   @id @default(cuid())
+  tipo               String   // Ej. "CONSTANCIA_NO_ADEUDO"
+  plantillaId        String
+  directorId         String?
+  personalId         String?
+  escuelaId          String
+  generadoPorId      String   // ID de Admin o Director que lo generó
+  datosUtilizados    Json     // Los datos congelados al momento de generar
+  archivoWordId      String?  // Cloudinary ID del doc generado
+  archivoWordUrl     String?
+  archivoPdfId       String?  // Cloudinary ID del PDF generado
+  archivoPdfUrl      String?
+  createdAt          DateTime @default(now())
+
+  plantilla          PlantillaDocumento @relation(fields: [plantillaId], references: [id])
+  director           DirectorExpediente? @relation(fields: [directorId], references: [id])
+  personal           Personal? @relation(fields: [personalId], references: [id])
+  escuela            Escuela @relation(fields: [escuelaId], references: [id])
 }
