@@ -204,15 +204,39 @@ export default function PlantillaUploader() {
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "1rem" }}>
                     <div style={{ background: "var(--surface)", borderRadius: "var(--radius)", padding: "2rem", width: "100%", maxWidth: "800px", maxHeight: "90vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }}>
                         <h3 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.5rem", color: "var(--text)" }}>Revisión de Campos por IA</h3>
-                        <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>La IA detectó las siguientes variables en la plantilla. Confirma o corrige el mapeo.</p>
+                        <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
+                            {camposMapeados.length > 0 
+                                ? "La IA detectó las siguientes variables en la plantilla. Confirma o corrige el mapeo." 
+                                : "No se detectaron variables automáticamente. Puedes agregarlas manualmente a continuación."}
+                        </p>
                         
                         <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "2rem" }}>
+                            {camposMapeados.length === 0 && (
+                                <div style={{ padding: "1.5rem", textAlign: "center", background: "var(--bg-secondary)", borderRadius: "8px", color: "var(--text-muted)" }}>
+                                    No hay campos mapeados actualmente. Utiliza el botón de abajo para agregar las etiquetas que pusiste en tu documento (ej. {"{NOMBRE_DIRECTOR}"}).
+                                </div>
+                            )}
                             {camposMapeados.map((campo, idx) => (
-                                <div key={idx} style={{ display: "flex", gap: "1rem", padding: "1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg-secondary, #f8fafc)", alignItems: "center", flexWrap: "wrap" }}>
+                                <div key={idx} style={{ display: "flex", gap: "1rem", padding: "1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg-secondary, #f8fafc)", alignItems: "center", flexWrap: "wrap", position: "relative" }}>
+                                    <button 
+                                        onClick={() => setCamposMapeados(camposMapeados.filter((_, i) => i !== idx))}
+                                        style={{ position: "absolute", top: "0.5rem", right: "0.5rem", background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: "1.2rem", lineHeight: 1 }}
+                                        title="Eliminar mapeo"
+                                    >×</button>
                                     <div style={{ flex: "1 1 200px" }}>
                                         <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase", display: "block", marginBottom: "0.25rem" }}>Texto en Documento</label>
-                                        <p style={{ fontFamily: "monospace", fontSize: "0.875rem", background: "rgba(0,0,0,0.05)", padding: "0.25rem 0.5rem", borderRadius: "4px", display: "inline-block", margin: 0 }}>{campo.campoPlantilla}</p>
-                                        <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem", margin: 0 }}>{campo.explicacion}</p>
+                                        <input 
+                                            type="text" 
+                                            value={campo.campoPlantilla} 
+                                            onChange={(e) => {
+                                                const newCampos = [...camposMapeados];
+                                                newCampos[idx].campoPlantilla = e.target.value;
+                                                setCamposMapeados(newCampos);
+                                            }}
+                                            style={{ width: "100%", padding: "0.375rem 0.5rem", fontFamily: "monospace", fontSize: "0.875rem", border: "1px solid var(--border)", borderRadius: "4px" }}
+                                            placeholder="Ej: {NOMBRE_DIRECTOR}"
+                                        />
+                                        {campo.explicacion && <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem", margin: 0 }}>{campo.explicacion}</p>}
                                     </div>
                                     <div style={{ fontSize: "1.5rem", color: "var(--text-muted)", padding: "0 0.5rem" }}>➔</div>
                                     <div style={{ flex: "1 1 200px" }}>
@@ -226,6 +250,7 @@ export default function PlantillaUploader() {
                                             }}
                                             className="form-control"
                                         >
+                                            <option value="">-- Seleccionar --</option>
                                             {OpcionesCampos.map(opc => (
                                                 <option key={opc} value={opc}>{opc}</option>
                                             ))}
@@ -233,10 +258,16 @@ export default function PlantillaUploader() {
                                     </div>
                                 </div>
                             ))}
+                            <button 
+                                onClick={() => setCamposMapeados([...camposMapeados, { campoPlantilla: "{NUEVO_CAMPO}", sugerenciaSistema: OpcionesCampos[0], explicacion: "Campo manual" }])}
+                                style={{ padding: "0.5rem 1rem", border: "1px dashed var(--primary)", color: "var(--primary)", background: "transparent", borderRadius: "8px", cursor: "pointer", fontWeight: 600, alignSelf: "flex-start", marginTop: "0.5rem" }}
+                            >
+                                + Agregar Mapeo Manual
+                            </button>
                         </div>
 
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
-                            <button onClick={() => setPlantillaRevisar(null)} style={{ padding: "0.5rem 1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
+                            <button onClick={() => { setPlantillaRevisar(null); setConfigurandoCampos(false); }} style={{ padding: "0.5rem 1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
                             <button onClick={confirmarMapeo} style={{ padding: "0.5rem 1rem", background: "var(--success, #16a34a)", color: "white", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontWeight: 600 }}>Guardar y Confirmar</button>
                         </div>
                     </div>

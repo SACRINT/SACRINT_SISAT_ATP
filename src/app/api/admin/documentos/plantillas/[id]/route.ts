@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db";
 import { deleteFileFromCloudinary } from "@/lib/cloudinary";
 
 // PUT: Actualizar configuración de la plantilla (Admin aprueba los campos)
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+    const id = params.id;
     const session = await auth();
     if (!session || (session.user as any)?.role !== "admin") {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
@@ -31,8 +31,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // DELETE: Eliminar plantilla
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+    const id = params.id;
     const session = await auth();
     if (!session || (session.user as any)?.role !== "admin") {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
