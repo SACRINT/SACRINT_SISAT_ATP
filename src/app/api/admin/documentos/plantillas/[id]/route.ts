@@ -57,6 +57,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error("Error borrando plantilla:", error);
-        return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+        return NextResponse.json({ error: error.message || "Error interno del servidor" }, { status: 500 });
     }
 }

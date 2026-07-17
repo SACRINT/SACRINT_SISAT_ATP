@@ -63,6 +63,7 @@ export default async function AdminPage() {
             email: true,
             total: true,
             ultimoIngreso: true,
+            directorExpediente: true,
             entregas: {
                 where: {
                     periodoEntrega: { cicloEscolarId: ciclo.id, activo: true },

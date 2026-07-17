@@ -71,16 +71,24 @@ export async function POST(req: NextRequest) {
         let extractedText = "";
         try {
             const zip = new PizZip(buffer);
-            const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-            extractedText = doc.getFullText();
+            try {
+                const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+                extractedText = doc.getFullText();
+            } catch (err) {
+                console.warn("No se pudo extraer texto con docxtemplater, intentando fallback de xml", err);
+                const xml = zip.file("word/document.xml")?.asText();
+                if (xml) {
+                    extractedText = xml.replace(/<[^>]+>/g, ' ');
+                }
+            }
         } catch (err) {
-            console.warn("No se pudo extraer texto con docxtemplater, posiblemente no es un word válido:", err);
+            console.error("Error al leer el archivo ZIP de la plantilla:", err);
         }
 
         // Analizar con IA (Gemini)
         let camposDetectados: Array<{campoPlantilla: string, sugerenciaSistema: string, explicacion: string}> = [];
         
-        if (extractedText) {
+        if (extractedText && extractedText.trim().length > 0) {
             try {
                 // Obtener llave API
                 const apiKeyRecord = await prisma.apiKey.findFirst({ where: { provider: "gemini", active: true } });
@@ -131,7 +139,8 @@ ${extractedText.substring(0, 5000)}
                     });
                     
                     const aiText = response.text || "";
-                    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+                    let cleanJson = aiText.replace(/```json/gi, "").replace(/```/g, "").trim();
+                    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {
                         const parsed = JSON.parse(jsonMatch[0]);
                         if (parsed.campos && Array.isArray(parsed.campos)) {

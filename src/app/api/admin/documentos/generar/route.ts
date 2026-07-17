@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         const { plantillaId, escuelaId, directorId, personalId, datosFinales, actualizarExpediente } = body;
 
-        if (!plantillaId || !escuelaId || !datosFinales) {
-            return NextResponse.json({ error: "Faltan datos (plantillaId, escuelaId, datosFinales)" }, { status: 400 });
+        if (!plantillaId || !datosFinales) {
+            return NextResponse.json({ error: "Faltan datos (plantillaId, datosFinales)" }, { status: 400 });
         }
 
         const plantilla = await prisma.plantillaDocumento.findUnique({ where: { id: plantillaId } });

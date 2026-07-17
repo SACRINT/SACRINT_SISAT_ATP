@@ -18,9 +18,9 @@ export async function PUT(
         const escuelaId = params.id;
 
         const data = await request.json();
-        const { nombre, email, director, password, municipio, zonaEscolar } = data;
+        const { nombre, email, director, password, municipio, zonaEscolar, rfc, curp, clavePresupuestal, fechaIngreso } = data;
 
-        const updateData: Record<string, string | undefined> = {
+        const updateData: any = {
             nombre: typeof nombre === "string" ? nombre : undefined,
             email: typeof email === "string" ? email : undefined,
             director: typeof director === "string" ? director : undefined,
@@ -32,9 +32,30 @@ export async function PUT(
             updateData.password = await bcrypt.hash(password, 10);
         }
 
+        // Upsert directorExpediente if extended data is provided
+        if (rfc !== undefined || curp !== undefined || clavePresupuestal !== undefined || fechaIngreso !== undefined) {
+             updateData.directorExpediente = {
+                 upsert: {
+                     create: {
+                         rfc: rfc || "",
+                         curp: curp || "",
+                         clavePresupuestal: clavePresupuestal || "",
+                         fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null,
+                     },
+                     update: {
+                         rfc: rfc !== undefined ? rfc : undefined,
+                         curp: curp !== undefined ? curp : undefined,
+                         clavePresupuestal: clavePresupuestal !== undefined ? clavePresupuestal : undefined,
+                         fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : undefined,
+                     }
+                 }
+             };
+        }
+
         const escuelaUpdate = await prisma.escuela.update({
             where: { id: escuelaId },
             data: updateData,
+            include: { directorExpediente: true }
         });
 
         return NextResponse.json(escuelaUpdate);

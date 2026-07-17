@@ -10,11 +10,14 @@ type Escuela = { id: string; cct: string; nombre: string; localidad: string; mun
 export default function GeneradorConstancia() {
     const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
     const [escuelas, setEscuelas] = useState<Escuela[]>([]);
+    const [autoridades, setAutoridades] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     const [plantillaSeleccionada, setPlantillaSeleccionada] = useState<string>("");
+    const [tipoDestinatario, setTipoDestinatario] = useState<"DIRECTOR" | "PERSONAL" | "ATP">("DIRECTOR");
     const [escuelaSeleccionada, setEscuelaSeleccionada] = useState<string>("");
     const [personalSeleccionado, setPersonalSeleccionado] = useState<string>("");
+    const [atpSeleccionado, setAtpSeleccionado] = useState<string>("");
 
     const [datosFormulario, setDatosFormulario] = useState<any>({});
     const [faltantes, setFaltantes] = useState<string[]>([]);
@@ -24,10 +27,12 @@ export default function GeneradorConstancia() {
     useEffect(() => {
         Promise.all([
             fetch("/api/admin/documentos/plantillas").then(r => r.json()),
-            fetch("/api/admin/directores").then(r => r.json())
-        ]).then(([pts, escs]) => {
+            fetch("/api/admin/directores").then(r => r.json()),
+            fetch("/api/admin/autoridades-config").then(r => r.json())
+        ]).then(([pts, escs, auts]) => {
             setPlantillas(pts.filter((p: any) => p.estado === "CONFIGURADA"));
             setEscuelas(escs);
+            setAutoridades(auts);
             setLoading(false);
         }).catch(() => {
             toast.error("Error cargando datos");
@@ -35,27 +40,43 @@ export default function GeneradorConstancia() {
         });
     }, []);
 
-    // Re-evaluar campos al cambiar escuela, plantilla o personal
     useEffect(() => {
-        if (!plantillaSeleccionada || !escuelaSeleccionada || !personalSeleccionado) {
+        if (!plantillaSeleccionada) {
             setDatosFormulario({});
             setFaltantes([]);
             return;
         }
 
+        if ((tipoDestinatario === "DIRECTOR" || tipoDestinatario === "PERSONAL") && !escuelaSeleccionada) {
+             setDatosFormulario({});
+             setFaltantes([]);
+             return;
+        }
+
+        if (tipoDestinatario === "PERSONAL" && !personalSeleccionado) {
+             setDatosFormulario({});
+             setFaltantes([]);
+             return;
+        }
+        
+        if (tipoDestinatario === "ATP" && !atpSeleccionado) {
+             setDatosFormulario({});
+             setFaltantes([]);
+             return;
+        }
+
         const plantilla = plantillas.find(p => p.id === plantillaSeleccionada);
-        const escuela = escuelas.find(e => e.id === escuelaSeleccionada);
+        if (!plantilla) return;
 
-        if (!plantilla || !escuela) return;
-
+        let escuela = escuelas.find(e => e.id === escuelaSeleccionada);
         const nuevosDatos: any = {};
         const nuevosFaltantes: string[] = [];
 
         // Determinar qué persona usar
         let personData: any = null;
-        if (personalSeleccionado === "DIRECTOR") {
+        if (tipoDestinatario === "DIRECTOR" && escuela) {
             personData = escuela.expediente || { nombreCompleto: escuela.directorTexto };
-        } else {
+        } else if (tipoDestinatario === "PERSONAL" && escuela) {
             const p = escuela.personal?.find(x => x.id === personalSeleccionado);
             if (p) {
                 personData = {
@@ -69,16 +90,25 @@ export default function GeneradorConstancia() {
                     clavePresupuestal: p.clavePresupuestal
                 };
             }
+        } else if (tipoDestinatario === "ATP" && autoridades) {
+            if (atpSeleccionado === "atp1") {
+                 personData = { nombreCompleto: autoridades.atp1Nombre, rfc: autoridades.atp1RFC, fechaIngreso: autoridades.atp1Fecha, clavePresupuestal: autoridades.atp1Clave };
+            } else if (atpSeleccionado === "atp2") {
+                 personData = { nombreCompleto: autoridades.atp2Nombre, rfc: autoridades.atp2RFC, fechaIngreso: autoridades.atp2Fecha, clavePresupuestal: autoridades.atp2Clave };
+            } else if (atpSeleccionado === "atp3") {
+                 personData = { nombreCompleto: autoridades.atp3Nombre, rfc: autoridades.atp3RFC, fechaIngreso: autoridades.atp3Fecha, clavePresupuestal: autoridades.atp3Clave };
+            } else if (atpSeleccionado === "atp4") {
+                 personData = { nombreCompleto: autoridades.atp4Nombre, rfc: autoridades.atp4RFC, fechaIngreso: autoridades.atp4Fecha, clavePresupuestal: autoridades.atp4Clave };
+            }
         }
 
         plantilla.configuracionCampos.forEach((campo: any) => {
-            const rawKey = campo.campoPlantilla || ""; // Ej: {NOMBRE_DIRECTOR}
-            const key = rawKey.replace(/[{}]/g, '').trim(); // docxtemplater busca la llave sin los corchetes
+            const rawKey = campo.campoPlantilla || ""; 
+            const key = rawKey.replace(/[{}]/g, '').trim();
             const sistema = campo.sugerenciaSistema;
 
             let valorExtraido = "";
 
-            // Lógica de mapeo manual
             if (sistema === "NOMBRE_DIRECTOR") valorExtraido = personData?.nombreCompleto || "";
             else if (sistema === "RFC_DIRECTOR") valorExtraido = personData?.rfc || "";
             else if (sistema === "CURP_DIRECTOR") valorExtraido = personData?.curp || "";
@@ -86,10 +116,10 @@ export default function GeneradorConstancia() {
             else if (sistema === "CLAVE_PRESUPUESTAL_DIRECTOR") valorExtraido = personData?.clavePresupuestal || "";
             else if (sistema === "TELEFONO_DIRECTOR") valorExtraido = personData?.telefono || "";
             else if (sistema === "CORREO_DIRECTOR") valorExtraido = personData?.correo || "";
-            else if (sistema === "NOMBRE_ESCUELA") valorExtraido = escuela.nombre || "";
-            else if (sistema === "CCT_ESCUELA") valorExtraido = escuela.cct || "";
-            else if (sistema === "LOCALIDAD_ESCUELA") valorExtraido = escuela.localidad || "";
-            else if (sistema === "MUNICIPIO_ESCUELA") valorExtraido = escuela.municipio || "";
+            else if (sistema === "NOMBRE_ESCUELA") valorExtraido = escuela?.nombre || "";
+            else if (sistema === "CCT_ESCUELA") valorExtraido = escuela?.cct || "";
+            else if (sistema === "LOCALIDAD_ESCUELA") valorExtraido = escuela?.localidad || "";
+            else if (sistema === "MUNICIPIO_ESCUELA") valorExtraido = escuela?.municipio || "";
             else if (sistema === "FECHA_ACTUAL") valorExtraido = dayjs().format("DD/MM/YYYY");
 
             if (!valorExtraido && sistema !== "OTRO") {
@@ -102,7 +132,7 @@ export default function GeneradorConstancia() {
         setDatosFormulario(nuevosDatos);
         setFaltantes(nuevosFaltantes);
 
-    }, [plantillaSeleccionada, escuelaSeleccionada, plantillas, escuelas, personalSeleccionado]);
+    }, [plantillaSeleccionada, escuelaSeleccionada, plantillas, escuelas, personalSeleccionado, atpSeleccionado, tipoDestinatario, autoridades]);
 
     const handleGenerar = async () => {
         setGenerando(true);
@@ -162,28 +192,50 @@ export default function GeneradorConstancia() {
 
                 <div>
                     <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
-                        Seleccionar Escuela / Centro de Trabajo
+                        Tipo de Destinatario
                     </label>
                     <select 
                         className="form-control"
-                        value={escuelaSeleccionada} 
-                        onChange={(e) => {
-                            setEscuelaSeleccionada(e.target.value);
-                            setPersonalSeleccionado(""); // Resetear al cambiar escuela
+                        value={tipoDestinatario} 
+                        onChange={(e: any) => {
+                            setTipoDestinatario(e.target.value);
+                            setEscuelaSeleccionada("");
+                            setPersonalSeleccionado("");
+                            setAtpSeleccionado("");
                         }}
-                        disabled={!plantillaSeleccionada}
                     >
-                        <option value="">-- Selecciona --</option>
-                        {escuelas.map(e => (
-                            <option key={e.id} value={e.id}>{e.cct} - {e.nombre}</option>
-                        ))}
+                        <option value="DIRECTOR">Director(a) de Escuela</option>
+                        <option value="PERSONAL">Personal de Escuela</option>
+                        <option value="ATP">Asesor Técnico Pedagógico (ATP)</option>
                     </select>
                 </div>
 
-                {escuelaSeleccionada && (
+                {(tipoDestinatario === "DIRECTOR" || tipoDestinatario === "PERSONAL") && (
                     <div>
                         <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
-                            Generar para (Director o Personal)
+                            Seleccionar Escuela / Centro de Trabajo
+                        </label>
+                        <select 
+                            className="form-control"
+                            value={escuelaSeleccionada} 
+                            onChange={(e) => {
+                                setEscuelaSeleccionada(e.target.value);
+                                setPersonalSeleccionado(""); 
+                            }}
+                            disabled={!plantillaSeleccionada}
+                        >
+                            <option value="">-- Selecciona --</option>
+                            {escuelas.map(e => (
+                                <option key={e.id} value={e.id}>{e.cct} - {e.nombre}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {tipoDestinatario === "PERSONAL" && escuelaSeleccionada && (
+                    <div>
+                        <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
+                            Seleccionar Personal
                         </label>
                         <select 
                             className="form-control"
@@ -191,16 +243,40 @@ export default function GeneradorConstancia() {
                             onChange={(e) => setPersonalSeleccionado(e.target.value)}
                         >
                             <option value="">-- Selecciona --</option>
-                            <option value="DIRECTOR">Director(a): {escuelas.find(e => e.id === escuelaSeleccionada)?.directorTexto || "No especificado"}</option>
                             {escuelas.find(e => e.id === escuelaSeleccionada)?.personal?.map(p => (
                                 <option key={p.id} value={p.id}>{p.cargo}: {p.nombre} {p.apellidoPaterno} {p.apellidoMaterno}</option>
                             ))}
                         </select>
                     </div>
                 )}
+
+                {tipoDestinatario === "ATP" && (
+                    <div>
+                        <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
+                            Seleccionar ATP
+                        </label>
+                        <select 
+                            className="form-control"
+                            value={atpSeleccionado} 
+                            onChange={(e) => setAtpSeleccionado(e.target.value)}
+                            disabled={!plantillaSeleccionada || !autoridades}
+                        >
+                            <option value="">-- Selecciona --</option>
+                            {autoridades?.atp1Nombre && <option value="atp1">{autoridades.atp1Nombre}</option>}
+                            {autoridades?.atp2Nombre && <option value="atp2">{autoridades.atp2Nombre}</option>}
+                            {autoridades?.atp3Nombre && <option value="atp3">{autoridades.atp3Nombre}</option>}
+                            {autoridades?.atp4Nombre && <option value="atp4">{autoridades.atp4Nombre}</option>}
+                        </select>
+                    </div>
+                )}
             </div>
 
-            {plantillaSeleccionada && escuelaSeleccionada && personalSeleccionado && plantillaInfo && (
+            {(
+                plantillaSeleccionada && plantillaInfo &&
+                ((tipoDestinatario === "DIRECTOR" && escuelaSeleccionada) || 
+                 (tipoDestinatario === "PERSONAL" && escuelaSeleccionada && personalSeleccionado) || 
+                 (tipoDestinatario === "ATP" && atpSeleccionado))
+            ) && (
                 <div style={{ background: "var(--bg-secondary, #f8fafc)", border: "1px solid var(--border)", padding: "1.5rem", borderRadius: "var(--radius)", marginBottom: "2rem" }}>
                     <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "1rem", color: "var(--text)" }}>
                         Datos a insertar en: {plantillaInfo.nombre}

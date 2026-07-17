@@ -15,6 +15,12 @@ type Escuela = {
     director: string | null;
     email: string | null;
     ultimoIngreso?: Date | string | null;
+    directorExpediente?: {
+        rfc?: string | null;
+        curp?: string | null;
+        clavePresupuestal?: string | null;
+        fechaIngreso?: Date | string | null;
+    } | null;
 };
 
 export default function GestionEscuelas({ inicialEscuelas, programas, readOnly = false }: { inicialEscuelas: Escuela[], programas: ProgramaAdmin[], readOnly?: boolean }) {
@@ -27,7 +33,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     const router = useRouter();
 
     // Form state
-    const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar: string; director: string; email: string; password?: string }>({
+    const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar: string; director: string; email: string; password?: string; rfc?: string; curp?: string; clavePresupuestal?: string; fechaIngreso?: string }>({
         cct: "",
         nombre: "",
         localidad: "",
@@ -36,6 +42,10 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         director: "",
         email: "",
         password: "",
+        rfc: "",
+        curp: "",
+        clavePresupuestal: "",
+        fechaIngreso: "",
     });
 
     const selectedEscuela = escuelas.find((e) => e.id === selectedId);
@@ -63,6 +73,10 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     director: esc.director || "",
                     email: esc.email || "",
                     password: "",
+                    rfc: esc.directorExpediente?.rfc || "",
+                    curp: esc.directorExpediente?.curp || "",
+                    clavePresupuestal: esc.directorExpediente?.clavePresupuestal || "",
+                    fechaIngreso: esc.directorExpediente?.fechaIngreso ? new Date(esc.directorExpediente.fechaIngreso).toISOString().split('T')[0] : "",
                 });
 
                 // Fetch configuraciones
@@ -416,6 +430,81 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                     Deja este campo en blanco si no deseas cambiar la contraseña actual del director.
                                 </p>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showForm && (
+                <div className="card fade-in" style={{ marginTop: "1.5rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
+                        <h3 style={{ margin: 0, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <User size={20} color="var(--primary)" /> Datos del Director (Para Constancias)
+                        </h3>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem" }}>
+                        <div>
+                            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                                RFC
+                            </label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={formData.rfc || ""}
+                                onChange={(e) => setFormData({ ...formData, rfc: e.target.value })}
+                                disabled={!isEditingMode}
+                                placeholder="Ej: VECJ880326 XXX"
+                                style={{
+                                    ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !formData.rfc ? "italic" : "normal", color: !formData.rfc ? "var(--text-muted)" : "inherit" } : {}),
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                                CURP
+                            </label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={formData.curp || ""}
+                                onChange={(e) => setFormData({ ...formData, curp: e.target.value })}
+                                disabled={!isEditingMode}
+                                placeholder="Ej: VECJ880326HPLRXA05"
+                                style={{
+                                    ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !formData.curp ? "italic" : "normal", color: !formData.curp ? "var(--text-muted)" : "inherit" } : {}),
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                                Clave Presupuestal
+                            </label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={formData.clavePresupuestal || ""}
+                                onChange={(e) => setFormData({ ...formData, clavePresupuestal: e.target.value })}
+                                disabled={!isEditingMode}
+                                placeholder="Ej: 11007130200.0"
+                                style={{
+                                    ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !formData.clavePresupuestal ? "italic" : "normal", color: !formData.clavePresupuestal ? "var(--text-muted)" : "inherit" } : {}),
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                                Fecha de Ingreso
+                            </label>
+                            <input
+                                type="date"
+                                className="form-control"
+                                value={formData.fechaIngreso || ""}
+                                onChange={(e) => setFormData({ ...formData, fechaIngreso: e.target.value })}
+                                disabled={!isEditingMode}
+                                style={{
+                                    ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !formData.fechaIngreso ? "italic" : "normal", color: !formData.fechaIngreso ? "var(--text-muted)" : "inherit" } : {}),
+                                }}
+                            />
                         </div>
                     </div>
                 </div>

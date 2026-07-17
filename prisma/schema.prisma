@@ -557,7 +557,7 @@ model DocumentoAdministrativo {
   plantillaId        String
   directorId         String?
   personalId         String?
-  escuelaId          String
+  escuelaId          String?
   generadoPorId      String   // ID de Admin o Director que lo generó
   datosUtilizados    Json     // Los datos congelados al momento de generar
   archivoWordId      String?  // Cloudinary ID del doc generado
@@ -569,5 +569,5 @@ model DocumentoAdministrativo {
   plantilla          PlantillaDocumento @relation(fields: [plantillaId], references: [id])
   director           DirectorExpediente? @relation(fields: [directorId], references: [id])
   personal           Personal? @relation(fields: [personalId], references: [id])
-  escuela            Escuela @relation(fields: [escuelaId], references: [id])
+  escuela            Escuela? @relation(fields: [escuelaId], references: [id])
 }
