@@ -155,9 +155,19 @@ export default function GeneradorConstancia() {
             if (!res.ok) throw new Error(data.error);
 
             toast.success("Documento Generado Exitosamente!");
-            
-            // Forzar descarga abriendo en nueva pestaña
-            window.open(data.url, "_blank");
+
+            // Descargar el archivo con el nombre correcto (incluyendo .docx)
+            const nombreArchivo = data.fileName || `${data.historial?.id || "constancia"}.docx`;
+            const resp = await fetch(data.url);
+            const blob = await resp.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = nombreArchivo.endsWith(".docx") ? nombreArchivo : `${nombreArchivo}.docx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 
         } catch (e: any) {
             toast.error(e.message || "Error al generar documento");
