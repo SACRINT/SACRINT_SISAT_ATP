@@ -123,65 +123,75 @@ export default function PlantillaUploader() {
 
     return (
         <div>
-            <h2 className="text-xl font-bold mb-4">Subir Nueva Plantilla</h2>
-            <form onSubmit={handleUpload} className="bg-gray-50 p-4 rounded-lg flex flex-col md:flex-row gap-4 mb-8">
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "1rem", color: "var(--text)" }}>Subir Nueva Plantilla</h2>
+            <form onSubmit={handleUpload} style={{ background: "var(--bg-secondary, #f8fafc)", padding: "1.5rem", borderRadius: "var(--radius)", display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "2rem", border: "1px solid var(--border)" }}>
                 <input 
                     type="text" 
                     placeholder="Nombre (ej. Constancia No Adeudo)" 
-                    className="border p-2 rounded flex-1"
+                    className="form-control"
+                    style={{ flex: "1 1 200px" }}
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                 />
                 <input 
                     type="file" 
                     accept=".docx" 
-                    className="border p-2 rounded flex-1 bg-white"
+                    className="form-control"
+                    style={{ flex: "1 1 200px", background: "var(--surface)" }}
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
                 <button 
                     type="submit" 
                     disabled={uploading}
-                    className="bg-blue-600 text-white px-6 py-2 rounded font-semibold disabled:opacity-50"
+                    className="btn-primary"
+                    style={{ flex: "0 1 auto", padding: "0.75rem 1.5rem", fontWeight: "bold", opacity: uploading ? 0.7 : 1 }}
                 >
                     {uploading ? "Subiendo e IA Analizando..." : "Subir Plantilla"}
                 </button>
             </form>
 
-            <h2 className="text-xl font-bold mb-4">Plantillas Disponibles</h2>
-            {loading ? <p>Cargando...</p> : (
-                <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white border">
-                        <thead className="bg-gray-100">
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "1rem", color: "var(--text)" }}>Plantillas Disponibles</h2>
+            {loading ? <p style={{ color: "var(--text-muted)" }}>Cargando...</p> : (
+                <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)" }}>
+                        <thead style={{ background: "var(--bg-secondary, #f8fafc)", borderBottom: "1px solid var(--border)" }}>
                             <tr>
-                                <th className="border p-2 text-left">Nombre</th>
-                                <th className="border p-2 text-left">Archivo</th>
-                                <th className="border p-2 text-left">Estado</th>
-                                <th className="border p-2 text-left">Acciones</th>
+                                <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Nombre</th>
+                                <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Archivo</th>
+                                <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Estado</th>
+                                <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {plantillas.map(p => (
-                                <tr key={p.id}>
-                                    <td className="border p-2">{p.nombre}</td>
-                                    <td className="border p-2 text-sm text-gray-500">{p.archivoNombre}</td>
-                                    <td className="border p-2">
-                                        <span className={`px-2 py-1 text-xs rounded-full ${p.estado === 'CONFIGURADA' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                <tr key={p.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                                    <td style={{ padding: "0.75rem", fontSize: "0.875rem", fontWeight: 500 }}>{p.nombre}</td>
+                                    <td style={{ padding: "0.75rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>{p.archivoNombre}</td>
+                                    <td style={{ padding: "0.75rem" }}>
+                                        <span style={{ 
+                                            padding: "0.25rem 0.75rem", 
+                                            borderRadius: "9999px", 
+                                            fontSize: "0.75rem", 
+                                            fontWeight: 600,
+                                            background: p.estado === 'CONFIGURADA' ? "var(--success-bg, #f0fdf4)" : "var(--warning-bg, #fffbeb)",
+                                            color: p.estado === 'CONFIGURADA' ? "var(--success, #16a34a)" : "var(--warning, #d97706)"
+                                        }}>
                                             {p.estado}
                                         </span>
                                     </td>
-                                    <td className="border p-2">
+                                    <td style={{ padding: "0.75rem", fontSize: "0.875rem" }}>
                                         {p.estado === 'NUEVA' && (
                                             <button 
                                                 onClick={() => {
                                                     setPlantillaRevisar(p);
                                                     setCamposMapeados(p.configuracionCampos || []);
                                                 }}
-                                                className="text-blue-600 hover:underline mr-4"
+                                                style={{ color: "var(--primary)", background: "none", border: "none", cursor: "pointer", marginRight: "1rem", fontWeight: 500, textDecoration: "underline" }}
                                             >
                                                 Revisar Mapeo
                                             </button>
                                         )}
-                                        <button onClick={() => eliminarPlantilla(p.id)} className="text-red-600 hover:underline">Eliminar</button>
+                                        <button onClick={() => eliminarPlantilla(p.id)} style={{ color: "var(--danger, #dc2626)", background: "none", border: "none", cursor: "pointer", fontWeight: 500, textDecoration: "underline" }}>Eliminar</button>
                                     </td>
                                 </tr>
                             ))}
@@ -191,24 +201,22 @@ export default function PlantillaUploader() {
             )}
 
             {plantillaRevisar && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-2xl font-bold mb-2">Revisión de Campos por IA</h3>
-                        <p className="text-gray-600 mb-6">La IA detectó las siguientes variables en la plantilla. Confirma o corrige el mapeo.</p>
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "1rem" }}>
+                    <div style={{ background: "var(--surface)", borderRadius: "var(--radius)", padding: "2rem", width: "100%", maxWidth: "800px", maxHeight: "90vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }}>
+                        <h3 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.5rem", color: "var(--text)" }}>Revisión de Campos por IA</h3>
+                        <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>La IA detectó las siguientes variables en la plantilla. Confirma o corrige el mapeo.</p>
                         
-                        <div className="space-y-4 mb-6">
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "2rem" }}>
                             {camposMapeados.map((campo, idx) => (
-                                <div key={idx} className="flex flex-col md:flex-row gap-4 p-4 border rounded bg-gray-50 items-center">
-                                    <div className="flex-1">
-                                        <label className="text-xs text-gray-500 uppercase">Texto en Documento</label>
-                                        <p className="font-mono text-sm bg-gray-200 p-1 rounded inline-block">{campo.campoPlantilla}</p>
-                                        <p className="text-xs text-gray-400 mt-1">{campo.explicacion}</p>
+                                <div key={idx} style={{ display: "flex", gap: "1rem", padding: "1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg-secondary, #f8fafc)", alignItems: "center", flexWrap: "wrap" }}>
+                                    <div style={{ flex: "1 1 200px" }}>
+                                        <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase", display: "block", marginBottom: "0.25rem" }}>Texto en Documento</label>
+                                        <p style={{ fontFamily: "monospace", fontSize: "0.875rem", background: "rgba(0,0,0,0.05)", padding: "0.25rem 0.5rem", borderRadius: "4px", display: "inline-block", margin: 0 }}>{campo.campoPlantilla}</p>
+                                        <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem", margin: 0 }}>{campo.explicacion}</p>
                                     </div>
-                                    <div>
-                                        <p className="text-2xl">➔</p>
-                                    </div>
-                                    <div className="flex-1">
-                                        <label className="text-xs text-gray-500 uppercase">Campo del Sistema</label>
+                                    <div style={{ fontSize: "1.5rem", color: "var(--text-muted)", padding: "0 0.5rem" }}>➔</div>
+                                    <div style={{ flex: "1 1 200px" }}>
+                                        <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase", display: "block", marginBottom: "0.25rem" }}>Campo del Sistema</label>
                                         <select 
                                             value={campo.sugerenciaSistema}
                                             onChange={(e) => {
@@ -216,7 +224,7 @@ export default function PlantillaUploader() {
                                                 newCampos[idx].sugerenciaSistema = e.target.value;
                                                 setCamposMapeados(newCampos);
                                             }}
-                                            className="w-full border p-2 rounded"
+                                            className="form-control"
                                         >
                                             {OpcionesCampos.map(opc => (
                                                 <option key={opc} value={opc}>{opc}</option>
@@ -227,9 +235,9 @@ export default function PlantillaUploader() {
                             ))}
                         </div>
 
-                        <div className="flex justify-end gap-4">
-                            <button onClick={() => setPlantillaRevisar(null)} className="px-4 py-2 border rounded hover:bg-gray-100">Cancelar</button>
-                            <button onClick={confirmarMapeo} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Guardar y Confirmar</button>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
+                            <button onClick={() => setPlantillaRevisar(null)} style={{ padding: "0.5rem 1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
+                            <button onClick={confirmarMapeo} style={{ padding: "0.5rem 1rem", background: "var(--success, #16a34a)", color: "white", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontWeight: 600 }}>Guardar y Confirmar</button>
                         </div>
                     </div>
                 </div>

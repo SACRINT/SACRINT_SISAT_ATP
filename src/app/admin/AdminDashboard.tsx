@@ -1063,6 +1063,9 @@ export default function AdminDashboard({
                                 id: e.id,
                                 cct: e.cct,
                                 nombre: e.nombre,
+                                localidad: e.localidad,
+                                municipio: e.municipio,
+                                zonaEscolar: e.zonaEscolar,
                                 director: e.director ?? null,
                                 email: e.email ?? null,
                                 ultimoIngreso: e.ultimoIngreso ?? null

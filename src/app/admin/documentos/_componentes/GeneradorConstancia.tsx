@@ -118,14 +118,16 @@ export default function GeneradorConstancia() {
     const plantillaInfo = plantillas.find(p => p.id === plantillaSeleccionada);
 
     return (
-        <div className="max-w-4xl">
-            <h2 className="text-xl font-bold mb-6">Generador de Documentos</h2>
+        <div style={{ maxWidth: "800px" }}>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "1.5rem", color: "var(--text)" }}>Generador de Documentos</h2>
             
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
                 <div>
-                    <label className="block text-sm font-semibold mb-2">Seleccionar Documento (Plantilla)</label>
+                    <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
+                        Seleccionar Documento (Plantilla)
+                    </label>
                     <select 
-                        className="w-full border p-2 rounded" 
+                        className="form-control"
                         value={plantillaSeleccionada} 
                         onChange={(e) => setPlantillaSeleccionada(e.target.value)}
                     >
@@ -137,49 +139,54 @@ export default function GeneradorConstancia() {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-semibold mb-2">Seleccionar Escuela / Director</label>
+                    <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", color: "var(--text-secondary)" }}>
+                        Seleccionar Escuela / Director
+                    </label>
                     <select 
-                        className="w-full border p-2 rounded" 
+                        className="form-control"
                         value={escuelaSeleccionada} 
                         onChange={(e) => setEscuelaSeleccionada(e.target.value)}
                         disabled={!plantillaSeleccionada}
                     >
                         <option value="">-- Selecciona --</option>
                         {escuelas.map(e => (
-                            <option key={e.id} value={e.id}>{e.cct} - {e.nombre}</option>
+                            <option key={e.id} value={e.id}>{e.cct} - {e.nombre} - Director: {e.directorTexto || "No especificado"}</option>
                         ))}
                     </select>
                 </div>
             </div>
 
             {plantillaSeleccionada && escuelaSeleccionada && plantillaInfo && (
-                <div className="bg-gray-50 border p-6 rounded-lg mb-8">
-                    <h3 className="text-lg font-bold mb-4">Datos a insertar en: {plantillaInfo.nombre}</h3>
+                <div style={{ background: "var(--bg-secondary, #f8fafc)", border: "1px solid var(--border)", padding: "1.5rem", borderRadius: "var(--radius)", marginBottom: "2rem" }}>
+                    <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "1rem", color: "var(--text)" }}>
+                        Datos a insertar en: {plantillaInfo.nombre}
+                    </h3>
                     
                     {faltantes.length > 0 && (
-                        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
-                            <p className="font-bold">⚠️ El expediente está incompleto.</p>
-                            <p>Faltan los siguientes datos en el sistema para esta escuela/director:</p>
-                            <ul className="list-disc ml-5 mt-2">
+                        <div style={{ background: "var(--danger-bg, #fef2f2)", borderLeft: "4px solid var(--danger, #dc2626)", padding: "1rem", marginBottom: "1.5rem", color: "var(--danger, #dc2626)", borderRadius: "0 8px 8px 0" }}>
+                            <p style={{ fontWeight: "bold", margin: "0 0 0.5rem 0" }}>⚠️ El expediente está incompleto.</p>
+                            <p style={{ margin: 0 }}>Faltan los siguientes datos en el sistema para esta escuela/director:</p>
+                            <ul style={{ paddingLeft: "1.5rem", marginTop: "0.5rem", marginBottom: "0.5rem" }}>
                                 {faltantes.map(f => <li key={f}>{f}</li>)}
                             </ul>
-                            <p className="mt-2 text-sm italic">Puedes llenarlos manualmente a continuación. Si marcas la casilla de abajo, se guardarán permanentemente en su expediente.</p>
+                            <p style={{ margin: 0, fontSize: "0.875rem", fontStyle: "italic" }}>Puedes llenarlos manualmente a continuación. Si marcas la casilla de abajo, se guardarán permanentemente en su expediente.</p>
                         </div>
                     )}
 
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "1rem" }}>
                         {plantillaInfo.configuracionCampos.map((campo: any, idx: number) => {
                             const key = campo.campoPlantilla;
                             const isMissing = !datosFormulario[key];
                             return (
-                                <div key={idx} className="mb-2">
-                                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                                <div key={idx} style={{ marginBottom: "0.5rem" }}>
+                                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.25rem" }}>
                                         {campo.sugerenciaSistema} 
-                                        <span className="text-gray-400 font-normal ml-2 lowercase">({key})</span>
+                                        <span style={{ color: "var(--text-muted)", fontWeight: "normal", marginLeft: "0.5rem", textTransform: "lowercase" }}>({key})</span>
                                     </label>
                                     <input 
                                         type="text" 
-                                        className={`w-full border p-2 rounded focus:outline-none focus:ring-2 ${isMissing ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
+                                        className="form-control"
+                                        style={{ borderColor: isMissing ? "var(--danger, #dc2626)" : "var(--border)", backgroundColor: isMissing ? "var(--danger-bg, #fef2f2)" : "var(--bg)" }}
                                         value={datosFormulario[key] || ""}
                                         onChange={(e) => {
                                             setDatosFormulario({...datosFormulario, [key]: e.target.value});
@@ -191,29 +198,26 @@ export default function GeneradorConstancia() {
                         })}
                     </div>
 
-                    <div className="mt-6 flex items-center gap-2">
+                    <div style={{ marginTop: "1.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <input 
                             type="checkbox" 
                             id="actualizarExp" 
-                            className="w-4 h-4 text-blue-600"
+                            style={{ width: "16px", height: "16px", accentColor: "var(--primary)" }}
                             checked={actualizarExpediente}
                             onChange={(e) => setActualizarExpediente(e.target.checked)}
                         />
-                        <label htmlFor="actualizarExp" className="text-sm font-semibold text-gray-700 cursor-pointer">
-                            Actualizar expediente permanentemente con estos datos
+                        <label htmlFor="actualizarExp" style={{ fontSize: "0.875rem", color: "var(--text)", cursor: "pointer" }}>
+                            Guardar estos datos en el expediente de la escuela y director de forma permanente
                         </label>
                     </div>
-                </div>
-            )}
 
-            {plantillaSeleccionada && escuelaSeleccionada && (
-                <div className="flex justify-end border-t pt-6">
                     <button 
+                        className="btn-primary"
                         onClick={handleGenerar}
                         disabled={generando}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold shadow-lg transition-colors disabled:opacity-50"
+                        style={{ marginTop: "1.5rem", width: "100%", padding: "0.75rem", fontWeight: "bold", opacity: generando ? 0.7 : 1 }}
                     >
-                        {generando ? "Generando Documento..." : "📥 Generar y Descargar Constancia (Word)"}
+                        {generando ? "Generando documento, por favor espera..." : "Generar y Descargar Constancia"}
                     </button>
                 </div>
             )}
