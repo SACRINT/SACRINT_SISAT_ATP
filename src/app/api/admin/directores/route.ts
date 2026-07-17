@@ -12,7 +12,8 @@ export async function GET(req: NextRequest) {
     try {
         const escuelas = await prisma.escuela.findMany({
             include: {
-                directorExpediente: true
+                directorExpediente: true,
+                personal: true
             },
             orderBy: { nombre: 'asc' }
         });
@@ -25,7 +26,8 @@ export async function GET(req: NextRequest) {
             localidad: esc.localidad,
             municipio: esc.municipio,
             directorTexto: esc.director, // El que ya existía
-            expediente: esc.directorExpediente
+            expediente: esc.directorExpediente,
+            personal: esc.personal
         }));
 
         return NextResponse.json(result);
