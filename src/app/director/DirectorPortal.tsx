@@ -56,7 +56,7 @@ export default function DirectorPortal({
     isExpedientesActive = false,
     isDocumentosActive = false,
 }: {
-    escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null };
+    escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null; geminiApiKey?: string | null };
     programas: ProgramaGroup[];
     ciclo: string;
     cicloId: string;
