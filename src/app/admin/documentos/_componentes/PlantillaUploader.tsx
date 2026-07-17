@@ -67,10 +67,10 @@ export default function PlantillaUploader() {
                 toast.success("Plantilla subida y analizada.");
             }
 
-            // Si hay campos para revisar
-            if (data.plantilla && data.plantilla.estado === "NUEVA" && data.plantilla.configuracionCampos?.length > 0) {
+            // Siempre abrir el modal de revisión para que el usuario vea los campos detectados
+            if (data.plantilla) {
                 setPlantillaRevisar(data.plantilla);
-                setCamposMapeados(data.plantilla.configuracionCampos);
+                setCamposMapeados(data.plantilla.configuracionCampos || []);
             }
 
             setFile(null);
@@ -82,9 +82,11 @@ export default function PlantillaUploader() {
         setUploading(false);
     };
 
+    const [confirmando, setConfirmando] = useState(false);
+
     const confirmarMapeo = async () => {
         if (!plantillaRevisar) return;
-        
+        setConfirmando(true);
         try {
             const res = await fetch(`/api/admin/documentos/plantillas/${plantillaRevisar.id}`, {
                 method: "PUT",
@@ -94,11 +96,13 @@ export default function PlantillaUploader() {
 
             if (!res.ok) throw new Error("Error guardando configuración");
             
-            toast.success("Plantilla configurada correctamente");
+            toast.success("✅ Plantilla configurada. Los marcadores {CAMPO} fueron insertados automáticamente en el documento.");
             setPlantillaRevisar(null);
             cargarPlantillas();
         } catch (e) {
-            toast.error("Ocurrió un error");
+            toast.error("Ocurrió un error al guardar");
+        } finally {
+            setConfirmando(false);
         }
     };
 
@@ -210,8 +214,18 @@ export default function PlantillaUploader() {
                         
                         <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "2rem" }}>
                             {camposMapeados.length === 0 && (
-                                <div style={{ padding: "1.5rem", textAlign: "center", background: "var(--bg-secondary)", borderRadius: "8px", color: "var(--text-muted)" }}>
-                                    No hay campos mapeados actualmente. Utiliza el botón de abajo para agregar las etiquetas que pusiste en tu documento (ej. {"{NOMBRE_DIRECTOR}"}).
+                                <div style={{ padding: "1.5rem", background: "var(--warning-bg, #fffbeb)", border: "1px solid var(--warning, #f59e0b)", borderRadius: "8px" }}>
+                                    <p style={{ fontWeight: 700, color: "var(--warning-text, #b45309)", margin: "0 0 0.75rem 0" }}>⚠️ La IA no detectó campos automáticamente</p>
+                                    <p style={{ color: "var(--text)", margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
+                                        Esto ocurre cuando el deploy de Vercel aún no incluyó la última versión, o cuando el documento tiene un formato especial. Puedes:
+                                    </p>
+                                    <ol style={{ color: "var(--text)", margin: "0", paddingLeft: "1.5rem", fontSize: "0.875rem" }}>
+                                        <li>Agregar el mapeo manualmente con el botón de abajo</li>
+                                        <li>El sistema insertará automáticamente <code style={{ background: "#f3f4f6", padding: "1px 5px", borderRadius: "4px" }}>{"{CAMPO}"}</code> en las celdas vacías de tu documento cuando confirmes</li>
+                                    </ol>
+                                    <p style={{ fontWeight: 600, color: "var(--text)", marginTop: "0.75rem", marginBottom: 0, fontSize: "0.875rem" }}>
+                                        Campos de tu documento: El (La) Director(a), R.F.C., Fecha de Ingreso a SEP, Clave Presupuestal, Nombre del Centro de Trabajo, Clave del C.T.
+                                    </p>
                                 </div>
                             )}
                             {camposMapeados.map((campo, idx) => (
@@ -265,8 +279,10 @@ export default function PlantillaUploader() {
                         </div>
 
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
-                            <button onClick={() => setPlantillaRevisar(null)} style={{ padding: "0.5rem 1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
-                            <button onClick={confirmarMapeo} style={{ padding: "0.5rem 1rem", background: "var(--success, #16a34a)", color: "white", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontWeight: 600 }}>Guardar y Confirmar</button>
+                            <button onClick={() => setPlantillaRevisar(null)} disabled={confirmando} style={{ padding: "0.5rem 1rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
+                            <button onClick={confirmarMapeo} disabled={confirmando} style={{ padding: "0.5rem 1rem", background: "var(--success, #16a34a)", color: "white", border: "none", borderRadius: "var(--radius-sm)", cursor: confirmando ? "not-allowed" : "pointer", fontWeight: 600, opacity: confirmando ? 0.7 : 1 }}>
+                                {confirmando ? "⏳ Procesando e insertando marcadores..." : "✅ Guardar y Confirmar Mapeo"}
+                            </button>
                         </div>
                     </div>
                 </div>
