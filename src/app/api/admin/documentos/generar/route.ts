@@ -88,11 +88,13 @@ export async function POST(req: NextRequest) {
         });
 
         // Subir a Cloudinary para el historial
-        const fileName = `${plantilla.nombre.replace(/\s+/g, '_')}_${Date.now()}`;
+        const fileName = `${plantilla.nombre.replace(/\s+/g, '_')}_${Date.now()}.docx`;
         const { publicId, url } = await uploadFileToCloudinary(
             generatedBuf,
-            "SISAT-ATP/Documentos_Administrativos/Generados",
-            fileName
+            fileName,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "Documentos_Administrativos/Generados",
+            fileName.replace(/\.[^.]+$/, "")
         );
 
         // Guardar Historial

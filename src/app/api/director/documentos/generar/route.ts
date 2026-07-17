@@ -70,11 +70,13 @@ export async function POST(req: NextRequest) {
         doc.render(datosFinales);
         const generatedBuf = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
 
-        const fileName = `${plantilla.nombre.replace(/\s+/g, '_')}_Personal_${Date.now()}`;
+        const fileName = `${plantilla.nombre.replace(/\s+/g, '_')}_Personal_${Date.now()}.docx`;
         const { publicId, url } = await uploadFileToCloudinary(
             generatedBuf,
-            `SISAT-ATP/${escuelaId}/Documentos_Generados`,
-            fileName
+            fileName,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            `${escuelaId}/Documentos_Generados`,
+            fileName.replace(/\.[^.]+$/, "")
         );
 
         const historial = await prisma.documentoAdministrativo.create({

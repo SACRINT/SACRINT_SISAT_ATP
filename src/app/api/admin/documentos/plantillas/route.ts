@@ -61,7 +61,9 @@ export async function POST(req: NextRequest) {
         // Subir a Cloudinary
         const { publicId, url } = await uploadFileToCloudinary(
             buffer,
-            "SISAT-ATP/Documentos_Administrativos/Plantillas",
+            file.name,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "Documentos_Administrativos/Plantillas",
             file.name.replace(/\.[^.]+$/, "")
         );
 
