@@ -5,7 +5,7 @@ import { analizarEntregaConIA, downloadFile, extractTextFromPdf } from "@/lib/pr
 import { hasBackendAccess } from "@/lib/permissions";
 import { waitUntil } from "@vercel/functions";
 
-export const maxDuration = 120; // Allow up to 120 seconds for Gemini + Cloudinary download on Vercel
+export const maxDuration = 300; // Allow up to 300 seconds (Vercel Pro max) for long documents
 
 // GET: Obtener el resultado del pre-dictamen / pre-revisión de una entrega, o realizar acciones de chunking
 export async function GET(
@@ -190,10 +190,10 @@ export async function POST(
                 return NextResponse.json({ error: "Has alcanzado el límite de pre-evaluaciones con IA para esta entrega" }, { status: 403 });
             }
 
-            // Increment attempts
+            // Increment attempts AND CLEAR resultado so frontend waits for new evaluation
             await prisma.preRevision.upsert({
                 where: { entregaId: id },
-                update: { intentosUsados: { increment: 1 } },
+                update: { intentosUsados: { increment: 1 }, resultado: {} },
                 create: { entregaId: id, resultado: {}, intentosUsados: 1 }
             });
         } else if (userRole !== "admin") {
@@ -202,6 +202,12 @@ export async function POST(
             if (!hasBackendAccess(user, "avances", "write")) {
                 return NextResponse.json({ error: "No autorizado (sin permisos de escritura en avances)" }, { status: 403 });
             }
+            // For admin, we also MUST clear the result so the frontend polling waits!
+            await prisma.preRevision.upsert({
+                where: { entregaId: id },
+                update: { resultado: {} },
+                create: { entregaId: id, resultado: {}, intentosUsados: 0 }
+            });
         }
 
         let textoCompleto: string | undefined = undefined;
