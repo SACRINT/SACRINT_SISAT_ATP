@@ -47,6 +47,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
             await deleteFileFromCloudinary(plantilla.archivoDriveId).catch(console.error);
         }
 
+        // Eliminar primero los documentos generados asociados a esta plantilla para evitar error de clave foránea
+        await prisma.documentoAdministrativo.deleteMany({
+            where: { plantillaId: id }
+        });
+
         await prisma.plantillaDocumento.delete({ where: { id: id } });
 
         return NextResponse.json({ success: true });

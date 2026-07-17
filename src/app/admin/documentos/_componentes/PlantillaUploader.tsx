@@ -180,17 +180,15 @@ export default function PlantillaUploader() {
                                         </span>
                                     </td>
                                     <td style={{ padding: "0.75rem", fontSize: "0.875rem" }}>
-                                        {p.estado === 'NUEVA' && (
-                                            <button 
-                                                onClick={() => {
-                                                    setPlantillaRevisar(p);
-                                                    setCamposMapeados(p.configuracionCampos || []);
-                                                }}
-                                                style={{ color: "var(--primary)", background: "none", border: "none", cursor: "pointer", marginRight: "1rem", fontWeight: 500, textDecoration: "underline" }}
-                                            >
-                                                Revisar Mapeo
-                                            </button>
-                                        )}
+                                        <button 
+                                            onClick={() => {
+                                                setPlantillaRevisar(p);
+                                                setCamposMapeados(p.configuracionCampos || []);
+                                            }}
+                                            style={{ color: "var(--primary)", background: "none", border: "none", cursor: "pointer", marginRight: "1rem", fontWeight: 500, textDecoration: "underline" }}
+                                        >
+                                            {p.estado === 'NUEVA' ? 'Configurar Mapeo' : 'Editar Mapeo'}
+                                        </button>
                                         <button onClick={() => eliminarPlantilla(p.id)} style={{ color: "var(--danger, #dc2626)", background: "none", border: "none", cursor: "pointer", fontWeight: 500, textDecoration: "underline" }}>Eliminar</button>
                                     </td>
                                 </tr>

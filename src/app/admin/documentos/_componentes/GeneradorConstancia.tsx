@@ -51,7 +51,8 @@ export default function GeneradorConstancia() {
         const nuevosFaltantes: string[] = [];
 
         plantilla.configuracionCampos.forEach((campo: any) => {
-            const key = campo.campoPlantilla; // Ej: {NOMBRE_DIRECTOR}
+            const rawKey = campo.campoPlantilla || ""; // Ej: {NOMBRE_DIRECTOR}
+            const key = rawKey.replace(/[{}]/g, '').trim(); // docxtemplater busca la llave sin los corchetes
             const sistema = campo.sugerenciaSistema;
 
             let valorExtraido = "";
