@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { analizarEntregaConIA, downloadFile, extractTextFromPdf } from "@/lib/pre-revision";
 import { hasBackendAccess } from "@/lib/permissions";
+import { waitUntil } from "@vercel/functions";
 
 export const maxDuration = 120; // Allow up to 120 seconds for Gemini + Cloudinary download on Vercel
 
@@ -209,10 +210,12 @@ export async function POST(
             textoCompleto = body.textoCompleto;
         } catch (_) {}
 
-        // Disparar la pre-evaluación en segundo plano de forma asíncrona para no causar Timeout (504)
-        analizarEntregaConIA(id, textoCompleto).catch(err => {
-            console.error("Error al ejecutar pre-revisión en segundo plano (POST):", err);
-        });
+        // Disparar la pre-evaluación en segundo plano de forma asíncrona usando waitUntil para que Vercel no congele el contenedor
+        waitUntil(
+            analizarEntregaConIA(id, textoCompleto).catch(err => {
+                console.error("Error al ejecutar pre-revisión en segundo plano (POST):", err);
+            })
+        );
 
         // Obtener el estado actual (que estará procesándose/limpio)
         const preRevision = await prisma.preRevision.findUnique({

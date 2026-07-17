@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendUploadConfirmation } from "@/lib/email";
 import { analizarEntregaConIA } from "@/lib/pre-revision";
+import { waitUntil } from "@vercel/functions";
 
 export const maxDuration = 60; // Allow up to 60 seconds for Vercel Hobby limits during upload and analysis
 
@@ -85,13 +86,15 @@ export async function POST(req: NextRequest) {
             periodoLabel = `Semestre ${periodo.semestre}`;
         }
 
-        // Enviar acuse de recibo por email en segundo plano (evita timeouts)
-        sendUploadConfirmation(
-            escuela.email,
-            escuela.nombre,
-            programa.nombre,
-            periodoLabel
-        ).catch(err => console.error("Error al enviar confirmación de correo:", err));
+        // Enviar acuse de recibo por email en segundo plano (usando waitUntil para evitar freeze en Vercel)
+        waitUntil(
+            sendUploadConfirmation(
+                escuela.email,
+                escuela.nombre,
+                programa.nombre,
+                periodoLabel
+            ).catch(err => console.error("Error al enviar confirmación de correo:", err))
+        );
 
         // Ejecutar pre-revisión respetando la configuración y límites de IA si es director
         if (userRole === "director") {
@@ -112,10 +115,12 @@ export async function POST(req: NextRequest) {
                     });
 
                     console.log(`[confirm] AI triggered for director (${currentAttempts + 1}/${limit})`);
-                    // Disparar en segundo plano para evitar timeouts de Vercel (Hobby limits)
-                    analizarEntregaConIA(entregaId).catch(err => {
-                        console.error("Error al ejecutar pre-revisión en segundo plano:", err);
-                    });
+                    // Disparar en segundo plano usando waitUntil para asegurar ejecucion en Vercel
+                    waitUntil(
+                        analizarEntregaConIA(entregaId).catch(err => {
+                            console.error("Error al ejecutar pre-revisión en segundo plano:", err);
+                        })
+                    );
                 } else {
                     console.log(`[confirm] AI skipped: director exceeded quota (${currentAttempts}/${limit})`);
                 }
@@ -125,10 +130,12 @@ export async function POST(req: NextRequest) {
         } else {
             // Carga por ATP/Admin: siempre evalúa de manera ilimitada
             console.log(`[confirm] AI triggered for ATP (unlimited)`);
-            // Disparar en segundo plano para evitar timeouts de Vercel
-            analizarEntregaConIA(entregaId).catch(err => {
-                console.error("Error al ejecutar pre-revisión en segundo plano:", err);
-            });
+            // Disparar en segundo plano usando waitUntil para asegurar ejecucion en Vercel
+            waitUntil(
+                analizarEntregaConIA(entregaId).catch(err => {
+                    console.error("Error al ejecutar pre-revisión en segundo plano:", err);
+                })
+            );
         }
 
         return NextResponse.json({

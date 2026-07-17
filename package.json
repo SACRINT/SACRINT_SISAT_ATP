@@ -19,6 +19,7 @@
     "@auth/prisma-adapter": "^2.11.1",
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/client": "^7.4.1",
+    "@vercel/functions": "^3.7.5",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
     "docx": "^9.6.0",
