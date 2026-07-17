@@ -122,8 +122,9 @@ export async function POST(req: NextRequest) {
             console.error("[IA] No se pudo extraer texto del documento. El archivo puede estar dañado.");
         } else {
             try {
-                const apiKeyRecord = await prisma.apiKey.findFirst({ where: { provider: "gemini", active: true } });
-                const aiKey = apiKeyRecord?.key || process.env.GEMINI_API_KEY;
+                // IMPORTANTE: usar env var PRIMERO. La llave en BD puede estar revocada/expirada.
+                const aiKey = process.env.GEMINI_API_KEY
+                    || (await prisma.apiKey.findFirst({ where: { provider: "gemini", active: true } }))?.key;
 
                 if (!aiKey) {
                     console.error("[IA] No hay API Key de Gemini configurada en el sistema.");
