@@ -54,6 +54,7 @@ export default function DirectorPortal({
     isPAECActive = false,
     isCapemsActive = false,
     isExpedientesActive = false,
+    isDocumentosActive = false,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null };
     programas: ProgramaGroup[];
