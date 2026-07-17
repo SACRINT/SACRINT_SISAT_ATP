@@ -5,68 +5,7 @@ import { uploadFileToCloudinary } from "@/lib/cloudinary";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 import PizZip from "pizzip";
-
-// ─── Helpers de extracción de XML ──────────────────────────────────────────────
-
-/**
- * Extrae el texto de un fragmento XML de Word concatenando todos los <w:t> dentro del párrafo.
- * Esto resuelve el problema de que Word fragmenta {NOMBRE_DIRECTOR} en múltiples nodos XML.
- */
-function getTextFromXmlFragment(xml: string): string {
-    const texts = xml.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g) || [];
-    return texts.map(t => t.replace(/<[^>]+>/g, "")).join("").trim();
-}
-
-/**
- * Extrae el contenido estructurado del documento Word:
- * - Párrafos normales
- * - Tablas como filas "Etiqueta | Valor" (donde Valor puede estar vacío)
- */
-function extractDocumentStructure(xmlContent: string): {
-    paragraphs: string[];
-    tableRows: Array<{ label: string; value: string }>;
-    fullText: string;
-} {
-    const paragraphs: string[] = [];
-    const tableRows: Array<{ label: string; value: string }> = [];
-
-    // Extraer tablas
-    const tables = xmlContent.match(/<w:tbl[\s\S]*?<\/w:tbl>/g) || [];
-    for (const table of tables) {
-        const rows = table.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g) || [];
-        for (const row of rows) {
-            const cells = row.match(/<w:tc>[\s\S]*?<\/w:tc>/g) || [];
-            if (cells.length >= 1) {
-                const label = cells[0] ? getTextFromXmlFragment(cells[0]) : "";
-                const value = cells[1] ? getTextFromXmlFragment(cells[1]) : "";
-                if (label) {
-                    tableRows.push({ label, value });
-                }
-            }
-        }
-    }
-
-    // Extraer párrafos fuera de tablas
-    let xmlWithoutTables = xmlContent;
-    for (const table of tables) {
-        xmlWithoutTables = xmlWithoutTables.replace(table, "");
-    }
-    const paraMatches = xmlWithoutTables.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || [];
-    for (const para of paraMatches) {
-        const text = getTextFromXmlFragment(para);
-        if (text) paragraphs.push(text);
-    }
-
-    // Construir texto completo para la IA
-    const tableText = tableRows.map(r => `"${r.label}" -> "${r.value || "(vacío - aquí va el dato)"}"` ).join("\n");
-    const paraText = paragraphs.join("\n");
-    const fullText = [
-        tableRows.length > 0 ? `=== TABLA DEL DOCUMENTO (Etiqueta | Celda de valor) ===\n${tableText}` : "",
-        paragraphs.length > 0 ? `=== TEXTO DEL DOCUMENTO ===\n${paraText}` : "",
-    ].filter(Boolean).join("\n\n");
-
-    return { paragraphs, tableRows, fullText };
-}
+import Docxtemplater from "docxtemplater";
 
 // GET: Listar plantillas
 export async function GET(req: NextRequest) {
@@ -81,9 +20,52 @@ export async function GET(req: NextRequest) {
         });
         return NextResponse.json(plantillas);
     } catch (error: any) {
-        console.error("Error obteniendo plantillas:", error);
         return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
     }
+}
+
+/**
+ * Extrae TODO el texto de un .docx de manera confiable.
+ * Intenta docxtemplater primero (más limpio), con fallback a stripping de XML.
+ */
+function extractTextFromDocx(buffer: Buffer): string {
+    let text = "";
+
+    try {
+        const zip = new PizZip(buffer);
+
+        // Intento 1: docxtemplater con delimitadores seguros (evita errores con {CAMPO} en el doc)
+        try {
+            const doc = new Docxtemplater(zip, {
+                paragraphLoop: true,
+                linebreaks: true,
+                delimiters: { start: "[[", end: "]]" } // Delimitadores distintos a {} para no parsear {CAMPO} como variable
+            });
+            text = doc.getFullText();
+            console.log(`[IA-EXTRACCION] docxtemplater OK: ${text.length} chars`);
+        } catch (dtErr) {
+            console.warn("[IA-EXTRACCION] docxtemplater falló, usando XML strip:", dtErr);
+        }
+
+        // Si docxtemplater no produjo texto o falló, usar XML stripping (siempre funciona)
+        if (!text || text.trim().length < 20) {
+            const rawXml = zip.file("word/document.xml")?.asText() || "";
+            if (rawXml) {
+                text = rawXml
+                    .replace(/<\/w:p>/gi, "\n")   // Párrafos → saltos de línea
+                    .replace(/<\/w:tc>/gi, " | ") // Celdas de tabla → separador
+                    .replace(/<[^>]+>/g, "")       // Quitar todos los tags XML
+                    .replace(/[ \t]{2,}/g, " ")    // Comprimir espacios
+                    .replace(/\n{3,}/g, "\n\n")    // Máx 2 saltos de línea
+                    .trim();
+                console.log(`[IA-EXTRACCION] XML strip OK: ${text.length} chars`);
+            }
+        }
+    } catch (err) {
+        console.error("[IA-EXTRACCION] Error leyendo el .docx:", err);
+    }
+
+    return text;
 }
 
 // POST: Subir nueva plantilla y analizar con IA
@@ -104,16 +86,20 @@ export async function POST(req: NextRequest) {
 
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // Calcular Hash para detectar duplicados
+        // Hash para detectar duplicados
         const hash = crypto.createHash("sha256").update(buffer).digest("hex");
-
         const existente = await prisma.plantillaDocumento.findFirst({ where: { hash } });
         if (existente) {
-            return NextResponse.json({
-                success: true,
-                message: "Esta plantilla ya existe. Si quieres re-analizarla elimínala y vuelve a subirla.",
-                plantilla: existente
-            });
+            // Si existe pero tiene 0 campos, borrar y re-subir con nuevo análisis
+            if (!existente.configuracionCampos || (existente.configuracionCampos as any[]).length === 0) {
+                await prisma.plantillaDocumento.delete({ where: { id: existente.id } });
+            } else {
+                return NextResponse.json({
+                    success: true,
+                    message: "Plantilla ya existe y tiene campos configurados. Elimínala si quieres re-analizarla.",
+                    plantilla: existente
+                });
+            }
         }
 
         // Subir a Cloudinary
@@ -125,107 +111,90 @@ export async function POST(req: NextRequest) {
             file.name.replace(/\.[^.]+$/, "")
         );
 
-        // ─── Extraer estructura del documento ────────────────────────────────────
-        let documentStructure = { paragraphs: [] as string[], tableRows: [] as Array<{ label: string; value: string }>, fullText: "" };
+        // ─── EXTRACCIÓN DE TEXTO ────────────────────────────────────────────────
+        const extractedText = extractTextFromDocx(buffer);
+        console.log(`[IA-EXTRACCION] Texto final (${extractedText.length} chars):\n${extractedText.substring(0, 500)}`);
 
-        try {
-            const zip = new PizZip(buffer);
-            const rawXml = zip.file("word/document.xml")?.asText() || "";
-            if (rawXml) {
-                documentStructure = extractDocumentStructure(rawXml);
-            }
-        } catch (err) {
-            console.error("[PLANTILLA] Error al extraer el XML del Word:", err);
-        }
-
-        console.log(`[PLANTILLA] Estructura extraída:`, {
-            párrafos: documentStructure.paragraphs.length,
-            filasDeTablal: documentStructure.tableRows.length,
-            texto: documentStructure.fullText.substring(0, 400)
-        });
-
-        // ─── Analizar con IA ──────────────────────────────────────────────────────
+        // ─── ANÁLISIS CON IA ────────────────────────────────────────────────────
         let camposDetectados: Array<{ campoPlantilla: string; sugerenciaSistema: string; explicacion: string }> = [];
 
-        if (documentStructure.fullText && documentStructure.fullText.trim().length > 10) {
+        if (extractedText.trim().length < 10) {
+            console.error("[IA] No se pudo extraer texto del documento. El archivo puede estar dañado.");
+        } else {
             try {
                 const apiKeyRecord = await prisma.apiKey.findFirst({ where: { provider: "gemini", active: true } });
                 const aiKey = apiKeyRecord?.key || process.env.GEMINI_API_KEY;
 
-                if (aiKey) {
+                if (!aiKey) {
+                    console.error("[IA] No hay API Key de Gemini configurada en el sistema.");
+                } else {
                     const ai = new GoogleGenAI({ apiKey: aiKey });
 
-                    const prompt = `Eres un experto en análisis de documentos oficiales para el sistema SISAT-ATP (sistema de gestión escolar en México).
+                    const prompt = `Eres un experto en análisis de documentos oficiales para el sistema SISAT-ATP (gestión escolar mexicana).
 
-Te voy a mostrar el contenido de una plantilla de constancia o documento oficial que se usa para certificar información de directores y escuelas.
+Analiza el siguiente texto extraído de una plantilla de constancia/documento oficial y detecta TODOS los campos donde se deben insertar datos del director o escuela.
 
-TU MISIÓN: Identificar TODOS los campos donde el sistema debe insertar datos automáticamente cuando se genere el documento para un director específico.
+CAMPOS DISPONIBLES EN EL SISTEMA (usa exactamente estos nombres en sugerenciaSistema):
+- NOMBRE_DIRECTOR: Nombre completo del director o titular
+- RFC_DIRECTOR: RFC del director
+- CURP_DIRECTOR: CURP del director
+- FECHA_INGRESO_DIRECTOR: Fecha de ingreso al servicio docente
+- CLAVE_PRESUPUESTAL_DIRECTOR: Clave presupuestal
+- TELEFONO_DIRECTOR: Teléfono
+- CORREO_DIRECTOR: Correo electrónico
+- NOMBRE_ESCUELA: Nombre completo de la escuela o centro de trabajo
+- CCT_ESCUELA: Clave del Centro de Trabajo (CCT o C.T.)
+- LOCALIDAD_ESCUELA: Localidad donde está ubicada la escuela
+- MUNICIPIO_ESCUELA: Municipio donde está la escuela
+- ZONA_ESCOLAR: Zona escolar
+- FECHA_ACTUAL: Fecha del día en que se genera el documento
 
-CAMPOS DISPONIBLES EN EL SISTEMA (úsalos EXACTAMENTE como aparecen aquí):
-• NOMBRE_DIRECTOR → Nombre completo del director o ATP
-• RFC_DIRECTOR → RFC del director
-• CURP_DIRECTOR → CURP del director
-• FECHA_INGRESO_DIRECTOR → Fecha de ingreso al servicio
-• CLAVE_PRESUPUESTAL_DIRECTOR → Clave presupuestal
-• TELEFONO_DIRECTOR → Teléfono
-• CORREO_DIRECTOR → Correo electrónico
-• NOMBRE_ESCUELA → Nombre de la escuela
-• CCT_ESCUELA → Clave del Centro de Trabajo
-• LOCALIDAD_ESCUELA → Localidad de la escuela
-• MUNICIPIO_ESCUELA → Municipio de la escuela
-• ZONA_ESCOLAR → Zona escolar
-• FECHA_ACTUAL → Fecha del día en que se genera el documento
+INSTRUCCIONES:
+1. Lee el texto y busca etiquetas, labels o encabezados de tabla que correspondan a datos de una persona o escuela
+2. Las etiquetas pueden tener formato: "El (La) Director(a):", "R.F.C.", "{NOMBRE_DIRECTOR}", "Nombre del Centro de Trabajo:", "Clave del C.T.", "______", etc.
+3. Para cada campo encontrado, indica el nombre exacto de la etiqueta en el documento (campo campoPlantilla) y el campo del sistema que corresponde (campo sugerenciaSistema)
+4. Si la etiqueta ya usa formato {NOMBRE_CAMPO}, úsala exactamente así en campoPlantilla
+5. Si es una etiqueta de tabla sin llaves (ej: "R.F.C."), úsala tal cual en campoPlantilla
 
-REGLAS DE DETECCIÓN:
-1. Si el documento tiene una TABLA con etiquetas en la columna izquierda y celdas VACÍAS en la derecha → esas celdas vacías son donde van los datos
-2. Si hay etiquetas entre llaves como {NOMBRE} → esas son variables explícitas
-3. Si hay guiones o subrayados: _________ → ahí van datos
-4. Si hay frases como "El (La) Director(a):", "R.F.C.", "Nombre del Centro de Trabajo" seguidas de espacio vacío → ahí van los datos correspondientes
-5. Para cada campo encontrado, el campoPlantilla debe ser exactamente la etiqueta/label del documento tal como aparece (ej: "El (La) Director(a):", "{RFC}", "___________")
+Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin markdown:
+{"campos":[{"campoPlantilla":"El (La) Director(a):","sugerenciaSistema":"NOMBRE_DIRECTOR","explicacion":"Nombre del director"},{"campoPlantilla":"R.F.C.","sugerenciaSistema":"RFC_DIRECTOR","explicacion":"RFC del director"}]}
 
-IMPORTANTE: El campo "campoPlantilla" es la etiqueta o placeholder TAL COMO ESTÁ en el documento. El campo "sugerenciaSistema" es el nombre del campo del sistema que mejor corresponde.
-
-Devuelve ÚNICAMENTE el siguiente JSON sin ningún texto adicional, sin markdown:
-{"campos":[{"campoPlantilla":"El (La) Director(a):","sugerenciaSistema":"NOMBRE_DIRECTOR","explicacion":"Nombre del director de la escuela"},{"campoPlantilla":"R.F.C.","sugerenciaSistema":"RFC_DIRECTOR","explicacion":"RFC del director"}]}
-
-CONTENIDO DEL DOCUMENTO A ANALIZAR:
-${documentStructure.fullText.substring(0, 7000)}`;
+TEXTO DEL DOCUMENTO:
+${extractedText.substring(0, 8000)}`;
 
                     const response = await ai.models.generateContent({
                         model: "gemini-2.5-flash",
-                        contents: prompt,
-                        config: { temperature: 0.1 }
+                        contents: prompt
                     });
 
                     const aiText = response.text || "";
-                    console.log(`[PLANTILLA] Respuesta IA: ${aiText.substring(0, 600)}`);
+                    console.log(`[IA] Respuesta (${aiText.length} chars): ${aiText.substring(0, 800)}`);
 
-                    // Extraer JSON de la respuesta
-                    const jsonMatch = aiText.match(/\{[\s\S]*"campos"[\s\S]*\}/);
-                    if (jsonMatch) {
-                        try {
-                            const parsed = JSON.parse(jsonMatch[0]);
-                            if (parsed.campos && Array.isArray(parsed.campos)) {
-                                camposDetectados = parsed.campos;
-                                console.log(`[PLANTILLA] Detectados ${camposDetectados.length} campos`);
-                            }
-                        } catch (parseErr) {
-                            console.error("[PLANTILLA] Error parseando JSON:", parseErr);
-                        }
+                    if (!aiText.trim()) {
+                        console.error("[IA] La IA devolvió una respuesta vacía.");
                     } else {
-                        console.warn("[PLANTILLA] La IA no devolvió JSON válido. Respuesta:", aiText.substring(0, 400));
+                        const jsonMatch = aiText.match(/\{[\s\S]*"campos"[\s\S]*\}/);
+                        if (jsonMatch) {
+                            try {
+                                const parsed = JSON.parse(jsonMatch[0]);
+                                if (Array.isArray(parsed.campos)) {
+                                    camposDetectados = parsed.campos;
+                                    console.log(`[IA] ${camposDetectados.length} campos detectados exitosamente.`);
+                                }
+                            } catch (parseErr) {
+                                console.error("[IA] Error parseando JSON:", parseErr, "\nJSON recibido:", jsonMatch[0].substring(0, 300));
+                            }
+                        } else {
+                            console.error("[IA] La respuesta no contiene JSON con 'campos':", aiText.substring(0, 300));
+                        }
                     }
-                } else {
-                    console.warn("[PLANTILLA] No hay API Key configurada para Gemini");
                 }
-            } catch (aiError) {
-                console.error("[PLANTILLA] Error en llamada a IA:", aiError);
+            } catch (aiError: any) {
+                console.error("[IA] Error en llamada a Gemini:", aiError?.message || aiError);
             }
-        } else {
-            console.warn("[PLANTILLA] No se pudo extraer texto suficiente del documento.");
         }
 
-        // Guardar en BD (incluyendo la estructura de tabla para usarla en la generación)
+        // Guardar en BD
         const plantilla = await prisma.plantillaDocumento.create({
             data: {
                 nombre,
