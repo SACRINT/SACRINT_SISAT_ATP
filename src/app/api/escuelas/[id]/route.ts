@@ -18,7 +18,7 @@ export async function PUT(
         const escuelaId = params.id;
 
         const data = await request.json();
-        const { nombre, email, director, password, municipio, zonaEscolar, rfc, curp, clavePresupuestal, fechaIngreso } = data;
+        const { nombre, email, director, password, municipio, zonaEscolar, rfc, curp, clavePresupuestal, fechaIngreso, esDePrueba, esSupervision, permisos } = data;
 
         const updateData: any = {
             nombre: typeof nombre === "string" ? nombre : undefined,
@@ -26,6 +26,9 @@ export async function PUT(
             director: typeof director === "string" ? director : undefined,
             municipio: typeof municipio === "string" ? municipio : undefined,
             zonaEscolar: typeof zonaEscolar === "string" ? zonaEscolar : undefined,
+            esDePrueba: typeof esDePrueba === "boolean" ? esDePrueba : undefined,
+            esSupervision: typeof esSupervision === "boolean" ? esSupervision : undefined,
+            permisos: permisos !== undefined ? permisos : undefined,
         };
 
         if (password && password.trim().length > 0) {

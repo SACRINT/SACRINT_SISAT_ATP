@@ -52,6 +52,9 @@ model Escuela {
   rol       String   @default("director")
   ultimoIngreso DateTime?
   geminiApiKey  String?
+  esDePrueba    Boolean  @default(false)
+  esSupervision Boolean  @default(false)
+  permisos      Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

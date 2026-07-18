@@ -33,7 +33,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
                 }
 
-                // Try escuela (director)
+                // Try escuela (director o supervision)
                 const escuela = await prisma.escuela.findUnique({ where: { email } });
                 if (escuela) {
                     const valid = await bcrypt.compare(password, escuela.password);
@@ -47,13 +47,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             console.error("No se pudo actualizar ultimoIngreso:", error);
                         }
 
+                        const userRole = escuela.esSupervision ? "supervision" : "director";
+
                         return {
                             id: escuela.id,
                             email: escuela.email,
                             name: escuela.nombre,
-                            role: "director",
-                            dbRole: "director",
+                            role: userRole,
+                            dbRole: userRole,
                             cct: escuela.cct,
+                            permisos: escuela.permisos,
                         };
                     }
                 }

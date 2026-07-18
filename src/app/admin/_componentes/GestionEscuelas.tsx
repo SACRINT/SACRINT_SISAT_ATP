@@ -15,12 +15,15 @@ type Escuela = {
     director: string | null;
     email: string | null;
     ultimoIngreso?: Date | string | null;
+    esDePrueba?: boolean;
+    esSupervision?: boolean;
     directorExpediente?: {
         rfc?: string | null;
         curp?: string | null;
         clavePresupuestal?: string | null;
         fechaIngreso?: Date | string | null;
     } | null;
+    permisos?: any;
     // Personal con cargo RESPONSABLE para cruzar datos del director
     personal?: {
         curp?: string | null;
@@ -42,7 +45,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     const router = useRouter();
 
     // Form state
-    const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar: string; director: string; email: string; password?: string; rfc?: string; curp?: string; clavePresupuestal?: string; fechaIngreso?: string }>({
+    const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar: string; director: string; email: string; password?: string; rfc?: string; curp?: string; clavePresupuestal?: string; fechaIngreso?: string; esDePrueba?: boolean; esSupervision?: boolean; permisos?: any }>({
         cct: "",
         nombre: "",
         localidad: "",
@@ -55,6 +58,9 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         curp: "",
         clavePresupuestal: "",
         fechaIngreso: "",
+        esDePrueba: false,
+        esSupervision: false,
+        permisos: { verAvance: true, verExpedientes: true, verCapems: true, generarConstancias: true },
     });
 
     const selectedEscuela = escuelas.find((e) => e.id === selectedId);
@@ -96,6 +102,9 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     curp: getCURP,
                     clavePresupuestal: getClavePresup,
                     fechaIngreso: getFechaIngreso ? new Date(getFechaIngreso).toISOString().split('T')[0] : "",
+                    esDePrueba: esc.esDePrueba ?? false,
+                    esSupervision: esc.esSupervision ?? false,
+                    permisos: esc.permisos || { verAvance: true, verExpedientes: true, verCapems: true, generarConstancias: true },
                 });
 
                 // Fetch configuraciones
@@ -122,7 +131,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         setIsCreating(true);
         setIsEditing(false);
         setMessage(null);
-        setFormData({ cct: "", nombre: "", localidad: "", municipio: "", zonaEscolar: "", director: "", email: "", password: "" });
+        setFormData({ cct: "", nombre: "", localidad: "", municipio: "", zonaEscolar: "", director: "", email: "", password: "", esDePrueba: false, esSupervision: false, permisos: { verAvance: true, verExpedientes: true, verCapems: true, generarConstancias: true } });
         setConfiguraciones({});
     };
 
@@ -324,6 +333,74 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                 />
                             </div>
                         )}
+
+                        <div>
+                            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
+                                <input
+                                    type="checkbox"
+                                    checked={isEditingMode ? formData.esDePrueba : (selectedEscuela?.esDePrueba ?? false)}
+                                    onChange={(e) => setFormData({ ...formData, esDePrueba: e.target.checked })}
+                                    disabled={!isEditingMode}
+                                    style={{ width: "1rem", height: "1rem", cursor: isEditingMode ? "pointer" : "default" }}
+                                />
+                                <BadgeIcon icon={<Building2 size={14} />} /> Esta institución es de PRUEBA (se excluye de estadísticas)
+                            </label>
+
+                            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "1rem", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
+                                <input
+                                    type="checkbox"
+                                    checked={isEditingMode ? formData.esSupervision : (selectedEscuela?.esSupervision ?? false)}
+                                    onChange={(e) => setFormData({ ...formData, esSupervision: e.target.checked })}
+                                    disabled={!isEditingMode}
+                                    style={{ width: "1rem", height: "1rem", cursor: isEditingMode ? "pointer" : "default" }}
+                                />
+                                <BadgeIcon icon={<School size={14} />} /> Esta institución tiene rol de SUPERVISIÓN (verá portal de zona).
+                            </label>
+
+                            {((isEditingMode && formData.esSupervision) || (!isEditingMode && selectedEscuela?.esSupervision)) && (
+                                <div style={{ marginTop: "0.5rem", padding: "1rem", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+                                    <h4 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", color: "var(--text)" }}>Permisos de la Supervisión</h4>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isEditingMode ? formData.permisos?.verAvance : (selectedEscuela?.permisos as any)?.verAvance ?? true}
+                                                onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, verAvance: e.target.checked } })}
+                                                disabled={!isEditingMode}
+                                            />
+                                            Ver Avance de Entregas (Monitoreo)
+                                        </label>
+                                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isEditingMode ? formData.permisos?.verExpedientes : (selectedEscuela?.permisos as any)?.verExpedientes ?? true}
+                                                onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, verExpedientes: e.target.checked } })}
+                                                disabled={!isEditingMode}
+                                            />
+                                            Ver Expedientes de Personal
+                                        </label>
+                                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isEditingMode ? formData.permisos?.verCapems : (selectedEscuela?.permisos as any)?.verCapems ?? true}
+                                                onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, verCapems: e.target.checked } })}
+                                                disabled={!isEditingMode}
+                                            />
+                                            Ver Fichas CAPEMS
+                                        </label>
+                                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isEditingMode ? formData.permisos?.generarConstancias : (selectedEscuela?.permisos as any)?.generarConstancias ?? true}
+                                                onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, generarConstancias: e.target.checked } })}
+                                                disabled={!isEditingMode}
+                                            />
+                                            Generar Constancias
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         <div>
                             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>

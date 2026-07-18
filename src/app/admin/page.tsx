@@ -64,6 +64,9 @@ export default async function AdminPage() {
             total: true,
             ultimoIngreso: true,
             directorExpediente: true,
+            esDePrueba: true,
+            esSupervision: true,
+            permisos: true,
             // Incluir el personal con cargo RESPONSABLE para cruzar datos del director
             personal: {
                 where: { cargo: "RESPONSABLE" },
@@ -104,6 +107,8 @@ export default async function AdminPage() {
     // Compute zone statistics for the dashboard
     const zonaMap = new Map<string, { zona: string; total: number; aprobadas: number; entregadas: number; escuelas: number }>();
     for (const esc of escuelas) {
+        if (esc.esDePrueba || esc.esSupervision) continue; // Excluir escuelas de prueba y supervision de las estadisticas
+
         const zona = esc.zonaEscolar || "Sin Zona";
         if (!zonaMap.has(zona)) zonaMap.set(zona, { zona, total: 0, aprobadas: 0, entregadas: 0, escuelas: 0 });
         const entry = zonaMap.get(zona)!;
@@ -134,7 +139,9 @@ export default async function AdminPage() {
 
     // Calculate stats from active periods only
     const activeEntregas = programas.flatMap((p) =>
-        p.periodos.filter((per) => per.activo).flatMap((per) => per.entregas)
+        p.periodos.filter((per) => per.activo).flatMap((per) => 
+            per.entregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision)
+        )
     );
 
     const stats = {

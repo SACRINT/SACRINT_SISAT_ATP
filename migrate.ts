@@ -1,0 +1,11 @@
+import { prisma } from './src/lib/db';
+
+async function main() {
+  await prisma.escuela.update({
+    where: { cct: '21FMS0020X' },
+    data: { esSupervision: true }
+  });
+  console.log('Migrated!');
+}
+
+main().finally(() => prisma.$disconnect());

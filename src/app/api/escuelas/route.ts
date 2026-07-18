@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
         }
 
         const data = await req.json();
-        const { cct, nombre, localidad, municipio, zonaEscolar, email, password, director } = data;
+        const { cct, nombre, localidad, municipio, zonaEscolar, email, password, director, esDePrueba, esSupervision, permisos } = data;
 
         if (!cct || !nombre || !localidad || !email || !password) {
             return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
                 email,
                 password: hashedPassword,
                 director: director || null,
+                esDePrueba: esDePrueba ?? false,
+                esSupervision: esSupervision ?? false,
+                permisos: permisos || null,
             }
         });
 

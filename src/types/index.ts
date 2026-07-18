@@ -58,6 +58,9 @@ export interface EscuelaAdmin {
     director?: string | null;
     email?: string | null;
     ultimoIngreso?: string | Date | null;
+    esDePrueba?: boolean;
+    esSupervision?: boolean;
+    permisos?: any;
     directorExpediente?: {
         id?: string;
         rfc?: string | null;
