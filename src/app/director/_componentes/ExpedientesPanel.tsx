@@ -52,6 +52,7 @@ interface PersonalRecord {
     correoElectronico: string | null;
     gradoAcademico: string | null;
     fechaIngreso: string | null;
+    clavePresupuestal: string | null;
     documentos: Documento[];
 }
 
@@ -72,6 +73,7 @@ const EMPTY_FORM = {
     correoElectronico: "",
     gradoAcademico: "",
     fechaIngreso: "",
+    clavePresupuestal: "",
 };
 
 
@@ -562,6 +564,10 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: "0.25rem" }}>Fecha de Ingreso</label>
                             <input className="form-control" type="date" value={form.fechaIngreso} onChange={e => setForm({ ...form, fechaIngreso: e.target.value })} />
                         </div>
+                        <div>
+                            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: "0.25rem" }}>Clave Presupuestal</label>
+                            <input className="form-control" placeholder="E000000.0 000000" value={form.clavePresupuestal} onChange={e => setForm({ ...form, clavePresupuestal: e.target.value.toUpperCase() })} />
+                        </div>
                     </div>
 
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem", gap: "0.5rem" }}>
@@ -688,6 +694,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                 <input className="form-control" placeholder="Teléfono" value={editForm.telefono} onChange={e => setEditForm({ ...editForm, telefono: e.target.value })} style={{ padding: "0.375rem 0.5rem" }} />
                                                 <input className="form-control" placeholder="Correo Electrónico" value={editForm.correoElectronico} onChange={e => setEditForm({ ...editForm, correoElectronico: e.target.value })} style={{ padding: "0.375rem 0.5rem" }} />
                                                 <input className="form-control" type="date" value={editForm.fechaIngreso} onChange={e => setEditForm({ ...editForm, fechaIngreso: e.target.value })} style={{ padding: "0.375rem 0.5rem" }} />
+                                                <input className="form-control" placeholder="Clave Presupuestal" value={editForm.clavePresupuestal} onChange={e => setEditForm({ ...editForm, clavePresupuestal: e.target.value.toUpperCase() })} style={{ padding: "0.375rem 0.5rem" }} />
                                             </div>
                                             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", justifyContent: "flex-end" }}>
                                                 <button className="btn btn-outline" onClick={() => setEditingPerson(null)} style={{ minHeight: "auto", padding: "0.375rem 0.75rem" }}>
@@ -706,6 +713,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                 {person.correoElectronico && <span><strong>Email:</strong> {person.correoElectronico}</span>}
                                                 {person.gradoAcademico && <span><strong>Grado:</strong> {getGradoLabel(person.gradoAcademico)}</span>}
                                                 {person.fechaIngreso && <span><strong>Ingreso:</strong> {new Date(person.fechaIngreso).toLocaleDateString("es-MX")}</span>}
+                                                {person.clavePresupuestal && <span><strong>Clave Presup.:</strong> {person.clavePresupuestal}</span>}
                                             </div>
                                             <div style={{ display: "flex", gap: "0.25rem" }}>
                                                 <button
@@ -723,6 +731,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                             correoElectronico: person.correoElectronico || "",
                                                             gradoAcademico: person.gradoAcademico || "",
                                                             fechaIngreso: person.fechaIngreso ? person.fechaIngreso.split("T")[0] : "",
+                                                            clavePresupuestal: person.clavePresupuestal || "",
                                                         });
                                                     }}
                                                     style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem" }}

@@ -27,7 +27,12 @@ Criterios de validación por tipo de documento:
 Considera:
 - Si el documento está de cabeza, muy borroso o ilegible, marca "ADVERTENCIA" y solicita que se vuelva a subir de forma legible.
 - Si el documento no tiene ninguna relación con el tipo solicitado (ej. subió un INE en la ranura de Acta de Nacimiento), marca "RECHAZADO".
-- Si es legible, coincide y está completo, marca "APROBADO".`;
+- Si es legible, coincide y está completo, marca "APROBADO".
+
+EXTRA: Si el documento es un "COMPROBANTE_PAGO", debes intentar extraer la "Clave Presupuestal" del trabajador.
+La Clave Presupuestal se forma uniendo la Categoría y la Plaza separadas por un espacio.
+Ejemplo: Si la Categoría dice "07 E451710.0" y la Plaza dice "003339", la Clave Presupuestal es "E451710.0 003339" (ignora números de zona o similares que estén antes de la letra de la categoría).
+Devuelve este valor en el campo "clavePresupuestalExtraida" del JSON (si no lo encuentras, devuélvelo nulo).`;
 
 const responseSchema = {
     type: "OBJECT",
@@ -38,6 +43,10 @@ const responseSchema = {
         },
         observaciones: {
             type: "STRING"
+        },
+        clavePresupuestalExtraida: {
+            type: "STRING",
+            nullable: true
         }
     },
     required: ["valido", "observaciones"]
@@ -147,6 +156,17 @@ El tipo de documento requerido es: "${documento.tipoDocumento}" ${documento.etiq
                 observacionesIA: result.observaciones
             }
         });
+
+        if (result.clavePresupuestalExtraida && documento.tipoDocumento === "COMPROBANTE_PAGO") {
+            // Si el empleado no tiene clave presupuestal registrada, se la guardamos
+            if (!documento.personal.clavePresupuestal) {
+                await prisma.personal.update({
+                    where: { id: documento.personal.id },
+                    data: { clavePresupuestal: result.clavePresupuestalExtraida }
+                });
+                console.log(`[ocr-validator] Clave Presupuestal guardada para ${documento.personal.id}: ${result.clavePresupuestalExtraida}`);
+            }
+        }
 
         console.log(`[ocr-validator] Documento personal ${documentoId} validado exitosamente: ${result.valido}`);
         return result;

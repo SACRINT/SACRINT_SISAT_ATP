@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
 
     const body = await req.json();
-    const { nombre, apellidoPaterno, apellidoMaterno, sexo, cargo, curp, rfc, telefono, correoElectronico, gradoAcademico, fechaIngreso } = body;
+    const { nombre, apellidoPaterno, apellidoMaterno, sexo, cargo, curp, rfc, telefono, correoElectronico, gradoAcademico, fechaIngreso, clavePresupuestal } = body;
 
     if (!nombre?.trim() || !apellidoPaterno?.trim() || !apellidoMaterno?.trim() || !sexo || !cargo) {
         return NextResponse.json({ error: "Nombre, apellidos, sexo y cargo son obligatorios" }, { status: 400 });
@@ -94,6 +94,7 @@ export async function POST(req: Request) {
             correoElectronico: correoElectronico?.trim() || null,
             gradoAcademico: gradoAcademico || null,
             fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null,
+            clavePresupuestal: clavePresupuestal?.trim() || null,
             orden: (lastPersonal?.orden ?? 0) + 1,
         },
         include: {

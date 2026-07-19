@@ -52,7 +52,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         updateData.rfc = null;
     }
 
-    const allowedFields = ["nombre", "apellidoPaterno", "apellidoMaterno", "sexo", "cargo", "telefono", "correoElectronico", "gradoAcademico", "fechaIngreso"];
+    const allowedFields = ["nombre", "apellidoPaterno", "apellidoMaterno", "sexo", "cargo", "telefono", "correoElectronico", "gradoAcademico", "fechaIngreso", "clavePresupuestal"];
     for (const field of allowedFields) {
         if (body[field] !== undefined) {
             if (field === "fechaIngreso") {
