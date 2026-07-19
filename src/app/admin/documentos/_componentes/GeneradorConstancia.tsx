@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import dayjs from "dayjs";
+import "dayjs/locale/es";
+
+dayjs.locale("es");
 
 type Plantilla = { id: string; nombre: string; estado: string; configuracionCampos: any[]; tiposDestinatario: string[] };
 type Escuela = { id: string; cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar?: string; directorTexto: string; directorExpediente: any; personal?: any[]; esSupervision?: boolean };
@@ -135,7 +138,7 @@ export default function GeneradorConstancia() {
             else if (sistema === "LOCALIDAD_ESCUELA") valorExtraido = escuela?.localidad || "";
             else if (sistema === "MUNICIPIO_ESCUELA") valorExtraido = escuela?.municipio || "";
             else if (sistema === "ZONA_ESCOLAR") valorExtraido = escuela?.zonaEscolar || "";
-            else if (sistema === "FECHA_ACTUAL") valorExtraido = dayjs().format("DD/MM/YYYY");
+            else if (sistema === "FECHA_ACTUAL") valorExtraido = dayjs().format("DD [de] MMMM [de] YYYY");
 
             if (!valorExtraido && sistema !== "OTRO") {
                 nuevosFaltantes.push(sistema);

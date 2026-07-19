@@ -60,7 +60,15 @@ export const SEXOS = [
 export const SECCIONES_PERMISOS = [
     // Monitoreo
     { key: "general", label: "Vista General" },
-    { key: "avances", label: "Avance de Entregas" },
+    { 
+        key: "avances", 
+        label: "Avance de Entregas",
+        sub: [
+            { key: "avances_programa", label: "Avance por Programa" },
+            { key: "avances_escuela", label: "Avance por Escuela" },
+            { key: "avances_capems", label: "Fichas CAPEMS" }
+        ]
+    },
     { key: "reportesNivel", label: "Reportes al Nivel" },
     // Configuración
     { key: "escuelas", label: "Escuelas" },
@@ -68,7 +76,14 @@ export const SECCIONES_PERMISOS = [
     { key: "fechas", label: "Periodos y Tareas" },
     { key: "ciclos", label: "Ciclos Escolares" },
     { key: "formatos", label: "Formatos y Plantillas" },
-    { key: "capems", label: "Configuración CAPEMS" },
+    { 
+        key: "capems", 
+        label: "Configuración CAPEMS",
+        sub: [
+            { key: "capems_fichas", label: "Gestión de Fichas" },
+            { key: "capems_capems", label: "Gestión de CAPEMS" }
+        ]
+    },
     { key: "seguridad", label: "Accesos y Seguridad" },
     { key: "rubricas", label: "Herramientas de IA" },
     // Módulos Activos
@@ -76,14 +91,24 @@ export const SECCIONES_PERMISOS = [
     { key: "circular05", label: "Circular 03" },
     { key: "olimpiada", label: "Olimpiada Matemáticas" },
     { key: "paec", label: "Encuentro PAEC" },
-    { key: "fichas_capems", label: "Fichas CAPEMS" },
     { key: "expedientes", label: "Expedientes Personal" },
-    { key: "documentos", label: "Documentos Admin" },
-] as const;
+    { 
+        key: "documentos", 
+        label: "Documentos Admin",
+        sub: [
+            { key: "documentos_generar", label: "Generar Documento" },
+            { key: "documentos_plantillas", label: "Gestión de Plantillas" },
+            { key: "documentos_autoridades", label: "Autoridades Educativas" }
+        ]
+    },
+];
 
 export const DEFAULT_PERMISOS: Record<string, string> = {
     general: "LECTURA",
     avances: "LECTURA",
+    avances_programa: "LECTURA",
+    avances_escuela: "LECTURA",
+    avances_capems: "LECTURA",
     reportesNivel: "NINGUNO",
     escuelas: "NINGUNO",
     programas: "NINGUNO",
@@ -91,13 +116,17 @@ export const DEFAULT_PERMISOS: Record<string, string> = {
     ciclos: "NINGUNO",
     formatos: "LECTURA",
     capems: "NINGUNO",
+    capems_fichas: "NINGUNO",
+    capems_capems: "NINGUNO",
     seguridad: "NINGUNO",
     rubricas: "NINGUNO",
     eventos: "LECTURA",
     circular05: "LECTURA",
     olimpiada: "LECTURA",
     paec: "LECTURA",
-    fichas_capems: "LECTURA",
     expedientes: "NINGUNO",
     documentos: "NINGUNO",
+    documentos_generar: "NINGUNO",
+    documentos_plantillas: "NINGUNO",
+    documentos_autoridades: "NINGUNO",
 };

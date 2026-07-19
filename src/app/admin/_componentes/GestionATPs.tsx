@@ -1,7 +1,7 @@
 "use strict";
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Edit2, Save, Trash2, X, UserCog, User, ShieldAlert, Key } from "lucide-react";
 import { SECCIONES_PERMISOS, DEFAULT_PERMISOS } from "@/lib/constants";
 
@@ -347,61 +347,101 @@ export default function GestionATPs() {
                                             <tbody>
                                                 {SECCIONES_PERMISOS.map((sec) => {
                                                     const currentVal = formData.permisos[sec.key] || "NINGUNO";
+                                                    
+                                                    const handleParentChange = (newVal: string) => {
+                                                        const newPermisos = { ...formData.permisos, [sec.key]: newVal };
+                                                        // Update children shortcuts
+                                                        if (sec.sub) {
+                                                            sec.sub.forEach(subItem => {
+                                                                newPermisos[subItem.key] = newVal;
+                                                            });
+                                                        }
+                                                        setFormData(prev => ({ ...prev, permisos: newPermisos }));
+                                                    };
+
                                                     return (
-                                                        <tr key={sec.key} style={{ borderBottom: "1px solid var(--border)" }}>
-                                                            <td style={{ padding: "0.5rem 0.75rem", fontWeight: 500 }}>{sec.label}</td>
-                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`permiso-${sec.key}`}
-                                                                    checked={currentVal === "NINGUNO"}
-                                                                    onChange={() => {
-                                                                        setFormData(prev => ({
-                                                                            ...prev,
-                                                                            permisos: {
-                                                                                ...prev.permisos,
-                                                                                [sec.key]: "NINGUNO"
-                                                                            }
-                                                                        }));
-                                                                    }}
-                                                                    style={{ cursor: "pointer" }}
-                                                                />
-                                                            </td>
-                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`permiso-${sec.key}`}
-                                                                    checked={currentVal === "LECTURA"}
-                                                                    onChange={() => {
-                                                                        setFormData(prev => ({
-                                                                            ...prev,
-                                                                            permisos: {
-                                                                                ...prev.permisos,
-                                                                                [sec.key]: "LECTURA"
-                                                                            }
-                                                                        }));
-                                                                    }}
-                                                                    style={{ cursor: "pointer" }}
-                                                                />
-                                                            </td>
-                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`permiso-${sec.key}`}
-                                                                    checked={currentVal === "ESCRITURA"}
-                                                                    onChange={() => {
-                                                                        setFormData(prev => ({
-                                                                            ...prev,
-                                                                            permisos: {
-                                                                                ...prev.permisos,
-                                                                                [sec.key]: "ESCRITURA"
-                                                                            }
-                                                                        }));
-                                                                    }}
-                                                                    style={{ cursor: "pointer" }}
-                                                                />
-                                                            </td>
-                                                        </tr>
+                                                        <React.Fragment key={sec.key}>
+                                                            <tr style={{ borderBottom: "1px solid var(--border)", background: sec.sub ? "var(--bg-secondary)" : "transparent" }}>
+                                                                <td style={{ padding: "0.5rem 0.75rem", fontWeight: 500 }}>{sec.label}</td>
+                                                                <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`permiso-${sec.key}`}
+                                                                        checked={currentVal === "NINGUNO"}
+                                                                        onChange={() => handleParentChange("NINGUNO")}
+                                                                        style={{ cursor: "pointer" }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`permiso-${sec.key}`}
+                                                                        checked={currentVal === "LECTURA"}
+                                                                        onChange={() => handleParentChange("LECTURA")}
+                                                                        style={{ cursor: "pointer" }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`permiso-${sec.key}`}
+                                                                        checked={currentVal === "ESCRITURA"}
+                                                                        onChange={() => handleParentChange("ESCRITURA")}
+                                                                        style={{ cursor: "pointer" }}
+                                                                    />
+                                                                </td>
+                                                            </tr>
+                                                            {sec.sub && sec.sub.map((subItem) => {
+                                                                const subVal = formData.permisos[subItem.key] || "NINGUNO";
+                                                                return (
+                                                                    <tr key={subItem.key} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                                        <td style={{ padding: "0.5rem 0.75rem 0.5rem 2rem", fontSize: "0.75rem" }}>└ {subItem.label}</td>
+                                                                        <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`permiso-${subItem.key}`}
+                                                                                checked={subVal === "NINGUNO"}
+                                                                                onChange={() => {
+                                                                                    setFormData(prev => ({
+                                                                                        ...prev,
+                                                                                        permisos: { ...prev.permisos, [subItem.key]: "NINGUNO" }
+                                                                                    }));
+                                                                                }}
+                                                                                style={{ cursor: "pointer" }}
+                                                                            />
+                                                                        </td>
+                                                                        <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`permiso-${subItem.key}`}
+                                                                                checked={subVal === "LECTURA"}
+                                                                                onChange={() => {
+                                                                                    setFormData(prev => ({
+                                                                                        ...prev,
+                                                                                        permisos: { ...prev.permisos, [subItem.key]: "LECTURA" }
+                                                                                    }));
+                                                                                }}
+                                                                                style={{ cursor: "pointer" }}
+                                                                            />
+                                                                        </td>
+                                                                        <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`permiso-${subItem.key}`}
+                                                                                checked={subVal === "ESCRITURA"}
+                                                                                onChange={() => {
+                                                                                    setFormData(prev => ({
+                                                                                        ...prev,
+                                                                                        permisos: { ...prev.permisos, [subItem.key]: "ESCRITURA" }
+                                                                                    }));
+                                                                                }}
+                                                                                style={{ cursor: "pointer" }}
+                                                                            />
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </React.Fragment>
                                                     );
                                                 })}
                                             </tbody>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin, FileDigit } from "lucide-react";
 import { SECCIONES_PERMISOS, DEFAULT_PERMISOS } from "@/lib/constants";
@@ -462,70 +462,113 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                                 {SECCIONES_PERMISOS.map((sec) => {
                                                     const permisosActuales = isEditingMode ? formData.permisos : (selectedEscuela?.permisos || DEFAULT_PERMISOS);
                                                     const currentVal = permisosActuales[sec.key] || "NINGUNO";
+                                                    
+                                                    const handleParentChange = (newVal: string) => {
+                                                        if (!isEditingMode) return;
+                                                        const newPermisos = { ...formData.permisos, [sec.key]: newVal };
+                                                        if (sec.sub) {
+                                                            sec.sub.forEach(subItem => {
+                                                                newPermisos[subItem.key] = newVal;
+                                                            });
+                                                        }
+                                                        setFormData(prev => ({ ...prev, permisos: newPermisos }));
+                                                    };
+
                                                     return (
-                                                        <tr key={sec.key} style={{ borderBottom: "1px solid var(--border)" }}>
-                                                            <td style={{ padding: "0.5rem 0.75rem", fontWeight: 500, color: !isEditingMode ? "var(--text-muted)" : "var(--text)" }}>{sec.label}</td>
-                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`permiso-${sec.key}`}
-                                                                    checked={currentVal === "NINGUNO"}
-                                                                    onChange={() => {
-                                                                        if (isEditingMode) {
-                                                                            setFormData(prev => ({
-                                                                                ...prev,
-                                                                                permisos: {
-                                                                                    ...prev.permisos,
-                                                                                    [sec.key]: "NINGUNO"
-                                                                                }
-                                                                            }));
-                                                                        }
-                                                                    }}
-                                                                    disabled={!isEditingMode}
-                                                                    style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
-                                                                />
-                                                            </td>
-                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`permiso-${sec.key}`}
-                                                                    checked={currentVal === "LECTURA"}
-                                                                    onChange={() => {
-                                                                        if (isEditingMode) {
-                                                                            setFormData(prev => ({
-                                                                                ...prev,
-                                                                                permisos: {
-                                                                                    ...prev.permisos,
-                                                                                    [sec.key]: "LECTURA"
-                                                                                }
-                                                                            }));
-                                                                        }
-                                                                    }}
-                                                                    disabled={!isEditingMode}
-                                                                    style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
-                                                                />
-                                                            </td>
-                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`permiso-${sec.key}`}
-                                                                    checked={currentVal === "ESCRITURA"}
-                                                                    onChange={() => {
-                                                                        if (isEditingMode) {
-                                                                            setFormData(prev => ({
-                                                                                ...prev,
-                                                                                permisos: {
-                                                                                    ...prev.permisos,
-                                                                                    [sec.key]: "ESCRITURA"
-                                                                                }
-                                                                            }));
-                                                                        }
-                                                                    }}
-                                                                    disabled={!isEditingMode}
-                                                                    style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
-                                                                />
-                                                            </td>
-                                                        </tr>
+                                                        <React.Fragment key={sec.key}>
+                                                            <tr style={{ borderBottom: "1px solid var(--border)", background: sec.sub ? "var(--bg-secondary)" : "transparent" }}>
+                                                                <td style={{ padding: "0.5rem 0.75rem", fontWeight: 500, color: !isEditingMode ? "var(--text-muted)" : "var(--text)" }}>{sec.label}</td>
+                                                                <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`permiso-${sec.key}`}
+                                                                        checked={currentVal === "NINGUNO"}
+                                                                        onChange={() => handleParentChange("NINGUNO")}
+                                                                        disabled={!isEditingMode}
+                                                                        style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`permiso-${sec.key}`}
+                                                                        checked={currentVal === "LECTURA"}
+                                                                        onChange={() => handleParentChange("LECTURA")}
+                                                                        disabled={!isEditingMode}
+                                                                        style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`permiso-${sec.key}`}
+                                                                        checked={currentVal === "ESCRITURA"}
+                                                                        onChange={() => handleParentChange("ESCRITURA")}
+                                                                        disabled={!isEditingMode}
+                                                                        style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                    />
+                                                                </td>
+                                                            </tr>
+                                                            {sec.sub && sec.sub.map((subItem) => {
+                                                                const subVal = permisosActuales[subItem.key] || "NINGUNO";
+                                                                return (
+                                                                    <tr key={subItem.key} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                                        <td style={{ padding: "0.5rem 0.75rem 0.5rem 2rem", fontSize: "0.75rem", color: !isEditingMode ? "var(--text-muted)" : "var(--text)" }}>└ {subItem.label}</td>
+                                                                        <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`permiso-${subItem.key}`}
+                                                                                checked={subVal === "NINGUNO"}
+                                                                                onChange={() => {
+                                                                                    if (isEditingMode) {
+                                                                                        setFormData(prev => ({
+                                                                                            ...prev,
+                                                                                            permisos: { ...prev.permisos, [subItem.key]: "NINGUNO" }
+                                                                                        }));
+                                                                                    }
+                                                                                }}
+                                                                                disabled={!isEditingMode}
+                                                                                style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                            />
+                                                                        </td>
+                                                                        <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`permiso-${subItem.key}`}
+                                                                                checked={subVal === "LECTURA"}
+                                                                                onChange={() => {
+                                                                                    if (isEditingMode) {
+                                                                                        setFormData(prev => ({
+                                                                                            ...prev,
+                                                                                            permisos: { ...prev.permisos, [subItem.key]: "LECTURA" }
+                                                                                        }));
+                                                                                    }
+                                                                                }}
+                                                                                disabled={!isEditingMode}
+                                                                                style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                            />
+                                                                        </td>
+                                                                        <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`permiso-${subItem.key}`}
+                                                                                checked={subVal === "ESCRITURA"}
+                                                                                onChange={() => {
+                                                                                    if (isEditingMode) {
+                                                                                        setFormData(prev => ({
+                                                                                            ...prev,
+                                                                                            permisos: { ...prev.permisos, [subItem.key]: "ESCRITURA" }
+                                                                                        }));
+                                                                                    }
+                                                                                }}
+                                                                                disabled={!isEditingMode}
+                                                                                style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                            />
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </React.Fragment>
                                                     );
                                                 })}
                                             </tbody>

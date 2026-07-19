@@ -208,6 +208,20 @@ export default function AdminDashboard({
         }
     };
     const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas" | "capems">("programas");
+    
+    // Auto-select the first available tab if the current one is not accessible
+    useEffect(() => {
+        if (avanceTab === "programas" && !hasAccess("avances_programa", "read")) {
+            if (hasAccess("avances_escuela", "read")) setAvanceTab("escuelas");
+            else if (hasAccess("avances_capems", "read")) setAvanceTab("capems");
+        } else if (avanceTab === "escuelas" && !hasAccess("avances_escuela", "read")) {
+            if (hasAccess("avances_programa", "read")) setAvanceTab("programas");
+            else if (hasAccess("avances_capems", "read")) setAvanceTab("capems");
+        } else if (avanceTab === "capems" && !hasAccess("avances_capems", "read")) {
+            if (hasAccess("avances_programa", "read")) setAvanceTab("programas");
+            else if (hasAccess("avances_escuela", "read")) setAvanceTab("escuelas");
+        }
+    }, [avanceTab, hasAccess]);
     const [filterType, setFilterType] = useState<"escuelas" | "supervision">("escuelas");
     const [searchTermAvance, setSearchTermAvance] = useState("");
     // Modal state for evaluation (Admin)
@@ -1036,21 +1050,25 @@ export default function AdminDashboard({
                     return (
                     <div>
                         <div className="tab-list">
-                            <button
-                                onClick={() => setAvanceTab("programas")}
-                                className={`tab-item ${avanceTab === "programas" ? "active" : ""}`}
-                            >
-                                <ListChecks size={15} />
-                                Avance por Programa
-                            </button>
-                            <button
-                                onClick={() => setAvanceTab("escuelas")}
-                                className={`tab-item ${avanceTab === "escuelas" ? "active" : ""}`}
-                            >
-                                <School size={15} />
-                                Avance por Escuela
-                            </button>
-                            {sidebarConfig.showCapems && hasAccess("fichas_capems", "read") && (
+                            {hasAccess("avances_programa", "read") && (
+                                <button
+                                    onClick={() => setAvanceTab("programas")}
+                                    className={`tab-item ${avanceTab === "programas" ? "active" : ""}`}
+                                >
+                                    <ListChecks size={15} />
+                                    Avance por Programa
+                                </button>
+                            )}
+                            {hasAccess("avances_escuela", "read") && (
+                                <button
+                                    onClick={() => setAvanceTab("escuelas")}
+                                    className={`tab-item ${avanceTab === "escuelas" ? "active" : ""}`}
+                                >
+                                    <School size={15} />
+                                    Avance por Escuela
+                                </button>
+                            )}
+                            {sidebarConfig.showCapems && hasAccess("avances_capems", "read") && (
                                 <button
                                     onClick={() => setAvanceTab("capems")}
                                     className={`tab-item ${avanceTab === "capems" ? "active" : ""}`}
@@ -1103,7 +1121,7 @@ export default function AdminDashboard({
                                 programas={filteredProgramas.filter(p => p.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()))}
                                 onSetMessage={setMessage}
                                 onSetCorreccionModal={setCorreccionModal}
-                                readOnly={!hasAccess("avances", "write")}
+                                readOnly={!hasAccess("avances_programa", "write")}
                             />
                         )}
                         {avanceTab === "escuelas" && (
@@ -1114,11 +1132,11 @@ export default function AdminDashboard({
                                 )}
                                 onSetMessage={setMessage}
                                 onSetCorreccionModal={setCorreccionModal}
-                                readOnly={!hasAccess("avances", "write")}
+                                readOnly={!hasAccess("avances_escuela", "write")}
                             />
                         )}
                         {avanceTab === "capems" && (
-                            <GestionCapems viewMode="resumen" readOnly={!hasAccess("capems", "write")} />
+                            <GestionCapems viewMode="resumen" readOnly={!hasAccess("avances_capems", "write")} hasAccess={hasAccess} />
                         )}
                     </div>
                     );
@@ -1235,7 +1253,7 @@ export default function AdminDashboard({
                 {/* ========= VISTA: CONFIGURACIÓN CAPEMS ========= */}
                 {
                     vista === "capems" && (
-                        <GestionCapems readOnly={!hasAccess("capems", "write")} />
+                        <GestionCapems readOnly={!hasAccess("capems", "write")} hasAccess={hasAccess} />
                     )
                 }
 
@@ -1265,7 +1283,7 @@ export default function AdminDashboard({
                 {/* ========= VISTA: DOCUMENTOS ADMINISTRATIVOS ========= */}
                 {
                     vista === "documentos" && (
-                        <DocumentosAdmin />
+                        <DocumentosAdmin hasAccess={hasAccess} />
                     )
                 }
 

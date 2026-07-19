@@ -130,7 +130,7 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     );
 }
 
-export default function GestionCapems({ readOnly = false, viewMode = "config" }: { readOnly?: boolean, viewMode?: "resumen" | "config" }) {
+export default function GestionCapems({ readOnly = false, viewMode = "config", hasAccess = () => true }: { readOnly?: boolean, viewMode?: "resumen" | "config", hasAccess?: (seccion: string, tipo?: "read" | "write") => boolean }) {
     const router = useRouter();
     const [section, setSection] = useState<TabSection>(viewMode === "resumen" ? "resumen" : "fichas");
     const [fichas, setFichas] = useState<Ficha[]>([]);
@@ -138,6 +138,16 @@ export default function GestionCapems({ readOnly = false, viewMode = "config" }:
     const [registros, setRegistros] = useState<Registro[]>([]);
     const [todasEscuelas, setTodasEscuelas] = useState<{ id: string; cct: string; nombre: string; esSupervision?: boolean; esDePrueba?: boolean }[]>([]);
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (viewMode === "config") {
+            if (section === "fichas" && !hasAccess("capems_fichas", "read")) {
+                if (hasAccess("capems_capems", "read")) setSection("capems");
+            } else if (section === "capems" && !hasAccess("capems_capems", "read")) {
+                if (hasAccess("capems_fichas", "read")) setSection("fichas");
+            }
+        }
+    }, [section, viewMode, hasAccess]);
 
     // Fichas state
     const [newFichaName, setNewFichaName] = useState("");
@@ -526,17 +536,21 @@ export default function GestionCapems({ readOnly = false, viewMode = "config" }:
             {/* Sub-tabs */}
             {!readOnly && viewMode === "config" && (
                 <div className="tab-list">
-                    <button className={`tab-item ${section === "fichas" ? "active" : ""}`} onClick={() => setSection("fichas")}>
-                        Gestión de Fichas
-                    </button>
-                    <button className={`tab-item ${section === "capems" ? "active" : ""}`} onClick={() => setSection("capems")}>
-                        Gestión de CAPEMS
-                    </button>
+                    {hasAccess("capems_fichas", "read") && (
+                        <button className={`tab-item ${section === "fichas" ? "active" : ""}`} onClick={() => setSection("fichas")}>
+                            Gestión de Fichas
+                        </button>
+                    )}
+                    {hasAccess("capems_capems", "read") && (
+                        <button className={`tab-item ${section === "capems" ? "active" : ""}`} onClick={() => setSection("capems")}>
+                            Gestión de CAPEMS
+                        </button>
+                    )}
                 </div>
             )}
 
             {/* ════════ FICHAS ════════ */}
-            {section === "fichas" && (
+            {section === "fichas" && hasAccess("capems_fichas", "read") && (
                 <div className="card">
                     <h3 style={{ marginBottom: "1rem" }}>Catálogo de Fichas ({fichas.length})</h3>
 
@@ -640,9 +654,9 @@ export default function GestionCapems({ readOnly = false, viewMode = "config" }:
             )}
 
             {/* ════════ CAPEMS ════════ */}
-            {section === "capems" && (
+            {section === "capems" && hasAccess("capems_capems", "read") && (
                 <div className="card">
-                    <h3 style={{ marginBottom: "1rem" }}>CAPEMS del Ciclo ({capems.length})</h3>
+                    <h3 style={{ marginBottom: "1rem" }}>Catálogo de CAPEMS ({capems.length})</h3>
 
                     {/* Add CAPEM */}
                     {!readOnly && (
