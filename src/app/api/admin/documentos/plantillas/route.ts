@@ -138,13 +138,13 @@ export async function POST(req: NextRequest) {
 Analiza el siguiente texto extraído de una plantilla de constancia/documento oficial y detecta TODOS los campos donde se deben insertar datos del director o escuela.
 
 CAMPOS DISPONIBLES EN EL SISTEMA (usa exactamente estos nombres en sugerenciaSistema):
-- NOMBRE_DIRECTOR: Nombre completo del director o titular
-- RFC_DIRECTOR: RFC del director
-- CURP_DIRECTOR: CURP del director
-- FECHA_INGRESO_DIRECTOR: Fecha de ingreso al servicio docente
-- CLAVE_PRESUPUESTAL_DIRECTOR: Clave presupuestal
-- TELEFONO_DIRECTOR: Teléfono
-- CORREO_DIRECTOR: Correo electrónico
+- NOMBRE_PERSONA: Nombre completo de la persona (Director, ATP, Docente o Personal)
+- RFC_PERSONA: RFC de la persona
+- CURP_PERSONA: CURP de la persona
+- FECHA_INGRESO_PERSONA: Fecha de ingreso al servicio
+- CLAVE_PRESUPUESTAL_PERSONA: Clave presupuestal
+- TELEFONO_PERSONA: Teléfono
+- CORREO_PERSONA: Correo electrónico
 - NOMBRE_ESCUELA: Nombre completo de la escuela o centro de trabajo
 - CCT_ESCUELA: Clave del Centro de Trabajo (CCT o C.T.)
 - LOCALIDAD_ESCUELA: Localidad donde está ubicada la escuela

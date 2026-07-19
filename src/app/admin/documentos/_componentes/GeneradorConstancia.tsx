@@ -23,6 +23,9 @@ export default function GeneradorConstancia() {
     const [faltantes, setFaltantes] = useState<string[]>([]);
     const [actualizarExpediente, setActualizarExpediente] = useState(false);
     const [generando, setGenerando] = useState(false);
+    
+    // Carrito de constancias
+    const [colaConstancias, setColaConstancias] = useState<any[]>([]);
 
     useEffect(() => {
         Promise.all([
@@ -112,13 +115,17 @@ export default function GeneradorConstancia() {
 
             let valorExtraido = "";
 
-            if (sistema === "NOMBRE_DIRECTOR") valorExtraido = personData?.nombreCompleto || "";
-            else if (sistema === "RFC_DIRECTOR") valorExtraido = personData?.rfc || "";
-            else if (sistema === "CURP_DIRECTOR") valorExtraido = personData?.curp || "";
-            else if (sistema === "FECHA_INGRESO_DIRECTOR") valorExtraido = personData?.fechaIngreso ? dayjs(personData.fechaIngreso).format("YYYY-MM-DD") : "";
-            else if (sistema === "CLAVE_PRESUPUESTAL_DIRECTOR") valorExtraido = personData?.clavePresupuestal || "";
-            else if (sistema === "TELEFONO_DIRECTOR") valorExtraido = personData?.telefono || "";
-            else if (sistema === "CORREO_DIRECTOR") valorExtraido = personData?.correo || "";
+            if (sistema === "NOMBRE_DIRECTOR" || sistema === "NOMBRE_PERSONA") valorExtraido = personData?.nombreCompleto || "";
+            else if (sistema === "RFC_DIRECTOR" || sistema === "RFC_PERSONA") valorExtraido = personData?.rfc || "";
+            else if (sistema === "CURP_DIRECTOR" || sistema === "CURP_PERSONA") valorExtraido = personData?.curp || "";
+            else if (sistema === "FECHA_INGRESO_DIRECTOR" || sistema === "FECHA_INGRESO_PERSONA") {
+                valorExtraido = personData?.fechaIngreso && dayjs(personData.fechaIngreso).isValid() 
+                    ? dayjs(personData.fechaIngreso).format("YYYY-MM-DD") 
+                    : "";
+            }
+            else if (sistema === "CLAVE_PRESUPUESTAL_DIRECTOR" || sistema === "CLAVE_PRESUPUESTAL_PERSONA") valorExtraido = personData?.clavePresupuestal || "";
+            else if (sistema === "TELEFONO_DIRECTOR" || sistema === "TELEFONO_PERSONA") valorExtraido = personData?.telefono || "";
+            else if (sistema === "CORREO_DIRECTOR" || sistema === "CORREO_PERSONA") valorExtraido = personData?.correo || "";
             else if (sistema === "NOMBRE_ESCUELA") valorExtraido = escuela?.nombre || "";
             else if (sistema === "CCT_ESCUELA") valorExtraido = escuela?.cct || "";
             else if (sistema === "LOCALIDAD_ESCUELA") valorExtraido = escuela?.localidad || "";
@@ -138,7 +145,89 @@ export default function GeneradorConstancia() {
 
     }, [plantillaSeleccionada, escuelaSeleccionada, plantillas, escuelas, personalSeleccionado, atpSeleccionado, tipoDestinatario, autoridades]);
 
-    const handleGenerar = async () => {
+    const handleAgregarCola = () => {
+        if (!plantillaSeleccionada) return;
+        const plantillaInfo = plantillas.find(p => p.id === plantillaSeleccionada);
+        if (!plantillaInfo) return;
+
+        let escuelaInfo = escuelas.find(e => e.id === escuelaSeleccionada);
+        if (tipoDestinatario === "ATP") {
+            escuelaInfo = escuelas.find(e => e.esSupervision);
+        }
+
+        // Buscar el nombre en los datos del formulario (independiente de cómo se mapeó)
+        // La IA mapea a NOMBRE_PERSONA o NOMBRE_DIRECTOR usualmente.
+        let personaNombre = "Desconocido";
+        for (const [key, value] of Object.entries(datosFormulario)) {
+            if (key.includes("NOMBRE")) {
+                personaNombre = value as string;
+                break;
+            }
+        }
+        
+        const nuevaConstancia = {
+            id: Math.random().toString(36).substr(2, 9),
+            plantillaId: plantillaSeleccionada,
+            plantillaNombre: plantillaInfo.nombre,
+            tipoDestinatario,
+            personaNombre,
+            escuelaId: escuelaSeleccionada || escuelaInfo?.id || null,
+            directorId: escuelaInfo?.directorExpediente?.id || null,
+            datosFinales: { ...datosFormulario },
+            actualizarExpediente
+        };
+
+        setColaConstancias([...colaConstancias, nuevaConstancia]);
+        toast.success("Agregada a la cola.");
+        
+        // Limpiar el formulario levemente (quitar seleccion de persona para forzar nueva seleccion, pero mantener plantilla)
+        setPersonalSeleccionado("");
+        setAtpSeleccionado("");
+        // No limpiamos escuelaSeleccionada para permitir generar varios del mismo plantel rápido.
+    };
+
+    const handleQuitarDeCola = (id: string) => {
+        setColaConstancias(colaConstancias.filter(c => c.id !== id));
+    };
+
+    const handleGenerarMasivo = async () => {
+        if (colaConstancias.length === 0) return;
+        setGenerando(true);
+        try {
+            const res = await fetch("/api/admin/documentos/generar-masivo", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ constancias: colaConstancias })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al generar documentos masivos");
+            }
+
+            toast.success("Documentos Generados Exitosamente!");
+
+            const blob = await res.blob();
+            const nombreArchivo = `constancias_masivas_${dayjs().format("YYYYMMDD_HHmmss")}.zip`;
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = nombreArchivo;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+
+            // Limpiar la cola tras generar exitosamente
+            setColaConstancias([]);
+            
+        } catch (e: any) {
+            toast.error(e.message || "Error al generar documentos");
+        }
+        setGenerando(false);
+    };
+
+    const handleGenerarIndividual = async () => {
         setGenerando(true);
         const escuela = escuelas.find(e => e.id === escuelaSeleccionada);
 
@@ -355,7 +444,7 @@ export default function GeneradorConstancia() {
                                 return (
                                     <div key={idx} style={{ marginBottom: "0.5rem" }}>
                                         <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.25rem" }}>
-                                            {tipoDestinatario === "ATP" && campo.sugerenciaSistema === "NOMBRE_DIRECTOR" ? "NOMBRE_ATP" : campo.sugerenciaSistema}
+                                            {campo.sugerenciaSistema}
                                             <span style={{ color: "var(--text-muted)", fontWeight: "normal", marginLeft: "0.5rem", textTransform: "lowercase" }}>({rawKey})</span>
                                         </label>
                                         <input 
@@ -389,11 +478,47 @@ export default function GeneradorConstancia() {
 
                     <button 
                         className="btn-primary"
-                        onClick={handleGenerar}
+                        onClick={handleAgregarCola}
                         disabled={generando}
-                        style={{ marginTop: "1.5rem", width: "100%", padding: "0.75rem", fontWeight: "bold", opacity: generando ? 0.7 : 1 }}
+                        style={{ marginTop: "1.5rem", width: "100%", padding: "0.75rem", fontWeight: "bold", opacity: generando ? 0.7 : 1, background: "var(--primary)" }}
                     >
-                        {generando ? "Generando documento, por favor espera..." : "Generar y Descargar Constancia"}
+                        ➕ Agregar Constancia a la Cola
+                    </button>
+                </div>
+            )}
+
+            {/* ── Carrito de Constancias ── */}
+            {colaConstancias.length > 0 && (
+                <div style={{ background: "var(--bg-secondary, #f8fafc)", border: "1px solid var(--primary)", padding: "1.5rem", borderRadius: "var(--radius)", marginBottom: "2rem" }}>
+                    <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "1rem", color: "var(--text)" }}>
+                        Cola de Generación ({colaConstancias.length})
+                    </h3>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.5rem" }}>
+                        {colaConstancias.map((item, idx) => (
+                            <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px" }}>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text)" }}>{idx + 1}. {item.personaNombre}</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Plantilla: {item.plantillaNombre} ({item.tipoDestinatario})</div>
+                                </div>
+                                <button 
+                                    onClick={() => handleQuitarDeCola(item.id)}
+                                    style={{ background: "transparent", border: "none", color: "var(--danger, #dc2626)", cursor: "pointer", fontWeight: "bold", fontSize: "1.2rem", padding: "0.25rem 0.5rem" }}
+                                    title="Quitar de la cola"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    <button 
+                        className="btn-primary"
+                        onClick={handleGenerarMasivo}
+                        disabled={generando}
+                        style={{ width: "100%", padding: "1rem", fontWeight: "bold", fontSize: "1rem", background: "var(--primary)", border: "none", color: "white", borderRadius: "8px", cursor: generando ? "not-allowed" : "pointer", opacity: generando ? 0.7 : 1 }}
+                    >
+                        {generando ? "Procesando documentos, por favor espera..." : `📥 Generar y Descargar Todas (${colaConstancias.length})`}
                     </button>
                 </div>
             )}
