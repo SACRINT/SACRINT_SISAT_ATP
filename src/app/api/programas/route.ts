@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
         }
 
         const data = await request.json();
-        const { nombre, descripcion, tipo, numArchivos, orden, etiquetasArchivos } = data;
+        const { nombre, descripcion, tipo, numArchivos, orden, etiquetasArchivos, esParaSupervision } = data;
 
         if (!nombre || !tipo) {
             return NextResponse.json({ error: "El nombre y el tipo son requeridos" }, { status: 400 });
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
                 numArchivos: parseInt(numArchivos) || 1,
                 orden: parseInt(orden) || 0,
                 etiquetasArchivos: Array.isArray(etiquetasArchivos) ? etiquetasArchivos : [],
+                esParaSupervision: esParaSupervision === true,
             },
         });
 

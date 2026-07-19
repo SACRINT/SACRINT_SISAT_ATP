@@ -95,6 +95,7 @@ model Programa {
   orden            Int              @default(0)
   etiquetasArchivos String[]       @default([])
   recordatorioAuto Boolean          @default(false)
+  esParaSupervision Boolean         @default(false)
   createdAt        DateTime         @default(now())
 
   periodos PeriodoEntrega[]

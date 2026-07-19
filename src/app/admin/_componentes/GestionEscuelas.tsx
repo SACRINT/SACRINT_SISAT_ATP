@@ -273,7 +273,13 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                         style={{ padding: "0.75rem", fontSize: "1rem", cursor: "pointer", width: "100%" }}
                     >
                         <option value="">-- Elige un Centro de Trabajo --</option>
-                        {escuelas.filter(e => tabEscuelas === "escuelas" ? (!e.esSupervision && !e.esDePrueba) : (e.esSupervision || e.esDePrueba)).map(escuela => (
+                        {escuelas.filter(e => tabEscuelas === "escuelas" ? (!e.esSupervision) : (e.esSupervision))
+                            .sort((a, b) => {
+                                if (a.esDePrueba && !b.esDePrueba) return 1;
+                                if (!a.esDePrueba && b.esDePrueba) return -1;
+                                return a.nombre.localeCompare(b.nombre);
+                            })
+                            .map(escuela => (
                             <option key={escuela.id} value={escuela.id}>
                                 {escuela.cct} - {escuela.nombre}
                             </option>

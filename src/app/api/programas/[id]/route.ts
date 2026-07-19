@@ -19,7 +19,7 @@ export async function PUT(
         const programaId = params.id;
 
         const data = await request.json();
-        const { nombre, descripcion, tipo, numArchivos, orden, etiquetasArchivos } = data;
+        const { nombre, descripcion, tipo, numArchivos, orden, etiquetasArchivos, esParaSupervision } = data;
         console.log("[PUT /api/programas] Received data:", { nombre, tipo, numArchivos, programaId });
 
         // Step 1: Fetch existing program to check if 'tipo' is changing
@@ -44,6 +44,7 @@ export async function PUT(
                 numArchivos: numArchivos !== undefined ? parseInt(numArchivos) : undefined,
                 orden: orden !== undefined ? parseInt(orden) : undefined,
                 etiquetasArchivos: etiquetasArchivos !== undefined ? etiquetasArchivos : undefined,
+                esParaSupervision: esParaSupervision !== undefined ? esParaSupervision === true : undefined,
             },
         });
 

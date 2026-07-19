@@ -498,38 +498,42 @@ export default function GestionCapems({ readOnly = false }: { readOnly?: boolean
             )}
 
             {/* Toggle para directores */}
-            <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                    <strong>Módulo CAPEMS para Directores</strong>
-                    <p style={{ margin: "0.25rem 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                        {capemsActive ? "Los directores pueden ver y subir fichas CAPEMS" : "CAPEMS está oculto para los directores"}
-                    </p>
+            {!readOnly && (
+                <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                        <strong>Módulo CAPEMS para Directores</strong>
+                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                            {capemsActive ? "Los directores pueden ver y subir fichas CAPEMS" : "CAPEMS está oculto para los directores"}
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleToggleCapemsActive}
+                        disabled={busy}
+                        style={{
+                            background: "none", border: "none", cursor: "pointer",
+                            color: capemsActive ? "var(--success)" : "var(--text-muted)",
+                        }}
+                        title={capemsActive ? "Desactivar" : "Activar"}
+                    >
+                        {capemsActive ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
+                    </button>
                 </div>
-                <button
-                    onClick={handleToggleCapemsActive}
-                    disabled={busy}
-                    style={{
-                        background: "none", border: "none", cursor: "pointer",
-                        color: capemsActive ? "var(--success)" : "var(--text-muted)",
-                    }}
-                    title={capemsActive ? "Desactivar" : "Activar"}
-                >
-                    {capemsActive ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
-                </button>
-            </div>
+            )}
 
             {/* Sub-tabs */}
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button className={`btn ${section === "resumen" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("resumen")} style={{ flex: 1 }}>
-                    <FileText size={18} /> Resumen Escuelas
-                </button>
-                <button className={`btn ${section === "fichas" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("fichas")} style={{ flex: 1 }}>
-                    <FileText size={18} /> Gestión de Fichas
-                </button>
-                <button className={`btn ${section === "capems" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("capems")} style={{ flex: 1 }}>
-                    <FileText size={18} /> Gestión de CAPEMS
-                </button>
-            </div>
+            {!readOnly && (
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button className={`btn ${section === "resumen" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("resumen")} style={{ flex: 1 }}>
+                        <FileText size={18} /> Resumen Escuelas
+                    </button>
+                    <button className={`btn ${section === "fichas" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("fichas")} style={{ flex: 1 }}>
+                        <FileText size={18} /> Gestión de Fichas
+                    </button>
+                    <button className={`btn ${section === "capems" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("capems")} style={{ flex: 1 }}>
+                        <FileText size={18} /> Gestión de CAPEMS
+                    </button>
+                </div>
+            )}
 
             {/* ════════ FICHAS ════════ */}
             {section === "fichas" && (

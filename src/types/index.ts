@@ -45,6 +45,7 @@ export interface ProgramaAdmin {
     numArchivos: number;
     etiquetasArchivos?: string[];
     orden: number;
+    esParaSupervision?: boolean;
     periodos: PeriodoAdmin[];
 }
 

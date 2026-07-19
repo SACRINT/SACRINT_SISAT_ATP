@@ -62,7 +62,12 @@ export default function EntregasListado({
     const [selectedEntrega, setSelectedEntrega] = useState<string | null>(null);
     const [selectedEtiqueta, setSelectedEtiqueta] = useState<string | null>(null);
     const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string; downloadUrl?: string; fileName?: string } | null>(null);
+    const [isMounted, setIsMounted] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     async function handleUpload(entregaId: string, etiqueta?: string) {
         setSelectedEntrega(entregaId);
@@ -171,6 +176,8 @@ export default function EntregasListado({
     }
 
     const canUpload = (estado: string) => !readOnly && estado !== "APROBADO";
+
+    if (!isMounted) return null;
 
     return (
         <>
@@ -547,10 +554,10 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
     const [statusText, setStatusText] = useState("");
     const [showDetails, setShowDetails] = useState(false);
     const [showChat, setShowChat] = useState(false);
-    const [mounted, setMounted] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
+        setIsMounted(true);
     }, []);
 
     const fetchConfig = useCallback(async () => {
@@ -814,7 +821,7 @@ function PreRevisionDirector({ entregaId, onSetMessage, entregaEstado, hasUpload
                     )
                 )}
             </div>
-            {showChat && mounted && createPortal(
+            {showChat && isMounted && createPortal(
                 <PreRevisionChat
                     entregaId={entregaId}
                     programaNombre={programaNombre}

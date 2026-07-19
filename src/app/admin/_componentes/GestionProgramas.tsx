@@ -17,6 +17,7 @@ interface ProgramaAdmin {
     numArchivos: number;
     orden: number;
     etiquetasArchivos?: string[];
+    esParaSupervision?: boolean;
     recordatorioAuto?: boolean;
     periodos: PeriodoAdmin[];
 }
@@ -39,20 +40,14 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false }:
     const [sendModalProg, setSendModalProg] = useState<{ id: string, nombre: string } | null>(null);
     const [sendStatuses, setSendStatuses] = useState<string[]>(["NO_ENTREGADO", "REQUIERE_CORRECCION"]);
 
-    const [formData, setFormData] = useState<{
-        nombre: string;
-        descripcion: string;
-        tipo: string;
-        numArchivos: number;
-        orden: number;
-        etiquetasArchivos: string[];
-    }>({
+    const [formData, setFormData] = useState({
         nombre: "",
         descripcion: "",
         tipo: "ANUAL",
         numArchivos: 1,
         orden: 0,
-        etiquetasArchivos: [],
+        etiquetasArchivos: [] as string[],
+        esParaSupervision: false,
     });
 
     const handleOpenModal = (prog?: ProgramaAdmin) => {
@@ -66,6 +61,7 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false }:
                 numArchivos: prog.numArchivos,
                 orden: prog.orden,
                 etiquetasArchivos: prog.etiquetasArchivos || [],
+                esParaSupervision: prog.esParaSupervision || false,
             });
         } else {
             setEditingId(null);
@@ -76,6 +72,7 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false }:
                 numArchivos: 1,
                 orden: 0,
                 etiquetasArchivos: [],
+                esParaSupervision: false,
             });
         }
         setIsModalOpen(true);
@@ -301,6 +298,11 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false }:
                             <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
                                 <Layers size={12} /> {prog.numArchivos} Documento(s) req.
                             </span>
+                            {prog.esParaSupervision && (
+                                <span style={{ fontSize: "0.75rem", background: "#fef3c7", color: "#d97706", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid #fde68a", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                                    Supervisión
+                                </span>
+                            )}
 
                             {!readOnly && (
                                 <div style={{ width: "100%", marginTop: "0.5rem", paddingTop: "0.75rem", borderTop: "1px dashed var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -448,6 +450,21 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false }:
                                     </div>
                                 </div>
                             )}
+
+                            <div>
+                                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer" }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.esParaSupervision}
+                                        onChange={(e) => setFormData({ ...formData, esParaSupervision: e.target.checked })}
+                                        disabled={isLoading}
+                                    />
+                                    Exclusivo para Supervisión
+                                </label>
+                                <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "block", marginLeft: "1.5rem" }}>
+                                    Si se marca, este programa sólo será visible y aplicable a la Supervisión, no a las escuelas regulares.
+                                </small>
+                            </div>
 
                             <div>
                                 <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600 }}>Orden de Aparición</label>

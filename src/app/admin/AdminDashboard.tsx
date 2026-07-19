@@ -909,9 +909,13 @@ export default function AdminDashboard({
                 {vista === "general" && (() => {
                     const filteredEsc = escuelas.filter(e => 
                         filterType === "escuelas" 
-                            ? (!e.esSupervision && !e.esDePrueba)
-                            : (e.esSupervision || e.esDePrueba)
-                    );
+                            ? (!e.esSupervision)
+                            : (e.esSupervision)
+                    ).sort((a, b) => {
+                        if (a.esDePrueba && !b.esDePrueba) return 1;
+                        if (!a.esDePrueba && b.esDePrueba) return -1;
+                        return a.nombre.localeCompare(b.nombre);
+                    });
                     return (
                     <VistaGeneral
                         rawEscuelas={filteredEsc}
@@ -944,17 +948,25 @@ export default function AdminDashboard({
                 {vista === "avances" && (() => {
                     const filteredEscuelas = escuelas.filter(e => 
                         filterType === "escuelas" 
-                            ? (!e.esSupervision && !e.esDePrueba)
-                            : (e.esSupervision || e.esDePrueba)
-                    );
-                    const filteredProgramas = programas.map(p => ({
+                            ? (!e.esSupervision)
+                            : (e.esSupervision)
+                    ).sort((a, b) => {
+                        if (a.esDePrueba && !b.esDePrueba) return 1;
+                        if (!a.esDePrueba && b.esDePrueba) return -1;
+                        return a.nombre.localeCompare(b.nombre);
+                    });
+                    const filteredProgramas = programas.filter(p =>
+                        filterType === "escuelas"
+                            ? !p.esParaSupervision
+                            : p.esParaSupervision
+                    ).map(p => ({
                         ...p,
                         periodos: p.periodos.map(per => ({
                             ...per,
                             entregas: per.entregas.filter(en => 
                                 filterType === "escuelas"
-                                    ? (!en.escuela.esSupervision && !en.escuela.esDePrueba)
-                                    : (en.escuela.esSupervision || en.escuela.esDePrueba)
+                                    ? (!en.escuela.esSupervision)
+                                    : (en.escuela.esSupervision)
                             )
                         }))
                     }));

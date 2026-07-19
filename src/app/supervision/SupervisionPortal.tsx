@@ -22,6 +22,8 @@ import ExpedientesPanel from "../director/_componentes/ExpedientesPanel";
 import CapemsPanel from "../director/_componentes/CapemsPanel";
 import RecursosListado from "../director/_componentes/RecursosListado";
 import ListadoEscuelas from "../admin/_componentes/ListadoEscuelas";
+import GestionCapems from "../admin/_componentes/GestionCapems";
+import DocumentosPanel from "../director/_componentes/DocumentosPanel";
 
 type TabType = "monitoreo" | "entregas" | "expedientes" | "capems" | "documentos" | "recursos";
 
@@ -95,14 +97,14 @@ export default function SupervisionPortal({
             case "expedientes":
                 return <ExpedientesPanel escuela={{ id: supervision.id, cct: supervision.cct, nombre: supervision.nombre }} />;
             case "capems":
-                return <CapemsPanel escuela={{ id: supervision.id, cct: supervision.cct, nombre: supervision.nombre }} />;
-            case "documentos":
                 return (
                     <div className="fade-in card">
-                        <h2>Generar Constancias</h2>
-                        <p>Sección en construcción.</p>
+                        <h2>Monitoreo CAPEMS</h2>
+                        <GestionCapems readOnly={true} />
                     </div>
                 );
+            case "documentos":
+                return <DocumentosPanel escuela={supervision} hasApiKey={!!(supervision as any).geminiApiKey} />;
             default:
                 return <div>Sección no encontrada</div>;
         }

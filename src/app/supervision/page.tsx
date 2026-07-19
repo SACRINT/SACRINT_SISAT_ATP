@@ -89,6 +89,7 @@ export default async function SupervisionPage() {
     });
 
     const programas = await prisma.programa.findMany({
+        where: { esParaSupervision: true },
         include: {
             periodos: {
                 where: { cicloEscolarId: ciclo.id, activo: true },
@@ -97,19 +98,30 @@ export default async function SupervisionPage() {
         orderBy: { orden: "asc" },
     });
 
-    const programasAgrupados = programas.map(prog => {
-        const periodosWithEntregas = prog.periodos.map(per => {
-            const ent = entregas.find(e => e.periodoEntregaId === per.id);
-            return {
-                ...per,
-                entrega: ent || null,
+    // Group entregas by programa
+    const programasMap: Record<string, any> = {};
+
+    for (const ent of entregas) {
+        // filter out entregas for programs that are not esParaSupervision
+        const prog = ent.periodoEntrega.programa;
+        if (!prog.esParaSupervision) continue;
+
+        if (!programasMap[prog.id]) {
+            programasMap[prog.id] = {
+                programa: {
+                    id: prog.id,
+                    nombre: prog.nombre,
+                    numArchivos: prog.numArchivos,
+                    tipo: prog.tipo,
+                    etiquetasArchivos: prog.etiquetasArchivos || []
+                },
+                entregas: [],
             };
-        });
-        return {
-            ...prog,
-            periodos: periodosWithEntregas,
-        };
-    });
+        }
+        programasMap[prog.id].entregas.push(ent);
+    }
+
+    const programasAgrupados = Object.values(programasMap);
 
     const recursos = await prisma.recurso.findMany({
         orderBy: { createdAt: "desc" },
