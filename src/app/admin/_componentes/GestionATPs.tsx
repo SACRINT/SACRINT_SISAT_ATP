@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Save, Trash2, X, UserCog, User, ShieldAlert, Key } from "lucide-react";
+import { SECCIONES_PERMISOS, DEFAULT_PERMISOS } from "@/lib/constants";
 
 interface AdminUser {
     id: string;
@@ -12,47 +13,6 @@ interface AdminUser {
     permisos?: any;
 }
 
-const SECCIONES = [
-    { key: "general", label: "Vista General (Dashboard)" },
-    { key: "avances", label: "Avance de Entregas" },
-    { key: "reportesNivel", label: "Reportes al Nivel" },
-    { key: "escuelas", label: "Escuelas" },
-    { key: "programas", label: "Programas" },
-    { key: "periodos", label: "Periodos" },
-    { key: "fechas", label: "Fechas y Tareas" },
-    { key: "ciclos", label: "Ciclos Escolares" },
-    { key: "formatos", label: "Formatos y Plantillas" },
-    { key: "rubricas", label: "Rúbricas y Prompts de IA" },
-    { key: "orquestador", label: "Orquestador de IA" },
-    { key: "modulosControl", label: "Módulos Especiales (Control)" },
-    { key: "eventos", label: "Módulo: Eventos Culturales" },
-    { key: "circular05", label: "Módulo: Circular 03" },
-    { key: "olimpiada", label: "Módulo: Olimpiada Matemáticas" },
-    { key: "paec", label: "Módulo: Encuentro PAEC" },
-    { key: "capems", label: "Módulo: Fichas CAPEMS" },
-    { key: "expedientes", label: "Módulo: Expedientes Personal" },
-] as const;
-
-const DEFAULT_PERMISOS: Record<string, string> = {
-    general: "LECTURA",
-    avances: "LECTURA",
-    reportesNivel: "NINGUNO",
-    escuelas: "NINGUNO",
-    programas: "NINGUNO",
-    periodos: "NINGUNO",
-    fechas: "NINGUNO",
-    ciclos: "NINGUNO",
-    formatos: "LECTURA",
-    rubricas: "NINGUNO",
-    orquestador: "NINGUNO",
-    modulosControl: "NINGUNO",
-    eventos: "NINGUNO",
-    circular05: "NINGUNO",
-    olimpiada: "NINGUNO",
-    paec: "NINGUNO",
-    capems: "NINGUNO",
-    expedientes: "NINGUNO",
-};
 
 export default function GestionATPs() {
     const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -385,7 +345,7 @@ export default function GestionATPs() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {SECCIONES.map((sec) => {
+                                                {SECCIONES_PERMISOS.map((sec) => {
                                                     const currentVal = formData.permisos[sec.key] || "NINGUNO";
                                                     return (
                                                         <tr key={sec.key} style={{ borderBottom: "1px solid var(--border)" }}>

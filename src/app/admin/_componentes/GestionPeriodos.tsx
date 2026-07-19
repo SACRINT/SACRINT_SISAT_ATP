@@ -54,9 +54,9 @@ export default function GestionPeriodos({ programas, sidebarConfig, readOnly = f
     ] as const;
 
     // ─── Classify each periodo ───────────────────────────
-    function clasificarPeriodo(periodo: ProgramaAdmin["periodos"][0]) {
-        const total = periodo.entregas.length;
-        const conActividad = periodo.entregas.filter(
+    function clasificarPeriodo(periodo: ProgramaAdmin["periodos"][0], entregasValidas: any[]) {
+        const total = entregasValidas.length;
+        const conActividad = entregasValidas.filter(
             e => e.estado !== "NO_ENTREGADO"
         ).length;
 
@@ -68,11 +68,15 @@ export default function GestionPeriodos({ programas, sidebarConfig, readOnly = f
     // Stats per program
     const programStats = useMemo(() => {
         return programas.map(prog => {
-            const clasificados = prog.periodos.map(p => ({
-                ...p,
-                clase: clasificarPeriodo(p),
-                conActividad: p.entregas.filter(e => e.estado !== "NO_ENTREGADO").length,
-            }));
+            const clasificados = prog.periodos.map(p => {
+                const entregasValidas = p.entregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision);
+                return {
+                    ...p,
+                    entregasValidas,
+                    clase: clasificarPeriodo(p, entregasValidas),
+                    conActividad: entregasValidas.filter(e => e.estado !== "NO_ENTREGADO").length,
+                };
+            });
             const fantasmas = clasificados.filter(p => p.clase === "fantasma");
             const activos = clasificados.filter(p => p.clase === "activo");
             const inactivos = clasificados.filter(p => p.clase === "inactivo");
@@ -314,8 +318,8 @@ export default function GestionPeriodos({ programas, sidebarConfig, readOnly = f
                                             clasificados.map(periodo => {
                                                 const isFantasma = periodo.clase === "fantasma";
                                                 const isInactivo = periodo.clase === "inactivo";
-                                                const pct = periodo.entregas.length > 0
-                                                    ? Math.round((periodo.conActividad / periodo.entregas.length) * 100)
+                                                const pct = periodo.entregasValidas.length > 0
+                                                    ? Math.round((periodo.conActividad / periodo.entregasValidas.length) * 100)
                                                     : 0;
 
                                                 let rowBg = "transparent";
@@ -350,7 +354,7 @@ export default function GestionPeriodos({ programas, sidebarConfig, readOnly = f
                                                         {/* Center: stats + mini bar */}
                                                         <div style={{ flex: 1, minWidth: "120px", maxWidth: "220px" }}>
                                                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "var(--text-muted)", marginBottom: "0.2rem" }}>
-                                                                <span>{periodo.conActividad} de {periodo.entregas.length} escuelas entregaron</span>
+                                                                <span>{periodo.conActividad} de {periodo.entregasValidas.length} escuelas entregaron</span>
                                                                 <span style={{ fontWeight: 700 }}>{pct}%</span>
                                                             </div>
                                                             <div style={{ height: "4px", background: "var(--bg)", borderRadius: "2px" }}>

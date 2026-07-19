@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast";
 import dayjs from "dayjs";
 
 type Plantilla = { id: string; nombre: string; estado: string; configuracionCampos: any[]; tiposDestinatario: string[] };
-type Escuela = { id: string; cct: string; nombre: string; localidad: string; municipio: string; directorTexto: string; expediente: any; personal?: any[]; esSupervision?: boolean };
+type Escuela = { id: string; cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar?: string; directorTexto: string; directorExpediente: any; personal?: any[]; esSupervision?: boolean };
 
 export default function GeneradorConstancia() {
     const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
@@ -78,7 +78,7 @@ export default function GeneradorConstancia() {
         // Determinar qué persona usar
         let personData: any = null;
         if (tipoDestinatario === "DIRECTOR" && escuela) {
-            personData = escuela.expediente || { nombreCompleto: escuela.directorTexto };
+            personData = escuela.directorExpediente || { nombreCompleto: escuela.directorTexto };
         } else if (tipoDestinatario === "PERSONAL" && escuela) {
             const p = escuela.personal?.find(x => x.id === personalSeleccionado);
             if (p) {
@@ -123,6 +123,7 @@ export default function GeneradorConstancia() {
             else if (sistema === "CCT_ESCUELA") valorExtraido = escuela?.cct || "";
             else if (sistema === "LOCALIDAD_ESCUELA") valorExtraido = escuela?.localidad || "";
             else if (sistema === "MUNICIPIO_ESCUELA") valorExtraido = escuela?.municipio || "";
+            else if (sistema === "ZONA_ESCOLAR") valorExtraido = escuela?.zonaEscolar || "";
             else if (sistema === "FECHA_ACTUAL") valorExtraido = dayjs().format("DD/MM/YYYY");
 
             if (!valorExtraido && sistema !== "OTRO") {
@@ -147,8 +148,8 @@ export default function GeneradorConstancia() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     plantillaId: plantillaSeleccionada,
-                    escuelaId: escuelaSeleccionada,
-                    directorId: escuela?.expediente?.id || null, // Pasamos el expediente si existe
+                    escuelaId: escuelaSeleccionada || escuela?.id || null, // Pasamos id de supervision si es ATP
+                    directorId: escuela?.directorExpediente?.id || null, // Pasamos el expediente si existe
                     datosFinales: datosFormulario,
                     actualizarExpediente
                 })

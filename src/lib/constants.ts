@@ -56,3 +56,27 @@ export const SEXOS = [
     { value: "MASCULINO", label: "Masculino" },
     { value: "FEMENINO", label: "Femenino" },
 ] as const;
+
+export const SECCIONES_PERMISOS = [
+    { key: "showDashboard", label: "Dashboard (Avance de Entregas)" },
+    { key: "showGestionEscuelas", label: "Gestión de Escuelas (Solo ver y editar configuraciones de archivos, no crear)" },
+    { key: "showEvaluacion", label: "Revisión de Documentos (Evaluación)" },
+    { key: "showOlimpiada", label: "Olimpiada Matemáticas" },
+    { key: "showPAEC", label: "Encuentro PAEC" },
+    { key: "showCapems", label: "Fichas CAPEMS" },
+    { key: "showExpedientes", label: "Expedientes de Personal" },
+    { key: "showDocumentosGenerar", label: "Generación de Constancias" },
+    { key: "showDirectorio", label: "Directorio" },
+] as const;
+
+export const DEFAULT_PERMISOS: Record<string, string> = {
+    showDashboard: "LECTURA",
+    showGestionEscuelas: "NINGUNO",
+    showEvaluacion: "LECTURA",
+    showOlimpiada: "LECTURA",
+    showPAEC: "LECTURA",
+    showCapems: "LECTURA",
+    showExpedientes: "NINGUNO",
+    showDocumentosGenerar: "NINGUNO",
+    showDirectorio: "LECTURA",
+};

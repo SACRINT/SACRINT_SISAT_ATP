@@ -25,8 +25,10 @@ export async function GET(req: NextRequest) {
             nombre: esc.nombre,
             localidad: esc.localidad,
             municipio: esc.municipio,
-            directorTexto: esc.director, // El que ya existía
-            expediente: esc.directorExpediente,
+            zonaEscolar: esc.zonaEscolar,
+            esSupervision: esc.esSupervision,
+            directorTexto: esc.director,
+            directorExpediente: esc.directorExpediente,
             personal: esc.personal
         }));
 

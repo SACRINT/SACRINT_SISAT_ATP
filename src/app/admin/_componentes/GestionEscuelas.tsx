@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin, FileDigit } from "lucide-react";
+import { SECCIONES_PERMISOS, DEFAULT_PERMISOS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
 
 type Escuela = {
@@ -40,47 +41,7 @@ type Escuela = {
     }[];
 };
 
-const SECCIONES = [
-    { key: "general", label: "Vista General (Dashboard)" },
-    { key: "avances", label: "Avance de Entregas" },
-    { key: "reportesNivel", label: "Reportes al Nivel" },
-    { key: "escuelas", label: "Escuelas" },
-    { key: "programas", label: "Programas" },
-    { key: "periodos", label: "Periodos" },
-    { key: "fechas", label: "Fechas y Tareas" },
-    { key: "ciclos", label: "Ciclos Escolares" },
-    { key: "formatos", label: "Formatos y Plantillas" },
-    { key: "rubricas", label: "Rúbricas y Prompts de IA" },
-    { key: "orquestador", label: "Orquestador de IA" },
-    { key: "modulosControl", label: "Módulos Especiales (Control)" },
-    { key: "eventos", label: "Módulo: Eventos Culturales" },
-    { key: "circular05", label: "Módulo: Circular 03" },
-    { key: "olimpiada", label: "Módulo: Olimpiada Matemáticas" },
-    { key: "paec", label: "Módulo: Encuentro PAEC" },
-    { key: "capems", label: "Módulo: Fichas CAPEMS" },
-    { key: "expedientes", label: "Módulo: Expedientes Personal" },
-] as const;
 
-const DEFAULT_PERMISOS: Record<string, string> = {
-    general: "LECTURA",
-    avances: "LECTURA",
-    reportesNivel: "NINGUNO",
-    escuelas: "NINGUNO",
-    programas: "NINGUNO",
-    periodos: "NINGUNO",
-    fechas: "NINGUNO",
-    ciclos: "NINGUNO",
-    formatos: "LECTURA",
-    rubricas: "NINGUNO",
-    orquestador: "NINGUNO",
-    modulosControl: "NINGUNO",
-    eventos: "NINGUNO",
-    circular05: "NINGUNO",
-    olimpiada: "NINGUNO",
-    paec: "NINGUNO",
-    capems: "NINGUNO",
-    expedientes: "NINGUNO",
-};
 
 export default function GestionEscuelas({ inicialEscuelas, programas, readOnly = false }: { inicialEscuelas: Escuela[], programas: ProgramaAdmin[], readOnly?: boolean }) {
     const [escuelas, setEscuelas] = useState<Escuela[]>(inicialEscuelas);
@@ -142,10 +103,10 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                 const responsable = esc.personal?.[0] ?? null;
                 const exp = esc.directorExpediente;
 
-                const getRFC              = exp?.rfc              || responsable?.rfc              || "";
-                const getCURP             = exp?.curp             || responsable?.curp             || "";
-                const getClavePresup      = exp?.clavePresupuestal|| responsable?.clavePresupuestal|| "";
-                const getFechaIngreso     = exp?.fechaIngreso     || responsable?.fechaIngreso     || null;
+                const getRFC              = exp?.rfc              || responsable?.rfc              || (esc.esSupervision ? autoridades?.supervisorRFC : "") || "";
+                const getCURP             = exp?.curp             || responsable?.curp             || ""; // autoridades doesn't have curp
+                const getClavePresup      = exp?.clavePresupuestal|| responsable?.clavePresupuestal|| (esc.esSupervision ? autoridades?.supervisorClave : "") || "";
+                const getFechaIngreso     = exp?.fechaIngreso     || responsable?.fechaIngreso     || (esc.esSupervision ? autoridades?.supervisorFecha : null);
 
                 setFormData(prev => ({
                     ...prev,
@@ -218,6 +179,15 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                 director: (formData.esSupervision || selectedEscuela?.esSupervision) && !formData.director && autoridades?.nombreSupervisor 
                           ? autoridades.nombreSupervisor 
                           : formData.director,
+                rfc: (formData.esSupervision || selectedEscuela?.esSupervision) && !formData.rfc && autoridades?.supervisorRFC
+                          ? autoridades.supervisorRFC
+                          : formData.rfc,
+                clavePresupuestal: (formData.esSupervision || selectedEscuela?.esSupervision) && !formData.clavePresupuestal && autoridades?.supervisorClave
+                          ? autoridades.supervisorClave
+                          : formData.clavePresupuestal,
+                fechaIngreso: (formData.esSupervision || selectedEscuela?.esSupervision) && !formData.fechaIngreso && autoridades?.supervisorFecha
+                          ? new Date(autoridades.supervisorFecha).toISOString().split('T')[0]
+                          : formData.fechaIngreso,
             };
 
             const res = await fetch(url, {
@@ -489,7 +459,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {SECCIONES.map((sec) => {
+                                                {SECCIONES_PERMISOS.map((sec) => {
                                                     const permisosActuales = isEditingMode ? formData.permisos : (selectedEscuela?.permisos || DEFAULT_PERMISOS);
                                                     const currentVal = permisosActuales[sec.key] || "NINGUNO";
                                                     return (

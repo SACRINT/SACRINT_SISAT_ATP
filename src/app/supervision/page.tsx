@@ -223,7 +223,7 @@ export default async function SupervisionPage() {
             dbRole="SUPERVISION"
             supervisionEscuela={JSON.parse(JSON.stringify(supervision))}
             programasSupervision={JSON.parse(JSON.stringify(programasSupervision))}
-            permisos={{}}
+            permisos={supervision.permisos || {}}
             sidebarConfig={sidebarConfig}
         />
     );
