@@ -68,6 +68,19 @@ function reemplazarPlaceholdersEnXml(
     return xml;
 }
 
+function parseMexicanDate(dateStr: string | null) {
+    if (!dateStr) return null;
+    const parts = dateStr.split(/[-/]/);
+    if (parts.length === 3) {
+        if (parts[0].length === 4) {
+            return new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+        } else {
+            return new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+        }
+    }
+    return new Date(dateStr);
+}
+
 // ─── POST: Generar Documento ────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
     const session = await auth();
@@ -77,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { plantillaId, escuelaId, directorId, personalId, datosFinales, actualizarExpediente } = body;
+        const { plantillaId, escuelaId, directorId, personalId, atpId, tipoDestinatario, datosFinales, actualizarExpediente } = body;
 
         if (!plantillaId || !datosFinales) {
             return NextResponse.json({ error: "Faltan datos (plantillaId, datosFinales)" }, { status: 400 });
@@ -87,21 +100,85 @@ export async function POST(req: NextRequest) {
         if (!plantilla) return NextResponse.json({ error: "Plantilla no encontrada" }, { status: 404 });
 
         // ─── Actualizar Expediente Permanente (si aplica) ──────────────────
-        if (actualizarExpediente && directorId) {
-            const updateData: any = {};
-            if (datosFinales.NOMBRE_DIRECTOR) updateData.nombreCompleto = datosFinales.NOMBRE_DIRECTOR;
-            if (datosFinales.RFC_DIRECTOR) updateData.rfc = datosFinales.RFC_DIRECTOR;
-            if (datosFinales.CURP_DIRECTOR) updateData.curp = datosFinales.CURP_DIRECTOR;
-            if (datosFinales.CLAVE_PRESUPUESTAL_DIRECTOR) updateData.clavePresupuestal = datosFinales.CLAVE_PRESUPUESTAL_DIRECTOR;
-            if (datosFinales.TELEFONO_DIRECTOR) updateData.telefono = datosFinales.TELEFONO_DIRECTOR;
-            if (datosFinales.CORREO_DIRECTOR) updateData.correo = datosFinales.CORREO_DIRECTOR;
-            if (datosFinales.FECHA_INGRESO_DIRECTOR) updateData.fechaIngreso = new Date(datosFinales.FECHA_INGRESO_DIRECTOR);
+        if (actualizarExpediente) {
+            const finalNombre = datosFinales.NOMBRE_PERSONA || datosFinales.NOMBRE_DIRECTOR;
+            const finalRFC = datosFinales.RFC_PERSONA || datosFinales.RFC_DIRECTOR;
+            const finalCURP = datosFinales.CURP_PERSONA || datosFinales.CURP_DIRECTOR;
+            const finalClave = datosFinales.CLAVE_PRESUPUESTAL_PERSONA || datosFinales.CLAVE_PRESUPUESTAL_DIRECTOR;
+            const finalTelefono = datosFinales.TELEFONO_PERSONA || datosFinales.TELEFONO_DIRECTOR;
+            const finalCorreo = datosFinales.CORREO_PERSONA || datosFinales.CORREO_DIRECTOR;
+            const finalFechaString = datosFinales.FECHA_INGRESO_PERSONA || datosFinales.FECHA_INGRESO_DIRECTOR;
 
-            if (Object.keys(updateData).length > 0) {
-                await prisma.directorExpediente.update({
-                    where: { id: directorId },
-                    data: updateData
-                });
+            if ((tipoDestinatario === "DIRECTOR" || !tipoDestinatario) && directorId) {
+                const updateData: any = {};
+                if (finalNombre) updateData.nombreCompleto = finalNombre;
+                if (finalRFC) updateData.rfc = finalRFC;
+                if (finalCURP) updateData.curp = finalCURP;
+                if (finalClave) updateData.clavePresupuestal = finalClave;
+                if (finalTelefono) updateData.telefono = finalTelefono;
+                if (finalCorreo) updateData.correo = finalCorreo;
+                if (finalFechaString) {
+                    const parsedDate = parseMexicanDate(finalFechaString);
+                    if (parsedDate && !isNaN(parsedDate.getTime())) updateData.fechaIngreso = parsedDate;
+                }
+
+                if (Object.keys(updateData).length > 0) {
+                    await prisma.directorExpediente.update({
+                        where: { id: directorId },
+                        data: updateData
+                    });
+                }
+            } else if (tipoDestinatario === "PERSONAL" && personalId) {
+                const updateData: any = {};
+                if (finalNombre) {
+                    // Para Personal, el modelo tiene nombre, apellidoPaterno, apellidoMaterno. 
+                    // No podemos actualizar eso fácilmente con solo "nombreCompleto", por lo que omitimos el nombre para no corromper.
+                }
+                if (finalRFC) updateData.rfc = finalRFC;
+                if (finalCURP) updateData.curp = finalCURP;
+                if (finalClave) updateData.clavePresupuestal = finalClave;
+                if (finalTelefono) updateData.telefono = finalTelefono;
+                if (finalCorreo) updateData.correoElectronico = finalCorreo;
+                if (finalFechaString) {
+                    const parsedDate = parseMexicanDate(finalFechaString);
+                    if (parsedDate && !isNaN(parsedDate.getTime())) updateData.fechaIngreso = parsedDate;
+                }
+
+                if (Object.keys(updateData).length > 0) {
+                    await prisma.personal.update({
+                        where: { id: personalId },
+                        data: updateData
+                    });
+                }
+            } else if (tipoDestinatario === "ATP" && atpId) {
+                const updateData: any = {};
+                if (atpId === "atp1") {
+                    if (finalNombre) updateData.atp1Nombre = finalNombre;
+                    if (finalRFC) updateData.atp1RFC = finalRFC;
+                    if (finalFechaString) updateData.atp1Fecha = finalFechaString;
+                    if (finalClave) updateData.atp1Clave = finalClave;
+                } else if (atpId === "atp2") {
+                    if (finalNombre) updateData.atp2Nombre = finalNombre;
+                    if (finalRFC) updateData.atp2RFC = finalRFC;
+                    if (finalFechaString) updateData.atp2Fecha = finalFechaString;
+                    if (finalClave) updateData.atp2Clave = finalClave;
+                } else if (atpId === "atp3") {
+                    if (finalNombre) updateData.atp3Nombre = finalNombre;
+                    if (finalRFC) updateData.atp3RFC = finalRFC;
+                    if (finalFechaString) updateData.atp3Fecha = finalFechaString;
+                    if (finalClave) updateData.atp3Clave = finalClave;
+                } else if (atpId === "atp4") {
+                    if (finalNombre) updateData.atp4Nombre = finalNombre;
+                    if (finalRFC) updateData.atp4RFC = finalRFC;
+                    if (finalFechaString) updateData.atp4Fecha = finalFechaString;
+                    if (finalClave) updateData.atp4Clave = finalClave;
+                }
+                if (Object.keys(updateData).length > 0) {
+                    await prisma.autoridadesConfig.update({
+                        where: { id: "singleton" },
+                        data: updateData
+                    });
+                }
             }
         }
 

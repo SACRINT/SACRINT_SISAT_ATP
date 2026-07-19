@@ -48,6 +48,19 @@ function reemplazarPlaceholdersEnXml(xmlContent: string, datos: Record<string, s
     return xml;
 }
 
+function parseMexicanDate(dateStr: string | null) {
+    if (!dateStr) return null;
+    const parts = dateStr.split(/[-/]/);
+    if (parts.length === 3) {
+        if (parts[0].length === 4) {
+            return new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+        } else {
+            return new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+        }
+    }
+    return new Date(dateStr);
+}
+
 // ─── POST: Generar Documentos Masivos ───────────────────────────────────────
 export async function POST(req: NextRequest) {
     const session = await auth();
@@ -75,7 +88,7 @@ export async function POST(req: NextRequest) {
         // Procesar cada constancia secuencialmente
         for (let i = 0; i < constancias.length; i++) {
             const reqItem = constancias[i];
-            const { plantillaId, escuelaId, directorId, personalId, datosFinales, actualizarExpediente, personaNombre } = reqItem;
+            const { plantillaId, escuelaId, directorId, personalId, atpId, tipoDestinatario, datosFinales, actualizarExpediente, personaNombre } = reqItem;
 
             if (!plantillaCache[plantillaId]) {
                 const plantilla = await prisma.plantillaDocumento.findUnique({ where: { id: plantillaId } });
@@ -88,27 +101,81 @@ export async function POST(req: NextRequest) {
             const { buffer: templateBuffer, nombre: plantillaNombre } = plantillaCache[plantillaId];
 
             // ─── Actualizar Expediente Permanente (si aplica) ────────────────
-            if (actualizarExpediente && directorId) {
-                const updateData: any = {};
-                // Soportamos tanto _DIRECTOR como _PERSONA
-                if (datosFinales.NOMBRE_DIRECTOR || datosFinales.NOMBRE_PERSONA) updateData.nombreCompleto = datosFinales.NOMBRE_DIRECTOR || datosFinales.NOMBRE_PERSONA;
-                if (datosFinales.RFC_DIRECTOR || datosFinales.RFC_PERSONA) updateData.rfc = datosFinales.RFC_DIRECTOR || datosFinales.RFC_PERSONA;
-                if (datosFinales.CURP_DIRECTOR || datosFinales.CURP_PERSONA) updateData.curp = datosFinales.CURP_DIRECTOR || datosFinales.CURP_PERSONA;
-                if (datosFinales.CLAVE_PRESUPUESTAL_DIRECTOR || datosFinales.CLAVE_PRESUPUESTAL_PERSONA) updateData.clavePresupuestal = datosFinales.CLAVE_PRESUPUESTAL_DIRECTOR || datosFinales.CLAVE_PRESUPUESTAL_PERSONA;
-                if (datosFinales.TELEFONO_DIRECTOR || datosFinales.TELEFONO_PERSONA) updateData.telefono = datosFinales.TELEFONO_DIRECTOR || datosFinales.TELEFONO_PERSONA;
-                if (datosFinales.CORREO_DIRECTOR || datosFinales.CORREO_PERSONA) updateData.correo = datosFinales.CORREO_DIRECTOR || datosFinales.CORREO_PERSONA;
-                
-                const fechaInput = datosFinales.FECHA_INGRESO_DIRECTOR || datosFinales.FECHA_INGRESO_PERSONA;
-                if (fechaInput) {
-                    const parsed = new Date(fechaInput);
-                    if (!isNaN(parsed.getTime())) updateData.fechaIngreso = parsed;
-                }
+            if (actualizarExpediente) {
+                const finalNombre = datosFinales.NOMBRE_PERSONA || datosFinales.NOMBRE_DIRECTOR;
+                const finalRFC = datosFinales.RFC_PERSONA || datosFinales.RFC_DIRECTOR;
+                const finalCURP = datosFinales.CURP_PERSONA || datosFinales.CURP_DIRECTOR;
+                const finalClave = datosFinales.CLAVE_PRESUPUESTAL_PERSONA || datosFinales.CLAVE_PRESUPUESTAL_DIRECTOR;
+                const finalTelefono = datosFinales.TELEFONO_PERSONA || datosFinales.TELEFONO_DIRECTOR;
+                const finalCorreo = datosFinales.CORREO_PERSONA || datosFinales.CORREO_DIRECTOR;
+                const finalFechaString = datosFinales.FECHA_INGRESO_PERSONA || datosFinales.FECHA_INGRESO_DIRECTOR;
 
-                if (Object.keys(updateData).length > 0) {
-                    await prisma.directorExpediente.update({
-                        where: { id: directorId },
-                        data: updateData
-                    });
+                if ((tipoDestinatario === "DIRECTOR" || !tipoDestinatario) && directorId) {
+                    const updateData: any = {};
+                    if (finalNombre) updateData.nombreCompleto = finalNombre;
+                    if (finalRFC) updateData.rfc = finalRFC;
+                    if (finalCURP) updateData.curp = finalCURP;
+                    if (finalClave) updateData.clavePresupuestal = finalClave;
+                    if (finalTelefono) updateData.telefono = finalTelefono;
+                    if (finalCorreo) updateData.correo = finalCorreo;
+                    if (finalFechaString) {
+                        const parsedDate = parseMexicanDate(finalFechaString);
+                        if (parsedDate && !isNaN(parsedDate.getTime())) updateData.fechaIngreso = parsedDate;
+                    }
+
+                    if (Object.keys(updateData).length > 0) {
+                        await prisma.directorExpediente.update({
+                            where: { id: directorId },
+                            data: updateData
+                        });
+                    }
+                } else if (tipoDestinatario === "PERSONAL" && personalId) {
+                    const updateData: any = {};
+                    if (finalRFC) updateData.rfc = finalRFC;
+                    if (finalCURP) updateData.curp = finalCURP;
+                    if (finalClave) updateData.clavePresupuestal = finalClave;
+                    if (finalTelefono) updateData.telefono = finalTelefono;
+                    if (finalCorreo) updateData.correoElectronico = finalCorreo;
+                    if (finalFechaString) {
+                        const parsedDate = parseMexicanDate(finalFechaString);
+                        if (parsedDate && !isNaN(parsedDate.getTime())) updateData.fechaIngreso = parsedDate;
+                    }
+
+                    if (Object.keys(updateData).length > 0) {
+                        await prisma.personal.update({
+                            where: { id: personalId },
+                            data: updateData
+                        });
+                    }
+                } else if (tipoDestinatario === "ATP" && atpId) {
+                    const updateData: any = {};
+                    if (atpId === "atp1") {
+                        if (finalNombre) updateData.atp1Nombre = finalNombre;
+                        if (finalRFC) updateData.atp1RFC = finalRFC;
+                        if (finalFechaString) updateData.atp1Fecha = finalFechaString;
+                        if (finalClave) updateData.atp1Clave = finalClave;
+                    } else if (atpId === "atp2") {
+                        if (finalNombre) updateData.atp2Nombre = finalNombre;
+                        if (finalRFC) updateData.atp2RFC = finalRFC;
+                        if (finalFechaString) updateData.atp2Fecha = finalFechaString;
+                        if (finalClave) updateData.atp2Clave = finalClave;
+                    } else if (atpId === "atp3") {
+                        if (finalNombre) updateData.atp3Nombre = finalNombre;
+                        if (finalRFC) updateData.atp3RFC = finalRFC;
+                        if (finalFechaString) updateData.atp3Fecha = finalFechaString;
+                        if (finalClave) updateData.atp3Clave = finalClave;
+                    } else if (atpId === "atp4") {
+                        if (finalNombre) updateData.atp4Nombre = finalNombre;
+                        if (finalRFC) updateData.atp4RFC = finalRFC;
+                        if (finalFechaString) updateData.atp4Fecha = finalFechaString;
+                        if (finalClave) updateData.atp4Clave = finalClave;
+                    }
+                    if (Object.keys(updateData).length > 0) {
+                        await prisma.autoridadesConfig.update({
+                            where: { id: "singleton" },
+                            data: updateData
+                        });
+                    }
                 }
             }
 

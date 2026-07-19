@@ -119,9 +119,13 @@ export default function GeneradorConstancia() {
             else if (sistema === "RFC_DIRECTOR" || sistema === "RFC_PERSONA") valorExtraido = personData?.rfc || "";
             else if (sistema === "CURP_DIRECTOR" || sistema === "CURP_PERSONA") valorExtraido = personData?.curp || "";
             else if (sistema === "FECHA_INGRESO_DIRECTOR" || sistema === "FECHA_INGRESO_PERSONA") {
-                valorExtraido = personData?.fechaIngreso && dayjs(personData.fechaIngreso).isValid() 
-                    ? dayjs(personData.fechaIngreso).format("YYYY-MM-DD") 
-                    : "";
+                if (typeof personData?.fechaIngreso === "string" && personData.fechaIngreso.includes("-")) {
+                    valorExtraido = personData.fechaIngreso; // Ya está como string (ej. ATP)
+                } else {
+                    valorExtraido = personData?.fechaIngreso && dayjs(personData.fechaIngreso).isValid() 
+                        ? dayjs(personData.fechaIngreso).format("DD-MM-YYYY") 
+                        : "";
+                }
             }
             else if (sistema === "CLAVE_PRESUPUESTAL_DIRECTOR" || sistema === "CLAVE_PRESUPUESTAL_PERSONA") valorExtraido = personData?.clavePresupuestal || "";
             else if (sistema === "TELEFONO_DIRECTOR" || sistema === "TELEFONO_PERSONA") valorExtraido = personData?.telefono || "";
@@ -173,6 +177,8 @@ export default function GeneradorConstancia() {
             personaNombre,
             escuelaId: escuelaSeleccionada || escuelaInfo?.id || null,
             directorId: escuelaInfo?.directorExpediente?.id || null,
+            personalId: personalSeleccionado || null,
+            atpId: atpSeleccionado || null,
             datosFinales: { ...datosFormulario },
             actualizarExpediente
         };
@@ -239,6 +245,9 @@ export default function GeneradorConstancia() {
                     plantillaId: plantillaSeleccionada,
                     escuelaId: escuelaSeleccionada || escuela?.id || null, // Pasamos id de supervision si es ATP
                     directorId: escuela?.directorExpediente?.id || null, // Pasamos el expediente si existe
+                    personalId: personalSeleccionado || null,
+                    atpId: atpSeleccionado || null,
+                    tipoDestinatario,
                     datosFinales: datosFormulario,
                     actualizarExpediente
                 })
