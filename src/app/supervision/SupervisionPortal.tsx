@@ -56,7 +56,7 @@ export default function SupervisionPortal({
     programasRegulares?: any[];
 }) {
     const [activeTab, setActiveTab] = useState<TabType>("monitoreo");
-    const [monitoreoTab, setMonitoreoTab] = useState<"escuelas" | "programas">("escuelas");
+    const [monitoreoTab, setMonitoreoTab] = useState<"escuelas" | "programas" | "capems">("programas");
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [expedientesTab, setExpedientesTab] = useState<"generales" | "supervision">("generales");
 
@@ -143,6 +143,29 @@ export default function SupervisionPortal({
                                 <School size={13} />
                                 Avance por Escuela
                             </button>
+                            {canVerCapems && (
+                                <button
+                                    onClick={() => setMonitoreoTab("capems")}
+                                    style={{
+                                        padding: "0.45rem 0.9rem",
+                                        background: monitoreoTab === "capems" ? "white" : "none",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        boxShadow: monitoreoTab === "capems" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                                        color: monitoreoTab === "capems" ? "var(--primary)" : "var(--text-secondary)",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        fontSize: "0.8125rem",
+                                        transition: "all 0.15s ease",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "0.375rem"
+                                    }}
+                                >
+                                    <BookOpen size={13} />
+                                    Fichas CAPEMS
+                                </button>
+                            )}
                         </div>
 
                         {monitoreoTab === "escuelas" ? (
@@ -159,6 +182,9 @@ export default function SupervisionPortal({
                                 onSetMessage={() => {}}
                                 onSetCorreccionModal={() => {}}
                             />
+                        )}
+                        {monitoreoTab === "capems" && (
+                            <GestionCapems viewMode="resumen" readOnly={true} />
                         )}
                     </div>
                 );
@@ -350,14 +376,7 @@ export default function SupervisionPortal({
                                 <Users size={17} /> <span>Expedientes</span>
                             </button>
                         )}
-                        {canVerCapems && (
-                            <button
-                                className={`sidebar-link ${activeTab === "capems" ? "active" : ""}`}
-                                onClick={() => { setActiveTab("capems"); setIsSidebarOpen(false); }}
-                            >
-                                <Building2 size={17} /> <span>Fichas CAPEMS</span>
-                            </button>
-                        )}
+
                     </div>
 
                     <div style={{ marginTop: "1rem" }}>

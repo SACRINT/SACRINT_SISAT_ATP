@@ -568,8 +568,8 @@ export default function AdminDashboard({
         sidebarConfig.showExpedientes,
     ].filter(Boolean).length;
 
-    const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "capems", "expedientes", "documentos"].includes(vista);
-    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos", "gestion-prompts", "orquestador-ia"].includes(vista);
+    const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "expedientes", "documentos"].includes(vista);
+    const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos", "gestion-prompts", "orquestador-ia", "capems"].includes(vista);
 
     return (
         <div className="admin-layout">
@@ -1237,6 +1237,13 @@ export default function AdminDashboard({
                 {
                     vista === "eventos" && (
                         <GestionEventos readOnly={!hasAccess("eventos", "write")} />
+                    )
+                }
+
+                {/* ========= VISTA: CONFIGURACIÓN CAPEMS ========= */}
+                {
+                    vista === "capems" && (
+                        <GestionCapems readOnly={!hasAccess("capems", "write")} />
                     )
                 }
 

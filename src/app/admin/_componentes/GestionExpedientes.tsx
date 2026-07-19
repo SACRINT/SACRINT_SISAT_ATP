@@ -93,8 +93,9 @@ function countCompleteDocs(documentos: Documento[]): number {
 }
 
 function completenessColor(complete: number, total: number): string {
+    if (total === 0) return "#94a3b8"; // GRAY if 0/0
     if (complete >= total) return "var(--success)";
-    if (complete < total / 2) return "var(--error)";
+    if (complete < total / 2) return "var(--danger)";
     return "var(--warning, #e67e22)";
 }
 

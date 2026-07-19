@@ -527,7 +527,11 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
 
                                         {(prog.tipo === "ANUAL" || expandedPeriodo === periodo.id) && (
                                             <div style={{ padding: "0 1rem 0.5rem" }}>
-                                                {periodo.entregas.map((ent) => {
+                                                {[...periodo.entregas].sort((a, b) => {
+                                                    if (a.escuela.esDePrueba && !b.escuela.esDePrueba) return 1;
+                                                    if (!a.escuela.esDePrueba && b.escuela.esDePrueba) return -1;
+                                                    return a.escuela.nombre.localeCompare(b.escuela.nombre);
+                                                }).map((ent) => {
                                                     const styles = getEstadoStyles(ent.estado);
                                                     return (
                                                         <div key={ent.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)", gap: "0.5rem", flexWrap: "wrap" }}>
