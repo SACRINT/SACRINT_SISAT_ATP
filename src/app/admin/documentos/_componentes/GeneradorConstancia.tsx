@@ -144,7 +144,11 @@ export default function GeneradorConstancia() {
                 nuevosFaltantes.push(sistema);
             }
 
-            nuevosDatos[key] = (typeof valorExtraido === "string") ? valorExtraido.toUpperCase() : valorExtraido;
+            if (sistema === "FECHA_ACTUAL") {
+                nuevosDatos[key] = valorExtraido;
+            } else {
+                nuevosDatos[key] = (typeof valorExtraido === "string") ? valorExtraido.toUpperCase() : valorExtraido;
+            }
         });
 
         setDatosFormulario(nuevosDatos);
