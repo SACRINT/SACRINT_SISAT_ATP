@@ -91,6 +91,7 @@ export default function AdminDashboard({
     dbRole,
     permisos,
     sidebarConfig,
+    supervisionEscuela,
 }: {
     programas: ProgramaAdmin[];
     escuelas: EscuelaAdmin[];
