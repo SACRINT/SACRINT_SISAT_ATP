@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast";
 import dayjs from "dayjs";
 
 type Plantilla = { id: string; nombre: string; estado: string; configuracionCampos: any[]; tiposDestinatario: string[] };
-type Escuela = { id: string; cct: string; nombre: string; localidad: string; municipio: string; directorTexto: string; expediente: any; personal?: any[] };
+type Escuela = { id: string; cct: string; nombre: string; localidad: string; municipio: string; directorTexto: string; expediente: any; personal?: any[]; esSupervision?: boolean };
 
 export default function GeneradorConstancia() {
     const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
@@ -69,6 +69,9 @@ export default function GeneradorConstancia() {
         if (!plantilla) return;
 
         let escuela = escuelas.find(e => e.id === escuelaSeleccionada);
+        if (tipoDestinatario === "ATP") {
+            escuela = escuelas.find(e => e.esSupervision);
+        }
         const nuevosDatos: any = {};
         const nuevosFaltantes: string[] = [];
 
@@ -126,7 +129,7 @@ export default function GeneradorConstancia() {
                 nuevosFaltantes.push(sistema);
             }
 
-            nuevosDatos[key] = valorExtraido;
+            nuevosDatos[key] = (typeof valorExtraido === "string") ? valorExtraido.toUpperCase() : valorExtraido;
         });
 
         setDatosFormulario(nuevosDatos);
@@ -351,7 +354,7 @@ export default function GeneradorConstancia() {
                                 return (
                                     <div key={idx} style={{ marginBottom: "0.5rem" }}>
                                         <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.25rem" }}>
-                                            {campo.sugerenciaSistema} 
+                                            {tipoDestinatario === "ATP" && campo.sugerenciaSistema === "NOMBRE_DIRECTOR" ? "NOMBRE_ATP" : campo.sugerenciaSistema}
                                             <span style={{ color: "var(--text-muted)", fontWeight: "normal", marginLeft: "0.5rem", textTransform: "lowercase" }}>({rawKey})</span>
                                         </label>
                                         <input 
@@ -360,7 +363,7 @@ export default function GeneradorConstancia() {
                                             style={{ borderColor: isMissing ? "var(--danger, #dc2626)" : "var(--border)", backgroundColor: isMissing ? "var(--danger-bg, #fef2f2)" : "var(--bg)" }}
                                             value={datosFormulario[key] || ""}
                                             onChange={(e) => {
-                                                setDatosFormulario({...datosFormulario, [key]: e.target.value});
+                                                setDatosFormulario({...datosFormulario, [key]: e.target.value.toUpperCase()});
                                             }}
                                             placeholder={`Ingresa ${campo.sugerenciaSistema}...`}
                                         />

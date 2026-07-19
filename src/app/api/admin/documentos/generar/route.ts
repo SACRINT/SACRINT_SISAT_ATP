@@ -111,8 +111,12 @@ export async function POST(req: NextRequest) {
         });
 
         // ─── Construir mapa completo de datos ──────────────────────────────
+        const datosFinalesMayus = Object.fromEntries(
+            Object.entries(datosFinales || {}).map(([k, v]) => [k, typeof v === "string" ? v.toUpperCase() : v])
+        );
+
         const renderData: Record<string, string> = {
-            ...datosFinales,
+            ...datosFinalesMayus,
             SUPERVISOR: autoridadesConfig?.supervisor || "C. SUPERVISOR(A)",
             SUPERVISOR_RFC: autoridadesConfig?.supervisorRFC || "",
             SUPERVISOR_FECHA: autoridadesConfig?.supervisorFecha || "",

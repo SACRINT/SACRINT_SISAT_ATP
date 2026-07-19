@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin, FileDigit } from "lucide-react";
 import { ProgramaAdmin } from "@/types";
@@ -26,13 +26,60 @@ type Escuela = {
     permisos?: any;
     // Personal con cargo RESPONSABLE para cruzar datos del director
     personal?: {
+        id: string;
+        nombre: string;
+        apellidoPaterno: string;
+        apellidoMaterno: string;
         curp?: string | null;
         rfc?: string | null;
+        cargo?: string | null;
         clavePresupuestal?: string | null;
         fechaIngreso?: Date | string | null;
         telefono?: string | null;
         correoElectronico?: string | null;
     }[];
+};
+
+const SECCIONES = [
+    { key: "general", label: "Vista General (Dashboard)" },
+    { key: "avances", label: "Avance de Entregas" },
+    { key: "reportesNivel", label: "Reportes al Nivel" },
+    { key: "escuelas", label: "Escuelas" },
+    { key: "programas", label: "Programas" },
+    { key: "periodos", label: "Periodos" },
+    { key: "fechas", label: "Fechas y Tareas" },
+    { key: "ciclos", label: "Ciclos Escolares" },
+    { key: "formatos", label: "Formatos y Plantillas" },
+    { key: "rubricas", label: "Rúbricas y Prompts de IA" },
+    { key: "orquestador", label: "Orquestador de IA" },
+    { key: "modulosControl", label: "Módulos Especiales (Control)" },
+    { key: "eventos", label: "Módulo: Eventos Culturales" },
+    { key: "circular05", label: "Módulo: Circular 03" },
+    { key: "olimpiada", label: "Módulo: Olimpiada Matemáticas" },
+    { key: "paec", label: "Módulo: Encuentro PAEC" },
+    { key: "capems", label: "Módulo: Fichas CAPEMS" },
+    { key: "expedientes", label: "Módulo: Expedientes Personal" },
+] as const;
+
+const DEFAULT_PERMISOS: Record<string, string> = {
+    general: "LECTURA",
+    avances: "LECTURA",
+    reportesNivel: "NINGUNO",
+    escuelas: "NINGUNO",
+    programas: "NINGUNO",
+    periodos: "NINGUNO",
+    fechas: "NINGUNO",
+    ciclos: "NINGUNO",
+    formatos: "LECTURA",
+    rubricas: "NINGUNO",
+    orquestador: "NINGUNO",
+    modulosControl: "NINGUNO",
+    eventos: "NINGUNO",
+    circular05: "NINGUNO",
+    olimpiada: "NINGUNO",
+    paec: "NINGUNO",
+    capems: "NINGUNO",
+    expedientes: "NINGUNO",
 };
 
 export default function GestionEscuelas({ inicialEscuelas, programas, readOnly = false }: { inicialEscuelas: Escuela[], programas: ProgramaAdmin[], readOnly?: boolean }) {
@@ -43,7 +90,18 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [tabEscuelas, setTabEscuelas] = useState<"escuelas" | "supervision">("escuelas");
+    const [autoridades, setAutoridades] = useState<any>(null);
     const router = useRouter();
+
+    // Fetch Autoridades Educativas
+    useEffect(() => {
+        fetch("/api/admin/autoridades-config")
+            .then(res => res.json())
+            .then(data => {
+                if (data && !data.error) setAutoridades(data);
+            })
+            .catch(err => console.error("Error loading autoridades:", err));
+    }, []);
 
     // Form state
     const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar: string; director: string; email: string; password?: string; rfc?: string; curp?: string; clavePresupuestal?: string; fechaIngreso?: string; esDePrueba?: boolean; esSupervision?: boolean; permisos?: any }>({
@@ -61,7 +119,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         fechaIngreso: "",
         esDePrueba: false,
         esSupervision: false,
-        permisos: { verAvance: true, verExpedientes: true, verCapems: true, generarConstancias: true },
+        permisos: { ...DEFAULT_PERMISOS },
     });
 
     const selectedEscuela = escuelas.find((e) => e.id === selectedId);
@@ -70,8 +128,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     const [configuraciones, setConfiguraciones] = useState<Record<string, number>>({});
     const [loadingConfig, setLoadingConfig] = useState(false);
 
-    const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const id = e.target.value;
+    const cargarDatosEscuela = (id: string) => {
         setSelectedId(id);
         setIsEditing(false);
         setIsCreating(false);
@@ -90,13 +147,14 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                 const getClavePresup      = exp?.clavePresupuestal|| responsable?.clavePresupuestal|| "";
                 const getFechaIngreso     = exp?.fechaIngreso     || responsable?.fechaIngreso     || null;
 
-                setFormData({
+                setFormData(prev => ({
+                    ...prev,
                     cct: esc.cct,
                     nombre: esc.nombre,
                     localidad: esc.localidad || "",
                     municipio: esc.municipio || "",
                     zonaEscolar: esc.zonaEscolar || "",
-                    director: esc.director || "",
+                    director: esc.esSupervision ? (esc.director || "") : (esc.director || ""),
                     email: esc.email || "",
                     password: "",
                     rfc: getRFC,
@@ -105,8 +163,8 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     fechaIngreso: getFechaIngreso ? new Date(getFechaIngreso).toISOString().split('T')[0] : "",
                     esDePrueba: esc.esDePrueba ?? false,
                     esSupervision: esc.esSupervision ?? false,
-                    permisos: esc.permisos || { verAvance: true, verExpedientes: true, verCapems: true, generarConstancias: true },
-                });
+                    permisos: esc.permisos || { ...DEFAULT_PERMISOS },
+                }));
 
                 // Fetch configuraciones
                 setLoadingConfig(true);
@@ -127,12 +185,16 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         }
     };
 
+    const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        cargarDatosEscuela(e.target.value);
+    };
+
     const startCreating = () => {
         setSelectedId("");
         setIsCreating(true);
         setIsEditing(false);
         setMessage(null);
-        setFormData({ cct: "", nombre: "", localidad: "", municipio: "", zonaEscolar: "", director: "", email: "", password: "", esDePrueba: false, esSupervision: false, permisos: { verAvance: true, verExpedientes: true, verCapems: true, generarConstancias: true } });
+        setFormData({ cct: "", nombre: "", localidad: "", municipio: "", zonaEscolar: "", director: "", email: "", password: "", esDePrueba: false, esSupervision: false, permisos: { ...DEFAULT_PERMISOS } });
         setConfiguraciones({});
     };
 
@@ -151,10 +213,17 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
             const url = isCreating ? `/api/escuelas` : `/api/escuelas/${selectedId}`;
             const method = isCreating ? "POST" : "PUT";
 
+            const payload = {
+                ...formData,
+                director: (formData.esSupervision || selectedEscuela?.esSupervision) && !formData.director && autoridades?.nombreSupervisor 
+                          ? autoridades.nombreSupervisor 
+                          : formData.director,
+            };
+
             const res = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(payload),
             });
 
             if (!res.ok) {
@@ -261,9 +330,9 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                 setTabEscuelas("supervision"); 
                                 const supervisiones = escuelas.filter(e => e.esSupervision);
                                 if (supervisiones.length === 1) {
-                                    setSelectedId(supervisiones[0].id);
+                                    cargarDatosEscuela(supervisiones[0].id);
                                 } else {
-                                    setSelectedId("");
+                                    cargarDatosEscuela("");
                                 }
                             }}
                         >
@@ -402,43 +471,95 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                             {((isEditingMode && formData.esSupervision) || (!isEditingMode && selectedEscuela?.esSupervision)) && (
                                 <div style={{ marginTop: "0.5rem", padding: "1rem", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
                                     <h4 style={{ margin: "0 0 1rem 0", fontSize: "0.875rem", color: "var(--text)" }}>Permisos de la Supervisión</h4>
-                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={isEditingMode ? formData.permisos?.verAvance : (selectedEscuela?.permisos as any)?.verAvance ?? true}
-                                                onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, verAvance: e.target.checked } })}
-                                                disabled={!isEditingMode}
-                                            />
-                                            Ver Avance de Entregas (Monitoreo)
-                                        </label>
-                                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={isEditingMode ? formData.permisos?.verExpedientes : (selectedEscuela?.permisos as any)?.verExpedientes ?? true}
-                                                onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, verExpedientes: e.target.checked } })}
-                                                disabled={!isEditingMode}
-                                            />
-                                            Ver Expedientes de Personal
-                                        </label>
-                                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={isEditingMode ? formData.permisos?.verCapems : (selectedEscuela?.permisos as any)?.verCapems ?? true}
-                                                onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, verCapems: e.target.checked } })}
-                                                disabled={!isEditingMode}
-                                            />
-                                            Ver Fichas CAPEMS
-                                        </label>
-                                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", cursor: isEditingMode ? "pointer" : "default" }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={isEditingMode ? formData.permisos?.generarConstancias : (selectedEscuela?.permisos as any)?.generarConstancias ?? true}
-                                                onChange={(e) => setFormData({ ...formData, permisos: { ...formData.permisos, generarConstancias: e.target.checked } })}
-                                                disabled={!isEditingMode}
-                                            />
-                                            Generar Constancias
-                                        </label>
+                                    <div style={{ 
+                                        maxHeight: "220px", 
+                                        overflowY: "auto", 
+                                        border: "1px solid var(--border)", 
+                                        borderRadius: "6px",
+                                        background: "var(--bg)",
+                                        fontSize: "0.8125rem"
+                                    }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                            <thead>
+                                                <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1 }}>
+                                                    <th style={{ textAlign: "left", padding: "0.5rem 0.75rem", fontWeight: 600 }}>Sección</th>
+                                                    <th style={{ textAlign: "center", padding: "0.5rem 0.25rem", fontWeight: 600, width: "80px" }}>Ninguno</th>
+                                                    <th style={{ textAlign: "center", padding: "0.5rem 0.25rem", fontWeight: 600, width: "80px" }}>Lectura</th>
+                                                    <th style={{ textAlign: "center", padding: "0.5rem 0.25rem", fontWeight: 600, width: "80px" }}>Escritura</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {SECCIONES.map((sec) => {
+                                                    const permisosActuales = isEditingMode ? formData.permisos : (selectedEscuela?.permisos || DEFAULT_PERMISOS);
+                                                    const currentVal = permisosActuales[sec.key] || "NINGUNO";
+                                                    return (
+                                                        <tr key={sec.key} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                            <td style={{ padding: "0.5rem 0.75rem", fontWeight: 500, color: !isEditingMode ? "var(--text-muted)" : "var(--text)" }}>{sec.label}</td>
+                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`permiso-${sec.key}`}
+                                                                    checked={currentVal === "NINGUNO"}
+                                                                    onChange={() => {
+                                                                        if (isEditingMode) {
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                permisos: {
+                                                                                    ...prev.permisos,
+                                                                                    [sec.key]: "NINGUNO"
+                                                                                }
+                                                                            }));
+                                                                        }
+                                                                    }}
+                                                                    disabled={!isEditingMode}
+                                                                    style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                />
+                                                            </td>
+                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`permiso-${sec.key}`}
+                                                                    checked={currentVal === "LECTURA"}
+                                                                    onChange={() => {
+                                                                        if (isEditingMode) {
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                permisos: {
+                                                                                    ...prev.permisos,
+                                                                                    [sec.key]: "LECTURA"
+                                                                                }
+                                                                            }));
+                                                                        }
+                                                                    }}
+                                                                    disabled={!isEditingMode}
+                                                                    style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                />
+                                                            </td>
+                                                            <td style={{ textAlign: "center", padding: "0.25rem" }}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`permiso-${sec.key}`}
+                                                                    checked={currentVal === "ESCRITURA"}
+                                                                    onChange={() => {
+                                                                        if (isEditingMode) {
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                permisos: {
+                                                                                    ...prev.permisos,
+                                                                                    [sec.key]: "ESCRITURA"
+                                                                                }
+                                                                            }));
+                                                                        }
+                                                                    }}
+                                                                    disabled={!isEditingMode}
+                                                                    style={{ cursor: isEditingMode ? "pointer" : "not-allowed" }}
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             )}
@@ -514,17 +635,17 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
 
                         <div>
                             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                                <BadgeIcon icon={<User size={14} />} /> Nombre del Director(a)
+                                <BadgeIcon icon={<User size={14} />} /> {formData.esSupervision || selectedEscuela?.esSupervision ? "Nombre del Supervisor(a)" : "Nombre del Director(a)"}
                             </label>
                             <textarea
                                 className="form-control"
                                 rows={2}
-                                value={isEditingMode ? formData.director : (selectedEscuela?.director || "No especificado")}
+                                value={isEditingMode ? formData.director : (selectedEscuela?.esSupervision && autoridades?.nombreSupervisor ? autoridades.nombreSupervisor : (selectedEscuela?.director || "No especificado"))}
                                 onChange={(e) => setFormData({ ...formData, director: e.target.value })}
                                 disabled={!isEditingMode}
-                                placeholder="Ej: Mtro. Juan Pérez"
+                                placeholder={formData.esSupervision || selectedEscuela?.esSupervision ? "Ej: Mtro. Juan Pérez (Supervisor)" : "Ej: Mtro. Juan Pérez"}
                                 style={{
-                                    ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !selectedEscuela?.director ? "italic" : "normal", color: !selectedEscuela?.director ? "var(--text-muted)" : "inherit" } : {}),
+                                    ...(!isEditingMode ? { background: "var(--bg)", border: "1px dashed var(--border)", fontStyle: !(selectedEscuela?.director || (selectedEscuela?.esSupervision && autoridades?.nombreSupervisor)) ? "italic" : "normal", color: !(selectedEscuela?.director || (selectedEscuela?.esSupervision && autoridades?.nombreSupervisor)) ? "var(--text-muted)" : "inherit" } : {}),
                                     resize: "vertical", fontFamily: "inherit"
                                 }}
                             />
