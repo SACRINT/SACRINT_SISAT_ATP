@@ -245,19 +245,18 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
 
             {!isCreating && (
                 <div className="card" style={{ marginBottom: "2rem" }}>
-                    <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
+                    <div className="tab-list" style={{ marginTop: "-1rem", marginLeft: "-1rem", marginRight: "-1rem", paddingLeft: "1.5rem", borderBottom: "1px solid var(--border)", marginBottom: "1.5rem" }}>
                         <button 
-                            className={`btn ${tabEscuelas === "escuelas" ? "btn-primary" : "btn-outline"}`}
+                            className={`tab-item ${tabEscuelas === "escuelas" ? "active" : ""}`}
                             onClick={() => { 
                                 setTabEscuelas("escuelas"); 
                                 setSelectedId(""); 
                             }}
-                            style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
                         >
                             Escuelas
                         </button>
                         <button 
-                            className={`btn ${tabEscuelas === "supervision" ? "btn-primary" : "btn-outline"}`}
+                            className={`tab-item ${tabEscuelas === "supervision" ? "active" : ""}`}
                             onClick={() => { 
                                 setTabEscuelas("supervision"); 
                                 const supervisiones = escuelas.filter(e => e.esSupervision);
@@ -267,7 +266,6 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                     setSelectedId("");
                                 }
                             }}
-                            style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
                         >
                             Supervisiones
                         </button>

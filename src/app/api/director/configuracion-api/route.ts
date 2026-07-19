@@ -21,8 +21,8 @@ export async function GET(req: Request) {
         }
 
         const user = session.user as any;
-        if (user.role !== "director") {
-            return NextResponse.json({ error: "Permiso denegado. Solo directores pueden acceder." }, { status: 403 });
+        if (user.role !== "director" && user.role !== "supervision") {
+            return NextResponse.json({ error: "Permiso denegado. Solo directores y supervisores pueden acceder." }, { status: 403 });
         }
 
         // Buscar escuela por CCT
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         }
 
         const user = session.user as any;
-        if (user.role !== "director") {
+        if (user.role !== "director" && user.role !== "supervision") {
             return NextResponse.json({ error: "Permiso denegado" }, { status: 403 });
         }
 

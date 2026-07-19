@@ -761,3 +761,39 @@ h3 {
     padding-top: 3.5rem; /* space for hamburger */
   }
 }
+
+/* ─── REAL TABS ─── */
+.tab-list {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  padding-left: 0.5rem;
+}
+.tab-item {
+  padding: 0.625rem 1.25rem;
+  background: #f8fafc;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  color: var(--text-muted);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: -1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+.tab-item:hover {
+  background: #f1f5f9;
+  color: var(--text);
+}
+.tab-item.active {
+  background: white;
+  border-color: var(--border);
+  border-top: 3px solid var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}

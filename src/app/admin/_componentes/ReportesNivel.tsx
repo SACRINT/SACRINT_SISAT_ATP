@@ -340,25 +340,22 @@ CCT: 21FMS0020X`;
             )}
 
             {/* Pestañas de Programas */}
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
+            <div className="tab-list">
                 <button
                     onClick={() => { setPrograma("BANAVIM"); setMessage(null); }}
-                    className={`btn ${programa === "BANAVIM" ? "btn-primary" : "btn-outline"}`}
-                    style={{ fontSize: "0.85rem", padding: "0.375rem 1rem", borderRadius: "30px" }}
+                    className={`tab-item ${programa === "BANAVIM" ? "active" : ""}`}
                 >
                     BANAVIM
                 </button>
                 <button
                     onClick={() => { setPrograma("CEDAVIM"); setMessage(null); }}
-                    className={`btn ${programa === "CEDAVIM" ? "btn-primary" : "btn-outline"}`}
-                    style={{ fontSize: "0.85rem", padding: "0.375rem 1rem", borderRadius: "30px" }}
+                    className={`tab-item ${programa === "CEDAVIM" ? "active" : ""}`}
                 >
                     CEDAVIM (Acoso Escolar)
                 </button>
                 <button
                     onClick={() => { setPrograma("DIA_NARANJA"); setMessage(null); }}
-                    className={`btn ${programa === "DIA_NARANJA" ? "btn-primary" : "btn-outline"}`}
-                    style={{ fontSize: "0.85rem", padding: "0.375rem 1rem", borderRadius: "30px" }}
+                    className={`tab-item ${programa === "DIA_NARANJA" ? "active" : ""}`}
                 >
                     Día Naranja (25N)
                 </button>

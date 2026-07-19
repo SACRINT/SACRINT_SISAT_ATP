@@ -66,6 +66,11 @@ import GestionPrompts from "./_componentes/GestionPrompts";
 import GestionLlavesIA from "./_componentes/GestionLlavesIA";
 import ReportesNivel from "./_componentes/ReportesNivel";
 
+// Componentes exclusivos para Supervisor
+import EntregasListado from "../director/_componentes/EntregasListado";
+import AjustesApiPanel from "../director/_componentes/AjustesApiPanel";
+import ExpedientesPanel from "../director/_componentes/ExpedientesPanel";
+
 import { ProgramaAdmin, EscuelaAdmin, Stats, ZonaStat } from "@/types";
 
 import { MESES, ESTADOS, ESTADO_LABELS, ESTADO_COLORS } from "@/lib/constants";
@@ -96,6 +101,7 @@ export default function AdminDashboard({
     userName: string;
     dbRole: string;
     permisos: any;
+    supervisionEscuela?: any;
     cicloId: string;
     cicloObj: { id: string; nombre: string; activo: boolean; anuncioGlobal: string | null };
     todosCiclos: { id: string; nombre: string; activo: boolean; inicio: string; fin: string }[];
@@ -110,7 +116,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel">("general");
+    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes">("general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -727,6 +733,38 @@ export default function AdminDashboard({
                         )}
                     </div>
 
+                    {/* ── GRUPO: MI INSTITUCIÓN (SUPERVISOR) ── */}
+                    {dbRole === "SUPERVISION" && supervisionEscuela && (
+                        <div className="sidebar-group">
+                            <button
+                                className="sidebar-group-header"
+                                onClick={() => toggleGroup("mi_institucion")}
+                            >
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <School size={14} />
+                                    <span>Mi Institución</span>
+                                </div>
+                                {groupOpen.mi_institucion ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                            {groupOpen.mi_institucion && (
+                                <div className="sidebar-group-items">
+                                    <button className={`sidebar-link ${vista === "mis-entregas" ? "active" : ""}`} onClick={() => navigate("mis-entregas")}>
+                                        <FolderOpen size={17} />
+                                        <span>Mis Entregas</span>
+                                    </button>
+                                    <button className={`sidebar-link ${vista === "ajustes-api" ? "active" : ""}`} onClick={() => navigate("ajustes-api")}>
+                                        <Settings2 size={17} />
+                                        <span>Ajustes de API</span>
+                                    </button>
+                                    <button className={`sidebar-link ${vista === "mis-expedientes" ? "active" : ""}`} onClick={() => navigate("mis-expedientes")}>
+                                        <Users size={17} />
+                                        <span>Mis Expedientes</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* ── GRUPO: CONFIGURACIÓN ── */}
                     <div className="sidebar-group">
                         <button
@@ -959,117 +997,43 @@ export default function AdminDashboard({
 
                     return (
                     <div>
-                        <div style={{
-                            display: "flex",
-                            gap: "0.25rem",
-                            borderBottom: "1px solid var(--border)",
-                            marginBottom: "1.25rem",
-                            background: "var(--bg-secondary)",
-                            padding: "0.25rem",
-                            borderRadius: "8px",
-                            width: "fit-content"
-                        }}>
+                        <div className="tab-list">
                             <button
                                 onClick={() => setAvanceTab("programas")}
-                                style={{
-                                    padding: "0.45rem 0.9rem",
-                                    background: avanceTab === "programas" ? "white" : "none",
-                                    border: "none",
-                                    borderRadius: "6px",
-                                    boxShadow: avanceTab === "programas" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                                    color: avanceTab === "programas" ? "var(--primary)" : "var(--text-secondary)",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                    fontSize: "0.8125rem",
-                                    transition: "all 0.15s ease",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "0.375rem"
-                                }}
+                                className={`tab-item ${avanceTab === "programas" ? "active" : ""}`}
                             >
-                                <ListChecks size={13} />
+                                <ListChecks size={15} />
                                 Avance por Programa
                             </button>
                             <button
                                 onClick={() => setAvanceTab("escuelas")}
-                                style={{
-                                    padding: "0.45rem 0.9rem",
-                                    background: avanceTab === "escuelas" ? "white" : "none",
-                                    border: "none",
-                                    borderRadius: "6px",
-                                    boxShadow: avanceTab === "escuelas" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                                    color: avanceTab === "escuelas" ? "var(--primary)" : "var(--text-secondary)",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                    fontSize: "0.8125rem",
-                                    transition: "all 0.15s ease",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "0.375rem"
-                                }}
+                                className={`tab-item ${avanceTab === "escuelas" ? "active" : ""}`}
                             >
-                                <School size={13} />
+                                <School size={15} />
                                 Avance por Escuela
                             </button>
                             {sidebarConfig.showCapems && hasAccess("capems", "read") && (
                                 <button
                                     onClick={() => setAvanceTab("capems")}
-                                    style={{
-                                        padding: "0.45rem 0.9rem",
-                                        background: avanceTab === "capems" ? "white" : "none",
-                                        border: "none",
-                                        borderRadius: "6px",
-                                        boxShadow: avanceTab === "capems" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                                        color: avanceTab === "capems" ? "var(--primary)" : "var(--text-secondary)",
-                                        fontWeight: 600,
-                                        cursor: "pointer",
-                                        fontSize: "0.8125rem",
-                                        transition: "all 0.15s ease",
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: "0.375rem"
-                                    }}
+                                    className={`tab-item ${avanceTab === "capems" ? "active" : ""}`}
                                 >
-                                    <BookMarked size={13} />
+                                    <BookMarked size={15} />
                                     Fichas CAPEMS
                                 </button>
                             )}
                         </div>
 
                         {/* SUB-TABS ESCUELAS VS SUPERVISION */}
-                        <div style={{
-                            display: "flex",
-                            gap: "1rem",
-                            borderBottom: "1px solid var(--border)",
-                            marginBottom: "1.25rem"
-                        }}>
+                        <div className="tab-list">
                             <button
                                 onClick={() => setFilterType("escuelas")}
-                                style={{
-                                    padding: "0.5rem 1rem",
-                                    background: "none",
-                                    border: "none",
-                                    borderBottom: filterType === "escuelas" ? "2px solid var(--primary)" : "2px solid transparent",
-                                    color: filterType === "escuelas" ? "var(--primary)" : "var(--text-muted)",
-                                    fontWeight: filterType === "escuelas" ? 600 : 400,
-                                    cursor: "pointer",
-                                    fontSize: "0.875rem",
-                                }}
+                                className={`tab-item ${filterType === "escuelas" ? "active" : ""}`}
                             >
                                 Escuelas Regulares
                             </button>
                             <button
                                 onClick={() => setFilterType("supervision")}
-                                style={{
-                                    padding: "0.5rem 1rem",
-                                    background: "none",
-                                    border: "none",
-                                    borderBottom: filterType === "supervision" ? "2px solid var(--primary)" : "2px solid transparent",
-                                    color: filterType === "supervision" ? "var(--primary)" : "var(--text-muted)",
-                                    fontWeight: filterType === "supervision" ? 600 : 400,
-                                    cursor: "pointer",
-                                    fontSize: "0.875rem",
-                                }}
+                                className={`tab-item ${filterType === "supervision" ? "active" : ""}`}
                             >
                                 Supervisión
                             </button>
@@ -1174,26 +1138,16 @@ export default function AdminDashboard({
                 {/* ========= VISTA: GESTIÓN DE PROGRAMAS Y MÓDULOS ========= */}
                 {vista === "gestion-programas" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                        <div style={{ display: "flex", gap: "1rem", borderBottom: "1px solid var(--border)" }}>
+                        <div className="tab-list">
                             <button
                                 onClick={() => setProgramasTab("programas")}
-                                style={{
-                                    padding: "0.5rem 1rem", background: "none", border: "none",
-                                    borderBottom: programasTab === "programas" ? "2px solid var(--primary)" : "2px solid transparent",
-                                    color: programasTab === "programas" ? "var(--primary)" : "var(--text-muted)",
-                                    fontWeight: programasTab === "programas" ? 600 : 400, cursor: "pointer", fontSize: "0.875rem",
-                                }}
+                                className={`tab-item ${programasTab === "programas" ? "active" : ""}`}
                             >
                                 Programas Regulares
                             </button>
                             <button
                                 onClick={() => setProgramasTab("modulos")}
-                                style={{
-                                    padding: "0.5rem 1rem", background: "none", border: "none",
-                                    borderBottom: programasTab === "modulos" ? "2px solid var(--primary)" : "2px solid transparent",
-                                    color: programasTab === "modulos" ? "var(--primary)" : "var(--text-muted)",
-                                    fontWeight: programasTab === "modulos" ? 600 : 400, cursor: "pointer", fontSize: "0.875rem",
-                                }}
+                                className={`tab-item ${programasTab === "modulos" ? "active" : ""}`}
                             >
                                 Módulos Especiales
                             </button>
@@ -1289,6 +1243,21 @@ export default function AdminDashboard({
                         <ReportesNivel />
                     )
                 }
+
+                {/* ========= VISTAS DE SUPERVISIÓN ========= */}
+                {dbRole === "SUPERVISION" && supervisionEscuela && (
+                    <>
+                        {vista === "mis-entregas" && (
+                            <EntregasListado programas={programas} onSetMessage={() => {}} />
+                        )}
+                        {vista === "ajustes-api" && (
+                            <AjustesApiPanel escuela={supervisionEscuela} />
+                        )}
+                        {vista === "mis-expedientes" && (
+                            <ExpedientesPanel escuela={{ id: supervisionEscuela.id, cct: supervisionEscuela.cct, nombre: supervisionEscuela.nombre }} />
+                        )}
+                    </>
+                )}
 
                 {/* ========= VISTA: HERRAMIENTAS DE IA ========= */}
                 {vista === "herramientas-ia" && (
