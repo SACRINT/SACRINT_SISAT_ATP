@@ -1070,7 +1070,10 @@ export default function AdminDashboard({
                             )}
                             {sidebarConfig.showCapems && hasAccess("avances_capems", "read") && (
                                 <button
-                                    onClick={() => setAvanceTab("capems")}
+                                    onClick={() => {
+                                        setAvanceTab("capems");
+                                        setFilterType("escuelas"); // Resetear para que no se quede pegado "supervision"
+                                    }}
                                     className={`tab-item ${avanceTab === "capems" ? "active" : ""}`}
                                 >
                                     <BookMarked size={15} />
