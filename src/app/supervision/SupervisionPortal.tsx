@@ -49,6 +49,12 @@ export default function SupervisionPortal({
     const [activeTab, setActiveTab] = useState<TabType>("monitoreo");
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     // Permisos
     const permisos = supervision.permisos || {};
     const canVerAvance = permisos.verAvance ?? true;
@@ -101,117 +107,181 @@ export default function SupervisionPortal({
                 return <div>Sección no encontrada</div>;
         }
     };
+    if (!isMounted) return null;
 
     return (
-        <div className="admin-dashboard">
+        <div className="admin-layout">
             {isSidebarOpen && (
                 <div className="sidebar-overlay active" onClick={() => setIsSidebarOpen(false)} />
             )}
             
-            <aside className={`admin-sidebar ${isSidebarOpen ? "open" : ""}`}>
-                <div className="admin-sidebar-header">
-                    <div className="admin-logo">SISAT</div>
-                    <div className="admin-subtitle">Portal Supervisión</div>
+            {/* Mobile hamburger */}
+            <button
+                className="sidebar-hamburger"
+                onClick={() => setIsSidebarOpen(true)}
+                aria-label="Abrir menú"
+            >
+                <Menu size={22} />
+            </button>
+
+            <aside className={`admin-sidebar ${isSidebarOpen ? "sidebar-mobile-open" : ""}`}>
+                <div className="admin-sidebar-header" style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.5rem", width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+                            <div style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "10px", padding: "6px", display: "flex" }}>
+                                <School size={20} color="white" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: "0.9375rem", fontWeight: 800, color: "var(--text)", lineHeight: 1.1 }}>SISAT-ATP</div>
+                                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", lineHeight: 1.2 }}>Supervisión</div>
+                            </div>
+                        </div>
+                        <button
+                            className="sidebar-close-btn"
+                            onClick={() => setIsSidebarOpen(false)}
+                            aria-label="Cerrar menú"
+                        >
+                            <XIcon size={18} />
+                        </button>
+                    </div>
+
+                    <div style={{ marginTop: "0.75rem", background: "var(--primary-bg)", borderRadius: "8px", padding: "0.5rem 0.625rem" }}>
+                        <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                            {supervision.cct}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text)", fontWeight: 600, lineHeight: 1.3, marginTop: "0.125rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {supervision.nombre}
+                        </div>
+                        <div style={{ marginTop: "0.5rem", position: "relative", width: "100%" }}>
+                            <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                <span>Ciclo Escolar:</span>
+                                {cicloObj && !cicloObj.activo && (
+                                    <span style={{ background: "var(--danger-bg, #fee2e2)", color: "var(--danger, #ef4444)", padding: "1px 6px", borderRadius: "4px", fontSize: "0.55rem", fontWeight: 700 }}>
+                                        Lector
+                                    </span>
+                                )}
+                            </div>
+                            <select
+                                value={cicloId}
+                                onChange={async (e) => {
+                                    const selectedId = e.target.value;
+                                    try {
+                                        const res = await fetch("/api/ciclos/seleccionar", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ cicloId: selectedId }),
+                                        });
+                                        if (res.ok) {
+                                            window.location.reload();
+                                        } else {
+                                            console.error("Error al seleccionar ciclo");
+                                        }
+                                    } catch (err) {
+                                        console.error(err);
+                                    }
+                                }}
+                                style={{
+                                    width: "100%",
+                                    padding: "0.25rem 0.375rem",
+                                    borderRadius: "6px",
+                                    border: "1px solid var(--border)",
+                                    background: "var(--bg-secondary, #f1f5f9)",
+                                    color: "var(--text)",
+                                    fontSize: "0.7rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    outline: "none",
+                                }}
+                            >
+                                {todosCiclos.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.nombre} {c.activo ? "(Activo)" : ""}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <nav className="admin-nav">
-                    <div className="nav-group">
-                        <div className="nav-group-title">Monitoreo de Zona</div>
+                <div className="admin-sidebar-nav">
+                    <div style={{ marginBottom: "0.25rem" }}>
+                        <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem" }}>
+                            Monitoreo de Zona
+                        </div>
                         {canVerAvance && (
                             <button
-                                className={`nav-item ${activeTab === "monitoreo" ? "active" : ""}`}
+                                className={`sidebar-link ${activeTab === "monitoreo" ? "active" : ""}`}
                                 onClick={() => { setActiveTab("monitoreo"); setIsSidebarOpen(false); }}
                             >
-                                <BarChart3 size={18} /> Avance de Entregas
+                                <BarChart3 size={17} /> <span>Avance de Entregas</span>
                             </button>
                         )}
                         {canGenerarConstancias && (
                             <button
-                                className={`nav-item ${activeTab === "documentos" ? "active" : ""}`}
+                                className={`sidebar-link ${activeTab === "documentos" ? "active" : ""}`}
                                 onClick={() => { setActiveTab("documentos"); setIsSidebarOpen(false); }}
                             >
-                                <FileText size={18} /> Generar Constancias
+                                <FileText size={17} /> <span>Generar Constancias</span>
                             </button>
                         )}
                     </div>
 
-                    <div className="nav-group">
-                        <div className="nav-group-title">Mi Institución</div>
+                    <div style={{ marginBottom: "0.25rem" }}>
+                        <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem" }}>
+                            Mi Institución
+                        </div>
                         <button
-                            className={`nav-item ${activeTab === "entregas" ? "active" : ""}`}
+                            className={`sidebar-link ${activeTab === "entregas" ? "active" : ""}`}
                             onClick={() => { setActiveTab("entregas"); setIsSidebarOpen(false); }}
                         >
-                            <FolderOpen size={18} /> Entregas (PIPS, Informes)
+                            <FolderOpen size={17} /> <span>Entregas (PIPS, Informes)</span>
                         </button>
                         <button
-                            className={`nav-item ${activeTab === "recursos" ? "active" : ""}`}
+                            className={`sidebar-link ${activeTab === "recursos" ? "active" : ""}`}
                             onClick={() => { setActiveTab("recursos"); setIsSidebarOpen(false); }}
                         >
-                            <BookOpen size={18} /> Recursos
+                            <BookOpen size={17} /> <span>Recursos</span>
                         </button>
                         {canVerExpedientes && (
                             <button
-                                className={`nav-item ${activeTab === "expedientes" ? "active" : ""}`}
+                                className={`sidebar-link ${activeTab === "expedientes" ? "active" : ""}`}
                                 onClick={() => { setActiveTab("expedientes"); setIsSidebarOpen(false); }}
                             >
-                                <Users size={18} /> Mi Personal
+                                <Users size={17} /> <span>Mi Personal</span>
                             </button>
                         )}
                         {canVerCapems && (
                             <button
-                                className={`nav-item ${activeTab === "capems" ? "active" : ""}`}
+                                className={`sidebar-link ${activeTab === "capems" ? "active" : ""}`}
                                 onClick={() => { setActiveTab("capems"); setIsSidebarOpen(false); }}
                             >
-                                <Building2 size={18} /> Fichas CAPEMS
+                                <Building2 size={17} /> <span>Fichas CAPEMS</span>
                             </button>
                         )}
                     </div>
 
-                    <div className="nav-group" style={{ marginTop: "auto", paddingTop: "1rem" }}>
-                        <button className="nav-item text-danger" onClick={() => signOut({ callbackUrl: "/login" })}>
-                            <LogOut size={18} /> Cerrar Sesión
+                    <div style={{ marginTop: "auto", paddingTop: "1rem" }}>
+                        <button 
+                            className="sidebar-link" 
+                            style={{ color: "var(--danger)" }}
+                            onClick={() => signOut({ callbackUrl: "/login" })}
+                        >
+                            <LogOut size={17} /> <span>Cerrar Sesión</span>
                         </button>
                     </div>
-                </nav>
+                </div>
             </aside>
 
-            <main className="admin-main">
-                <header className="admin-header">
-                    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                        <button
-                            className="mobile-menu-btn"
-                            onClick={() => setIsSidebarOpen(true)}
-                        >
-                            <Menu size={24} />
-                        </button>
-                        <h2 style={{ margin: 0, fontSize: "1.25rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <School size={20} color="var(--primary)" />
-                            {supervision.nombre}
-                        </h2>
-                    </div>
-                    <div className="admin-user-info" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                        <span className="badge" style={{ background: "var(--primary-light)", color: "var(--primary-dark)" }}>
-                            Ciclo: {ciclo}
-                        </span>
-                        <div className="user-avatar">{supervision.cct.substring(0, 2)}</div>
-                        <div className="user-details hide-on-mobile">
-                            <div className="user-name">{supervision.cct}</div>
-                            <div className="user-role">Supervisión</div>
+            <main className="admin-content fade-in">
+                {anuncioGlobal && (
+                    <div className="alert alert-info" style={{ marginBottom: "1.5rem" }}>
+                        <MessageSquare size={18} style={{ flexShrink: 0 }} />
+                        <div>
+                            <strong>Aviso Importante:</strong> {anuncioGlobal}
                         </div>
                     </div>
-                </header>
-
-                <div className="admin-content">
-                    {anuncioGlobal && (
-                        <div className="alert alert-info" style={{ marginBottom: "1.5rem" }}>
-                            <MessageSquare size={18} style={{ flexShrink: 0 }} />
-                            <div>
-                                <strong>Aviso Importante:</strong> {anuncioGlobal}
-                            </div>
-                        </div>
-                    )}
-                    {renderContent()}
-                </div>
+                )}
+                {renderContent()}
             </main>
         </div>
     );

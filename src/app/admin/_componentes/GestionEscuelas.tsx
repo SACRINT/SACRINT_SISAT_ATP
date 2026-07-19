@@ -42,6 +42,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     const [isCreating, setIsCreating] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [tabEscuelas, setTabEscuelas] = useState<"escuelas" | "supervision">("escuelas");
     const router = useRouter();
 
     // Form state
@@ -244,18 +245,35 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
 
             {!isCreating && (
                 <div className="card" style={{ marginBottom: "2rem" }}>
+                    <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
+                        <button 
+                            className={`btn ${tabEscuelas === "escuelas" ? "btn-primary" : "btn-outline"}`}
+                            onClick={() => { setTabEscuelas("escuelas"); setSelectedId(""); }}
+                            style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
+                        >
+                            Escuelas
+                        </button>
+                        <button 
+                            className={`btn ${tabEscuelas === "supervision" ? "btn-primary" : "btn-outline"}`}
+                            onClick={() => { setTabEscuelas("supervision"); setSelectedId(""); }}
+                            style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
+                        >
+                            Supervisiones y Pruebas
+                        </button>
+                    </div>
+
                     <h3 style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <Building2 size={20} color="var(--primary)" />
-                        Seleccionar Escuela (CCT)
+                        Seleccionar {tabEscuelas === "escuelas" ? "Escuela" : "Institución"} (CCT)
                     </h3>
                     <select
                         className="form-control"
                         value={selectedId}
                         onChange={handleSelectChange}
-                        style={{ padding: "0.75rem", fontSize: "1rem", cursor: "pointer" }}
+                        style={{ padding: "0.75rem", fontSize: "1rem", cursor: "pointer", width: "100%" }}
                     >
                         <option value="">-- Elige un Centro de Trabajo --</option>
-                        {escuelas.map(escuela => (
+                        {escuelas.filter(e => tabEscuelas === "escuelas" ? (!e.esSupervision && !e.esDePrueba) : (e.esSupervision || e.esDePrueba)).map(escuela => (
                             <option key={escuela.id} value={escuela.id}>
                                 {escuela.cct} - {escuela.nombre}
                             </option>
