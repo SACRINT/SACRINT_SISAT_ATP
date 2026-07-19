@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db";
 export async function GET() {
     try {
         const session = await auth();
-        if (!session || (session.user as any).role !== "admin") {
+        const role = (session?.user as any)?.role;
+        if (!session || !["admin", "supervision", "atp"].includes(role)) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 

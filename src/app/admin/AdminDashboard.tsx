@@ -1079,21 +1079,23 @@ export default function AdminDashboard({
                             )}
                         </div>
 
-                        {/* SUB-TABS ESCUELAS VS SUPERVISION */}
-                        <div className="tab-list">
-                            <button
-                                onClick={() => setFilterType("escuelas")}
-                                className={`tab-item ${filterType === "escuelas" ? "active" : ""}`}
-                            >
-                                Escuelas Regulares
-                            </button>
-                            <button
-                                onClick={() => setFilterType("supervision")}
-                                className={`tab-item ${filterType === "supervision" ? "active" : ""}`}
-                            >
-                                Supervisión
-                            </button>
-                        </div>
+                        {/* SUB-TABS ESCUELAS VS SUPERVISION (Oculto para CAPEMS) */}
+                        {avanceTab !== "capems" && (
+                            <div className="tab-list">
+                                <button
+                                    onClick={() => setFilterType("escuelas")}
+                                    className={`tab-item ${filterType === "escuelas" ? "active" : ""}`}
+                                >
+                                    Escuelas Regulares
+                                </button>
+                                <button
+                                    onClick={() => setFilterType("supervision")}
+                                    className={`tab-item ${filterType === "supervision" ? "active" : ""}`}
+                                >
+                                    Supervisión
+                                </button>
+                            </div>
+                        )}
  
                         <div style={{ marginBottom: "1.25rem", position: "relative" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "white", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", maxWidth: "350px", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>

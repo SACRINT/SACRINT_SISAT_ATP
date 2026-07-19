@@ -64,7 +64,8 @@ function parseMexicanDate(dateStr: string | null) {
 // ─── POST: Generar Documentos Masivos ───────────────────────────────────────
 export async function POST(req: NextRequest) {
     const session = await auth();
-    if (!session || (session.user as any)?.role !== "admin") {
+    const role = (session?.user as any)?.role;
+    if (!session || !["admin", "supervision", "atp"].includes(role)) {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 

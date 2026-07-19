@@ -12,7 +12,8 @@ export const maxDuration = 60; // Evitar Vercel 504 timeout
 // GET: Listar plantillas
 export async function GET(req: NextRequest) {
     const session = await auth();
-    if (!session || (session.user as any)?.role !== "admin") {
+    const role = (session?.user as any)?.role;
+    if (!session || !["admin", "supervision", "atp"].includes(role)) {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
