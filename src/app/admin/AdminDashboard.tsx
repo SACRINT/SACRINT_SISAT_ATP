@@ -92,6 +92,7 @@ export default function AdminDashboard({
     permisos,
     sidebarConfig,
     supervisionEscuela,
+    programasSupervision = [],
 }: {
     programas: ProgramaAdmin[];
     escuelas: EscuelaAdmin[];
@@ -103,6 +104,7 @@ export default function AdminDashboard({
     dbRole: string;
     permisos: any;
     supervisionEscuela?: any;
+    programasSupervision?: any[];
     cicloId: string;
     cicloObj: { id: string; nombre: string; activo: boolean; anuncioGlobal: string | null };
     todosCiclos: { id: string; nombre: string; activo: boolean; inicio: string; fin: string }[];
@@ -1249,7 +1251,7 @@ export default function AdminDashboard({
                 {dbRole === "SUPERVISION" && supervisionEscuela && (
                     <>
                         {vista === "mis-entregas" && (
-                            <EntregasListado programas={programas} onSetMessage={() => {}} />
+                            <EntregasListado programas={programasSupervision} onSetMessage={() => {}} />
                         )}
                         {vista === "ajustes-api" && (
                             <AjustesApiPanel escuela={supervisionEscuela} />

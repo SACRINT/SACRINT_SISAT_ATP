@@ -164,6 +164,49 @@ export default async function SupervisionPage() {
         noEntregadas: activeEntregas.filter((e) => e.estado === "NO_ENTREGADO").length,
     };
 
+    // Fetch entregas for supervision (to show in 'Mis Entregas')
+    const entregasSupervision = await prisma.entrega.findMany({
+        where: {
+            escuelaId: supervision.id,
+            periodoEntrega: {
+                cicloEscolarId: ciclo.id,
+                activo: true,
+            },
+        },
+        include: {
+            periodoEntrega: {
+                include: { programa: true },
+            },
+            archivos: { orderBy: { createdAt: "desc" } },
+            correcciones: {
+                include: { archivo: true, admin: { select: { nombre: true } } },
+                orderBy: { createdAt: "desc" },
+            },
+        },
+        orderBy: { updatedAt: "desc" },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const programasMap: Record<string, any> = {};
+    for (const ent of entregasSupervision) {
+        const prog = ent.periodoEntrega.programa;
+        if (!prog.esParaSupervision) continue;
+        if (!programasMap[prog.id]) {
+            programasMap[prog.id] = {
+                programa: {
+                    id: prog.id,
+                    nombre: prog.nombre,
+                    numArchivos: prog.numArchivos,
+                    tipo: prog.tipo,
+                    etiquetasArchivos: prog.etiquetasArchivos || []
+                },
+                entregas: [],
+            };
+        }
+        programasMap[prog.id].entregas.push(ent);
+    }
+    const programasSupervision = Object.values(programasMap);
+
     return (
         <AdminDashboard
             programas={JSON.parse(JSON.stringify(programas))}
@@ -175,10 +218,11 @@ export default async function SupervisionPage() {
             cicloId={ciclo.id}
             cicloObj={JSON.parse(JSON.stringify(ciclo))}
             todosCiclos={JSON.parse(JSON.stringify(todosCiclos))}
-            anuncioGlobal={ciclo.anuncioGlobal || undefined}
+            anuncioGlobal={ciclo.anuncioGlobal || null}
             userName={session.user?.name || "Supervisor"}
             dbRole="SUPERVISION"
             supervisionEscuela={JSON.parse(JSON.stringify(supervision))}
+            programasSupervision={JSON.parse(JSON.stringify(programasSupervision))}
             permisos={{}}
             sidebarConfig={sidebarConfig}
         />
