@@ -15,58 +15,22 @@ export default function DocumentosAdministrativosPage() {
                 Genera constancias, oficios y reportes utilizando plantillas oficiales y expedientes.
             </p>
 
-            <div style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--border)", marginBottom: "2rem", paddingBottom: "0" }}>
+            <div className="tab-list">
                 <button
+                    className={`tab-item ${activeTab === "generar" ? "active" : ""}`}
                     onClick={() => setActiveTab("generar")}
-                    style={{
-                        padding: "0.75rem 1.25rem",
-                        fontWeight: 600,
-                        fontSize: "0.875rem",
-                        background: activeTab === "generar" ? "var(--bg-secondary, #f8fafc)" : "none",
-                        border: "1px solid",
-                        borderColor: activeTab === "generar" ? "var(--border) var(--border) transparent" : "transparent",
-                        borderRadius: "8px 8px 0 0",
-                        marginBottom: "-1px",
-                        color: activeTab === "generar" ? "var(--primary)" : "var(--text-secondary)",
-                        cursor: "pointer",
-                        transition: "all 0.2s"
-                    }}
                 >
                     Generar Documento
                 </button>
                 <button
+                    className={`tab-item ${activeTab === "plantillas" ? "active" : ""}`}
                     onClick={() => setActiveTab("plantillas")}
-                    style={{
-                        padding: "0.75rem 1.25rem",
-                        fontWeight: 600,
-                        fontSize: "0.875rem",
-                        background: activeTab === "plantillas" ? "var(--bg-secondary, #f8fafc)" : "none",
-                        border: "1px solid",
-                        borderColor: activeTab === "plantillas" ? "var(--border) var(--border) transparent" : "transparent",
-                        borderRadius: "8px 8px 0 0",
-                        marginBottom: "-1px",
-                        color: activeTab === "plantillas" ? "var(--primary)" : "var(--text-secondary)",
-                        cursor: "pointer",
-                        transition: "all 0.2s"
-                    }}
                 >
                     Gestión de Plantillas
                 </button>
                 <button
+                    className={`tab-item ${activeTab === "autoridades" ? "active" : ""}`}
                     onClick={() => setActiveTab("autoridades")}
-                    style={{
-                        padding: "0.75rem 1.25rem",
-                        fontWeight: 600,
-                        fontSize: "0.875rem",
-                        background: activeTab === "autoridades" ? "var(--bg-secondary, #f8fafc)" : "none",
-                        border: "1px solid",
-                        borderColor: activeTab === "autoridades" ? "var(--border) var(--border) transparent" : "transparent",
-                        borderRadius: "8px 8px 0 0",
-                        marginBottom: "-1px",
-                        color: activeTab === "autoridades" ? "var(--primary)" : "var(--text-secondary)",
-                        cursor: "pointer",
-                        transition: "all 0.2s"
-                    }}
                 >
                     Autoridades Educativas
                 </button>

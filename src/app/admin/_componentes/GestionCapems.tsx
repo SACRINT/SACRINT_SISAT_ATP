@@ -525,12 +525,12 @@ export default function GestionCapems({ readOnly = false, viewMode = "config" }:
 
             {/* Sub-tabs */}
             {!readOnly && viewMode === "config" && (
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button className={`btn ${section === "fichas" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("fichas")} style={{ flex: 1 }}>
-                        <FileText size={18} /> Gestión de Fichas
+                <div className="tab-list">
+                    <button className={`tab-item ${section === "fichas" ? "active" : ""}`} onClick={() => setSection("fichas")}>
+                        Gestión de Fichas
                     </button>
-                    <button className={`btn ${section === "capems" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("capems")} style={{ flex: 1 }}>
-                        <FileText size={18} /> Gestión de CAPEMS
+                    <button className={`tab-item ${section === "capems" ? "active" : ""}`} onClick={() => setSection("capems")}>
+                        Gestión de CAPEMS
                     </button>
                 </div>
             )}

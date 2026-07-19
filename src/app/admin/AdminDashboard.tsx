@@ -119,7 +119,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes">("general");
+    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -148,12 +148,26 @@ export default function AdminDashboard({
             case "expedientes": return "expedientes";
             case "documentos": return "documentos";
             case "gestion-atps": return "seguridad";
+            case "mis-entregas": return "supervision_entregas";
+            case "ajustes-api": return "supervision_api";
+            case "mis-expedientes": return "supervision_expedientes";
             default: return "general";
         }
     };
 
     const hasAccess = (seccion: string, tipo: "read" | "write" = "read"): boolean => {
         if (dbRole === "SUPER_ADMIN") return true;
+        
+        // Vistas exclusivas de supervisión
+        if (["supervision_entregas", "supervision_api", "supervision_expedientes"].includes(seccion)) {
+            return dbRole === "SUPERVISION";
+        }
+
+        // Supervisor normal sin accesos adicionales por defecto solo entra a lo suyo
+        if (dbRole === "SUPERVISION" && !permisos) {
+            return false;
+        }
+
         if (seccion === "seguridad") return false; // Solo Super Admin accede a seguridad
 
         if (!permisos) {
@@ -567,18 +581,35 @@ export default function AdminDashboard({
     }
 
 
-    // Count active special modules for badge
+    // Check if configuration group has any visible items
+    const hasConfigGroupAccess = dbRole === "SUPER_ADMIN" || [
+        hasAccess("escuelas", "read"),
+        hasAccess("programas", "read"),
+        hasAccess("periodos", "read"),
+        hasAccess("ciclos", "read"),
+        (sidebarConfig.showRecursos && hasAccess("formatos", "read")),
+        (sidebarConfig.showCapems && hasAccess("capems", "read")),
+        hasAccess("rubricas", "read"),
+    ].some(Boolean);
+
+    // Count active special modules for badge that user has access to
     const activeModulesCount = [
-        sidebarConfig.showEventos,
-        sidebarConfig.showCircular05,
-        sidebarConfig.showOlimpiada,
-        sidebarConfig.showPAEC,
-        sidebarConfig.showCapems,
-        sidebarConfig.showExpedientes,
+        sidebarConfig.showEventos && hasAccess("eventos", "read"),
+        sidebarConfig.showCircular05 && hasAccess("circular05", "read"),
+        sidebarConfig.showOlimpiada && hasAccess("olimpiada", "read"),
+        sidebarConfig.showPAEC && hasAccess("paec", "read"),
+        sidebarConfig.showExpedientes && hasAccess("expedientes", "read"),
+        hasAccess("documentos", "read")
     ].filter(Boolean).length;
 
     const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "expedientes", "documentos"].includes(vista);
     const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos", "gestion-prompts", "orquestador-ia", "capems"].includes(vista);
+
+    const hasMonitoreoGroupAccess = [
+        hasAccess("general", "read"),
+        hasAccess("avances", "read"),
+        hasAccess("reportesNivel", "read")
+    ].some(Boolean);
 
     return (
         <div className="admin-layout">
@@ -701,7 +732,8 @@ export default function AdminDashboard({
                 <div className="admin-sidebar-nav">
 
                     {/* ── GRUPO: MONITOREO ── */}
-                    <div className="sidebar-group">
+                    {hasMonitoreoGroupAccess && (
+                        <div className="sidebar-group">
                         <button
                             className="sidebar-group-header"
                             onClick={() => toggleGroup("monitoreo")}
@@ -735,6 +767,7 @@ export default function AdminDashboard({
                             </div>
                         )}
                     </div>
+                    )}
 
                     {/* ── GRUPO: MI INSTITUCIÓN (SUPERVISOR) ── */}
                     {dbRole === "SUPERVISION" && supervisionEscuela && (
@@ -769,7 +802,8 @@ export default function AdminDashboard({
                     )}
 
                     {/* ── GRUPO: CONFIGURACIÓN ── */}
-                    <div className="sidebar-group">
+                    {hasConfigGroupAccess && (
+                        <div className="sidebar-group">
                         <button
                             className={`sidebar-group-header ${configVistaActiva ? "sidebar-group-header-active" : ""}`}
                             onClick={() => toggleGroup("config")}
@@ -833,6 +867,7 @@ export default function AdminDashboard({
                             </div>
                         )}
                     </div>
+                    )}
 
                     {/* ── GRUPO: MÓDULOS ACTIVOS ── */}
                     {activeModulesCount > 0 && (

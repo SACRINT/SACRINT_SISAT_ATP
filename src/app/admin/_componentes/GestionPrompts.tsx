@@ -119,40 +119,22 @@ export default function GestionPrompts({ readOnly = false }: { readOnly?: boolea
             )}
 
             {/* Custom Tab Selector */}
-            <div style={{ display: "flex", borderBottom: "1px solid var(--border)", gap: "1.5rem" }}>
+            <div className="tab-list">
                 <button
+                    className={`tab-item ${activeTab === "PMC" ? "active" : ""}`}
                     onClick={() => setActiveTab("PMC")}
-                    style={{
-                        padding: "0.75rem 0.5rem", background: "none", border: "none", cursor: "pointer",
-                        fontWeight: 600, fontSize: "0.9375rem",
-                        color: activeTab === "PMC" ? "var(--primary)" : "var(--text-muted)",
-                        borderBottom: activeTab === "PMC" ? "2px solid var(--primary)" : "none",
-                        transition: "all 0.2s"
-                    }}
                 >
                     Plan de Mejora Continua (PMC)
                 </button>
                 <button
+                    className={`tab-item ${activeTab === "PAEC" ? "active" : ""}`}
                     onClick={() => setActiveTab("PAEC")}
-                    style={{
-                        padding: "0.75rem 0.5rem", background: "none", border: "none", cursor: "pointer",
-                        fontWeight: 600, fontSize: "0.9375rem",
-                        color: activeTab === "PAEC" ? "var(--primary)" : "var(--text-muted)",
-                        borderBottom: activeTab === "PAEC" ? "2px solid var(--primary)" : "none",
-                        transition: "all 0.2s"
-                    }}
                 >
                     Programa Aula, Escuela y Comunidad (PAEC)
                 </button>
                 <button
+                    className={`tab-item ${activeTab === "INFORME_FINAL" ? "active" : ""}`}
                     onClick={() => setActiveTab("INFORME_FINAL")}
-                    style={{
-                        padding: "0.75rem 0.5rem", background: "none", border: "none", cursor: "pointer",
-                        fontWeight: 600, fontSize: "0.9375rem",
-                        color: activeTab === "INFORME_FINAL" ? "var(--primary)" : "var(--text-muted)",
-                        borderBottom: activeTab === "INFORME_FINAL" ? "2px solid var(--primary)" : "none",
-                        transition: "all 0.2s"
-                    }}
                 >
                     Informe Final PMC
                 </button>
