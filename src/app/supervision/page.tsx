@@ -128,6 +128,31 @@ export default async function SupervisionPage() {
         include: { programa: true },
     });
 
+    const programasRegulares = await prisma.programa.findMany({
+        where: { esParaSupervision: false },
+        orderBy: { orden: "asc" },
+        include: {
+            periodos: {
+                where: { cicloEscolarId: ciclo.id, activo: true },
+                orderBy: [{ mes: "asc" }, { semestre: "asc" }],
+                include: {
+                    entregas: {
+                        where: { escuela: { esDePrueba: false, esSupervision: false } },
+                        include: {
+                            escuela: true,
+                            archivos: { where: { tipo: "ENTREGA" } },
+                            preRevision: true,
+                            correcciones: {
+                                include: { admin: { select: { id: true, nombre: true } }, archivo: true },
+                                orderBy: { createdAt: "desc" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     return (
         <SupervisionPortal
             supervision={JSON.parse(JSON.stringify(supervision))}
@@ -139,6 +164,7 @@ export default async function SupervisionPage() {
             todosCiclos={JSON.parse(JSON.stringify(todosCiclos))}
             anuncioGlobal={ciclo.anuncioGlobal || undefined}
             recursos={JSON.parse(JSON.stringify(recursos))}
+            programasRegulares={JSON.parse(JSON.stringify(programasRegulares))}
         />
     );
 }

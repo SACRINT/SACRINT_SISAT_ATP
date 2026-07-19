@@ -20,7 +20,7 @@ export async function GET(req: Request) {
         const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct } });
         if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
         where.escuelaId = escuela.id;
-    } else if (user?.role === "admin" && escuelaId) {
+    } else if ((user?.role === "admin" || user?.role === "supervision") && escuelaId) {
         where.escuelaId = escuelaId;
     }
 

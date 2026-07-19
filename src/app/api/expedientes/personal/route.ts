@@ -14,12 +14,21 @@ export async function GET(req: Request) {
 
     let escuelaId: string | undefined;
 
-    if (user.role === "director" || user.role === "supervision") {
+    if (user.role === "director") {
         const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
         if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
         escuelaId = escuela.id;
     } else if (user.role === "admin") {
         escuelaId = searchParams.get("escuelaId") || undefined;
+    } else if (user.role === "supervision") {
+        const todas = searchParams.get("todas") === "true";
+        if (todas) {
+            escuelaId = searchParams.get("escuelaId") || undefined;
+        } else {
+            const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
+            if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
+            escuelaId = escuela.id;
+        }
     } else {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }

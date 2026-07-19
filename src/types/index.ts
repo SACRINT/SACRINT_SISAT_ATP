@@ -89,7 +89,7 @@ export interface EscuelaAdmin {
         fechaSubida: string | null;
         archivos: Archivo[];
         correcciones: CorreccionAdmin[];
-        periodoEntrega: { programa: { nombre: string }; mes: number | null; semestre: number | null };
+        periodoEntrega: { programa: { nombre: string; esParaSupervision?: boolean }; mes: number | null; semestre: number | null };
         cvd?: string | null;
         firmaDigital?: string | null;
     }[];

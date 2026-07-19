@@ -475,7 +475,7 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
         try {
             const [configRes, personalRes, escuelasRes] = await Promise.all([
                 fetch("/api/expedientes/config"),
-                fetch("/api/expedientes/personal"),
+                fetch("/api/expedientes/personal?todas=true"),
                 fetch("/api/admin/escuelas"),
             ]);
             if (configRes.ok) {

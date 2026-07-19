@@ -14,6 +14,8 @@ import {
     Search,
     Building2,
     FileText,
+    ListChecks,
+    Key,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -21,11 +23,14 @@ import EntregasListado from "../director/_componentes/EntregasListado";
 import ExpedientesPanel from "../director/_componentes/ExpedientesPanel";
 import CapemsPanel from "../director/_componentes/CapemsPanel";
 import RecursosListado from "../director/_componentes/RecursosListado";
-import ListadoEscuelas from "../admin/_componentes/ListadoEscuelas";
 import GestionCapems from "../admin/_componentes/GestionCapems";
 import DocumentosPanel from "../director/_componentes/DocumentosPanel";
+import GestionExpedientes from "../admin/_componentes/GestionExpedientes";
+import ListadoEscuelas from "../admin/_componentes/ListadoEscuelas";
+import ListadoProgramas from "../admin/_componentes/ListadoProgramas";
+import AjustesApiPanel from "../director/_componentes/AjustesApiPanel";
 
-type TabType = "monitoreo" | "entregas" | "expedientes" | "capems" | "documentos" | "recursos";
+type TabType = "monitoreo" | "entregas" | "expedientes" | "capems" | "documentos" | "recursos" | "configuracion";
 
 export default function SupervisionPortal({
     supervision,
@@ -37,6 +42,7 @@ export default function SupervisionPortal({
     todosCiclos = [],
     anuncioGlobal,
     recursos,
+    programasRegulares,
 }: {
     supervision: any;
     escuelas: any[];
@@ -47,9 +53,12 @@ export default function SupervisionPortal({
     todosCiclos: any[];
     anuncioGlobal?: string;
     recursos: any[];
+    programasRegulares?: any[];
 }) {
     const [activeTab, setActiveTab] = useState<TabType>("monitoreo");
+    const [monitoreoTab, setMonitoreoTab] = useState<"escuelas" | "programas">("escuelas");
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [expedientesTab, setExpedientesTab] = useState<"generales" | "supervision">("generales");
 
     const [isMounted, setIsMounted] = useState(false);
 
@@ -82,12 +91,75 @@ export default function SupervisionPortal({
                                 Visión global del avance de entregas de todas las escuelas en la zona.
                             </p>
                         </div>
-                        <ListadoEscuelas
-                            escuelas={escuelas}
-                            readOnly={true}
-                            onSetMessage={() => {}}
-                            onSetCorreccionModal={() => {}}
-                        />
+
+                        <div style={{
+                            display: "flex",
+                            gap: "0.5rem",
+                            marginBottom: "1.25rem",
+                            background: "var(--bg-secondary)",
+                            padding: "0.25rem",
+                            borderRadius: "8px",
+                            width: "fit-content"
+                        }}>
+                            <button
+                                onClick={() => setMonitoreoTab("programas")}
+                                style={{
+                                    padding: "0.45rem 0.9rem",
+                                    background: monitoreoTab === "programas" ? "white" : "none",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    boxShadow: monitoreoTab === "programas" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                                    color: monitoreoTab === "programas" ? "var(--primary)" : "var(--text-secondary)",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    fontSize: "0.8125rem",
+                                    transition: "all 0.15s ease",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.375rem"
+                                }}
+                            >
+                                <ListChecks size={13} />
+                                Avance por Programa
+                            </button>
+                            <button
+                                onClick={() => setMonitoreoTab("escuelas")}
+                                style={{
+                                    padding: "0.45rem 0.9rem",
+                                    background: monitoreoTab === "escuelas" ? "white" : "none",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    boxShadow: monitoreoTab === "escuelas" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                                    color: monitoreoTab === "escuelas" ? "var(--primary)" : "var(--text-secondary)",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    fontSize: "0.8125rem",
+                                    transition: "all 0.15s ease",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.375rem"
+                                }}
+                            >
+                                <School size={13} />
+                                Avance por Escuela
+                            </button>
+                        </div>
+
+                        {monitoreoTab === "escuelas" ? (
+                            <ListadoEscuelas
+                                escuelas={escuelas}
+                                readOnly={true}
+                                onSetMessage={() => {}}
+                                onSetCorreccionModal={() => {}}
+                            />
+                        ) : (
+                            <ListadoProgramas
+                                programas={programasRegulares || []}
+                                readOnly={true}
+                                onSetMessage={() => {}}
+                                onSetCorreccionModal={() => {}}
+                            />
+                        )}
                     </div>
                 );
             case "entregas":
@@ -95,7 +167,31 @@ export default function SupervisionPortal({
             case "recursos":
                 return <RecursosListado recursos={recursos} />;
             case "expedientes":
-                return <ExpedientesPanel escuela={{ id: supervision.id, cct: supervision.cct, nombre: supervision.nombre }} />;
+                return (
+                    <div className="fade-in card">
+                        <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
+                            <button 
+                                className={`btn ${expedientesTab === "generales" ? "btn-primary" : "btn-outline"}`}
+                                onClick={() => setExpedientesTab("generales")}
+                                style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
+                            >
+                                Expedientes Generales
+                            </button>
+                            <button 
+                                className={`btn ${expedientesTab === "supervision" ? "btn-primary" : "btn-outline"}`}
+                                onClick={() => setExpedientesTab("supervision")}
+                                style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
+                            >
+                                Personal de Supervisión
+                            </button>
+                        </div>
+                        {expedientesTab === "generales" ? (
+                            <GestionExpedientes readOnly={true} />
+                        ) : (
+                            <ExpedientesPanel escuela={{ id: supervision.id, cct: supervision.cct, nombre: supervision.nombre }} />
+                        )}
+                    </div>
+                );
             case "capems":
                 return (
                     <div className="fade-in card">
@@ -105,6 +201,8 @@ export default function SupervisionPortal({
                 );
             case "documentos":
                 return <DocumentosPanel escuela={supervision} hasApiKey={!!(supervision as any).geminiApiKey} />;
+            case "configuracion":
+                return <AjustesApiPanel escuela={supervision} />;
             default:
                 return <div>Sección no encontrada</div>;
         }
@@ -249,7 +347,7 @@ export default function SupervisionPortal({
                                 className={`sidebar-link ${activeTab === "expedientes" ? "active" : ""}`}
                                 onClick={() => { setActiveTab("expedientes"); setIsSidebarOpen(false); }}
                             >
-                                <Users size={17} /> <span>Mi Personal</span>
+                                <Users size={17} /> <span>Expedientes</span>
                             </button>
                         )}
                         {canVerCapems && (
@@ -260,6 +358,16 @@ export default function SupervisionPortal({
                                 <Building2 size={17} /> <span>Fichas CAPEMS</span>
                             </button>
                         )}
+                    </div>
+
+                    <div style={{ marginTop: "1rem" }}>
+                        <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem" }}>
+                            Ajustes
+                        </div>
+                        <button className={`sidebar-link ${activeTab === "configuracion" ? "active" : ""}`} onClick={() => { setActiveTab("configuracion"); setIsSidebarOpen(false); }}>
+                            <Key size={17} />
+                            <span>Ajustes de API</span>
+                        </button>
                     </div>
 
                     <div style={{ marginTop: "auto", paddingTop: "1rem" }}>

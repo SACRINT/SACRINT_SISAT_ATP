@@ -89,7 +89,7 @@ export default async function AdminPage() {
                     periodoEntrega: { cicloEscolarId: ciclo.id, activo: true },
                 },
                 include: {
-                    periodoEntrega: { include: { programa: true } },
+                    periodoEntrega: { include: { programa: { select: { nombre: true, esParaSupervision: true } } } },
                     archivos: { where: { tipo: "ENTREGA" } },
                     preRevision: true,
                     correcciones: {

@@ -248,43 +248,63 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
                         <button 
                             className={`btn ${tabEscuelas === "escuelas" ? "btn-primary" : "btn-outline"}`}
-                            onClick={() => { setTabEscuelas("escuelas"); setSelectedId(""); }}
+                            onClick={() => { 
+                                setTabEscuelas("escuelas"); 
+                                setSelectedId(""); 
+                            }}
                             style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
                         >
                             Escuelas
                         </button>
                         <button 
                             className={`btn ${tabEscuelas === "supervision" ? "btn-primary" : "btn-outline"}`}
-                            onClick={() => { setTabEscuelas("supervision"); setSelectedId(""); }}
+                            onClick={() => { 
+                                setTabEscuelas("supervision"); 
+                                const supervisiones = escuelas.filter(e => e.esSupervision);
+                                if (supervisiones.length === 1) {
+                                    setSelectedId(supervisiones[0].id);
+                                } else {
+                                    setSelectedId("");
+                                }
+                            }}
                             style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
                         >
                             Supervisiones
                         </button>
                     </div>
 
-                    <h3 style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Building2 size={20} color="var(--primary)" />
-                        Seleccionar {tabEscuelas === "escuelas" ? "Escuela" : "Institución"} (CCT)
-                    </h3>
-                    <select
-                        className="form-control"
-                        value={selectedId}
-                        onChange={handleSelectChange}
-                        style={{ padding: "0.75rem", fontSize: "1rem", cursor: "pointer", width: "100%" }}
-                    >
-                        <option value="">-- Elige un Centro de Trabajo --</option>
-                        {escuelas.filter(e => tabEscuelas === "escuelas" ? (!e.esSupervision) : (e.esSupervision))
-                            .sort((a, b) => {
-                                if (a.esDePrueba && !b.esDePrueba) return 1;
-                                if (!a.esDePrueba && b.esDePrueba) return -1;
-                                return a.nombre.localeCompare(b.nombre);
-                            })
-                            .map(escuela => (
-                            <option key={escuela.id} value={escuela.id}>
-                                {escuela.cct} - {escuela.nombre}
-                            </option>
-                        ))}
-                    </select>
+                    {tabEscuelas === "supervision" && escuelas.filter(e => e.esSupervision).length === 1 ? (
+                        <h3 style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Building2 size={20} color="var(--primary)" />
+                            Supervisión
+                        </h3>
+                    ) : (
+                        <>
+                            <h3 style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Building2 size={20} color="var(--primary)" />
+                                Seleccionar {tabEscuelas === "escuelas" ? "Escuela" : "Supervisión"} (CCT)
+                            </h3>
+                            <select
+                                className="form-control"
+                                value={selectedId}
+                                onChange={handleSelectChange}
+                                style={{ padding: "0.75rem", fontSize: "1rem", cursor: "pointer", width: "100%" }}
+                            >
+                                <option value="">-- Elige un Centro de Trabajo --</option>
+                                {escuelas.filter(e => tabEscuelas === "escuelas" ? (!e.esSupervision) : (e.esSupervision))
+                                    .sort((a, b) => {
+                                        if (a.esDePrueba && !b.esDePrueba) return 1;
+                                        if (!a.esDePrueba && b.esDePrueba) return -1;
+                                        return a.nombre.localeCompare(b.nombre);
+                                    })
+                                    .map(escuela => (
+                                    <option key={escuela.id} value={escuela.id}>
+                                        {escuela.cct} - {escuela.nombre}
+                                    </option>
+                                ))}
+                            </select>
+                        </>
+                    )}
                 </div>
             )}
 

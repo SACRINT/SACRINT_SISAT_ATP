@@ -950,7 +950,14 @@ export default function AdminDashboard({
                         filterType === "escuelas" 
                             ? (!e.esSupervision)
                             : (e.esSupervision)
-                    ).sort((a, b) => {
+                    ).map(e => ({
+                        ...e,
+                        entregas: e.entregas.filter(en => 
+                            filterType === "escuelas"
+                                ? (!en.periodoEntrega.programa.esParaSupervision)
+                                : (en.periodoEntrega.programa.esParaSupervision)
+                        )
+                    })).sort((a, b) => {
                         if (a.esDePrueba && !b.esDePrueba) return 1;
                         if (!a.esDePrueba && b.esDePrueba) return -1;
                         return a.nombre.localeCompare(b.nombre);
@@ -1062,7 +1069,7 @@ export default function AdminDashboard({
                                     fontSize: "0.875rem",
                                 }}
                             >
-                                Supervisión / Pruebas
+                                Supervisión
                             </button>
                         </div>
  

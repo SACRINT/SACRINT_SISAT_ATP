@@ -9,7 +9,7 @@ export async function GET() {
     const session = await auth();
     const user = session?.user as { role?: string } | undefined;
 
-    if (!session || user?.role !== "admin") {
+    if (!session || (user?.role !== "admin" && user?.role !== "supervision")) {
         return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
