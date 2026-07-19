@@ -7,6 +7,8 @@ import { GoogleGenAI } from "@google/genai";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 
+export const maxDuration = 60; // Evitar Vercel 504 timeout
+
 // GET: Listar plantillas
 export async function GET(req: NextRequest) {
     const session = await auth();
@@ -160,7 +162,7 @@ INSTRUCCIONES:
 5. Si es una etiqueta de tabla sin llaves (ej: "R.F.C."), úsala tal cual en campoPlantilla
 
 Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin markdown:
-{"campos":[{"campoPlantilla":"El (La) Director(a):","sugerenciaSistema":"NOMBRE_DIRECTOR","explicacion":"Nombre del director"},{"campoPlantilla":"R.F.C.","sugerenciaSistema":"RFC_DIRECTOR","explicacion":"RFC del director"}]}
+{"campos":[{"campoPlantilla":"El (La) Director(a):","sugerenciaSistema":"NOMBRE_PERSONA","explicacion":"Nombre de la persona"},{"campoPlantilla":"R.F.C.","sugerenciaSistema":"RFC_PERSONA","explicacion":"RFC de la persona"}]}
 
 TEXTO DEL DOCUMENTO:
 ${extractedText.substring(0, 8000)}`;
