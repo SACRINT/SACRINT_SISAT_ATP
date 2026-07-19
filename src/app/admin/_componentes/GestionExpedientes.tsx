@@ -486,7 +486,8 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
                 setPersonalList(await personalRes.json());
             }
             if (escuelasRes.ok) {
-                setTodasEscuelas(await escuelasRes.json());
+                const data = await escuelasRes.json();
+                setTodasEscuelas(data.filter((e: any) => !e.esDePrueba));
             }
         } catch {
             setMessage({ type: "error", text: "Error cargando datos" });
@@ -860,18 +861,16 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
                                         )}
                                     </div>
                                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }} onClick={e => e.stopPropagation()}>
-                                        {/* Completeness chip - only for schools with personnel */}
-                                        {(escuela as any).tienePersonal && (
-                                            <span style={{
-                                                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                                                background: completenessColor(completeCount, totalPersonnel),
-                                                color: "white",
-                                                borderRadius: "9999px", padding: "0.125rem 0.625rem",
-                                                fontSize: "0.6875rem", fontWeight: 700,
-                                            }} title={`${completeCount} de ${totalPersonnel} con expediente completo`}>
-                                                {completeCount}/{totalPersonnel} completos
-                                            </span>
-                                        )}
+                                        {/* Completeness chip */}
+                                        <span style={{
+                                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                            background: completenessColor(completeCount, totalPersonnel),
+                                            color: "white",
+                                            borderRadius: "9999px", padding: "0.125rem 0.625rem",
+                                            fontSize: "0.6875rem", fontWeight: 700,
+                                        }} title={`${completeCount} de ${totalPersonnel} con expediente completo`}>
+                                            {completeCount}/{totalPersonnel} completos
+                                        </span>
                                         {totalPersonnel > 0 && schoolPendingCount > 0 && !readOnly && (
                                             <button
                                                 onClick={() => handleBulkValidateSchool(escuela.id)}

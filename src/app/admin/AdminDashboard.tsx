@@ -110,13 +110,15 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-periodos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "modulos-control" | "gestion-ciclos" | "gestion-prompts" | "orquestador-ia" | "reportes-nivel">("general");
+    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel">("general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
         config: false,
         modulos: true,
     });
+    const [programasTab, setProgramasTab] = useState<"programas" | "modulos">("programas");
+    const [iaTab, setIaTab] = useState<"rubricas" | "orquestador" | "llaves">("rubricas");
 
     const getSectionKey = (v: typeof vista): string => {
         switch (v) {
@@ -125,13 +127,10 @@ export default function AdminDashboard({
             case "reportes-nivel": return "reportesNivel";
             case "gestion-escuelas": return "escuelas";
             case "gestion-programas": return "programas";
-            case "gestion-periodos": return "periodos";
             case "gestion-fechas": return "fechas";
             case "gestion-ciclos": return "ciclos";
             case "recursos": return "formatos";
-            case "gestion-prompts": return "rubricas";
-            case "orquestador-ia": return "orquestador";
-            case "modulos-control": return "modulosControl";
+            case "herramientas-ia": return "rubricas";
             case "eventos": return "eventos";
             case "circular05": return "circular05";
             case "olimpiada": return "olimpiada";
@@ -185,7 +184,7 @@ export default function AdminDashboard({
             setSidebarOpen(false);
         }
     };
-    const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas">("programas");
+    const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas" | "capems">("programas");
     const [filterType, setFilterType] = useState<"escuelas" | "supervision">("escuelas");
     const [searchTermAvance, setSearchTermAvance] = useState("");
     // Modal state for evaluation (Admin)
@@ -751,19 +750,13 @@ export default function AdminDashboard({
                                 {hasAccess("programas", "read") && (
                                     <button className={`sidebar-link ${vista === "gestion-programas" ? "active" : ""}`} onClick={() => navigate("gestion-programas")}>
                                         <Layers size={17} />
-                                        <span>Programas</span>
+                                        <span>Programas y Módulos</span>
                                     </button>
                                 )}
                                 {hasAccess("periodos", "read") && (
-                                    <button className={`sidebar-link ${vista === "gestion-periodos" ? "active" : ""}`} onClick={() => navigate("gestion-periodos")}>
-                                        <Clock size={17} />
-                                        <span>Periodos</span>
-                                    </button>
-                                )}
-                                {hasAccess("fechas", "read") && (
                                     <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => navigate("gestion-fechas")}>
                                         <Calendar size={17} />
-                                        <span>Fechas y Tareas</span>
+                                        <span>Periodos y Tareas</span>
                                     </button>
                                 )}
                                 {hasAccess("ciclos", "read") && (
@@ -778,6 +771,12 @@ export default function AdminDashboard({
                                         <span>Formatos y Plantillas</span>
                                     </button>
                                 )}
+                                {sidebarConfig.showCapems && hasAccess("capems", "read") && (
+                                    <button className={`sidebar-link ${vista === "capems" ? "active" : ""}`} onClick={() => navigate("capems")}>
+                                        <Settings2 size={17} />
+                                        <span>Configuración CAPEMS</span>
+                                    </button>
+                                )}
                                 {dbRole === "SUPER_ADMIN" && (
                                     <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => navigate("gestion-atps")}>
                                         <ShieldCheck size={17} />
@@ -785,24 +784,9 @@ export default function AdminDashboard({
                                     </button>
                                 )}
                                 {hasAccess("rubricas", "read") && (
-                                    <button className={`sidebar-link ${vista === "gestion-prompts" ? "active" : ""}`} onClick={() => navigate("gestion-prompts")}>
-                                        <Settings2 size={17} />
-                                        <span>Rúbricas y Prompts de IA</span>
-                                    </button>
-                                )}
-                                {hasAccess("orquestador", "read") && (
-                                    <button className={`sidebar-link ${vista === "orquestador-ia" ? "active" : ""}`} onClick={() => navigate("orquestador-ia")}>
-                                        <Sparkles size={18} /> Orquestador de IA
-                                    </button>
-                                )}
-                                {/* Panel de módulos — always visible in config if they have access to it */}
-                                {hasAccess("modulosControl", "read") && (
-                                    <button className={`sidebar-link ${vista === "modulos-control" ? "active" : ""}`} onClick={() => navigate("modulos-control")}>
-                                        <FolderOpen size={17} />
-                                        <span>Módulos Especiales</span>
-                                        {activeModulesCount > 0 && (
-                                            <span className="sidebar-badge" style={{ marginLeft: "auto" }}>{activeModulesCount}</span>
-                                        )}
+                                    <button className={`sidebar-link ${vista === "herramientas-ia" ? "active" : ""}`} onClick={() => navigate("herramientas-ia")}>
+                                        <Sparkles size={17} />
+                                        <span>Herramientas de IA</span>
                                     </button>
                                 )}
                             </div>
@@ -851,12 +835,7 @@ export default function AdminDashboard({
                                             <span>Encuentro PAEC</span>
                                         </button>
                                     )}
-                                    {sidebarConfig.showCapems && hasAccess("capems", "read") && (
-                                        <button className={`sidebar-link ${vista === "capems" ? "active" : ""}`} onClick={() => navigate("capems")}>
-                                            <BookMarked size={17} />
-                                            <span>Fichas CAPEMS</span>
-                                        </button>
-                                    )}
+
                                     {sidebarConfig.showExpedientes && hasAccess("expedientes", "read") && (
                                         <button className={`sidebar-link ${vista === "expedientes" ? "active" : ""}`} onClick={() => navigate("expedientes")}>
                                             <Users size={17} />
@@ -1032,6 +1011,29 @@ export default function AdminDashboard({
                                 <School size={13} />
                                 Avance por Escuela
                             </button>
+                            {sidebarConfig.showCapems && hasAccess("capems", "read") && (
+                                <button
+                                    onClick={() => setAvanceTab("capems")}
+                                    style={{
+                                        padding: "0.45rem 0.9rem",
+                                        background: avanceTab === "capems" ? "white" : "none",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        boxShadow: avanceTab === "capems" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                                        color: avanceTab === "capems" ? "var(--primary)" : "var(--text-secondary)",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        fontSize: "0.8125rem",
+                                        transition: "all 0.15s ease",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "0.375rem"
+                                    }}
+                                >
+                                    <BookMarked size={13} />
+                                    Fichas CAPEMS
+                                </button>
+                            )}
                         </div>
 
                         {/* SUB-TABS ESCUELAS VS SUPERVISION */}
@@ -1094,14 +1096,15 @@ export default function AdminDashboard({
                             </div>
                         </div>
 
-                        {avanceTab === "programas" ? (
+                        {avanceTab === "programas" && (
                             <ListadoProgramas
                                 programas={filteredProgramas.filter(p => p.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()))}
                                 onSetMessage={setMessage}
                                 onSetCorreccionModal={setCorreccionModal}
                                 readOnly={!hasAccess("avances", "write")}
                             />
-                        ) : (
+                        )}
+                        {avanceTab === "escuelas" && (
                             <ListadoEscuelas
                                 escuelas={filteredEscuelas.filter(e => 
                                     e.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()) ||
@@ -1112,24 +1115,27 @@ export default function AdminDashboard({
                                 readOnly={!hasAccess("avances", "write")}
                             />
                         )}
+                        {avanceTab === "capems" && (
+                            <GestionCapems viewMode="resumen" readOnly={!hasAccess("capems", "write")} />
+                        )}
                     </div>
                     );
                 })()}
 
-                {/* ========= VISTA: GESTIÓN DE PERIODOS ========= */}
-                {vista === "gestion-periodos" && (
-                    <GestionPeriodos 
-                        programas={programas} 
-                        sidebarConfig={sidebarConfig} 
-                        readOnly={!hasAccess("periodos", "write")}
-                    />
-                )}
-                {/* ========= VISTA: GESTIÓN DE FECHAS Y TAREAS EXTRAORDINARIAS ========= */}
+                {/* ========= VISTA: GESTIÓN DE PERIODOS Y FECHAS ========= */}
                 {vista === "gestion-fechas" && (
-                    <GestionFechas 
-                        programas={programas} 
-                        readOnly={!hasAccess("fechas", "write")}
-                    />
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+                        <GestionPeriodos 
+                            programas={programas} 
+                            sidebarConfig={sidebarConfig}
+                            readOnly={!hasAccess("periodos", "write")}
+                        />
+                        <hr style={{ border: "none", borderTop: "1px dashed var(--border)" }} />
+                        <GestionFechas 
+                            programas={programas} 
+                            readOnly={!hasAccess("fechas", "write")}
+                        />
+                    </div>
                 )}
                 {/* ========= VISTA: GESTIÓN DE CICLOS ESCOLARES ========= */}
                 {vista === "gestion-ciclos" && (
@@ -1165,15 +1171,47 @@ export default function AdminDashboard({
                     )
                 }
 
-                {/* ========= VISTA: GESTIÓN DE PROGRAMAS ========= */}
-                {
-                    vista === "gestion-programas" && (
-                        <GestionProgramas 
-                            inicialProgramas={programas} 
-                            readOnly={!hasAccess("programas", "write")}
-                        />
-                    )
-                }
+                {/* ========= VISTA: GESTIÓN DE PROGRAMAS Y MÓDULOS ========= */}
+                {vista === "gestion-programas" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                        <div style={{ display: "flex", gap: "1rem", borderBottom: "1px solid var(--border)" }}>
+                            <button
+                                onClick={() => setProgramasTab("programas")}
+                                style={{
+                                    padding: "0.5rem 1rem", background: "none", border: "none",
+                                    borderBottom: programasTab === "programas" ? "2px solid var(--primary)" : "2px solid transparent",
+                                    color: programasTab === "programas" ? "var(--primary)" : "var(--text-muted)",
+                                    fontWeight: programasTab === "programas" ? 600 : 400, cursor: "pointer", fontSize: "0.875rem",
+                                }}
+                            >
+                                Programas Regulares
+                            </button>
+                            <button
+                                onClick={() => setProgramasTab("modulos")}
+                                style={{
+                                    padding: "0.5rem 1rem", background: "none", border: "none",
+                                    borderBottom: programasTab === "modulos" ? "2px solid var(--primary)" : "2px solid transparent",
+                                    color: programasTab === "modulos" ? "var(--primary)" : "var(--text-muted)",
+                                    fontWeight: programasTab === "modulos" ? 600 : 400, cursor: "pointer", fontSize: "0.875rem",
+                                }}
+                            >
+                                Módulos Especiales
+                            </button>
+                        </div>
+                        {programasTab === "programas" && (
+                            <GestionProgramas 
+                                inicialProgramas={programas} 
+                                readOnly={!hasAccess("programas", "write")}
+                            />
+                        )}
+                        {programasTab === "modulos" && (
+                            <PanelModulos 
+                                sidebarConfig={sidebarConfig} 
+                                readOnly={!hasAccess("modulosControl", "write")}
+                            />
+                        )}
+                    </div>
+                )}
 
                 {/* ========= VISTA: RECURSOS Y FORMATOS ========= */}
                 {
@@ -1193,13 +1231,7 @@ export default function AdminDashboard({
                     )
                 }
 
-                {/* ========= VISTA: PANEL DE MÓDULOS ESPECIALES ========= */}
-                {vista === "modulos-control" && (
-                    <PanelModulos 
-                        sidebarConfig={sidebarConfig} 
-                        readOnly={!hasAccess("modulosControl", "write")}
-                    />
-                )}
+
 
 
                 {
@@ -1229,12 +1261,7 @@ export default function AdminDashboard({
                     )
                 }
 
-                {/* ========= VISTA: FICHAS CAPEMS ========= */}
-                {
-                    vista === "capems" && (
-                        <GestionCapems readOnly={!hasAccess("capems", "write")} />
-                    )
-                }
+
 
                 {/* ========= VISTA: DOCUMENTOS ADMINISTRATIVOS ========= */}
                 {
@@ -1256,22 +1283,44 @@ export default function AdminDashboard({
                     )
                 }
 
-                {/* ========= VISTA: RÚBRICAS Y PROMPTS DE IA ========= */}
-                {
-                    vista === "gestion-prompts" && (
-                        <GestionPrompts readOnly={!hasAccess("rubricas", "write")} />
-                    )
-                }
-
-                {/* ========= VISTA: ORQUESTADOR DE IA ========= */}
-                {
-                    vista === "orquestador-ia" && (
-                        <GestionLlavesIA 
-                            onSetMessage={setMessage} 
-                            readOnly={!hasAccess("orquestador", "write")}
-                        />
-                    )
-                }
+                {/* ========= VISTA: HERRAMIENTAS DE IA ========= */}
+                {vista === "herramientas-ia" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                        <div style={{ display: "flex", gap: "1rem", borderBottom: "1px solid var(--border)" }}>
+                            <button
+                                onClick={() => setIaTab("rubricas")}
+                                style={{
+                                    padding: "0.5rem 1rem", background: "none", border: "none",
+                                    borderBottom: iaTab === "rubricas" ? "2px solid var(--primary)" : "2px solid transparent",
+                                    color: iaTab === "rubricas" ? "var(--primary)" : "var(--text-muted)",
+                                    fontWeight: iaTab === "rubricas" ? 600 : 400, cursor: "pointer", fontSize: "0.875rem",
+                                }}
+                            >
+                                Rúbricas y Prompts
+                            </button>
+                            <button
+                                onClick={() => setIaTab("orquestador")}
+                                style={{
+                                    padding: "0.5rem 1rem", background: "none", border: "none",
+                                    borderBottom: iaTab === "orquestador" ? "2px solid var(--primary)" : "2px solid transparent",
+                                    color: iaTab === "orquestador" ? "var(--primary)" : "var(--text-muted)",
+                                    fontWeight: iaTab === "orquestador" ? 600 : 400, cursor: "pointer", fontSize: "0.875rem",
+                                }}
+                            >
+                                Orquestador de IA
+                            </button>
+                        </div>
+                        {iaTab === "rubricas" && (
+                            <GestionPrompts readOnly={!hasAccess("rubricas", "write")} />
+                        )}
+                        {iaTab === "orquestador" && (
+                            <GestionLlavesIA 
+                                onSetMessage={setMessage} 
+                                readOnly={!hasAccess("orquestador", "write")}
+                            />
+                        )}
+                    </div>
+                )}
             </main >
 
             {/* Correction Modal */}

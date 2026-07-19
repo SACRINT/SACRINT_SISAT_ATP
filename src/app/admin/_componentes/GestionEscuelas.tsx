@@ -579,7 +579,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                 <div className="card fade-in" style={{ marginTop: "1.5rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
                         <h3 style={{ margin: 0, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <User size={20} color="var(--primary)" /> {formData.esSupervision ? "Datos del Supervisor" : "Datos del Director"}
+                            <User size={20} color="var(--primary)" /> {tabEscuelas === "supervision" ? "Datos del Supervisor" : "Datos del Director"}
                         </h3>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem" }}>
@@ -650,7 +650,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                 </div>
             )}
 
-            {showForm && (
+            {showForm && tabEscuelas !== "supervision" && (
                 <div className="card fade-in" style={{ marginTop: "1.5rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
                         <h3 style={{ margin: 0, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>

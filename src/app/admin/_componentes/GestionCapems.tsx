@@ -130,9 +130,9 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     );
 }
 
-export default function GestionCapems({ readOnly = false }: { readOnly?: boolean }) {
+export default function GestionCapems({ readOnly = false, viewMode = "config" }: { readOnly?: boolean, viewMode?: "resumen" | "config" }) {
     const router = useRouter();
-    const [section, setSection] = useState<TabSection>("resumen");
+    const [section, setSection] = useState<TabSection>(viewMode === "resumen" ? "resumen" : "fichas");
     const [fichas, setFichas] = useState<Ficha[]>([]);
     const [capems, setCapems] = useState<Capem[]>([]);
     const [registros, setRegistros] = useState<Registro[]>([]);
@@ -176,7 +176,7 @@ export default function GestionCapems({ readOnly = false }: { readOnly?: boolean
             if (registrosRes.ok) setRegistros(await registrosRes.json());
             if (escuelasRes.ok) {
                 const escuelasData = await escuelasRes.json();
-                setTodasEscuelas(escuelasData.filter((e: any) => !e.esSupervision));
+                setTodasEscuelas(escuelasData.filter((e: any) => !e.esSupervision && !e.esDePrueba));
             }
             if (configRes.ok) {
                 const configData = await configRes.json();
@@ -524,11 +524,8 @@ export default function GestionCapems({ readOnly = false }: { readOnly?: boolean
             )}
 
             {/* Sub-tabs */}
-            {!readOnly && (
+            {!readOnly && viewMode === "config" && (
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button className={`btn ${section === "resumen" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("resumen")} style={{ flex: 1 }}>
-                        <FileText size={18} /> Resumen Escuelas
-                    </button>
                     <button className={`btn ${section === "fichas" ? "btn-primary" : "btn-outline"}`} onClick={() => setSection("fichas")} style={{ flex: 1 }}>
                         <FileText size={18} /> Gestión de Fichas
                     </button>
