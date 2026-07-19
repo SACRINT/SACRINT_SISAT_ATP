@@ -186,6 +186,7 @@ export default function AdminDashboard({
         }
     };
     const [avanceTab, setAvanceTab] = useState<"programas" | "escuelas">("programas");
+    const [filterType, setFilterType] = useState<"escuelas" | "supervision">("escuelas");
     const [searchTermAvance, setSearchTermAvance] = useState("");
     // Modal state for evaluation (Admin)
     const [correccionModal, setCorreccionModal] = useState<{ entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null>(null);
@@ -905,12 +906,18 @@ export default function AdminDashboard({
                 )}
 
                 {/* ========= VISTA: VISTA GENERAL ========= */}
-                {vista === "general" && (
+                {vista === "general" && (() => {
+                    const filteredEsc = escuelas.filter(e => 
+                        filterType === "escuelas" 
+                            ? (!e.esSupervision && !e.esDePrueba)
+                            : (e.esSupervision || e.esDePrueba)
+                    );
+                    return (
                     <VistaGeneral
-                        rawEscuelas={escuelas}
+                        rawEscuelas={filteredEsc}
                         stats={{
                             ...stats,
-                            escuelas: escuelas.map(e => ({
+                            escuelas: filteredEsc.map(e => ({
                                 id: e.id,
                                 cct: e.cct,
                                 nombre: e.nombre,
@@ -923,17 +930,36 @@ export default function AdminDashboard({
                         }}
                         zonaStats={zonaStats}
                         ciclo={ciclo}
-                        totalEscuelas={escuelas.length}
+                        totalEscuelas={filteredEsc.length}
                         anuncioGlobal={anuncioGlobal}
                         onSaveAnuncio={handleSaveAnuncio}
                         onExportExcel={exportToExcel}
                         onNavigateEscuelas={() => { navigate("avances"); setAvanceTab("escuelas"); }}
                     />
-                )}
+                    );
+                })()}
 
 
                 {/* ========= VISTA: AVANCES (CON PESTAÑAS) ========= */}
-                {vista === "avances" && (
+                {vista === "avances" && (() => {
+                    const filteredEscuelas = escuelas.filter(e => 
+                        filterType === "escuelas" 
+                            ? (!e.esSupervision && !e.esDePrueba)
+                            : (e.esSupervision || e.esDePrueba)
+                    );
+                    const filteredProgramas = programas.map(p => ({
+                        ...p,
+                        periodos: p.periodos.map(per => ({
+                            ...per,
+                            entregas: per.entregas.filter(en => 
+                                filterType === "escuelas"
+                                    ? (!en.escuela.esSupervision && !en.escuela.esDePrueba)
+                                    : (en.escuela.esSupervision || en.escuela.esDePrueba)
+                            )
+                        }))
+                    }));
+
+                    return (
                     <div>
                         <div style={{
                             display: "flex",
@@ -988,6 +1014,45 @@ export default function AdminDashboard({
                                 Avance por Escuela
                             </button>
                         </div>
+
+                        {/* SUB-TABS ESCUELAS VS SUPERVISION */}
+                        <div style={{
+                            display: "flex",
+                            gap: "1rem",
+                            borderBottom: "1px solid var(--border)",
+                            marginBottom: "1.25rem"
+                        }}>
+                            <button
+                                onClick={() => setFilterType("escuelas")}
+                                style={{
+                                    padding: "0.5rem 1rem",
+                                    background: "none",
+                                    border: "none",
+                                    borderBottom: filterType === "escuelas" ? "2px solid var(--primary)" : "2px solid transparent",
+                                    color: filterType === "escuelas" ? "var(--primary)" : "var(--text-muted)",
+                                    fontWeight: filterType === "escuelas" ? 600 : 400,
+                                    cursor: "pointer",
+                                    fontSize: "0.875rem",
+                                }}
+                            >
+                                Escuelas Regulares
+                            </button>
+                            <button
+                                onClick={() => setFilterType("supervision")}
+                                style={{
+                                    padding: "0.5rem 1rem",
+                                    background: "none",
+                                    border: "none",
+                                    borderBottom: filterType === "supervision" ? "2px solid var(--primary)" : "2px solid transparent",
+                                    color: filterType === "supervision" ? "var(--primary)" : "var(--text-muted)",
+                                    fontWeight: filterType === "supervision" ? 600 : 400,
+                                    cursor: "pointer",
+                                    fontSize: "0.875rem",
+                                }}
+                            >
+                                Supervisión / Pruebas
+                            </button>
+                        </div>
  
                         <div style={{ marginBottom: "1.25rem", position: "relative" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "white", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", maxWidth: "350px", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
@@ -1012,14 +1077,14 @@ export default function AdminDashboard({
 
                         {avanceTab === "programas" ? (
                             <ListadoProgramas
-                                programas={programas.filter(p => p.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()))}
+                                programas={filteredProgramas.filter(p => p.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()))}
                                 onSetMessage={setMessage}
                                 onSetCorreccionModal={setCorreccionModal}
                                 readOnly={!hasAccess("avances", "write")}
                             />
                         ) : (
                             <ListadoEscuelas
-                                escuelas={escuelas.filter(e => 
+                                escuelas={filteredEscuelas.filter(e => 
                                     e.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()) ||
                                     e.cct.toLowerCase().includes(searchTermAvance.toLowerCase())
                                 )}
@@ -1029,7 +1094,8 @@ export default function AdminDashboard({
                             />
                         )}
                     </div>
-                )}
+                    );
+                })()}
 
                 {/* ========= VISTA: GESTIÓN DE PERIODOS ========= */}
                 {vista === "gestion-periodos" && (

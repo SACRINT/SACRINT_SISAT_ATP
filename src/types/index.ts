@@ -23,7 +23,7 @@ export interface EntregaAdmin {
     observacionesATP: string | null;
     archivos: Archivo[];
     correcciones: CorreccionAdmin[];
-    escuela: { id: string; cct: string; nombre: string; localidad: string; total: number };
+    escuela: { id: string; cct: string; nombre: string; localidad: string; total: number; esSupervision?: boolean; esDePrueba?: boolean };
     cvd?: string | null;
     firmaDigital?: string | null;
 }

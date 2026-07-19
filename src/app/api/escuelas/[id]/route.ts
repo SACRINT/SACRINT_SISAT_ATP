@@ -40,12 +40,14 @@ export async function PUT(
              updateData.directorExpediente = {
                  upsert: {
                      create: {
+                         nombreCompleto: director || "",
                          rfc: rfc || "",
                          curp: curp || "",
                          clavePresupuestal: clavePresupuestal || "",
                          fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null,
                      },
                      update: {
+                         nombreCompleto: director !== undefined ? director : undefined,
                          rfc: rfc !== undefined ? rfc : undefined,
                          curp: curp !== undefined ? curp : undefined,
                          clavePresupuestal: clavePresupuestal !== undefined ? clavePresupuestal : undefined,
