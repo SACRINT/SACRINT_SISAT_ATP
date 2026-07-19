@@ -1050,7 +1050,7 @@ export default function AdminDashboard({
                                 <School size={15} />
                                 Avance por Escuela
                             </button>
-                            {sidebarConfig.showCapems && hasAccess("capems", "read") && (
+                            {sidebarConfig.showCapems && hasAccess("fichas_capems", "read") && (
                                 <button
                                     onClick={() => setAvanceTab("capems")}
                                     className={`tab-item ${avanceTab === "capems" ? "active" : ""}`}
