@@ -170,10 +170,20 @@ export default function PlantillaUploader() {
     };
 
     const OpcionesCampos = [
-        "NOMBRE_DIRECTOR", "RFC_DIRECTOR", "CURP_DIRECTOR", "FECHA_INGRESO_DIRECTOR",
-        "CLAVE_PRESUPUESTAL_DIRECTOR", "TELEFONO_DIRECTOR", "CORREO_DIRECTOR",
-        "NOMBRE_ESCUELA", "CCT_ESCUELA", "LOCALIDAD_ESCUELA", "MUNICIPIO_ESCUELA", "ZONA_ESCOLAR",
-        "FECHA_ACTUAL", "OTRO"
+        { value: "NOMBRE_PERSONA", label: "Nombre (Director/ATP/Personal)" },
+        { value: "RFC_PERSONA", label: "RFC (Director/ATP/Personal)" },
+        { value: "CURP_PERSONA", label: "CURP (Director/ATP/Personal)" },
+        { value: "FECHA_INGRESO_PERSONA", label: "Fecha de Ingreso a SEP" },
+        { value: "CLAVE_PRESUPUESTAL_PERSONA", label: "Clave Presupuestal" },
+        { value: "TELEFONO_PERSONA", label: "Teléfono" },
+        { value: "CORREO_PERSONA", label: "Correo Electrónico" },
+        { value: "NOMBRE_ESCUELA", label: "Nombre de la Escuela/C.T." },
+        { value: "CCT_ESCUELA", label: "Clave de Centro de Trabajo (CCT)" },
+        { value: "LOCALIDAD_ESCUELA", label: "Localidad de la Escuela" },
+        { value: "MUNICIPIO_ESCUELA", label: "Municipio de la Escuela" },
+        { value: "ZONA_ESCOLAR", label: "Zona Escolar" },
+        { value: "FECHA_ACTUAL", label: "Fecha Actual (Hoy)" },
+        { value: "OTRO", label: "Otro (No Enlazado)" }
     ];
 
     return (
@@ -414,14 +424,17 @@ export default function PlantillaUploader() {
                                         >
                                             <option value="">-- Seleccionar --</option>
                                             {OpcionesCampos.map(opc => (
-                                                <option key={opc} value={opc}>{opc}</option>
+                                                <option key={opc.value} value={opc.value}>{opc.label}</option>
                                             ))}
+                                            {campo.sugerenciaSistema && !OpcionesCampos.find(o => o.value === campo.sugerenciaSistema) && campo.sugerenciaSistema !== "" && (
+                                                <option value={campo.sugerenciaSistema}>{campo.sugerenciaSistema} (Antiguo)</option>
+                                            )}
                                         </select>
                                     </div>
                                 </div>
                             ))}
                             <button
-                                onClick={() => setCamposMapeados([...camposMapeados, { campoPlantilla: "{NUEVO_CAMPO}", sugerenciaSistema: OpcionesCampos[0], explicacion: "Campo manual" }])}
+                                onClick={() => setCamposMapeados([...camposMapeados, { campoPlantilla: "{NUEVO_CAMPO}", sugerenciaSistema: OpcionesCampos[0].value, explicacion: "Campo manual" }])}
                                 style={{ padding: "0.5rem 1rem", border: "1px dashed var(--primary)", color: "var(--primary)", background: "transparent", borderRadius: "8px", cursor: "pointer", fontWeight: 600, alignSelf: "flex-start", marginTop: "0.5rem" }}
                             >
                                 + Agregar Mapeo Manual
