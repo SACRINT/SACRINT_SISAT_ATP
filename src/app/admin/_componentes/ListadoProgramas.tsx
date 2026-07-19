@@ -343,8 +343,9 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
             />
             {programas.map((prog) => {
                 const activeEntregas = prog.periodos.filter((p) => p.activo).flatMap((p) => p.entregas);
-                const entregadosProg = activeEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
-                const totalProg = activeEntregas.length;
+                const statEntregas = activeEntregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision);
+                const entregadosProg = statEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
+                const totalProg = statEntregas.length;
                 const porc = totalProg > 0 ? Math.round((entregadosProg / totalProg) * 100) : 0;
                 const isExpanded = expanded === prog.id;
 
@@ -512,14 +513,17 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                             <div style={{ borderTop: "1px solid var(--border)" }}>
                                 {prog.periodos.filter((p) => p.activo).map((periodo) => (
                                     <div key={periodo.id}>
-                                        {prog.tipo !== "ANUAL" && (
-                                            <div
-                                                style={{ padding: "0.5rem 1rem", background: "var(--bg-secondary)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
-                                                onClick={() => setExpandedPeriodo(expandedPeriodo === periodo.id ? null : periodo.id)}
-                                            >
-                                                {getPeriodoLabel(periodo)} ({periodo.entregas.filter((e) => e.estado !== "NO_ENTREGADO").length}/{periodo.entregas.length} recibidas)
-                                            </div>
-                                        )}
+                                        {prog.tipo !== "ANUAL" && (() => {
+                                            const statPerEntregas = periodo.entregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision);
+                                            return (
+                                                <div
+                                                    style={{ padding: "0.5rem 1rem", background: "var(--bg-secondary)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
+                                                    onClick={() => setExpandedPeriodo(expandedPeriodo === periodo.id ? null : periodo.id)}
+                                                >
+                                                    {getPeriodoLabel(periodo)} ({statPerEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length}/{statPerEntregas.length} recibidas)
+                                                </div>
+                                            );
+                                        })()}
 
                                         {(prog.tipo === "ANUAL" || expandedPeriodo === periodo.id) && (
                                             <div style={{ padding: "0 1rem 0.5rem" }}>

@@ -20,6 +20,8 @@ export async function GET() {
             nombre: true,
             localidad: true,
             municipio: true,
+            esSupervision: true,
+            esDePrueba: true,
         },
         orderBy: { nombre: "asc" },
     });

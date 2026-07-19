@@ -18,8 +18,8 @@ export async function GET() {
     return NextResponse.json(config);
 }
 
-// PATCH - Actualizar configuración (toggle activo para directores)
-export async function PATCH(req: Request) {
+// POST - Actualizar configuración (toggle activo / fecha límite para admin)
+export async function POST(req: Request) {
     const session = await auth();
     const user = session?.user as { role?: string } | undefined;
     if (!session || user?.role !== "admin") {
@@ -27,10 +27,17 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
+    const updateData: any = {};
+    
+    if (body.activo !== undefined) updateData.activo = body.activo;
+    if (body.fechaLimite !== undefined) {
+        updateData.fechaLimite = body.fechaLimite ? new Date(body.fechaLimite) : null;
+    }
+
     const config = await prisma.capemsConfig.upsert({
         where: { id: "singleton" },
-        update: { activo: body.activo ?? false },
-        create: { id: "singleton", activo: body.activo ?? false },
+        update: updateData,
+        create: { id: "singleton", ...updateData },
     });
 
     return NextResponse.json(config);

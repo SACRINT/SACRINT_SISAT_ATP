@@ -258,7 +258,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                             onClick={() => { setTabEscuelas("supervision"); setSelectedId(""); }}
                             style={{ borderRadius: "20px", padding: "0.25rem 1rem", fontSize: "0.875rem" }}
                         >
-                            Supervisiones y Pruebas
+                            Supervisiones
                         </button>
                     </div>
 

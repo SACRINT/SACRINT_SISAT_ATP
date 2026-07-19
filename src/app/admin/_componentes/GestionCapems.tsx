@@ -136,7 +136,7 @@ export default function GestionCapems({ readOnly = false }: { readOnly?: boolean
     const [fichas, setFichas] = useState<Ficha[]>([]);
     const [capems, setCapems] = useState<Capem[]>([]);
     const [registros, setRegistros] = useState<Registro[]>([]);
-    const [todasEscuelas, setTodasEscuelas] = useState<{ id: string; cct: string; nombre: string }[]>([]);
+    const [todasEscuelas, setTodasEscuelas] = useState<{ id: string; cct: string; nombre: string; esSupervision?: boolean; esDePrueba?: boolean }[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Fichas state
@@ -174,7 +174,10 @@ export default function GestionCapems({ readOnly = false }: { readOnly?: boolean
             if (fichasRes.ok) setFichas(await fichasRes.json());
             if (capemsRes.ok) setCapems(await capemsRes.json());
             if (registrosRes.ok) setRegistros(await registrosRes.json());
-            if (escuelasRes.ok) setTodasEscuelas(await escuelasRes.json());
+            if (escuelasRes.ok) {
+                const escuelasData = await escuelasRes.json();
+                setTodasEscuelas(escuelasData.filter((e: any) => !e.esSupervision));
+            }
             if (configRes.ok) {
                 const configData = await configRes.json();
                 setCapemsActive(configData.activo ?? false);

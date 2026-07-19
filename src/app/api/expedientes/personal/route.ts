@@ -14,7 +14,7 @@ export async function GET(req: Request) {
 
     let escuelaId: string | undefined;
 
-    if (user.role === "director") {
+    if (user.role === "director" || user.role === "supervision") {
         const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
         if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
         escuelaId = escuela.id;
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     const session = await auth();
     const user = session?.user as { role?: string; cct?: string } | undefined;
 
-    if (!session || user?.role !== "director") {
+    if (!session || (user?.role !== "director" && user?.role !== "supervision")) {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 

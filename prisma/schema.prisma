@@ -393,8 +393,9 @@ model Capem {
 }
 
 model CapemsConfig {
-  id     String  @id @default("singleton")
-  activo Boolean @default(false)
+  id          String    @id @default("singleton")
+  activo      Boolean   @default(false)
+  fechaLimite DateTime?
 }
 
 model CapemFichaRegistro {

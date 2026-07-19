@@ -63,6 +63,7 @@ interface EscuelaGroup {
     cct: string;
     nombre: string;
     personal: Personal[];
+    esSupervision?: boolean;
 }
 
 // ─── Helpers ────────────────────────────────────────────
@@ -643,6 +644,7 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
                 nombre: e.nombre,
                 personal: [],
                 tienePersonal: false,
+                esSupervision: (e as any).esSupervision || false,
             });
         });
 
@@ -699,6 +701,12 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
                 );
             })
             .sort((a, b) => {
+                // Supervision first
+                const aIsSup = (a as any).esSupervision;
+                const bIsSup = (b as any).esSupervision;
+                if (aIsSup && !bIsSup) return -1;
+                if (!aIsSup && bIsSup) return 1;
+
                 // Schools with records first, then alphabetical
                 const aHas = (a as any).tienePersonal;
                 const bHas = (b as any).tienePersonal;

@@ -21,8 +21,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     if (!personal) return NextResponse.json({ error: "Personal no encontrado" }, { status: 404 });
 
-    // Directors can only edit their own school's personnel
-    if (user.role === "director") {
+    // Directors and supervision can only edit their own school's personnel
+    if (user.role === "director" || user.role === "supervision") {
         const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
         if (!escuela || escuela.id !== personal.escuelaId) {
             return NextResponse.json({ error: "No autorizado" }, { status: 403 });
@@ -91,8 +91,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     if (!personal) return NextResponse.json({ error: "Personal no encontrado" }, { status: 404 });
 
-    // Directors can only delete their own school's personnel
-    if (user.role === "director") {
+    // Directors and supervision can only delete their own school's personnel
+    if (user.role === "director" || user.role === "supervision") {
         const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
         if (!escuela || escuela.id !== personal.escuelaId) {
             return NextResponse.json({ error: "No autorizado" }, { status: 403 });
