@@ -1,156 +1,94 @@
-# Memoria Técnica y Mapa de Arquitectura - SISAT-ATP
+# Manual Técnico y Memoria de Arquitectura - SISAT-ATP
 
-Este documento sirve como mapa y memoria técnica del proyecto **SISAT-ATP (Sistema Inteligente de Supervisión Administrativa Tecnológica y Automatización Técnica Pedagógica)**. Su objetivo es proporcionar un entendimiento rápido de la estructura, base de datos, lógica de negocio y flujos de datos para reducir el consumo de tokens y acelerar el desarrollo en futuras sesiones de pair programming.
-
----
-
-## 1. Resumen y Stack Tecnológico
-
-El proyecto es un **portal de control escolar y monitoreo administrativo** dividido en dos perfiles principales:
-* **Administradores y Asesores Técnico Pedagógicos (ATPs)**: Monitorean entregas, validan documentos mediante el sistema de validación automática, asignan correcciones, autorizan inscripciones a eventos y gestionan la configuración del sistema.
-* **Directores de Escuela**: Suben planes escolares (PMC/PAEC), administran expedientes de su personal, cargan fichas CAPEMS, inscriben alumnos a eventos y resuelven observaciones asistidos por un Asistente de Correcciones automatizado.
-
-### Stack Tecnológico:
-* **Framework**: Next.js 16 (App Router, SSR/CSR híbrido).
-* **Base de Datos**: PostgreSQL alojado en la nube (Neon / similar).
-* **ORM**: Prisma Client.
-* **Autenticación**: NextAuth.js con estrategia JWT (`credentials` para login de Admin y de Escuela/CCT).
-* **Almacenamiento de Archivos**: Cloudinary (API Node.js en backend).
-* **Servicio de Correo**: Resend (envío automatizado de avisos de observaciones y correcciones).
-* **Validación Automatizada**: Gemini API (modelos `gemini-2.0-flash` y `gemini-2.5-pro` administrados por ApiKeys dinámicas desde base de datos).
+Este documento es el **Manual Técnico Definitivo** de **SISAT-ATP (Sistema Inteligente de Supervisión Administrativa Tecnológica y Automatización Técnica Pedagógica)**. Está diseñado para que cualquier desarrollador (humano o Inteligencia Artificial) pueda comprender la estructura completa del proyecto, la ubicación de cada módulo, y el funcionamiento técnico de los subsistemas, facilitando la implementación, actualización y modificación de la plataforma.
 
 ---
 
-## 2. Esquema de Base de Datos (Modelos Clave)
+## 1. Arquitectura General y Stack Tecnológico
 
-El esquema de base de datos definido en [schema.prisma](file:///c:/NotebookLM/sisat-atp/prisma/schema.prisma) se estructura en las siguientes áreas:
+SISAT-ATP está construido sobre una arquitectura **Serverless** y **SSR (Server-Side Rendering)** híbrida utilizando los últimos estándares de React.
 
-```mermaid
-erDiagram
-    Admin ||--o{ Correccion : "crea"
-    Escuela ||--o{ Entrega : "realiza"
-    Escuela ||--o{ Personal : "registra"
-    Escuela ||--o{ CapemFichaRegistro : "sube"
-    CicloEscolar ||--o{ PeriodoEntrega : "contiene"
-    Programa ||--o{ PeriodoEntrega : "define"
-    PeriodoEntrega ||--o{ Entrega : "agrupa"
-    Entrega ||--o{ Archivo : "asocia"
-    Entrega ||--o{ Correccion : "recibe"
-    Entrega ||--o{ PreRevision : "genera"
-    Entrega ||--o{ ChatMensaje : "historial"
-    Personal ||--o{ DocumentoPersonal : "tiene"
-```
-
-### Entidades Principales:
-1. **`Admin`**: Usuarios de supervisión. Su rol (`role`) define si es `SUPER_ADMIN` o `ATP_EDITOR`/`ATP_LECTOR`. Cuenta con un campo JSON de `permisos` granular para controlar accesos sección por sección.
-2. **`Escuela`**: Escuelas del área. Su identificador principal es la Clave del Centro de Trabajo (`cct`).
-3. **`Entrega` / `Archivo`**: Las entregas de planeación de una escuela ligadas a un `PeriodoEntrega` y a un `Programa` (ej: PMC, PAEC). Los archivos tienen tipo `ENTREGA` (subido por director) o `CORRECCION` (subido por ATP).
-4. **`PreRevision`**: Almacena el resultado JSON del pre-dictamen preliminar automático que la IA genera sobre los planes subidos (evaluando firmas, objetivos, alineación, etc.).
-5. **`Personal` / `DocumentoPersonal`**: Representa los expedientes del personal docente y de apoyo. Cada empleado puede subir documentos obligatorios y personalizados. El OCR inteligente valida los tipos y extrae metadatos (como Claves Presupuestales desde recibos de nómina).
-6. **`CapemFichaRegistro`**: Registro de entrega de fichas CAPEMS (Control de Actividades) con validación automática OCR por IA y renderización de plantillas Word automatizadas en masa.
-7. **`AutoridadesConfig`**: Modelo "singleton" de base de datos que guarda los datos oficiales del Supervisor, Coordinador, Director de Nivel y ATPs, y se inyectan dinámicamente (`{SUPERVISOR_NOMBRE}`, `{ATP1_NOMBRE}`, etc.) en las plantillas masivas DOCX.
-7. **`ApiKey`**: Almacena las API Keys de proveedores de LLM (Gemini, OpenRouter, etc.) con banderas de prioridad e indicador de uso regular o premium.
-8. **`ChatMensaje`**: Conversaciones del "Asistente de Correcciones" (Copiloto IA) entre el director y la IA sobre observaciones específicas de una entrega.
+*   **Framework Principal**: **Next.js 14+** (App Router). La lógica de frontend se encuentra en componentes de cliente (`"use client"`) y la lógica de negocio en **Server Actions** o **API Routes** (`/api`).
+*   **Base de Datos**: PostgreSQL alojada en [Neon](https://neon.tech/), optimizada para entornos serverless.
+*   **ORM**: **Prisma** (`prisma/schema.prisma`). Gestiona los modelos, migraciones y el cliente fuertemente tipado.
+*   **Autenticación**: **NextAuth.js v5 (Beta)**. Implementa estrategias JWT usando el proveedor `Credentials`. Soporta roles mixtos (Director de Escuela, ATP Lector, ATP Editor, Super Admin).
+*   **Almacenamiento de Archivos**: **Cloudinary**. Se usa para almacenar PDFs, DOCX y JPGs de manera temporal o persistente. La subida se orquesta desde `/api/upload/route.ts`.
+*   **Motor de Inteligencia Artificial**: **Google Gemini API** (`@google/genai`). Utilizado para revisión de documentos (texto) y OCR inteligente (visión). Cuenta con un sistema interno de rotación y fallback de API Keys.
 
 ---
 
-## 3. Estructura de Directorios y Rutas
+## 2. Panel del Administrador (Supervisión / ATPs)
 
-El código fuente está centralizado en `/src`:
+El portal administrativo se encuentra en la ruta `src/app/admin/AdminDashboard.tsx`. Actúa como el centro de mando y se divide en secciones renderizadas dinámicamente según los permisos granulares (JSON) del usuario en sesión. Los componentes individuales viven en `src/app/admin/_componentes/`.
 
-```
-src/
-├── app/
-│   ├── admin/                    # Panel del Administrador/ATP
-│   │   ├── AdminDashboard.tsx    # Layout maestro, barra lateral y selector de pestañas
-│   │   └── _componentes/         # Componentes React de administración (20 paneles)
-│   ├── director/                 # Portal de Directores de Escuela
-│   │   ├── DirectorPortal.tsx    # Layout maestro del portal del director
-│   │   └── _componentes/         # Módulos del director (Fichas, Expedientes, Inscripciones)
-│   ├── api/                      # Endpoints del backend (Rutas Next.js API)
-│   │   ├── admin/                # Endpoints administrativos (IA, ApiKeys, Configs)
-│   │   ├── entregas/[id]/        # APIs para chat, correcciones, estado y pre-revisión
-│   │   ├── expedientes/          # CRUD de personal y documentos
-│   │   ├── capems/               # Configuración y descarga de fichas CAPEMS
-│   │   └── upload/               # Procesador y orquestador de subida a Cloudinary
-│   └── login/                    # Pantalla de inicio de sesión compartida
-├── lib/                          # Lógica del Core (Servicios y Utilidades)
-│   ├── auth.ts                   # Configuración JWT y callbacks de NextAuth
-│   ├── permissions.ts            # Helper de validación de permisos en backend
-│   ├── gemini.ts                 # Cliente unificado de Gemini con balanceo de API Keys
-│   ├── ocr-validator.ts          # OCR estructurado para validar CAPEMS y Expedientes
-│   ├── pre-revision.ts           # Extractor de textos (PDF/DOCX) y rúbrica para Gemini
-│   ├── generador-circular05.ts   # Generador dinámico de PDFs con PDF-Lib
-│   ├── cloudinary.ts             # Cliente wrapper de Cloudinary
-│   └── email.ts                  # Plantillas de correo y llamadas a Resend
-```
+### 2.1 Sección: Monitoreo
+Enfocada en la visualización de métricas y el cumplimiento de las escuelas.
+*   **Vista General (`VistaGeneral.tsx`)**: Un dashboard estadístico que cruza datos de escuelas con el total de entregas aprobadas, pendientes y rechazadas. Calcula el "semáforo" de cumplimiento de la zona escolar.
+*   **Avance de Entregas (`GestionPeriodos.tsx` / `ListadoProgramas.tsx`)**: Muestra matrices de doble entrada (Escuela vs Programa) para identificar rápidamente qué escuela ya subió el PMC, PAEC, etc., y el estado de revisión por parte del ATP.
+*   **Reportes al Nivel (`ReportesNivel.tsx`)**: Genera sábanas de excel (XLSX) y reportes automatizados (CEDAVIM, Día Naranja). Internamente llama a `/api/entregas/reportes` para consolidar toda la información de la zona.
+
+### 2.2 Sección: Configuración
+El núcleo de parametrización del sistema.
+*   **Escuelas (`GestionEscuelas.tsx` / `ListadoEscuelas.tsx`)**: CRUD de las escuelas (CCT, Nombre, Director). Incluye el reseteo de contraseñas de directores (NextAuth).
+*   **Programas y Módulos (`GestionProgramas.tsx`)**: Define los programas federales/estatales (ej. PEMC, PAEC). Aquí se asocian las **Plantillas de Evaluación** (Rúbricas en texto) que la IA leerá para pre-evaluar el documento.
+*   **Periodos y Tareas (`GestionPeriodos.tsx` / `GestionFechas.tsx`)**: Controla las fechas de apertura y cierre para las entregas de cada escuela.
+*   **Ciclos Escolares (`GestionCiclos.tsx`)**: Gestiona años lectivos (ej. "2025-2026") para separar la base de datos temporalmente.
+*   **Formatos y Plantillas**: Subida de machotes oficiales en formato DOCX y PDF que los directores pueden descargar.
+*   **Configuración CAPEMS (`GestionCapems.tsx`)**: Parametriza las fichas de Control de Actividades. Establece qué meses están activos y los requisitos de cada ficha.
+*   **Accesos y Seguridad (`GestionATPs.tsx`)**: Panel exclusivo del SUPER ADMIN para dar de alta a ATPs. Utiliza un objeto JSON de Permisos para habilitar/deshabilitar lectura o escritura en las pestañas de este mismo menú.
+*   **Herramientas de IA (`GestionLlavesIA.tsx` / `GestionPrompts.tsx`)**: Administración de llaves de API (Gemini/OpenRouter). Las llaves se marcan como premium o regulares, y el sistema rota entre ellas automáticamente si alguna excede la cuota.
+
+### 2.3 Sección: Módulos Activos
+*   **Expedientes de Personal (`GestionExpedientes.tsx`)**: Permite a la supervisión ver el listado completo de trabajadores de toda la zona. Filtra documentos faltantes o rechazados y visualiza los datos extraídos por el OCR (Clave Presupuestal, RFC, Grado).
+*   **Documentos Admin (`GestionCircular05.tsx` etc)**: Sub-panel para administrar documentos exclusivos de la supervisión.
 
 ---
 
-## 4. Flujos Clave del Sistema
+## 3. Portal del Director (Escuelas)
 
-### A. Subida y Evaluación Automática de Planeaciones (PMC / PAEC)
-1. El **Director** sube un PDF/DOCX en su portal.
-2. La API `/api/upload` sube el archivo a Cloudinary.
-3. Al subirlo, se gatilla la **Pre-evaluación automática** (`/api/entregas/[id]/pre-revision`):
-   * Se descarga temporalmente el documento.
-   * Si es PDF, se extrae el texto usando `pdfjs-dist` en el backend. Si es DOCX, se parsea mediante `jszip`.
-   * Se lee la plantilla/rúbrica correspondiente de la base de datos (`PlantillaEvaluacion`).
-   * Se envía al motor de evaluación pidiendo un análisis de firmas oficiales y contenido estructurado de planeación escolar.
-   * El resultado se guarda en `PreRevision` y se le muestra al director como una autoevaluación inmediata.
-4. El **Director** puede abrir el chat ("Asistente de Correcciones"), el cual le responde contextualmente basándose en las observaciones preliminares para guiarle en su redacción sin salir del contexto de su escuela.
-5. El **ATP** revisa el avance. Si detecta fallos, puede usar el modal de "Enviar Corrección" para registrar observaciones adicionales, las cuales envían un correo automatizado vía Resend al correo de la escuela.
+Ubicado en `src/app/director/DirectorPortal.tsx`. La interfaz de cada escuela está simplificada y centrada en tareas ("To-Do"). Los componentes viven en `src/app/director/_componentes/`.
 
-### B. Validación de Documentos de Personal y CAPEMS con OCR
-1. El director sube una ficha CAPEM o un documento de identidad (CURP, Título, Cédula) en formato imagen o PDF.
-2. La interfaz permite solicitar una validación automática (`🤖 Validar`).
-3. El backend llama a `/api/admin/valida-ia` pasándole el ID del registro y el módulo.
-4. El helper `ocr-validator.ts` descarga el archivo, lo convierte a Base64 si es imagen y llama al motor de evaluación usando **Structured Outputs** (JSON Schema) para validar:
-   * Si el documento pertenece a la persona correcta (coincidencia de nombres).
-   * Si está legible y vigente.
-   * Si tiene firmas y sellos oficiales (para CAPEMS).
-5. El sistema responde con un estatus: `APROBADO`, `ADVERTENCIA` o `RECHAZADO` junto a una nota explicativa de diagnóstico que se visualiza en la interfaz.
+*   **Avance de Entregas (`EntregasListado.tsx`)**: Lista de tareas (PMC, PAEC, etc). Al subir un archivo (`<input type="file">`), se dispara `/api/upload` y automáticamente se invoca la Pre-Revisión IA. Aquí vive el **Asistente de Correcciones**, una ventana de chat incrustada que habla con el LLM pasándole como contexto las observaciones de esa entrega.
+*   **Expedientes de Personal (`ExpedientesPanel.tsx`)**: CRUD local de los trabajadores de esa escuela. El director llena datos básicos (RFC, nombre) y sube 10 tipos de documentos (INE, Título, Comprobante de Pago). Al subir, se lanza una validación de OCR en segundo plano.
+*   **Fichas CAPEMS (`CapemsPanel.tsx`)**: Subida mensual de controles. La IA valida que la imagen corresponda a una ficha oficial y extrae observaciones si está borrosa.
+*   **Inscripción de Eventos (`InscripcionEventos.tsx` / `OlimpiadaMatematicas.tsx`)**: Módulos temporales para cargar alumnos a concursos zonales.
 
 ---
 
-## 5. Sistema de Permisos Granulares (Read/Write)
+## 4. Manual Técnico de Sistemas Centrales (Subsistemas)
 
-Para evitar fugas de privilegios o que usuarios de solo lectura modifiquen información (lo cual comprometería la seguridad de la plataforma), el control de accesos se realiza en dos capas:
+Esta es la explicación profunda de cómo funcionan los motores invisibles de SISAT-ATP. Si necesitas modificarlos, busca en las rutas indicadas.
 
-### Capa de Frontend:
-Se utiliza el helper `hasAccess` definido en [AdminDashboard.tsx](file:///c:/NotebookLM/sisat-atp/src/app/admin/AdminDashboard.tsx):
-```ts
-const hasAccess = (seccion: string, tipo: "read" | "write" = "read"): boolean => {
-    if (dbRole === "SUPER_ADMIN") return true;
-    if (seccion === "seguridad") return false;
-    if (!permisos) { /* Fallback retrocompatibilidad */ }
-    const userPermiso = permisos[seccion] || "NINGUNO";
-    if (userPermiso === "ESCRITURA") return true;
-    if (userPermiso === "LECTURA") return tipo === "read";
-    return false;
-};
-```
-Esta función deshabilita selectores, oculta botones de eliminación/edición y propaga la propiedad `readOnly` a los subcomponentes del panel y listados.
+### 4.1 Sistema de Autenticación y Autorización (JWT / Middlewares)
+*   **Ubicación**: `src/lib/auth.ts`, `src/middleware.ts`, `src/lib/permissions.ts`.
+*   **Funcionamiento**: Utiliza NextAuth v5. Al hacer login (ruta `/api/auth/callback/credentials`), se verifica el password cifrado con `bcryptjs`. Si es correcto, NextAuth inyecta en el JSON Web Token (JWT) el `rol` (admin/director), `cct` (clave de escuela), y `permisos`.
+*   **Modificación**: Si agregas una nueva pestaña en el Admin, debes agregar la llave de permiso en `src/lib/permissions.ts` y actualizar la base de datos (`schema.prisma > Admin > permisos (JSON)`).
 
-### Capa de Backend (Seguridad Crítica):
-Cualquier endpoint de mutación (`POST`, `PUT`, `DELETE`, `PATCH`) debe llamar al validador de backend de [permissions.ts](file:///c:/NotebookLM/sisat-atp/src/lib/permissions.ts):
-```ts
-import { hasBackendAccess } from "@/lib/permissions";
+### 4.2 Sistema OCR y Extracción de Datos Multimodal (Gemini Vision)
+*   **Ubicación**: `src/lib/ocr-validator.ts` y la ruta `/api/expedientes/documentos/route.ts`.
+*   **Funcionamiento**: Cuando se sube un documento personal (ej. INE o Comprobante de Pago) o una ficha CAPEMS:
+    1. Se descarga temporalmente de Cloudinary al servidor local.
+    2. Se convierte a buffer y se detecta el MimeType.
+    3. Se arma un prompt de sistema rígido exigiendo respuesta en `JSON`.
+    4. Se le pide a Gemini Vision analizar el documento. Por ejemplo: *"Si el documento es un COMPROBANTE_PAGO, extrae TODAS las Claves Presupuestales y únelas con punto y coma"*.
+    5. El backend intercepta el JSON y actualiza automáticamente los registros en la base de datos (ej. parchea el campo `clavePresupuestal` del modelo `Personal`).
+*   **Actualización**: Para añadir nuevos documentos al OCR, simplemente edita la constante `systemInstruction` y expande el `responseSchema` en `src/lib/ocr-validator.ts`.
 
-const session = await auth();
-const user = session?.user;
-if (!hasBackendAccess(user, "avances", "write")) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-}
-```
-Esto garantiza que aunque un usuario malintencionado intente forzar llamadas HTTP usando herramientas externas, el servidor rechazará la petición si no tiene permiso explícito de `ESCRITURA`.
+### 4.3 Sistema de Pre-Revisión Textual y Chat Contextual (RAG Híbrido)
+*   **Ubicación**: `src/lib/pre-revision.ts` y `/api/entregas/[id]/chat/route.ts`.
+*   **Funcionamiento (Pre-revisión)**: Al subir un DOCX/PDF largo (un plan escolar), el backend extrae el texto puro usando `pdfjs-dist` o `jszip`. Este texto masivo se envía al modelo LLM junto con la "PlantillaEvaluacion" (la rúbrica). La IA retorna un JSON con un dictamen estructurado ("Aprobado/Rechazado", "Faltan firmas", etc.).
+*   **Funcionamiento (Chat Asistente)**: Si el director abre el chat, la API recupera de Prisma el historial de mensajes (`ChatMensaje`) y el JSON de la Pre-revisión actual. Se concatena un System Prompt diciéndole a la IA: *"Eres un ATP. Este es el estado de la escuela, estas son las correcciones que le marcaste. Ayuda al director a resolverlas"*. La respuesta se transmite por *Streaming* (Server-Sent Events) hacia el frontend para una experiencia fluida.
+
+### 4.4 Generador de Códigos CVD y Firmas SHA-256 (Trazabilidad)
+*   **Ubicación**: Lógica embebida al aprobar documentos y en la visualización de formatos.
+*   **Funcionamiento**: Para evitar falsificaciones de oficios (ej. Constancias de Participación). Cuando el ATP aprueba y genera una constancia oficial, el sistema crea un Hash SHA-256 combinando el ID de la escuela, la fecha, y un "salt" secreto.
+*   **Código QR**: Este hash genera una URL de validación pública (ej. `sisat-atp.com/verify?cvd=ABCD...`). El backend usa librerías de códigos QR para estampar este código en el PDF final. Cualquiera que escanee el QR verá un portal validando que el oficio fue emitido oficialmente por la zona escolar.
+
+### 4.5 Generación de Documentos Oficiales en Masa (Docxtemplater)
+*   **Ubicación**: `src/app/api/expedientes/generar-oficios/` (y scripts de constancias).
+*   **Funcionamiento**: Utiliza la librería `docxtemplater` combinada con `pizzip`. El sistema lee de la base de datos un machote `.docx` que tiene tags tipo `{DIRECTOR_NOMBRE}`, `{ATP1_CLAVE}`, `{FECHA}`.
+*   **Inyección de Autoridades**: Existe un registro singleton en Prisma llamado `AutoridadesConfig`. Al generar un documento, el backend carga a las autoridades de la zona, a los docentes seleccionados de la tabla `Personal`, cruza la información, e inyecta las variables en el documento Word. Finalmente, comprime todo en un archivo `.zip` con todos los oficios de la escuela para que el director lo descargue en un solo clic.
 
 ---
 
-## 6. Consejos para Optimizar Tokens en Futuras Sesiones
-
-Cuando inicies una tarea de modificación en este proyecto, indícale al modelo asistente lo siguiente en tu prompt inicial:
-
-> *"Por favor lee el archivo `MEMORIA.md` para entender el modelo de datos y la arquitectura de carpetas. No busques ni descargues archivos de código del core a menos que vayamos a modificar su lógica directamente. Para guiarte en el estilo visual, ten en cuenta las variables CSS de `globals.css` y reutiliza las clases del framework para consistencia."*
-
-Al hacer esto, el asistente tendrá el contexto del mapa del proyecto al instante sin necesidad de inspeccionar archivos recursivamente, ahorrando más de un **80% de tokens** por conversación.
+*Este manual debe ser consultado y actualizado cada vez que se realicen modificaciones a la arquitectura profunda o se añadan nuevos modelos Prisma.*
