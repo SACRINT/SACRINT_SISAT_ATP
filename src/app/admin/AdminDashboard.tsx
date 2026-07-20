@@ -565,6 +565,11 @@ export default function AdminDashboard({
                     const pollData = await pollRes.json();
                     if (pollData.evaluacionActual && pollData.resultado && pollData.resultado.tipo) {
                         setCorreccionModal(prev => prev ? { ...prev, preRevision: { resultado: pollData.resultado, intentosUsados: pollData.intentosUsados, updatedAt: pollData.updatedAt } } : null);
+                        if (pollData.resultado.borradorCorreo) {
+                            setCorreccionTexto(pollData.resultado.borradorCorreo);
+                        } else if (pollData.resultado.tipo === "OTROS" && pollData.resultado.error) {
+                            setCorreccionTexto(`Error detectado por IA: ${pollData.resultado.error}\n\nDetalle:\n${pollData.resultado.detalle || ""}`);
+                        }
                         setMessage({ type: "success", text: "✅ Pre-dictamen generado exitosamente por la IA" });
                         router.refresh();
                         return; // Salir de la función con éxito
