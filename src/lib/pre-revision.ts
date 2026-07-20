@@ -336,9 +336,9 @@ export async function downloadFile(url: string): Promise<Buffer> {
             const parsed = parseCloudinaryUrl(url);
             if (parsed) {
                 cloudinary.config({
-                    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-                    api_key: process.env.CLOUDINARY_API_KEY,
-                    api_secret: process.env.CLOUDINARY_API_SECRET,
+                    cloud_name: process.env.CLDIN_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME,
+                    api_key: process.env.CLDIN_API_KEY || process.env.CLOUDINARY_API_KEY,
+                    api_secret: process.env.CLDIN_API_SECRET || process.env.CLOUDINARY_API_SECRET,
                     secure: true,
                 });
 
@@ -752,8 +752,8 @@ Responde únicamente en formato JSON con la siguiente estructura:
                     if (!extractedText || extractedText.trim().length < 100) {
                         console.warn(`[pre-revision] Extracted text too short (${extractedText?.length || 0} chars) for delivery ${entregaId}. Generating illegible warning.`);
                         resultado = {
-                            tipo: modulo,
-                            aprobado: false,
+                            tipo: "OTROS",
+                            error: "Documento ilegible",
                             explicacion: "El documento subido no contiene texto extraíble (ilegible, escaneado sin OCR o vacío). Por favor, suba una versión legible o digitalizada directamente.",
                             borradorCorreo: `# Documento Ilegible o Escaneado sin OCR\n\nEl sistema de validación de la plataforma SISAT-ATP ha detectado que el archivo entregado no contiene texto digital extraíble.\n\n### Posibles causas:\n1. El archivo PDF es una imagen escaneada directamente sin haberle aplicado reconocimiento óptico de caracteres (OCR).\n2. El archivo de Word o PDF está vacío o corrupto.\n\n### ¿Cómo solucionarlo?\nPor favor, genere el documento PDF directamente desde su procesador de textos (ej. Microsoft Word haciendo clic en "Guardar como PDF") y evite escanear la hoja impresa, para que la plataforma pueda validar su contenido de manera automática.`,
                             tieneIncidencias: true
@@ -858,6 +858,27 @@ ${part3.observaciones}`;
 
     } catch (error) {
         console.error(`Critical error in analizarEntregaConIA for delivery ${entregaId}:`, error);
-        throw error;
+        try {
+            await prisma.preRevision.upsert({
+                where: { entregaId },
+                update: {
+                    resultado: { 
+                        tipo: "OTROS",
+                        error: "Error crítico al analizar el documento con IA",
+                        detalle: error instanceof Error ? error.message : String(error)
+                    } as any
+                },
+                create: {
+                    entregaId,
+                    resultado: { 
+                        tipo: "OTROS",
+                        error: "Error crítico al analizar el documento con IA",
+                        detalle: error instanceof Error ? error.message : String(error)
+                    } as any
+                }
+            });
+        } catch (dbErr) {
+            console.error("Failed to save error state to DB:", dbErr);
+        }
     }
 }
