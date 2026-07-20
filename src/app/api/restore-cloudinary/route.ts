@@ -75,12 +75,18 @@ export async function GET(req: NextRequest) {
 
         log.push(`Retrieved ${allResources.length} total resources from Cloudinary.`);
 
+        // Log sample folders to diagnose folder naming
+        const uniqueFolders = Array.from(new Set(allResources.map(r => r.folder || ""))).filter(Boolean);
+        log.push(`Sample Cloudinary folders: ${uniqueFolders.slice(0, 50).join(", ")}`);
+
         // Filter resources that belong to ESTRATEGIA_INTEGRAL_DE_SEGURIDAD_Y_CULTURA_DE_PAZ
-        // Folders might be like: "SISAT-ATP/21EBH0088T - ALFONSO DE LA MADRID VIDAURRETA/ESTRATEGIA_INTEGRAL_DE_SEGURIDAD_Y_CULTURA_DE_PAZ"
+        // Folders might be like: "SISAT-ATP/21EBH0088T - ALFONSO DE LA MADRID.../..."
         const targetResources = allResources.filter(r => {
-            const folder = r.folder || "";
-            return folder.toUpperCase().includes("ESTRATEGIA_INTEGRAL_DE_SEGURIDAD_Y_CULTURA_DE_PAZ") ||
-                   folder.toUpperCase().includes("ESTRATEGIA INTEGRAL");
+            const folder = (r.folder || "").toUpperCase();
+            return folder.includes("ESTRATEGIA") || 
+                   folder.includes("SEGURIDAD") || 
+                   folder.includes("CULTURA") || 
+                   folder.includes("PAZ");
         });
 
         log.push(`Found ${targetResources.length} resources matching the target program folders.`);
