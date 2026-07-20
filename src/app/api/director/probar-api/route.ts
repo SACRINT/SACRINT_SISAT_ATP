@@ -32,8 +32,7 @@ export async function POST(req: Request) {
                 },
                 body: JSON.stringify({
                     model: "morph-glm52-744b",
-                    messages: [{ role: "user", content: "Hola, responde únicamente con la palabra OK." }],
-                    max_tokens: 10
+                    messages: [{ role: "user", content: "Hola, responde únicamente con la palabra OK." }]
                 })
             });
         } else {
@@ -55,17 +54,13 @@ export async function POST(req: Request) {
                 ? data.choices?.[0]?.message?.content
                 : data.candidates?.[0]?.content?.parts?.[0]?.text;
             
-            if (textResponse) {
-                return NextResponse.json({
-                    success: true,
-                    message: `Clave de API (${isOpenAIFormat ? 'MorphLLM/OpenAI' : 'Google Gemini'}) válida y activa.`
-                });
-            } else {
-                return NextResponse.json({
-                    success: false,
-                    error: "La clave se conectó, pero el proveedor devolvió una respuesta vacía o no estructurada."
-                }, { status: 400 });
-            }
+            // Si la respuesta es HTTP 200 OK, la clave es válida y fue aceptada por el proveedor.
+            // Extraemos el texto solo para debug o confirmación adicional.
+            return NextResponse.json({
+                success: true,
+                message: `Clave de API (${isOpenAIFormat ? 'MorphLLM/OpenAI' : 'Google Gemini'}) válida y activa.`,
+                debug: textResponse ? "Respuesta estructurada correctamente." : "Respuesta con formato no estándar, pero conexión exitosa."
+            });
         } else {
             const errText = await response.text();
             let parsedMsg = "Error desconocido del proveedor";
