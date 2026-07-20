@@ -350,8 +350,15 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                         <button onClick={() => setExpanded(isExpanded ? null : esc.id)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "1rem", textAlign: "left" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <div>
-                                    <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>{esc.nombre}</div>
-                                    <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                                    <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>
+                                        {esc.nombre}
+                                        {esc.usaApiPropia && (
+                                            <span style={{ marginLeft: "0.5rem", fontSize: "0.65rem", padding: "2px 6px", background: "var(--primary-bg)", color: "var(--primary)", borderRadius: "10px", fontWeight: 600 }}>
+                                                API Propia
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "2px" }}>
                                         {esc.cct} • {esc.localidad} • {esc.total} alumnos
                                     </div>
                                 </div>

@@ -1196,6 +1196,7 @@ export default function AdminDashboard({
                                 directorExpediente: e.directorExpediente ?? null,
                                 esDePrueba: e.esDePrueba ?? false,
                                 esSupervision: e.esSupervision ?? false,
+                                usaApiPropia: e.usaApiPropia ?? false,
                                 permisos: e.permisos ?? null,
                                 personal: e.personal ?? [],
                             }))}

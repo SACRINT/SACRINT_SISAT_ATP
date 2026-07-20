@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
         // Los directores solo pueden ver las plantillas configuradas y activas
         const plantillas = await prisma.plantillaDocumento.findMany({
             where: {
-                estado: "CONFIGURADA"
+                estado: "CONFIGURADA",
+                tiposDestinatario: { has: "PERSONAL" }
             },
             orderBy: { createdAt: "desc" }
         });

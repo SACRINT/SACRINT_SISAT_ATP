@@ -77,6 +77,7 @@ export default async function SupervisionPage() {
             esDePrueba: true,
             esSupervision: true,
             permisos: true,
+            geminiApiKey: true,
             // Incluir el personal con cargo RESPONSABLE para cruzar datos del director
             personal: {
                 where: { cargo: "RESPONSABLE" },
@@ -207,10 +208,16 @@ export default async function SupervisionPage() {
     }
     const programasSupervision = Object.values(programasMap);
 
+    const escuelasClient = escuelas.map(esc => ({
+        ...esc,
+        usaApiPropia: !!esc.geminiApiKey,
+        geminiApiKey: undefined // No enviamos la llave al cliente
+    }));
+
     return (
         <AdminDashboard
             programas={JSON.parse(JSON.stringify(programas))}
-            escuelas={JSON.parse(JSON.stringify(escuelas))}
+            escuelas={JSON.parse(JSON.stringify(escuelasClient))}
             recursos={JSON.parse(JSON.stringify(recursos))}
             stats={stats}
             zonaStats={zonaStats}

@@ -61,6 +61,7 @@ export interface EscuelaAdmin {
     ultimoIngreso?: string | Date | null;
     esDePrueba?: boolean;
     esSupervision?: boolean;
+    usaApiPropia?: boolean;
     permisos?: any;
     directorExpediente?: {
         id?: string;
