@@ -288,8 +288,10 @@ async function executeRequestWithRetry(
     // the pool rotation in callGemini can try the next key. Retrying the same 429-limited
     // key wastes time (14s per key × 12 keys = 168s > Vercel 120s limit → 504 timeout).
     // Only retry truly transient network errors (503, fetch failed) once with a short delay.
-    let retries = 1;
-    let delay = 2000;
+    // Only retry truly transient network errors (fetch failed) once with a short delay.
+    // 503 (High Demand) is not retried here because it's usually a global model issue, not a key issue.
+    let retries = 0;
+    let delay = 1000;
 
     while (true) {
         try {
@@ -312,7 +314,7 @@ async function executeRequestWithRetry(
         } catch (err: any) {
             const errStr = String(err?.message || "");
             const is429 = errStr.includes("(429)") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded") || errStr.toLowerCase().includes("resource_exhausted");
-            const isNetworkError = errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.includes("TimeoutError") || errStr.includes("AbortError");
+            const isNetworkError = errStr.includes("fetch failed") || errStr.includes("TimeoutError") || errStr.includes("AbortError");
 
             if (is429) {
                 // Immediately propagate - let pool rotation try next key
@@ -381,7 +383,7 @@ async function callGeminiNative(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(60000), // 60s timeout: Allow enough time for large documents
+        signal: AbortSignal.timeout(20000), // Reduced to 20s to prevent Vercel 60s timeout during failovers
     });
 
     if (!res.ok) {
@@ -440,7 +442,7 @@ async function callOpenAiCompatible(
         method: "POST",
         headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(60000), // 60s timeout
+        signal: AbortSignal.timeout(20000), // Reduced to 20s to prevent Vercel 60s timeout
     });
 
     if (!res.ok) {
