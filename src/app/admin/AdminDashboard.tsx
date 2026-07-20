@@ -239,6 +239,22 @@ export default function AdminDashboard({
     const [correccionTexto, setCorreccionTexto] = useState("");
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
 
+    const handleSetCorreccionModal = (modalData: { entregaId: string; escuelaNombre: string; history?: any[]; preRevision?: any; archivos?: any[] } | null) => {
+        setCorreccionModal(modalData);
+        if (modalData?.preRevision?.resultado) {
+            const res = modalData.preRevision.resultado;
+            if (res.borradorCorreo) {
+                setCorreccionTexto(res.borradorCorreo);
+            } else if (res.tipo === "OTROS" && res.error) {
+                setCorreccionTexto(`Error detectado por IA: ${res.error}\n\nDetalle:\n${res.detalle || ""}`);
+            } else {
+                setCorreccionTexto("");
+            }
+        } else {
+            setCorreccionTexto("");
+        }
+    };
+
     const [sendingCorreccion, setSendingCorreccion] = useState(false);
     const [reEvaluating, setReEvaluating] = useState(false);
     const [resettingAttempts, setResettingAttempts] = useState(false);
@@ -1146,7 +1162,7 @@ export default function AdminDashboard({
                             <ListadoProgramas
                                 programas={filteredProgramas.filter(p => p.nombre.toLowerCase().includes(searchTermAvance.toLowerCase()))}
                                 onSetMessage={setMessage}
-                                onSetCorreccionModal={setCorreccionModal}
+                                onSetCorreccionModal={handleSetCorreccionModal}
                                 readOnly={!hasAccess("avances_programa", "write")}
                             />
                         )}
@@ -1157,7 +1173,7 @@ export default function AdminDashboard({
                                     e.cct.toLowerCase().includes(searchTermAvance.toLowerCase())
                                 )}
                                 onSetMessage={setMessage}
-                                onSetCorreccionModal={setCorreccionModal}
+                                onSetCorreccionModal={handleSetCorreccionModal}
                                 readOnly={!hasAccess("avances_escuela", "write")}
                             />
                         )}
