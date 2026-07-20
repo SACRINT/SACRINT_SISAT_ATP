@@ -41,11 +41,16 @@ export async function callGemini(
                 select: { geminiApiKey: true }
             });
             if (escuela?.geminiApiKey && escuela.geminiApiKey.trim() !== "") {
-                console.log(`[orquestador-ia] Usando la API Key de Gemini personalizada de la escuela (ID: ${escuelaId})`);
+                const key = escuela.geminiApiKey.trim();
+                const isMorphLLM = key.startsWith("sk-");
+                const prov = isMorphLLM ? "morphllm" : "gemini";
+                const mod = isMorphLLM ? "morph-glm52-744b" : modelToUse;
+
+                console.log(`[orquestador-ia] Usando la API Key personalizada de la escuela (ID: ${escuelaId}, Prov: ${prov})`);
                 return await executeRequestWithRetry(
-                    providerToUse,
-                    modelToUse,
-                    escuela.geminiApiKey.trim(),
+                    prov,
+                    mod,
+                    key,
                     systemInstruction,
                     prompt,
                     pdfBuffer,
@@ -186,10 +191,11 @@ export async function callGemini(
     }
 
     // ---- FALLBACK 2: Otros proveedores configurados en la BD ----
-    // Orden de preferencia: openrouter → deepseek → openai → claude → gemini
-    const fallbackProviderOrder = ["openrouter", "deepseek", "openai", "claude", "gemini"].filter(p => p !== providerToUse);
+    // Orden de preferencia: openrouter → morphllm → deepseek → openai → claude → gemini
+    const fallbackProviderOrder = ["openrouter", "morphllm", "deepseek", "openai", "claude", "gemini"].filter(p => p !== providerToUse);
     const defaultModelByProvider: Record<string, string> = {
         openrouter: "google/gemini-2.5-flash",
+        morphllm: "morph-glm52-744b",
         deepseek: "deepseek-chat",
         openai: "gpt-4o-mini",
         claude: "claude-3-5-sonnet-20241022",
@@ -251,6 +257,8 @@ function getFallbackEnvKey(provider: string): string | undefined {
             return process.env.DEEPSEEK_API_KEY;
         case "openrouter":
             return process.env.OPENROUTER_API_KEY;
+        case "morphllm":
+            return process.env.MORPHLLM_API_KEY;
         default:
             return undefined;
     }
@@ -287,6 +295,8 @@ async function executeRequestWithRetry(
                     return await callOpenAiCompatible(`https://api.deepseek.com/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
                 case "openrouter":
                     return await callOpenAiCompatible(`https://openrouter.ai/api/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
+                case "morphllm":
+                    return await callOpenAiCompatible(`https://api.morphllm.com/v1/chat/completions`, model, apiKey, systemInstruction, prompt, responseSchema);
                 case "claude":
                     return await callClaudeNative(model, apiKey, systemInstruction, prompt, pdfBuffer, responseSchema);
                 default:

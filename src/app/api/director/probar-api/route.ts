@@ -18,37 +18,57 @@ export async function POST(req: Request) {
         }
 
         const apiKey = geminiApiKey.trim();
-        // Llamada de prueba muy sencilla y ligera al modelo gemini-1.5-flash
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
-        const payload = {
-            contents: [{ parts: [{ text: "Hola, responde únicamente con la palabra OK." }] }]
-        };
+        const isOpenAIFormat = apiKey.startsWith("sk-");
 
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
+        let response;
+        if (isOpenAIFormat) {
+            // Probar MorphLLM / OpenAI-compatible
+            const url = `https://api.morphllm.com/v1/chat/completions`;
+            response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "morph-glm52-744b",
+                    messages: [{ role: "user", content: "Hola, responde únicamente con la palabra OK." }],
+                    max_tokens: 10
+                })
+            });
+        } else {
+            // Probar Gemini
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: "Hola, responde únicamente con la palabra OK." }] }]
+            };
+            response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        }
 
         if (response.ok) {
             const data = await response.json();
-            const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            const textResponse = isOpenAIFormat 
+                ? data.choices?.[0]?.message?.content
+                : data.candidates?.[0]?.content?.parts?.[0]?.text;
+            
             if (textResponse) {
                 return NextResponse.json({
                     success: true,
-                    message: "Clave de API válida y activa. Respuesta de prueba exitosa."
+                    message: `Clave de API (${isOpenAIFormat ? 'MorphLLM/OpenAI' : 'Google Gemini'}) válida y activa.`
                 });
             } else {
                 return NextResponse.json({
                     success: false,
-                    error: "La clave se conectó, pero Google devolvió una respuesta vacía o no estructurada."
+                    error: "La clave se conectó, pero el proveedor devolvió una respuesta vacía o no estructurada."
                 }, { status: 400 });
             }
         } else {
             const errText = await response.text();
-            let parsedMsg = "Error desconocido de Google";
+            let parsedMsg = "Error desconocido del proveedor";
             try {
                 const errObj = JSON.parse(errText);
                 parsedMsg = errObj.error?.message || errText;
@@ -58,7 +78,7 @@ export async function POST(req: Request) {
 
             return NextResponse.json({
                 success: false,
-                error: `Fallo de validación de Google API: ${parsedMsg}`
+                error: `Fallo de validación de API: ${parsedMsg}`
             }, { status: 400 });
         }
 

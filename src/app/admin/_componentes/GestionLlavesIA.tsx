@@ -41,7 +41,8 @@ const PROVIDERS = [
     { value: "openai", label: "OpenAI GPT" },
     { value: "claude", label: "Anthropic Claude" },
     { value: "deepseek", label: "DeepSeek" },
-    { value: "openrouter", label: "OpenRouter" }
+    { value: "openrouter", label: "OpenRouter" },
+    { value: "morphllm", label: "MorphLLM" }
 ];
 
 const MODELS: Record<string, { value: string; label: string }[]> = {
@@ -69,6 +70,13 @@ const MODELS: Record<string, { value: string; label: string }[]> = {
         { value: "openai/gpt-4o-mini", label: "GPT-4o Mini via OpenRouter" },
         { value: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet via OpenRouter" },
         { value: "deepseek/deepseek-chat", label: "DeepSeek-V3 via OpenRouter" }
+    ],
+    morphllm: [
+        { value: "morph-glm52-744b", label: "GLM-5.2 744B" },
+        { value: "morph-minimax3-428b", label: "MiniMax M3 428B" },
+        { value: "morph-minimax27-230b", label: "MiniMax M2.7 230B" },
+        { value: "morph-dsv4flash", label: "DeepSeek V4 Flash" },
+        { value: "morph-qwen36-27b", label: "Qwen 3.6 27B" }
     ]
 };
 
