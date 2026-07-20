@@ -910,7 +910,7 @@ export default function GestionExpedientes({ highlightId, documentosReadOnly = f
                                         }} title={`${completeCount} de ${totalPersonnel} con expediente completo`}>
                                             {completeCount}/{totalPersonnel} completos
                                         </span>
-                                        {totalPersonnel > 0 && schoolPendingCount > 0 && !readOnly && (
+                                        {totalPersonnel > 0 && schoolPendingCount > 0 && !documentosReadOnly && (
                                             <button
                                                 onClick={() => handleBulkValidateSchool(escuela.id)}
                                                 disabled={bulkValidatingSchool === escuela.id || busy}
