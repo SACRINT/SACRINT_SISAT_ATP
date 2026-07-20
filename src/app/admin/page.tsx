@@ -11,6 +11,18 @@ export default async function AdminPage() {
         redirect("/login");
     }
 
+    const adminId = (session.user as any)?.id;
+    let permisosActualizados = (session.user as any)?.permisos || null;
+    let dbRoleActualizado = (session.user as any)?.dbRole || "ATP_LECTOR";
+    
+    if (adminId) {
+        const adminDb = await prisma.admin.findUnique({ where: { id: adminId } });
+        if (adminDb) {
+            permisosActualizados = adminDb.permisos;
+            dbRoleActualizado = adminDb.role;
+        }
+    }
+
     // Get selected or active ciclo
     const ciclo = await obtenerCicloActual();
 
@@ -167,8 +179,8 @@ export default async function AdminPage() {
             todosCiclos={JSON.parse(JSON.stringify(todosCiclos))}
             anuncioGlobal={ciclo.anuncioGlobal || ""}
             userName={(session.user as any)?.name || "Admin"}
-            dbRole={(session.user as any)?.dbRole || "ATP_LECTOR"}
-            permisos={(session.user as any)?.permisos || null}
+            dbRole={dbRoleActualizado}
+            permisos={permisosActualizados}
             sidebarConfig={sidebarConfig}
         />
     );

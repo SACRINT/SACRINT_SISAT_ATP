@@ -194,9 +194,17 @@ export default function AdminDashboard({
     useEffect(() => {
         const secKey = getSectionKey(vista);
         if (!hasAccess(secKey, "read")) {
-            setVista("general");
+            const possibleViews: (typeof vista)[] = [
+                "general", "avances", "reportes-nivel",
+                "gestion-escuelas", "gestion-programas", "gestion-fechas", "gestion-ciclos", "recursos", "capems", "herramientas-ia",
+                "eventos", "circular05", "olimpiada", "paec", "expedientes", "documentos"
+            ];
+            const firstAccess = possibleViews.find(v => hasAccess(getSectionKey(v), "read"));
+            if (firstAccess) {
+                setVista(firstAccess);
+            }
         }
-    }, [vista]);
+    }, [vista, permisos, dbRole]);
 
     const toggleGroup = (key: string) =>
         setGroupOpen(prev => ({ ...prev, [key]: !prev[key] }));
