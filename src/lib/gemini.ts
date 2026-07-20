@@ -370,7 +370,7 @@ async function callGeminiNative(
             parts: [{ text: systemInstruction }],
         } : undefined,
         generationConfig: {
-            responseMimeType: "application/json",
+            responseMimeType: responseSchema ? "application/json" : "text/plain",
             temperature: 0.2,
             maxOutputTokens: 8192,
             responseSchema: responseSchema || undefined,
