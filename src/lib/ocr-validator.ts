@@ -29,10 +29,11 @@ Considera:
 - Si el documento no tiene ninguna relación con el tipo solicitado (ej. subió un INE en la ranura de Acta de Nacimiento), marca "RECHAZADO".
 - Si es legible, coincide y está completo, marca "APROBADO".
 
-EXTRA: Si el documento es un "COMPROBANTE_PAGO", debes intentar extraer la "Clave Presupuestal" del trabajador.
+EXTRA: Si el documento es un "COMPROBANTE_PAGO", debes intentar extraer TODAS las "Claves Presupuestales" del trabajador que aparezcan en el documento (ya que puede haber varios recibos o conceptos en el PDF).
 La Clave Presupuestal se forma uniendo la Categoría y la Plaza separadas por un espacio.
 Ejemplo: Si la Categoría dice "07 E451710.0" y la Plaza dice "003339", la Clave Presupuestal es "E451710.0 003339" (ignora números de zona o similares que estén antes de la letra de la categoría).
-Devuelve este valor en el campo "clavePresupuestalExtraida" del JSON (si no lo encuentras, devuélvelo nulo).`;
+Si encuentras varias claves distintas, únelas separadas por punto y coma y un espacio (ejemplo: "E451710.0 003339; E12345.0 001234"). Evita duplicados.
+Devuelve este valor final en el campo "clavePresupuestalExtraida" del JSON (si no lo encuentras, devuélvelo nulo).`;
 
 const responseSchema = {
     type: "OBJECT",
