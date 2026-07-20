@@ -109,6 +109,11 @@ export default function AjustesApiPanel({ escuela }: { escuela: any }) {
 
     // Eliminar la clave para volver a usar el pool general
     const handleClearKey = async () => {
+        if (!hasKey) {
+            setApiKey("");
+            return;
+        }
+
         if (!confirm("¿Está seguro de eliminar su clave de API? Al hacerlo, volverá a utilizar el pool de claves compartido de la supervisión.")) {
             return;
         }
@@ -228,22 +233,21 @@ export default function AjustesApiPanel({ escuela }: { escuela: any }) {
 
                 {/* Acciones */}
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1.5rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-                    {hasKey && (
-                        <button
-                            onClick={handleClearKey}
-                            disabled={saving}
-                            className="btn"
-                            style={{
-                                background: "var(--danger-bg, #fee2e2)",
-                                color: "var(--danger, #ef4444)",
-                                border: "none",
-                                padding: "0.5rem 1rem",
-                                fontSize: "0.8rem"
-                            }}
-                        >
-                            Eliminar Clave
-                        </button>
-                    )}
+                    <button
+                        onClick={handleClearKey}
+                        disabled={saving || (!hasKey && !apiKey)}
+                        className="btn"
+                        style={{
+                            background: "var(--danger-bg, #fee2e2)",
+                            color: "var(--danger, #ef4444)",
+                            border: "none",
+                            padding: "0.5rem 1rem",
+                            fontSize: "0.8rem",
+                            visibility: (hasKey || apiKey) ? "visible" : "hidden"
+                        }}
+                    >
+                        Eliminar Clave
+                    </button>
                     <button
                         onClick={handleSaveSettings}
                         disabled={saving || testing || (hasKey && apiKey === originalKeyMasked)}
