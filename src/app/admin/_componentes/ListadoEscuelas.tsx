@@ -381,7 +381,21 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
 
                         {isExpanded && (
                             <div style={{ padding: "0 1rem 1rem", borderTop: "1px solid var(--border)" }}>
-                                {esc.entregas.map((ent) => {
+                                {[...esc.entregas].sort((a, b) => {
+                                    const ordenA = a.periodoEntrega.programa.orden ?? 999;
+                                    const ordenB = b.periodoEntrega.programa.orden ?? 999;
+                                    if (ordenA !== ordenB) return ordenA - ordenB;
+                                    
+                                    const SEP_MONTH_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
+                                    const getSepMonthOrder = (m: number | null) => m ? (SEP_MONTH_ORDER.indexOf(m) === -1 ? 99 : SEP_MONTH_ORDER.indexOf(m)) : 99;
+                                    const orderMesA = getSepMonthOrder(a.periodoEntrega.mes);
+                                    const orderMesB = getSepMonthOrder(b.periodoEntrega.mes);
+                                    if (orderMesA !== orderMesB) return orderMesA - orderMesB;
+                                    
+                                    const semA = a.periodoEntrega.semestre ?? 99;
+                                    const semB = b.periodoEntrega.semestre ?? 99;
+                                    return semA - semB;
+                                }).map((ent) => {
                                     const styles = getEstadoStyles(ent.estado);
                                     const periodoLabel = ent.periodoEntrega.mes
                                         ? `${MESES[ent.periodoEntrega.mes]}`

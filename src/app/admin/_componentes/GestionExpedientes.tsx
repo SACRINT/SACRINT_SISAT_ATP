@@ -749,31 +749,19 @@ export default function GestionExpedientes({ highlightId, documentosReadOnly = f
             )}
 
             {/* Tabs */}
-            <div style={{ display: "flex", gap: "1rem", borderBottom: "1px solid var(--border)", marginBottom: "0.5rem" }}>
+            <div className="tab-list" style={{ marginBottom: "1rem" }}>
                 <button
                     onClick={() => setActiveTab("expedientes")}
-                    style={{
-                        padding: "0.5rem 1rem", background: "none", border: "none",
-                        borderBottom: activeTab === "expedientes" ? "2px solid var(--primary)" : "2px solid transparent",
-                        color: activeTab === "expedientes" ? "var(--primary)" : "var(--text-muted)",
-                        fontWeight: activeTab === "expedientes" ? 700 : 500,
-                        cursor: "pointer",
-                        display: "flex", alignItems: "center", gap: "0.5rem"
-                    }}
+                    className={`tab-item ${activeTab === "expedientes" ? "active" : ""}`}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
                 >
                     <FileText size={18} /> Documentos y Avances
                 </button>
                 {!personalReadOnly && (
                     <button
                         onClick={() => setActiveTab("personal")}
-                        style={{
-                            padding: "0.5rem 1rem", background: "none", border: "none",
-                            borderBottom: activeTab === "personal" ? "2px solid var(--primary)" : "2px solid transparent",
-                            color: activeTab === "personal" ? "var(--primary)" : "var(--text-muted)",
-                            fontWeight: activeTab === "personal" ? 700 : 500,
-                            cursor: "pointer",
-                            display: "flex", alignItems: "center", gap: "0.5rem"
-                        }}
+                        className={`tab-item ${activeTab === "personal" ? "active" : ""}`}
+                        style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
                     >
                         <Users size={18} /> Gestión de Personal
                     </button>

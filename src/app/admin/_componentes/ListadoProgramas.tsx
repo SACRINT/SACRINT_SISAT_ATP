@@ -133,6 +133,31 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
         }
     }
 
+    const [updatingPeriodo, setUpdatingPeriodo] = useState<string | null>(null);
+
+    async function handleBulkEstadoPeriodo(periodoId: string, nuevoEstado: string, nombrePeriodo: string) {
+        if (!confirm(`¿Estás seguro de marcar TODAS las escuelas en "${nombrePeriodo}" como "${ESTADO_LABELS[nuevoEstado] || nuevoEstado}"?`)) return;
+        setUpdatingPeriodo(periodoId);
+        try {
+            const res = await fetch(`/api/periodos/${periodoId}/estado`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ estado: nuevoEstado }),
+            });
+            if (res.ok) {
+                onSetMessage({ type: "success", text: `✅ Entregas de ${nombrePeriodo} actualizadas.` });
+                router.refresh();
+            } else {
+                const data = await res.json();
+                onSetMessage({ type: "error", text: data.error || "Error" });
+            }
+        } catch {
+            onSetMessage({ type: "error", text: "Error de conexión" });
+        } finally {
+            setUpdatingPeriodo(null);
+        }
+    }
+
     function handleUploadClick(entregaId: string, etiqueta?: string) {
         setSelectedEntrega(entregaId);
         setSelectedEtiqueta(etiqueta || null);
@@ -511,18 +536,40 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                         {/* ── Detalle expandido ── */}
                         {isExpanded && (
                             <div style={{ borderTop: "1px solid var(--border)" }}>
-                                {prog.periodos.map((periodo) => (
+                                {[...prog.periodos].sort((a, b) => {
+                                    const SEP_MONTH_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
+                                    const getSepMonthOrder = (m: number | null) => m ? (SEP_MONTH_ORDER.indexOf(m) === -1 ? 99 : SEP_MONTH_ORDER.indexOf(m)) : 99;
+                                    const orderA = getSepMonthOrder(a.mes);
+                                    const orderB = getSepMonthOrder(b.mes);
+                                    if (orderA !== orderB) return orderA - orderB;
+                                    return (a.semestre ?? 99) - (b.semestre ?? 99);
+                                }).map((periodo) => (
                                     <div key={periodo.id}>
                                         {prog.tipo !== "ANUAL" && (() => {
                                             const statPerEntregas = periodo.entregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision);
                                             return (
                                                 <div
-                                                    style={{ padding: "0.5rem 1rem", background: periodo.activo ? "var(--bg-secondary)" : "#f8f8f8", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
+                                                    style={{ padding: "0.5rem 1rem", background: periodo.activo ? "var(--bg-secondary)" : "#f8f8f8", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "space-between" }}
                                                     onClick={() => setExpandedPeriodo(expandedPeriodo === periodo.id ? null : periodo.id)}
                                                 >
-                                                    {getPeriodoLabel(periodo)} ({statPerEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length}/{statPerEntregas.length} recibidas)
-                                                    {!periodo.activo && (
-                                                        <span style={{ fontSize: "0.7rem", background: "#e2e8f0", color: "#64748b", padding: "0.1rem 0.4rem", borderRadius: "4px", fontWeight: 500 }}>Inactivo</span>
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                        {getPeriodoLabel(periodo)} ({statPerEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length}/{statPerEntregas.length} recibidas)
+                                                        {!periodo.activo && (
+                                                            <span style={{ fontSize: "0.7rem", background: "#e2e8f0", color: "#64748b", padding: "0.1rem 0.4rem", borderRadius: "4px", fontWeight: 500 }}>Inactivo</span>
+                                                        )}
+                                                    </div>
+                                                    {!readOnly && (
+                                                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleBulkEstadoPeriodo(periodo.id, "EXENTO", getPeriodoLabel(periodo)); }}
+                                                                disabled={updatingPeriodo === periodo.id}
+                                                                style={{ padding: "0.15rem 0.4rem", fontSize: "0.7rem", borderRadius: "4px", background: "#f1f5f9", border: "1px solid #cbd5e1", color: "#64748b", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                                                                title="Marcar mes como No Aplica para todas las escuelas"
+                                                            >
+                                                                {updatingPeriodo === periodo.id ? <Loader2 size={10} className="spin" /> : <span>🚫</span>}
+                                                                Marcar "No Aplica"
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             );

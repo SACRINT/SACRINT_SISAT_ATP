@@ -1,6 +1,6 @@
 export const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-export const ESTADOS = ["PENDIENTE", "EN_REVISION", "REQUIERE_CORRECCION", "APROBADO", "NO_APROBADO", "NO_ENTREGADO"];
+export const ESTADOS = ["PENDIENTE", "EN_REVISION", "REQUIERE_CORRECCION", "APROBADO", "NO_APROBADO", "NO_ENTREGADO", "EXENTO", "ENTREGADO_FISICO"];
 
 export const ESTADO_LABELS: Record<string, string> = {
     PENDIENTE: "Entregado",
@@ -9,6 +9,8 @@ export const ESTADO_LABELS: Record<string, string> = {
     APROBADO: "Aprobado",
     NO_APROBADO: "No Aprobado",
     NO_ENTREGADO: "No Entregado",
+    EXENTO: "No Aplica",
+    ENTREGADO_FISICO: "Entregado por otro medio",
 };
 
 export const ESTADO_COLORS: Record<string, string> = {
@@ -18,6 +20,8 @@ export const ESTADO_COLORS: Record<string, string> = {
     APROBADO: "var(--success)",
     NO_APROBADO: "var(--danger)",
     NO_ENTREGADO: "var(--text-muted)",
+    EXENTO: "#94a3b8",
+    ENTREGADO_FISICO: "var(--success)",
 };
 
 // ─── Expedientes de Personal ──────────────────────────

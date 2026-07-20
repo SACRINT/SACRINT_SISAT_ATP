@@ -65,6 +65,7 @@ import GestionCiclos from "./_componentes/GestionCiclos";
 import GestionPrompts from "./_componentes/GestionPrompts";
 import GestionLlavesIA from "./_componentes/GestionLlavesIA";
 import ReportesNivel from "./_componentes/ReportesNivel";
+import RankingEscuelas from "./_componentes/RankingEscuelas";
 
 // Componentes exclusivos para Supervisor
 import EntregasListado from "../director/_componentes/EntregasListado";
@@ -119,7 +120,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
+    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -133,6 +134,7 @@ export default function AdminDashboard({
         switch (v) {
             case "general": return "general";
             case "avances": return "avances";
+            case "ranking": return "avances"; // Using "avances" permission for ranking
             case "reportes-nivel": return "reportesNivel";
             case "gestion-escuelas": return "escuelas";
             case "gestion-programas": return "programas";
@@ -780,6 +782,12 @@ export default function AdminDashboard({
                                         <span>Avance de Entregas</span>
                                     </button>
                                 )}
+                                {hasAccess("avances", "read") && (
+                                    <button className={`sidebar-link ${vista === "ranking" ? "active" : ""}`} onClick={() => navigate("ranking")}>
+                                        <Trophy size={17} />
+                                        <span>Ranking de Cumplimiento</span>
+                                    </button>
+                                )}
                                 {hasAccess("reportesNivel", "read") && (
                                     <button className={`sidebar-link ${vista === "reportes-nivel" ? "active" : ""}`} onClick={() => navigate("reportes-nivel")}>
                                         <Mail size={17} />
@@ -1154,6 +1162,11 @@ export default function AdminDashboard({
                     </div>
                     );
                 })()}
+
+                {/* ========= VISTA: RANKING ========= */}
+                {vista === "ranking" && (
+                    <RankingEscuelas cicloNombre={cicloObj.nombre} />
+                )}
 
                 {/* ========= VISTA: GESTIÓN DE PERIODOS Y FECHAS ========= */}
                 {vista === "gestion-fechas" && (

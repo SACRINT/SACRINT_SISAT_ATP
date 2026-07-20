@@ -34,10 +34,11 @@ import CapemsPanel from "./_componentes/CapemsPanel";
 import ExpedientesPanel from "./_componentes/ExpedientesPanel";
 import AjustesApiPanel from "./_componentes/AjustesApiPanel";
 import DocumentosPanel from "./_componentes/DocumentosPanel";
+import RankingEscuelas from "../admin/_componentes/RankingEscuelas";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
-type TabType = "entregas" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "configuracion";
+type TabType = "entregas" | "ranking" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "configuracion";
 
 export default function DirectorPortal({
     escuela,
@@ -113,6 +114,7 @@ export default function DirectorPortal({
 
     const tabLabels: Record<TabType, string> = {
         entregas: "Mis Entregas",
+        ranking: "Ranking Escuelas",
         recursos: "Recursos",
         eventos: "Eventos Culturales",
         circular05: "Circular 03",
@@ -293,6 +295,10 @@ export default function DirectorPortal({
                                 </span>
                             )}
                         </button>
+                        <button className={`sidebar-link ${tab === "ranking" ? "active" : ""}`} onClick={() => navigate("ranking")}>
+                            <Trophy size={17} />
+                            <span>Ranking Escuelas</span>
+                        </button>
                         <button className={`sidebar-link ${tab === "recursos" ? "active" : ""}`} onClick={() => navigate("recursos")}>
                             <BookOpen size={17} />
                             <span>Recursos y Formatos</span>
@@ -401,6 +407,12 @@ export default function DirectorPortal({
                         onSetMessage={setMessage}
                         readOnly={!cicloObj?.activo}
                     />
+                )}
+
+                {tab === "ranking" && (
+                    <div style={{ marginTop: "1rem" }}>
+                        <RankingEscuelas cicloNombre={cicloObj?.nombre} isDirector={true} />
+                    </div>
                 )}
 
                 {tab === "recursos" && (

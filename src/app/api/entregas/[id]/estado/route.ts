@@ -46,6 +46,8 @@ export async function PATCH(
             "APROBADO",
             "NO_APROBADO",
             "NO_ENTREGADO",
+            "EXENTO",
+            "ENTREGADO_FISICO",
         ];
 
         if (!validEstados.includes(estado)) {
