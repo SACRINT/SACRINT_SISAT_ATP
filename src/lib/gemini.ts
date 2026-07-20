@@ -345,8 +345,9 @@ async function callGeminiNative(
     responseSchema?: any
 ): Promise<string> {
     let targetModel = model;
-    if (model === "gemini-1.5-flash") targetModel = "gemini-flash-latest";
-    if (model === "gemini-1.5-pro") targetModel = "gemini-pro-latest";
+    // Force upgrade legacy/throttled models to the new 2.5 series to bypass limits and 503s
+    if (model.includes("flash") || model === "gemini-1.5-flash") targetModel = "gemini-2.5-flash";
+    if (model.includes("pro") || model === "gemini-1.5-pro") targetModel = "gemini-2.5-pro";
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
