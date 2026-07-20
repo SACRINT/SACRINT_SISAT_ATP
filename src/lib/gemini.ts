@@ -192,7 +192,13 @@ export async function callGemini(
 
     // ---- FALLBACK 2: Otros proveedores configurados en la BD ----
     // Orden de preferencia: openrouter → morphllm → deepseek → openai → claude → gemini
-    const fallbackProviderOrder = ["openrouter", "morphllm", "deepseek", "openai", "claude", "gemini"].filter(p => p !== providerToUse);
+    let fallbackProviderOrder = ["openrouter", "morphllm", "deepseek", "openai", "claude", "gemini"].filter(p => p !== providerToUse);
+    
+    // Si la solicitud incluye un PDF (ej. validación de expedientes), 
+    // restringimos a proveedores que tengan soporte nativo implementado.
+    if (pdfBuffer) {
+        fallbackProviderOrder = fallbackProviderOrder.filter(p => p === "gemini" || p === "claude");
+    }
     const defaultModelByProvider: Record<string, string> = {
         openrouter: "google/gemini-2.5-flash",
         morphllm: "morph-glm52-744b",
@@ -239,7 +245,8 @@ export async function callGemini(
         }
     }
 
-    throw new Error(`[orquestador-ia] Todos los proveedores de IA disponibles fallaron. Pool de ${providerToUse} agotado y sin alternativas funcionando.`);
+    const extraMsg = pdfBuffer ? " (Nota: MorphLLM, DeepSeek y OpenAI no soportan lectura directa de PDF en esta plataforma, debes usar llaves de Gemini o Claude para Expedientes)." : "";
+    throw new Error(`[orquestador-ia] Todos los proveedores de IA disponibles fallaron. Pool de ${providerToUse} agotado y sin alternativas funcionando.${extraMsg}`);
 }
 
 /**
