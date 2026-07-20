@@ -19,9 +19,10 @@
 1. **Monitoreo y Avances**: Tableros de control con avance porcentual de entregas de documentos PMC, PAEC, etc.
 2. **Pre-evaluación Automática**: Asistente automático que lee documentos y genera observaciones preliminares detalladas con base en rúbricas.
 3. **Control de Accesos**: Permisos granulares de lectura y escritura para Asesores Técnicos Pedagógicos (ATPs).
-4. **Validación de Expedientes**: Detección de validez de títulos, cédulas y documentos personales mediante OCR y análisis visual.
+4. **Validación de Expedientes y Fichas CAPEMS**: Detección de validez de títulos, cédulas, comprobantes de pago y extracción inteligente de datos (ej. múltiples Claves Presupuestales) mediante OCR y análisis visual de IA.
 5. **Verificación CVD**: Generación de firmas digitales SHA-256 y códigos CVD verificables públicamente mediante QR.
 6. **Reportes al Nivel**: Redacción automática y consolidación de reportes de acoso escolar (CEDAVIM) y Día Naranja (25N).
+7. **Generación Automática de Documentos**: Creación dinámica de oficios, constancias y minutas (en formato PDF/Word) auto-completando firmas y datos de autoridades educativas de la Supervisión.
 
 ---
 

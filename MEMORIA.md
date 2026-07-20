@@ -46,8 +46,9 @@ erDiagram
 2. **`Escuela`**: Escuelas del área. Su identificador principal es la Clave del Centro de Trabajo (`cct`).
 3. **`Entrega` / `Archivo`**: Las entregas de planeación de una escuela ligadas a un `PeriodoEntrega` y a un `Programa` (ej: PMC, PAEC). Los archivos tienen tipo `ENTREGA` (subido por director) o `CORRECCION` (subido por ATP).
 4. **`PreRevision`**: Almacena el resultado JSON del pre-dictamen preliminar automático que la IA genera sobre los planes subidos (evaluando firmas, objetivos, alineación, etc.).
-5. **`Personal` / `DocumentoPersonal`**: Representa los expedientes del personal docente y de apoyo. Cada empleado puede subir los 10 documentos obligatorios o personalizados.
-6. **`CapemFichaRegistro`**: Registro de entrega de fichas CAPEMS (Control de Actividades) con validación automática OCR por IA.
+5. **`Personal` / `DocumentoPersonal`**: Representa los expedientes del personal docente y de apoyo. Cada empleado puede subir documentos obligatorios y personalizados. El OCR inteligente valida los tipos y extrae metadatos (como Claves Presupuestales desde recibos de nómina).
+6. **`CapemFichaRegistro`**: Registro de entrega de fichas CAPEMS (Control de Actividades) con validación automática OCR por IA y renderización de plantillas Word automatizadas en masa.
+7. **`AutoridadesConfig`**: Modelo "singleton" de base de datos que guarda los datos oficiales del Supervisor, Coordinador, Director de Nivel y ATPs, y se inyectan dinámicamente (`{SUPERVISOR_NOMBRE}`, `{ATP1_NOMBRE}`, etc.) en las plantillas masivas DOCX.
 7. **`ApiKey`**: Almacena las API Keys de proveedores de LLM (Gemini, OpenRouter, etc.) con banderas de prioridad e indicador de uso regular o premium.
 8. **`ChatMensaje`**: Conversaciones del "Asistente de Correcciones" (Copiloto IA) entre el director y la IA sobre observaciones específicas de una entrega.
 
