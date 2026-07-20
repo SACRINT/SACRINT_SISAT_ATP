@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { callGemini } from "@/lib/gemini";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Allow up to 60 seconds (Vercel Hobby max) for long LLM responses
 
 // GET - Obtener el historial de chat para una entrega
 export async function GET(
