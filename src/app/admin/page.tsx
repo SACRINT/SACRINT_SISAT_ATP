@@ -40,6 +40,7 @@ export default async function AdminPage() {
         include: {
             periodos: {
                 where: { cicloEscolarId: ciclo.id },
+                // No filtramos por activo: el admin puede ver TODOS los periodos
                 orderBy: [{ mes: "asc" }, { semestre: "asc" }],
                 include: {
                     entregas: {
@@ -99,7 +100,9 @@ export default async function AdminPage() {
             },
             entregas: {
                 where: {
-                    periodoEntrega: { cicloEscolarId: ciclo.id, activo: true },
+                    // Para el panel de Avance por Escuela: incluimos todas las entregas (activos e inactivos)
+                    // Los directores solo ven las de periodos activos; el admin ve todo
+                    periodoEntrega: { cicloEscolarId: ciclo.id },
                 },
                 include: {
                     periodoEntrega: { include: { programa: { select: { nombre: true, esParaSupervision: true } } } },
@@ -150,9 +153,9 @@ export default async function AdminPage() {
         showExpedientes: sidebarConfigRaw?.showExpedientes ?? true,
     };
 
-    // Calculate stats from active periods only
+    // Calculate stats from ALL periods (admin sees inactive ones too)
     const activeEntregas = programas.flatMap((p) =>
-        p.periodos.filter((per) => per.activo).flatMap((per) => 
+        p.periodos.flatMap((per) => 
             per.entregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision)
         )
     );

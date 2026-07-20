@@ -342,8 +342,8 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                 onChange={handleFileSelected}
             />
             {programas.map((prog) => {
-                const activeEntregas = prog.periodos.filter((p) => p.activo).flatMap((p) => p.entregas);
-                const statEntregas = activeEntregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision);
+                const allEntregas = prog.periodos.flatMap((p) => p.entregas);
+                const statEntregas = allEntregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision);
                 const entregadosProg = statEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
                 const totalProg = statEntregas.length;
                 const porc = totalProg > 0 ? Math.round((entregadosProg / totalProg) * 100) : 0;
@@ -373,7 +373,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                 <div>
                                     <div style={{ fontWeight: 700 }}>{prog.nombre}</div>
                                     <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                                        {entregadosProg}/{totalProg} recibidas • {prog.periodos.filter((p) => p.activo).length} periodo(s) activo(s)
+                                        {entregadosProg}/{totalProg} recibidas • {prog.periodos.filter((p) => p.activo).length} activo(s) / {prog.periodos.length} periodo(s)
                                     </div>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -511,16 +511,19 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                         {/* ── Detalle expandido ── */}
                         {isExpanded && (
                             <div style={{ borderTop: "1px solid var(--border)" }}>
-                                {prog.periodos.filter((p) => p.activo).map((periodo) => (
+                                {prog.periodos.map((periodo) => (
                                     <div key={periodo.id}>
                                         {prog.tipo !== "ANUAL" && (() => {
                                             const statPerEntregas = periodo.entregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision);
                                             return (
                                                 <div
-                                                    style={{ padding: "0.5rem 1rem", background: "var(--bg-secondary)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
+                                                    style={{ padding: "0.5rem 1rem", background: periodo.activo ? "var(--bg-secondary)" : "#f8f8f8", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
                                                     onClick={() => setExpandedPeriodo(expandedPeriodo === periodo.id ? null : periodo.id)}
                                                 >
                                                     {getPeriodoLabel(periodo)} ({statPerEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length}/{statPerEntregas.length} recibidas)
+                                                    {!periodo.activo && (
+                                                        <span style={{ fontSize: "0.7rem", background: "#e2e8f0", color: "#64748b", padding: "0.1rem 0.4rem", borderRadius: "4px", fontWeight: 500 }}>Inactivo</span>
+                                                    )}
                                                 </div>
                                             );
                                         })()}

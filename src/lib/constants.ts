@@ -91,7 +91,14 @@ export const SECCIONES_PERMISOS = [
     { key: "circular05", label: "Circular 03" },
     { key: "olimpiada", label: "Olimpiada Matemáticas" },
     { key: "paec", label: "Encuentro PAEC" },
-    { key: "expedientes", label: "Expedientes Personal" },
+    { 
+        key: "expedientes", 
+        label: "Expedientes Personal",
+        sub: [
+            { key: "expedientes_documentos", label: "Documentos y Avances" },
+            { key: "expedientes_personal", label: "Gestión de Personal" }
+        ]
+    },
     { 
         key: "documentos", 
         label: "Documentos Admin",
@@ -125,6 +132,8 @@ export const DEFAULT_PERMISOS: Record<string, string> = {
     olimpiada: "LECTURA",
     paec: "LECTURA",
     expedientes: "NINGUNO",
+    expedientes_documentos: "NINGUNO",
+    expedientes_personal: "NINGUNO",
     documentos: "NINGUNO",
     documentos_generar: "NINGUNO",
     documentos_plantillas: "NINGUNO",

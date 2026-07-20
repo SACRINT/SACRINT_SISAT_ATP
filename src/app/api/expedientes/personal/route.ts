@@ -19,7 +19,11 @@ export async function GET(req: Request) {
         if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
         escuelaId = escuela.id;
     } else if (user.role === "admin") {
-        escuelaId = searchParams.get("escuelaId") || undefined;
+        const todas = searchParams.get("todas") === "true";
+        if (!todas) {
+            escuelaId = searchParams.get("escuelaId") || undefined;
+        }
+        // si todas=true, escuelaId queda undefined → sin filtro → devuelve todo
     } else if (user.role === "supervision") {
         const todas = searchParams.get("todas") === "true";
         if (todas) {
@@ -52,15 +56,27 @@ export async function POST(req: Request) {
     const session = await auth();
     const user = session?.user as { role?: string; cct?: string } | undefined;
 
-    if (!session || (user?.role !== "director" && user?.role !== "supervision")) {
+    if (!session || (user?.role !== "director" && user?.role !== "supervision" && user?.role !== "admin")) {
         return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
-    if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
-
     const body = await req.json();
-    const { nombre, apellidoPaterno, apellidoMaterno, sexo, cargo, curp, rfc, telefono, correoElectronico, gradoAcademico, fechaIngreso, clavePresupuestal } = body;
+
+    let resolvedEscuelaId: string;
+    if (user?.role === "admin") {
+        // Admin must specify escuelaId directly in the body
+        if (!body.escuelaId) {
+            return NextResponse.json({ error: "escuelaId es obligatorio para administradores" }, { status: 400 });
+        }
+        resolvedEscuelaId = body.escuelaId;
+    } else {
+        const escuela = await prisma.escuela.findUnique({ where: { cct: user!.cct! } });
+        if (!escuela) return NextResponse.json({ error: "Escuela no encontrada" }, { status: 404 });
+        resolvedEscuelaId = escuela.id;
+    }
+
+    const body2 = body; // alias – we already parsed body above
+    const { nombre, apellidoPaterno, apellidoMaterno, sexo, cargo, curp, rfc, telefono, correoElectronico, gradoAcademico, fechaIngreso, clavePresupuestal } = body2;
 
     if (!nombre?.trim() || !apellidoPaterno?.trim() || !apellidoMaterno?.trim() || !sexo || !cargo) {
         return NextResponse.json({ error: "Nombre, apellidos, sexo y cargo son obligatorios" }, { status: 400 });
@@ -76,13 +92,13 @@ export async function POST(req: Request) {
 
     // Get next orden
     const lastPersonal = await prisma.personal.findFirst({
-        where: { escuelaId: escuela.id },
+        where: { escuelaId: resolvedEscuelaId },
         orderBy: { orden: "desc" },
     });
 
     const personal = await prisma.personal.create({
         data: {
-            escuelaId: escuela.id,
+            escuelaId: resolvedEscuelaId,
             nombre: nombre.trim(),
             apellidoPaterno: apellidoPaterno.trim(),
             apellidoMaterno: apellidoMaterno.trim(),

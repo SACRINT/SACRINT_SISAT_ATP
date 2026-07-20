@@ -26,6 +26,7 @@ import {
     SEXOS,
 } from "@/lib/constants";
 import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
+import GestionPersonal from "./GestionPersonal";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -198,11 +199,12 @@ function renderIABadge(validoIA: string | null | undefined, observacionesIA: str
     );
 }
 
-export default function GestionExpedientes({ highlightId, readOnly = false }: { highlightId?: string; readOnly?: boolean }) {
+export default function GestionExpedientes({ highlightId, documentosReadOnly = false, personalReadOnly = false }: { highlightId?: string; documentosReadOnly?: boolean; personalReadOnly?: boolean }) {
     const [personalList, setPersonalList] = useState<Personal[]>([]);
     const [loading, setLoading] = useState(true);
     const [moduleActive, setModuleActive] = useState(false);
     const [analyzingIA, setAnalyzingIA] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<"expedientes" | "personal">("expedientes");
 
     async function handleReEvaluateIA(id: string) {
         setAnalyzingIA(id);
@@ -746,7 +748,43 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
                 </div>
             )}
 
-            {/* Toggle para directores */}
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: "1rem", borderBottom: "1px solid var(--border)", marginBottom: "0.5rem" }}>
+                <button
+                    onClick={() => setActiveTab("expedientes")}
+                    style={{
+                        padding: "0.5rem 1rem", background: "none", border: "none",
+                        borderBottom: activeTab === "expedientes" ? "2px solid var(--primary)" : "2px solid transparent",
+                        color: activeTab === "expedientes" ? "var(--primary)" : "var(--text-muted)",
+                        fontWeight: activeTab === "expedientes" ? 700 : 500,
+                        cursor: "pointer",
+                        display: "flex", alignItems: "center", gap: "0.5rem"
+                    }}
+                >
+                    <FileText size={18} /> Documentos y Avances
+                </button>
+                {!personalReadOnly && (
+                    <button
+                        onClick={() => setActiveTab("personal")}
+                        style={{
+                            padding: "0.5rem 1rem", background: "none", border: "none",
+                            borderBottom: activeTab === "personal" ? "2px solid var(--primary)" : "2px solid transparent",
+                            color: activeTab === "personal" ? "var(--primary)" : "var(--text-muted)",
+                            fontWeight: activeTab === "personal" ? 700 : 500,
+                            cursor: "pointer",
+                            display: "flex", alignItems: "center", gap: "0.5rem"
+                        }}
+                    >
+                        <Users size={18} /> Gestión de Personal
+                    </button>
+                )}
+            </div>
+
+            {activeTab === "personal" ? (
+                <GestionPersonal escuelas={todasEscuelas} />
+            ) : (
+                <>
+                    {/* Toggle para directores */}
             <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                     <strong>Módulo Expedientes para Directores</strong>
@@ -978,7 +1016,7 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
                                                                     onBulkValidatePerson={handleBulkValidatePerson}
                                                                     bulkValidatingPerson={bulkValidatingPerson}
                                                                     bulkProgressPerson={bulkProgressPerson}
-                                                                    readOnly={readOnly}
+                                                                    readOnly={documentosReadOnly}
                                                                 />
                                                             );
                                                         })}
@@ -993,6 +1031,9 @@ export default function GestionExpedientes({ highlightId, readOnly = false }: { 
                     })
                 )}
             </div>
+            </>
+            )}
+
             <PdfViewerModal
                 isOpen={!!viewingPdf}
                 onClose={() => setViewingPdf(null)}

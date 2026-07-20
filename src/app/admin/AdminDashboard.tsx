@@ -1304,8 +1304,13 @@ export default function AdminDashboard({
                 {/* ========= VISTA: EXPEDIENTES DE PERSONAL ========= */}
                 {
                     vista === "expedientes" && (
-                        <GestionExpedientes highlightId={expedientesHighlightId} readOnly={!hasAccess("expedientes", "write")} />
+                        <GestionExpedientes 
+                            highlightId={expedientesHighlightId} 
+                            documentosReadOnly={!hasAccess("expedientes_documentos", "write")} 
+                            personalReadOnly={!hasAccess("expedientes_personal", "write")} 
+                        />
                     )
+
                 }
 
                 {

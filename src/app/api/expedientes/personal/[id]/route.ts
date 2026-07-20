@@ -63,6 +63,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         }
     }
 
+    // Admin can also transfer to a different school
+    if (user.role === "admin" && body.escuelaId) {
+        updateData.escuelaId = body.escuelaId;
+    }
+
     const updated = await prisma.personal.update({
         where: { id },
         data: updateData,
@@ -92,6 +97,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!personal) return NextResponse.json({ error: "Personal no encontrado" }, { status: 404 });
 
     // Directors and supervision can only delete their own school's personnel
+    // Admins can delete any personnel
     if (user.role === "director" || user.role === "supervision") {
         const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct! } });
         if (!escuela || escuela.id !== personal.escuelaId) {
