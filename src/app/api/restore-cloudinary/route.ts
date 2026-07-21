@@ -77,21 +77,19 @@ export async function GET(req: NextRequest) {
 
         log.push(`Retrieved ${allResources.length} total resources from Cloudinary.`);
 
-        // Log sample folders to diagnose folder naming
-        const uniqueFolders = Array.from(new Set(allResources.map(r => r.folder || ""))).filter(Boolean);
-        log.push(`Sample Cloudinary folders: ${uniqueFolders.slice(0, 50).join(", ")}`);
+        // Log sample public_ids to diagnose naming
+        const samplePublicIds = allResources.map(r => r.public_id).slice(0, 20);
+        log.push(`Sample Cloudinary public_ids: ${samplePublicIds.join(", ")}`);
 
-        // Filter resources that belong to ESTRATEGIA_INTEGRAL_DE_SEGURIDAD_Y_CULTURA_DE_PAZ
-        // Folders might be like: "SISAT-ATP/21EBH0088T - ALFONSO DE LA MADRID.../..."
+        // Filter resources that belong to ESTRATEGIA_INTEGRAL_DE_SEGURIDAD_Y_CULTURA_DE_PAZ using public_id
         const targetResources = allResources.filter(r => {
-            const folder = (r.folder || "").toUpperCase();
-            return folder.includes("ESTRATEGIA") || 
-                   folder.includes("SEGURIDAD") || 
-                   folder.includes("CULTURA") || 
-                   folder.includes("PAZ");
+            const pubId = (r.public_id || "").toUpperCase();
+            return pubId.includes("ESTRATEGIA_INTEGRAL_DE_SEGURIDAD_Y_CULTURA_DE_PAZ") ||
+                   pubId.includes("ESTRATEGIA_INTEGRAL") ||
+                   pubId.includes("CULTURA_DE_PAZ");
         });
 
-        log.push(`Found ${targetResources.length} resources matching the target program folders.`);
+        log.push(`Found ${targetResources.length} resources matching the target program folders in public_id.`);
 
         const schools = await prisma.escuela.findMany();
         const schoolMap = new Map(schools.map(s => [s.cct.toUpperCase(), s]));
@@ -99,11 +97,11 @@ export async function GET(req: NextRequest) {
         let restoredCount = 0;
 
         for (const res of targetResources) {
-            const folder = res.folder || "";
-            // Find CCT in the folder path (e.g. "SISAT-ATP/21EBH0088T - ALFONSO DE LA MADRID.../...")
-            const cctMatch = folder.match(/([0-9]{2}[A-Z]{3}[0-9]{4}[A-Z]{1})/i);
+            const pubId = res.public_id || "";
+            // Find CCT in the public_id path (e.g. "SISAT-ATP/21EBH0088T - ALFONSO DE LA MADRID.../...")
+            const cctMatch = pubId.match(/([0-9]{2}[A-Z]{3}[0-9]{4}[A-Z]{1})/i);
             if (!cctMatch) {
-                log.push(`Could not extract CCT from folder path: ${folder}`);
+                log.push(`Could not extract CCT from public_id: ${pubId}`);
                 continue;
             }
 
