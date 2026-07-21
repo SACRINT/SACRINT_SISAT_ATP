@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
             const cct = cctMatch[1].toUpperCase();
             const school = schoolMap.get(cct);
             if (!school) {
-                log.push(`School with CCT ${cct} not found in DB (path: ${folder})`);
+                log.push(`School with CCT ${cct} not found in DB (path: ${pubId})`);
                 continue;
             }
 
