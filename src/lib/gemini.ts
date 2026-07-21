@@ -64,8 +64,9 @@ export async function callGemini(
     }
 
     console.log(`[orquestador-ia] Solicitud de IA. Proveedor: ${providerToUse}, Modelo: ${modelToUse}, Premium: ${usePremiumModel}`);
-    // Reactivar automáticamente llaves bloqueadas hace más de 5 minutos
-    const checkTime = new Date(Date.now() - 5 * 60 * 1000);
+    // Reactivar automáticamente llaves bloqueadas hace más de 60 minutos.
+    // Se usa 60 min (no 5 min) para respetar los límites de cuota diaria de cuentas gratuitas.
+    const checkTime = new Date(Date.now() - 60 * 60 * 1000);
     try {
         await prisma.apiKey.updateMany({
             where: {
@@ -146,15 +147,29 @@ export async function callGemini(
             return result;
         } catch (err: any) {
             const errStr = String(err?.message || "");
-            console.error(`[orquestador-ia] Fallo con la llave "${keyRecord.label}":`, errStr);
+            console.error(`[orquestador-ia] Fallo con la llave "${keyRecord.label}":`, errStr.substring(0, 300));
 
-            const isTransient = errStr.includes("(429)") || errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded") || errStr.toLowerCase().includes("resource_exhausted");
+            // Detectar error de cuota DIARIA agotada (distinto de rate limit por minuto)
+            // La cuota diaria (PerDay) indica que la cuenta free no tiene más llamadas hoy.
+            // Estas llaves deben desactivarse por varias horas, no seguir en el pool.
+            const isDailyQuotaExhausted = (errStr.includes("(429)") || errStr.toLowerCase().includes("resource_exhausted")) &&
+                (errStr.toLowerCase().includes("perday") || errStr.toLowerCase().includes("per_day") || errStr.toLowerCase().includes("free_tier_requests"));
+            const isPerMinuteRateLimit = (errStr.includes("(429)") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded")) && !isDailyQuotaExhausted;
+            const isTransient = errStr.includes("(503)") || errStr.includes("fetch failed") || isPerMinuteRateLimit;
             // Un error 404 de "model not available" NO es fallo de la llave, sino del modelo.
             // No penalizamos la llave — la cadena de fallback de modelos ya fue intentada dentro de callGeminiNative.
             const is404ModelError = errStr.includes("(404)") && (errStr.toLowerCase().includes("not found") || errStr.toLowerCase().includes("no longer available") || errStr.toLowerCase().includes("not available"));
 
-            if (!isTransient && !is404ModelError) {
-                // Incrementar contador de errores (solo para fallos permanentes reales)
+            if (isDailyQuotaExhausted) {
+                // Cuota diaria agotada: desactivar la llave inmediatamente para no perder tiempo.
+                // Se reactivará automáticamente en ~60 minutos (cuando resetéen las cuentas o al siguiente día).
+                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" tiene cuota DIARIA agotada. Desactivando por ~60 min para acelerar el pool...`);
+                await prisma.apiKey.update({
+                    where: { id: keyRecord.id },
+                    data: { errorCount: 10, active: false },
+                });
+            } else if (!isTransient && !is404ModelError) {
+                // Fallo permanente real: incrementar contador de errores
                 const newErrorCount = keyRecord.errorCount + 1;
                 const deactivate = newErrorCount >= 5;
 
@@ -162,7 +177,7 @@ export async function callGemini(
                     where: { id: keyRecord.id },
                     data: {
                         errorCount: newErrorCount,
-                        active: !deactivate, // Desactivar automáticamente tras 5 fallos consecutivos
+                        active: !deactivate,
                     },
                 });
 
@@ -170,14 +185,14 @@ export async function callGemini(
                     console.warn(`[orquestador-ia] Llave "${keyRecord.label}" desactivada automáticamente tras 5 fallos consecutivos.`);
                 }
             } else if (is404ModelError) {
-                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" no soporta el modelo solicitado (modelo no disponible en esa cuenta). La llave NO es penalizada. Pasando a siguiente llave...`);
+                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" no soporta el modelo solicitado. La llave NO es penalizada. Pasando a siguiente llave...`);
             } else {
-                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" experimentó rate limit (${errStr}). Pasando a siguiente llave...`);
+                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" experimentó rate limit por minuto. Pasando a siguiente llave...`);
             }
 
-            // Small stagger between key attempts to avoid hammering the same rate-limit window
+            // Stagger mínimo entre llaves para no saturar la ventana de rate-limit
             if (ki < keys.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 150));
             }
         }
     }
