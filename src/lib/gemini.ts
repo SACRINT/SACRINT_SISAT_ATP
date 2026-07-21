@@ -149,9 +149,12 @@ export async function callGemini(
             console.error(`[orquestador-ia] Fallo con la llave "${keyRecord.label}":`, errStr);
 
             const isTransient = errStr.includes("(429)") || errStr.includes("(503)") || errStr.includes("fetch failed") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("quota exceeded") || errStr.toLowerCase().includes("resource_exhausted");
+            // Un error 404 de "model not available" NO es fallo de la llave, sino del modelo.
+            // No penalizamos la llave — la cadena de fallback de modelos ya fue intentada dentro de callGeminiNative.
+            const is404ModelError = errStr.includes("(404)") && (errStr.toLowerCase().includes("not found") || errStr.toLowerCase().includes("no longer available") || errStr.toLowerCase().includes("not available"));
 
-            if (!isTransient) {
-                // Incrementar contador de errores (solo para fallos permanentes)
+            if (!isTransient && !is404ModelError) {
+                // Incrementar contador de errores (solo para fallos permanentes reales)
                 const newErrorCount = keyRecord.errorCount + 1;
                 const deactivate = newErrorCount >= 5;
 
@@ -166,6 +169,8 @@ export async function callGemini(
                 if (deactivate) {
                     console.warn(`[orquestador-ia] Llave "${keyRecord.label}" desactivada automáticamente tras 5 fallos consecutivos.`);
                 }
+            } else if (is404ModelError) {
+                console.warn(`[orquestador-ia] Llave "${keyRecord.label}" no soporta el modelo solicitado (modelo no disponible en esa cuenta). La llave NO es penalizada. Pasando a siguiente llave...`);
             } else {
                 console.warn(`[orquestador-ia] Llave "${keyRecord.label}" experimentó rate limit (${errStr}). Pasando a siguiente llave...`);
             }
@@ -344,12 +349,26 @@ async function callGeminiNative(
     pdfMimeType: string = "application/pdf",
     responseSchema?: any
 ): Promise<string> {
-    let targetModel = model;
-    // Force upgrade legacy/throttled models to the new 2.5 series to bypass limits and 503s
-    if (model.includes("flash") || model === "gemini-1.5-flash") targetModel = "gemini-2.5-flash";
-    if (model.includes("pro") || model === "gemini-1.5-pro") targetModel = "gemini-2.5-pro";
+    // Cadena de fallback de modelos: intenta 2.5-flash → 2.0-flash → 1.5-flash.
+    // Si el modelo configurado ya es 2.0 o 1.5, la cadena empieza desde ahí.
+    const buildModelChain = (requestedModel: string): string[] => {
+        if (requestedModel.includes("2.5") && requestedModel.includes("flash")) {
+            return ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+        }
+        if (requestedModel.includes("2.0") && requestedModel.includes("flash")) {
+            return ["gemini-2.0-flash", "gemini-1.5-flash"];
+        }
+        if (requestedModel.includes("flash")) {
+            return ["gemini-1.5-flash"];
+        }
+        if (requestedModel.includes("2.5") && requestedModel.includes("pro")) {
+            return ["gemini-2.5-pro", "gemini-1.5-pro"];
+        }
+        // Para cualquier otro modelo, usarlo directamente sin fallback
+        return [requestedModel];
+    };
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+    const modelChain = buildModelChain(model);
 
     const parts: any[] = [];
     if (pdfBuffer) {
@@ -380,24 +399,57 @@ async function callGeminiNative(
         },
     };
 
-    const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(20000), // Reduced to 20s to prevent Vercel 60s timeout during failovers
-    });
+    let lastError: Error | null = null;
+    for (const targetModel of modelChain) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+            console.log(`[gemini-native] Intentando modelo: ${targetModel}`);
 
-    if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Gemini API Error (${res.status}): ${errText}`);
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(20000), // 20s para no superar el límite de Vercel con failovers
+            });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                const err = new Error(`Gemini API Error (${res.status}): ${errText}`);
+                // Si es 404 de modelo no disponible, intentar con el siguiente de la cadena
+                const is404Model = res.status === 404 && (errText.toLowerCase().includes("not found") || errText.toLowerCase().includes("no longer available") || errText.toLowerCase().includes("not available"));
+                if (is404Model) {
+                    console.warn(`[gemini-native] Modelo "${targetModel}" no disponible en esta cuenta. Intentando modelo de respaldo...`);
+                    lastError = err;
+                    continue;
+                }
+                throw err;
+            }
+
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) {
+                throw new Error("Gemini no retornó texto de respuesta.");
+            }
+            if (targetModel !== modelChain[0]) {
+                console.log(`[gemini-native] ✅ Éxito con modelo de respaldo: ${targetModel}`);
+            }
+            return text;
+        } catch (err: any) {
+            // Si ya manejamos el 404 de modelo, continuar al siguiente
+            const errMsg = String(err?.message || "");
+            const is404Model = errMsg.includes("(404)") && (errMsg.toLowerCase().includes("not found") || errMsg.toLowerCase().includes("no longer available") || errMsg.toLowerCase().includes("not available"));
+            if (is404Model) {
+                console.warn(`[gemini-native] Modelo "${targetModel}" rechazado (404). Intentando siguiente modelo...`);
+                lastError = err;
+                continue;
+            }
+            // Cualquier otro error (429, red, etc.) se propaga inmediatamente al pool
+            throw err;
+        }
     }
 
-    const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-        throw new Error("Gemini no retornó texto de respuesta.");
-    }
-    return text;
+    // Si agotamos toda la cadena de modelos, lanzar el último error
+    throw lastError || new Error(`[gemini-native] Ningún modelo de la cadena [${modelChain.join(" → ")}] estuvo disponible para esta cuenta.`);
 }
 
 /**
