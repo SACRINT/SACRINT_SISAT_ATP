@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { v2 as cloudinary } from "cloudinary";
 
+export const dynamic = "force-dynamic";
+
 function getCloudinaryConfig() {
     cloudinary.config({
         cloud_name: process.env.CLDIN_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME,
