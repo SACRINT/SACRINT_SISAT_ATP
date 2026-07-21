@@ -25,6 +25,9 @@ interface ApiKeyData {
     active: boolean;
     errorCount: number;
     isPremium: boolean;
+    usageCount?: number;
+    lastUsedAt?: string;
+    lastModel?: string;
     createdAt: string;
 }
 
@@ -48,10 +51,10 @@ const PROVIDERS = [
 
 const MODELS: Record<string, { value: string; label: string }[]> = {
     gemini: [
-        { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Recomendado Estándar)" },
-        { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-        { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Recomendado Premium)" },
-        { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+        { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (Recomendado Estándar - 1,500 RPD)" },
+        { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Cuota Gratuita Limitada - 20 RPD)" },
+        { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Cuentas Pro / Pay-As-You-Go)" },
+        { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Recomendado Premium ATP)" },
         { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }
     ],
     openai: [
@@ -577,6 +580,8 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
                                         <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>Etiqueta</th>
                                         <th style={{ padding: "0.5rem 0.75rem", textAlign: "left" }}>Clave (Enmascarada)</th>
                                         <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Uso Exclusivo ATP</th>
+                                        <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>📊 Usos Exitosos</th>
+                                        <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>🤖 Último Modelo</th>
                                         <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Errores Recientes</th>
                                         <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Estado</th>
                                         <th style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>Acciones</th>
@@ -586,6 +591,10 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
                                     {keys.map(k => {
                                         const isInactiveDueToErrors = k.errorCount >= 5;
                                         const tRes = testResults[k.id];
+                                        const formattedLastUsed = k.lastUsedAt
+                                            ? new Date(k.lastUsedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
+                                            : "Sin uso";
+
                                         return (
                                             <>
                                                 <tr key={k.id} style={{ borderBottom: tRes?.message ? "none" : "1px solid var(--border)", background: isInactiveDueToErrors ? "#fff5f5" : "inherit" }}>
@@ -617,6 +626,23 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
                                                                 </span>
                                                             )}
                                                         </button>
+                                                    </td>
+                                                    <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                                                        <span style={{ fontWeight: 700, color: "var(--primary)" }}>
+                                                            {k.usageCount || 0}
+                                                        </span>
+                                                        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                                            {formattedLastUsed}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                                                        {k.lastModel ? (
+                                                            <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 600 }}>
+                                                                {k.lastModel}
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>-</span>
+                                                        )}
                                                     </td>
                                                     <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
                                                         {k.errorCount > 0 ? (
@@ -678,7 +704,7 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
                                                 </tr>
                                                 {tRes?.message && (
                                                     <tr style={{ borderBottom: "1px solid var(--border)", background: "#fafafa" }}>
-                                                        <td colSpan={7} style={{ padding: "0.35rem 0.75rem 0.5rem 0.75rem" }}>
+                                                        <td colSpan={9} style={{ padding: "0.35rem 0.75rem 0.5rem 0.75rem" }}>
                                                             <div style={{
                                                                 fontSize: "0.75rem",
                                                                 fontWeight: 600,

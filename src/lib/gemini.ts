@@ -135,15 +135,18 @@ export async function callGemini(
                 responseSchema
             );
 
-            // Al tener éxito, restablecer el contador de errores si era mayor a 0
-            if (keyRecord.errorCount > 0) {
-                await prisma.apiKey.update({
-                    where: { id: keyRecord.id },
-                    data: { errorCount: 0 },
-                });
-            }
+            // Al tener éxito, registrar estadísticas y restablecer contador de errores
+            await prisma.apiKey.update({
+                where: { id: keyRecord.id },
+                data: {
+                    errorCount: 0,
+                    usageCount: { increment: 1 },
+                    lastUsedAt: new Date(),
+                    lastModel: modelToUse,
+                },
+            });
 
-            console.log(`[orquestador-ia] Llamada exitosa con llave: ${keyRecord.label}`);
+            console.log(`[orquestador-ia] Llamada exitosa con llave "${keyRecord.label}" (Modelo: ${modelToUse})`);
             return result;
         } catch (err: any) {
             const errStr = String(err?.message || "");

@@ -507,6 +507,9 @@ model ApiKey {
   active      Boolean  @default(true)
   errorCount  Int      @default(0)
   isPremium   Boolean  @default(false)
+  usageCount  Int      @default(0)
+  lastUsedAt  DateTime?
+  lastModel   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
