@@ -367,22 +367,24 @@ async function callGeminiNative(
     pdfMimeType: string = "application/pdf",
     responseSchema?: any
 ): Promise<string> {
-    // Cadena de fallback de modelos: intenta 2.5-flash → 2.0-flash → 1.5-flash.
-    // Si el modelo configurado ya es 2.0 o 1.5, la cadena empieza desde ahí.
+    // Cadena de fallback de modelos inteligente e bidireccional:
+    // Permite que llaves Free o Pro usen su mejor modelo disponible automáticamente
     const buildModelChain = (requestedModel: string): string[] => {
+        if (requestedModel.includes("1.5") && requestedModel.includes("flash")) {
+            return ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
+        }
         if (requestedModel.includes("2.5") && requestedModel.includes("flash")) {
-            return ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+            return ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
         }
         if (requestedModel.includes("2.0") && requestedModel.includes("flash")) {
-            return ["gemini-2.0-flash", "gemini-1.5-flash"];
+            return ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"];
         }
         if (requestedModel.includes("flash")) {
-            return ["gemini-1.5-flash"];
+            return ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
         }
-        if (requestedModel.includes("2.5") && requestedModel.includes("pro")) {
+        if (requestedModel.includes("pro")) {
             return ["gemini-2.5-pro", "gemini-1.5-pro"];
         }
-        // Para cualquier otro modelo, usarlo directamente sin fallback
         return [requestedModel];
     };
 
@@ -433,10 +435,11 @@ async function callGeminiNative(
             if (!res.ok) {
                 const errText = await res.text();
                 const err = new Error(`Gemini API Error (${res.status}): ${errText}`);
-                // Si es 404 de modelo no disponible, intentar con el siguiente de la cadena
-                const is404Model = res.status === 404 && (errText.toLowerCase().includes("not found") || errText.toLowerCase().includes("no longer available") || errText.toLowerCase().includes("not available"));
-                if (is404Model) {
-                    console.warn(`[gemini-native] Modelo "${targetModel}" no disponible en esta cuenta. Intentando modelo de respaldo...`);
+                const isModelUnavailable = res.status === 404 || errText.toLowerCase().includes("not found") || errText.toLowerCase().includes("no longer available") || errText.toLowerCase().includes("not available");
+                const isRateLimit = res.status === 429 || res.status === 503;
+
+                if ((isModelUnavailable || isRateLimit) && modelChain.length > 1) {
+                    console.warn(`[gemini-native] Modelo "${targetModel}" falló (${res.status}). Probando modelo alternativo en esta misma llave...`);
                     lastError = err;
                     continue;
                 }
@@ -453,20 +456,19 @@ async function callGeminiNative(
             }
             return text;
         } catch (err: any) {
-            // Si ya manejamos el 404 de modelo, continuar al siguiente
             const errMsg = String(err?.message || "");
-            const is404Model = errMsg.includes("(404)") && (errMsg.toLowerCase().includes("not found") || errMsg.toLowerCase().includes("no longer available") || errMsg.toLowerCase().includes("not available"));
-            if (is404Model) {
-                console.warn(`[gemini-native] Modelo "${targetModel}" rechazado (404). Intentando siguiente modelo...`);
+            const isModelUnavailable = errMsg.includes("(404)") || errMsg.toLowerCase().includes("not found") || errMsg.toLowerCase().includes("no longer available") || errMsg.toLowerCase().includes("not available");
+            const isRateLimit = errMsg.includes("(429)") || errMsg.includes("(503)");
+
+            if ((isModelUnavailable || isRateLimit) && targetModel !== modelChain[modelChain.length - 1]) {
+                console.warn(`[gemini-native] Modelo "${targetModel}" rechazado. Intentando siguiente modelo de la cadena...`);
                 lastError = err;
                 continue;
             }
-            // Cualquier otro error (429, red, etc.) se propaga inmediatamente al pool
             throw err;
         }
     }
 
-    // Si agotamos toda la cadena de modelos, lanzar el último error
     throw lastError || new Error(`[gemini-native] Ningún modelo de la cadena [${modelChain.join(" → ")}] estuvo disponible para esta cuenta.`);
 }
 
