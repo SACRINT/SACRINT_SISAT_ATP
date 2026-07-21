@@ -13,7 +13,8 @@ import {
     ToggleRight, 
     Sparkles, 
     AlertCircle,
-    RotateCw
+    RotateCw,
+    FlaskConical
 } from "lucide-react";
 
 interface ApiKeyData {
@@ -100,6 +101,64 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
     const [newLabel, setNewLabel] = useState("");
     const [newKeyString, setNewKeyString] = useState("");
     const [newIsPremium, setNewIsPremium] = useState(false);
+
+    // Testing states
+    const [testResults, setTestResults] = useState<Record<string, { status: string; message: string; loading?: boolean }>>({});
+    const [testingAll, setTestingAll] = useState(false);
+
+    const handleTestSingleKey = async (id: string) => {
+        setTestResults(prev => ({ ...prev, [id]: { status: "", message: "", loading: true } }));
+        try {
+            const res = await fetch("/api/admin/api-keys/probar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setTestResults(prev => ({
+                    ...prev,
+                    [id]: { status: data.result.status, message: data.result.message, loading: false }
+                }));
+            } else {
+                setTestResults(prev => ({
+                    ...prev,
+                    [id]: { status: "ERROR", message: `⚠️ ${data.error || "Error al probar la llave"}`, loading: false }
+                }));
+            }
+        } catch (e: any) {
+            setTestResults(prev => ({
+                ...prev,
+                [id]: { status: "ERROR", message: `⚠️ Error de conexión: ${e.message}`, loading: false }
+            }));
+        }
+    };
+
+    const handleTestAllKeys = async () => {
+        setTestingAll(true);
+        try {
+            const res = await fetch("/api/admin/api-keys/probar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ testAll: true }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success && Array.isArray(data.results)) {
+                const newResults: Record<string, { status: string; message: string; loading?: boolean }> = {};
+                for (const r of data.results) {
+                    newResults[r.id] = { status: r.status, message: r.message, loading: false };
+                }
+                setTestResults(newResults);
+                showMsg("Diagnóstico de todas las llaves completado");
+            } else {
+                showMsg(data.error || "Error al diagnosticar llaves", "error");
+            }
+        } catch (e: any) {
+            showMsg(`Error de conexión: ${e.message}`, "error");
+        } finally {
+            setTestingAll(false);
+        }
+    };
 
     const showMsg = (text: string, type: "success" | "error" = "success") => {
         if (onSetMessage) {
@@ -475,9 +534,31 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
                 
                 {/* API Keys List */}
                 <div className="card" style={{ background: "white", padding: "1.5rem", borderRadius: "10px", border: "1px solid var(--border)" }}>
-                    <h3 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Key size={20} style={{ color: "var(--primary)" }} /> Pool de Claves de API registradas
-                    </h3>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                        <h3 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Key size={20} style={{ color: "var(--primary)" }} /> Pool de Claves de API registradas
+                        </h3>
+                        {keys.length > 0 && !readOnly && (
+                            <button
+                                onClick={handleTestAllKeys}
+                                disabled={testingAll}
+                                className="btn btn-outline"
+                                style={{
+                                    padding: "0.375rem 0.75rem",
+                                    fontSize: "0.8125rem",
+                                    fontWeight: 600,
+                                    borderColor: "var(--primary)",
+                                    color: "var(--primary)",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.375rem"
+                                }}
+                            >
+                                {testingAll ? <Loader2 size={14} className="spin" /> : <FlaskConical size={14} />}
+                                {testingAll ? "Probando llaves..." : "🧪 Probar Todas las Llaves"}
+                            </button>
+                        )}
+                    </div>
 
                     {keys.length === 0 ? (
                         <div style={{ padding: "2rem", textAlign: "center", background: "var(--bg-secondary)", borderRadius: "8px", border: "1px dashed var(--border)" }}>
@@ -504,82 +585,115 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
                                 <tbody>
                                     {keys.map(k => {
                                         const isInactiveDueToErrors = k.errorCount >= 5;
+                                        const tRes = testResults[k.id];
                                         return (
-                                            <tr key={k.id} style={{ borderBottom: "1px solid var(--border)", background: isInactiveDueToErrors ? "#fff5f5" : "inherit" }}>
-                                                <td style={{ padding: "0.5rem 0.75rem", fontWeight: 600 }}>
-                                                    {PROVIDERS.find(p => p.value === k.provider)?.label || k.provider}
-                                                </td>
-                                                <td style={{ padding: "0.5rem 0.75rem" }}>{k.label}</td>
-                                                <td style={{ padding: "0.5rem 0.75rem", fontFamily: "monospace" }}>{k.key}</td>
-                                                <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                                                    <button
-                                                        onClick={() => handleTogglePremiumKey(k.id, k.isPremium)}
-                                                        disabled={readOnly}
-                                                        style={{
-                                                            background: "none",
-                                                            border: "none",
-                                                            cursor: readOnly ? "default" : "pointer",
-                                                            display: "inline-flex",
-                                                            alignItems: "center"
-                                                        }}
-                                                        title={k.isPremium ? "Hacer de Uso General" : "Hacer de Uso Exclusivo ATP"}
-                                                    >
-                                                        {k.isPremium ? (
-                                                            <span style={{ background: "#fef9c3", color: "#854d0e", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 600 }}>
-                                                                ⭐ Sí
+                                            <>
+                                                <tr key={k.id} style={{ borderBottom: tRes?.message ? "none" : "1px solid var(--border)", background: isInactiveDueToErrors ? "#fff5f5" : "inherit" }}>
+                                                    <td style={{ padding: "0.5rem 0.75rem", fontWeight: 600 }}>
+                                                        {PROVIDERS.find(p => p.value === k.provider)?.label || k.provider}
+                                                    </td>
+                                                    <td style={{ padding: "0.5rem 0.75rem" }}>{k.label}</td>
+                                                    <td style={{ padding: "0.5rem 0.75rem", fontFamily: "monospace" }}>{k.key}</td>
+                                                    <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                                                        <button
+                                                            onClick={() => handleTogglePremiumKey(k.id, k.isPremium)}
+                                                            disabled={readOnly}
+                                                            style={{
+                                                                background: "none",
+                                                                border: "none",
+                                                                cursor: readOnly ? "default" : "pointer",
+                                                                display: "inline-flex",
+                                                                alignItems: "center"
+                                                            }}
+                                                            title={k.isPremium ? "Hacer de Uso General" : "Hacer de Uso Exclusivo ATP"}
+                                                        >
+                                                            {k.isPremium ? (
+                                                                <span style={{ background: "#fef9c3", color: "#854d0e", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 600 }}>
+                                                                    ⭐ Sí
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ background: "#f3f4f6", color: "#4b5563", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 500 }}>
+                                                                    General
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                    </td>
+                                                    <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                                                        {k.errorCount > 0 ? (
+                                                            <span style={{ color: k.errorCount >= 5 ? "var(--error)" : "var(--warning)", fontWeight: 700 }}>
+                                                                ⚠️ {k.errorCount} {k.errorCount >= 5 ? "(Bloqueada)" : ""}
                                                             </span>
                                                         ) : (
-                                                            <span style={{ background: "#f3f4f6", color: "#4b5563", padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 500 }}>
-                                                                General
-                                                            </span>
+                                                            <span style={{ color: "var(--success)" }}>0 (Sin errores)</span>
                                                         )}
-                                                    </button>
-                                                </td>
-                                                <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                                                    {k.errorCount > 0 ? (
-                                                        <span style={{ color: k.errorCount >= 5 ? "var(--error)" : "var(--warning)", fontWeight: 700 }}>
-                                                            ⚠️ {k.errorCount} {k.errorCount >= 5 ? "(Bloqueada)" : ""}
-                                                        </span>
-                                                    ) : (
-                                                        <span style={{ color: "var(--success)" }}>0 (Sin errores)</span>
-                                                    )}
-                                                </td>
-                                                <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                                                    <button
-                                                        onClick={() => handleToggleKey(k.id, k.active)}
-                                                        disabled={readOnly}
-                                                        style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", color: k.active ? "var(--success)" : "var(--text-muted)", display: "inline-flex" }}
-                                                    >
-                                                        {k.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                                                    </button>
-                                                </td>
-                                                <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
-                                                    {readOnly ? (
-                                                        <span style={{ color: "var(--text-muted)" }}>-</span>
-                                                    ) : (
-                                                        <div style={{ display: "flex", justifyContent: "center", gap: "0.25rem" }}>
-                                                            {k.errorCount > 0 && (
+                                                    </td>
+                                                    <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                                                        <button
+                                                            onClick={() => handleToggleKey(k.id, k.active)}
+                                                            disabled={readOnly}
+                                                            style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", color: k.active ? "var(--success)" : "var(--text-muted)", display: "inline-flex" }}
+                                                        >
+                                                            {k.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                                                        </button>
+                                                    </td>
+                                                    <td style={{ padding: "0.5rem 0.75rem", textAlign: "center" }}>
+                                                        {readOnly ? (
+                                                            <span style={{ color: "var(--text-muted)" }}>-</span>
+                                                        ) : (
+                                                            <div style={{ display: "flex", justifyContent: "center", gap: "0.25rem" }}>
                                                                 <button
-                                                                    onClick={() => handleResetErrorCount(k.id)}
+                                                                    onClick={() => handleTestSingleKey(k.id)}
+                                                                    disabled={tRes?.loading}
                                                                     className="btn btn-outline"
-                                                                    style={{ padding: "2px 6px", fontSize: "0.7rem", color: "var(--warning)", borderColor: "var(--warning)" }}
-                                                                    title="Reiniciar contador de errores y reactivar clave"
+                                                                    style={{ padding: "2px 8px", fontSize: "0.7rem", color: "var(--primary)", borderColor: "var(--primary)" }}
+                                                                    title="Probar validez y cuotas de esta llave"
                                                                 >
-                                                                    <RotateCw size={12} /> Reiniciar
+                                                                    {tRes?.loading ? (
+                                                                        <Loader2 size={12} className="spin" />
+                                                                    ) : (
+                                                                        <><FlaskConical size={12} /> Probar</>
+                                                                    )}
                                                                 </button>
-                                                            )}
-                                                            <button
-                                                                onClick={() => handleDeleteKey(k.id)}
-                                                                className="btn btn-outline"
-                                                                style={{ padding: "2px 6px", color: "var(--error)", borderColor: "var(--error)" }}
-                                                                title="Eliminar clave"
-                                                            >
-                                                                <Trash2 size={12} />
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
+                                                                {k.errorCount > 0 && (
+                                                                    <button
+                                                                        onClick={() => handleResetErrorCount(k.id)}
+                                                                        className="btn btn-outline"
+                                                                        style={{ padding: "2px 6px", fontSize: "0.7rem", color: "var(--warning)", borderColor: "var(--warning)" }}
+                                                                        title="Reiniciar contador de errores y reactivar clave"
+                                                                    >
+                                                                        <RotateCw size={12} /> Reiniciar
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => handleDeleteKey(k.id)}
+                                                                    className="btn btn-outline"
+                                                                    style={{ padding: "2px 6px", color: "var(--error)", borderColor: "var(--error)" }}
+                                                                    title="Eliminar clave"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                {tRes?.message && (
+                                                    <tr style={{ borderBottom: "1px solid var(--border)", background: "#fafafa" }}>
+                                                        <td colSpan={7} style={{ padding: "0.35rem 0.75rem 0.5rem 0.75rem" }}>
+                                                            <div style={{
+                                                                fontSize: "0.75rem",
+                                                                fontWeight: 600,
+                                                                padding: "0.35rem 0.75rem",
+                                                                borderRadius: "6px",
+                                                                background: tRes.status === "OK_PRO" ? "#ecfdf5" : tRes.status === "OK_FREE" ? "#f0fdf4" : tRes.status === "QUOTA_EXHAUSTED" ? "#fef2f2" : tRes.status === "RATE_LIMITED" ? "#fffbebe" : "#fef2f2",
+                                                                color: tRes.status === "OK_PRO" || tRes.status === "OK_FREE" ? "#15803d" : tRes.status === "QUOTA_EXHAUSTED" || tRes.status === "INVALID_KEY" ? "#b91c1c" : "#b45309",
+                                                                border: `1px solid ${tRes.status === "OK_PRO" || tRes.status === "OK_FREE" ? "#bbf7d0" : tRes.status === "QUOTA_EXHAUSTED" || tRes.status === "INVALID_KEY" ? "#fca5a5" : "#fde68a"}`
+                                                            }}>
+                                                                {tRes.message}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </>
                                         );
                                     })}
                                 </tbody>
