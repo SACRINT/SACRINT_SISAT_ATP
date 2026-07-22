@@ -74,10 +74,33 @@ Esta es la explicación profunda de cómo funcionan los motores invisibles de SI
     5. El backend intercepta el JSON y actualiza automáticamente los registros en la base de datos (ej. parchea el campo `clavePresupuestal` del modelo `Personal`).
 *   **Actualización**: Para añadir nuevos documentos al OCR, simplemente edita la constante `systemInstruction` y expande el `responseSchema` en `src/lib/ocr-validator.ts`.
 
-### 4.3 Sistema de Pre-Revisión Textual y Chat Contextual (RAG Híbrido)
-*   **Ubicación**: `src/lib/pre-revision.ts` y `/api/entregas/[id]/chat/route.ts`.
-*   **Funcionamiento (Pre-revisión)**: Al subir un DOCX/PDF largo (un plan escolar), el backend extrae el texto puro usando `pdfjs-dist` o `jszip`. Este texto masivo se envía al modelo LLM junto con la "PlantillaEvaluacion" (la rúbrica). La IA retorna un JSON con un dictamen estructurado ("Aprobado/Rechazado", "Faltan firmas", etc.).
-*   **Funcionamiento (Chat Asistente)**: Si el director abre el chat, la API recupera de Prisma el historial de mensajes (`ChatMensaje`) y el JSON de la Pre-revisión actual. Se concatena un System Prompt diciéndole a la IA: *"Eres un ATP. Este es el estado de la escuela, estas son las correcciones que le marcaste. Ayuda al director a resolverlas"*. La respuesta se transmite por *Streaming* (Server-Sent Events) hacia el frontend para una experiencia fluida.
+### 4.3 Sistema de Pre-Revisión Textual, Evaluación Multiparte y Chat Contextual
+*   **Ubicación**: `src/lib/pre-revision.ts`, `src/lib/gemini.ts` y `/api/entregas/[id]/chat/route.ts`.
+*   **Funcionamiento (Pre-revisión en 3 Partes)**: Al subir un DOCX/PDF largo (PMC, PAEC-PEC, Informe Final, etc.), el backend extrae el texto puro usando `pdfjs-dist` o `jszip`. Para evitar recortes por límite de ventana de contexto o timeouts de Vercel, el documento se divide en 3 secciones temáticas (Parte 1: Diagnóstico y Contexto, Parte 2: Objetivos y Metas, Parte 3: Acciones y Seguimiento). Cada parte se procesa mediante una llamada independiente al motor `callGemini`.
+*   **Funcionamiento (Chat Asistente)**: Si el director abre el chat, la API recupera de Prisma el historial de mensajes (`ChatMensaje`) y el JSON de la Pre-revisión actual. Se concatena un System Prompt pasándole la rúbrica y observaciones. La respuesta se procesa con la llave activa del pool y se transmite en tiempo real hacia el frontend.
+
+---
+
+### 4.6 Arquitectura de Orquestación de IA, Pool Multiproveedor y Rotación Round-Robin
+*   **Ubicación**: `src/lib/gemini.ts`, `src/app/admin/_componentes/GestionLlavesIA.tsx`, `/api/admin/api-keys/probar/route.ts` y `schema.prisma` (`ApiKey`, `PreRevisionConfig`).
+*   **Gestión del Pool de Llaves**: Permite registrar múltiples llaves de API (Google Gemini, OpenAI, MorphLLM, etc.) marcadas como activas/inactivas y de uso general o exclusivo ATP (Premium).
+*   **Rotación Determinista Round-Robin (`globalKeyPointerIndex`)**:
+    Para evitar saturar una sola API Key o agotar su límite por minuto (RPM) o por día (RPD), `callGemini` implementa un puntero anular en memoria (`globalKeyPointerIndex`). En cada llamada a la IA (incluso entre las partes 1, 2 y 3 de un mismo pre-dictamen), el motor calcula:
+    $$\text{startIndex} = \text{globalKeyPointerIndex} \pmod{\text{keys.length}}$$
+    Esto reordena el anillo de llaves para iniciar en la siguiente llave de la lista de manera matemática y secuencial. Por ejemplo, en una evaluación de 3 partes:
+    - **Parte 1**: Consume la **Llave #1** y avanza el puntero global a 2.
+    - **Parte 2**: Consume la **Llave #2** y avanza el puntero global a 3.
+    - **Parte 3**: Consume la **Llave #3** y avanza el puntero global a 1.
+*   **Catálogo de Modelos de Alta Cuota (500 RPD)**:
+    El sistema prioriza y soporta modelos oficiales de alta cuota gratuita de Google AI Studio:
+    - **`Gemini 3.5 Flash Lite`** (`gemini-3.5-flash-lite`): 15 RPM | 250K TPM | **500 solicitudes/día (RPD)**.
+    - **`Gemini 3.1 Flash Lite`** (`gemini-3.1-flash-lite`): 15 RPM | 250K TPM | **500 solicitudes/día (RPD)**.
+    - **`Gemini 1.5 Flash`**: Modelo legacy con fallback automático a modelos Lite en caso de recibir respuesta HTTP 404 (modelo descontinuado/no encontrado).
+    - **`Gemini 2.5 Flash`**: 5 RPM | 20 RPD (usado para cuentas Pro / Pay-As-You-Go).
+*   **Sistema de Diagnóstico y Salud de Llaves (`/api/admin/api-keys/probar`)**:
+    Permite probar individualmente o en lote todas las llaves registradas. El probador ejecuta un barrido en orden por el catálogo de modelos oficiales (`2.5-flash` ➔ `3.5-flash-lite` ➔ `3.1-flash-lite` ➔ `2.5-flash-lite` ➔ `1.5-flash`). Si detecta respuesta `200 OK`, marca la llave como activa y reporta cuál modelo específico soporta esa cuenta, evitando falsos positivos de cuota agotada.
+*   **Failover y Reactivación Automática**:
+    Si una llave devuelve un error HTTP 429 transitorio (límite por minuto alcanzado), el sistema la salta en el bucle y prueba la siguiente llave rotada sin desactivarla en la base de datos. Si una llave sufre más de 5 errores graves consecutivos (ej. clave borrada o inválida), se desactiva temporalmente y se reactiva automáticamente tras 60 minutos.
 
 ### 4.4 Generador de Códigos CVD y Firmas SHA-256 (Trazabilidad)
 *   **Ubicación**: Lógica embebida al aprobar documentos y en la visualización de formatos.
