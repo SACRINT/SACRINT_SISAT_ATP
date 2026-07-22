@@ -18,101 +18,92 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
     const key = apiKey.trim();
 
     if (provider === "gemini" || !provider) {
-        // 1. Probar gemini-1.5-flash primero (modelo estándar de producción)
-        const url15 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
         const payload = {
             contents: [{ parts: [{ text: "Responde OK" }] }]
         };
 
-        try {
-            const res15 = await fetch(url15, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(10000)
-            });
+        // Lista de modelos oficiales disponibles en Google AI Studio (del más reciente al más compatible)
+        const modelsToTest = [
+            "gemini-2.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-2.5-flash-lite",
+            "gemini-1.5-flash"
+        ];
 
-            if (res15.ok) {
-                // Probar adicionalmente gemini-2.5-flash para saber si es cuenta Pro
-                let isPro = false;
-                try {
-                    const url25 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-                    const res25 = await fetch(url25, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload),
-                        signal: AbortSignal.timeout(5000)
-                    });
-                    if (res25.ok) isPro = true;
-                } catch (e) {
-                    // ignorar
-                }
+        let lastErrText = "";
+        let lastStatus = 0;
 
-                return {
-                    label,
-                    provider: "gemini",
-                    status: isPro ? "OK_PRO" : "OK_FREE",
-                    message: isPro 
-                        ? "🟢 Excelente: Llave activa (Cuenta Pro / Soporta todos los modelos)"
-                        : "🟢 Activa: Llave funcional en Plan Gratuito (Soporta Gemini 1.5 Flash)",
-                    modelsSupported: isPro ? ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"] : ["gemini-1.5-flash"]
-                };
-            }
+        for (const testModel of modelsToTest) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${key}`;
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(8000)
+                });
 
-            const errText15 = await res15.text();
-
-            if (res15.status === 429 || errText15.toLowerCase().includes("resource_exhausted") || errText15.toLowerCase().includes("quota exceeded")) {
-                const isDaily = errText15.toLowerCase().includes("perday") || errText15.toLowerCase().includes("per_day") || errText15.toLowerCase().includes("free_tier_requests");
-                if (isDaily) {
+                if (res.ok) {
+                    const isPro = testModel === "gemini-2.5-flash";
                     return {
                         label,
                         provider: "gemini",
-                        status: "QUOTA_EXHAUSTED",
-                        message: "🔴 Cuota Diaria Agotada: Esta cuenta gratuita agotó sus solicitudes por hoy.",
-                        modelsSupported: [],
-                        rawError: errText15
+                        status: isPro ? "OK_PRO" : "OK_FREE",
+                        message: isPro 
+                            ? `🟢 Excelente: Llave activa (Cuenta Pro / Soporta ${testModel})`
+                            : `🟢 Activa: Llave funcional en Plan Gratuito (Modelo: ${testModel})`,
+                        modelsSupported: [testModel]
                     };
                 }
-                return {
-                    label,
-                    provider: "gemini",
-                    status: "RATE_LIMITED",
-                    message: "🟡 Saturada por minuto: Límite por minuto alcanzado. Disponible en ~45s.",
-                    modelsSupported: ["gemini-1.5-flash"],
-                    rawError: errText15
-                };
+
+                lastStatus = res.status;
+                lastErrText = await res.text();
+
+                // Si es 404 (el modelo no existe en esta versión/cuenta), probar el siguiente modelo de la lista
+                const is404 = res.status === 404 || lastErrText.toLowerCase().includes("not found");
+                if (is404) {
+                    continue;
+                }
+
+                // Si es 429 (límite o cuota), analizar si es diario o por minuto
+                if (res.status === 429 || lastErrText.toLowerCase().includes("resource_exhausted") || lastErrText.toLowerCase().includes("quota exceeded")) {
+                    const isDaily = lastErrText.toLowerCase().includes("perday") || lastErrText.toLowerCase().includes("per_day") || lastErrText.toLowerCase().includes("free_tier_requests");
+                    return {
+                        label,
+                        provider: "gemini",
+                        status: isDaily ? "QUOTA_EXHAUSTED" : "RATE_LIMITED",
+                        message: isDaily 
+                            ? "🔴 Cuota Diaria Agotada: Esta cuenta gratuita agotó sus solicitudes por hoy."
+                            : "🟡 Saturada por minuto: Límite por minuto alcanzado. Disponible en ~45s.",
+                        modelsSupported: [testModel],
+                        rawError: lastErrText
+                    };
+                }
+
+                if (res.status === 400 || res.status === 403 || lastErrText.toLowerCase().includes("api_key_invalid")) {
+                    return {
+                        label,
+                        provider: "gemini",
+                        status: "INVALID_KEY",
+                        message: "❌ Clave Inválida: La API key es incorrecta o fue borrada en Google Cloud.",
+                        modelsSupported: [],
+                        rawError: lastErrText
+                    };
+                }
+            } catch (e: any) {
+                lastErrText = e.message;
             }
-
-            if (res15.status === 400 || res15.status === 403 || errText15.toLowerCase().includes("api_key_invalid")) {
-                return {
-                    label,
-                    provider: "gemini",
-                    status: "INVALID_KEY",
-                    message: "❌ Clave Inválida: La API key es incorrecta o fue borrada en Google Cloud.",
-                    modelsSupported: [],
-                    rawError: errText15
-                };
-            }
-
-            return {
-                label,
-                provider: "gemini",
-                status: "ERROR",
-                message: `⚠️ Error de API (${res15.status}): ${errText15.substring(0, 150)}`,
-                modelsSupported: [],
-                rawError: errText15
-            };
-
-        } catch (e: any) {
-            return {
-                label,
-                provider: "gemini",
-                status: "ERROR",
-                message: `⚠️ Error de conexión/timeout: ${e.message}`,
-                modelsSupported: [],
-                rawError: e.message
-            };
         }
+
+        return {
+            label,
+            provider: "gemini",
+            status: "ERROR",
+            message: `⚠️ Error de API (${lastStatus || 404}): ${lastErrText.substring(0, 150)}`,
+            modelsSupported: [],
+            rawError: lastErrText
+        };
     } else if (provider === "morphllm" || provider === "openai" || provider === "openrouter" || provider === "deepseek") {
         const endpoints: Record<string, { url: string; model: string }> = {
             morphllm: { url: "https://api.morphllm.com/v1/chat/completions", model: "morph-glm52-744b" },

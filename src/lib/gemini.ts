@@ -355,9 +355,12 @@ async function callGeminiNative(
     pdfMimeType: string = "application/pdf",
     responseSchema?: any
 ): Promise<string> {
-    // Respetar ESTRICTAMENTE el modelo seleccionado por el administrador en la plataforma.
-    // NUNCA debemos probar modelos de cuota restrictiva (ej. 2.0-flash o 2.5-flash) a menos que hayan sido explícitamente configurados.
+    // Respetar el modelo seleccionado por el administrador. Si el modelo gemini-1.5-flash
+    // fue descontinuado en la API v1beta de Google, probar automáticamente gemini-3.5-flash-lite y gemini-3.1-flash-lite (500 RPD).
     const buildModelChain = (requestedModel: string): string[] => {
+        if (requestedModel === "gemini-1.5-flash") {
+            return ["gemini-1.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+        }
         return [requestedModel];
     };
 
