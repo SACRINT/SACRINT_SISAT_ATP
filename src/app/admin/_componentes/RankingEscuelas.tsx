@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Trophy, Medal, AlertCircle, Download, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Trophy, Medal, AlertCircle, Download, Loader2, RotateCw } from "lucide-react";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle } from "docx";
 
 interface RankingItem {
@@ -25,21 +25,34 @@ interface Props {
 export default function RankingEscuelas({ cicloNombre, isDirector = false }: Props) {
     const [ranking, setRanking] = useState<RankingItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetch("/api/admin/ranking")
+    const fetchRanking = useCallback((isManual = false) => {
+        if (isManual) setRefreshing(true);
+        fetch(`/api/admin/ranking?t=${Date.now()}`, { cache: "no-store" })
             .then(r => r.json())
             .then(data => {
                 if (data.error) throw new Error(data.error);
                 setRanking(data);
                 setLoading(false);
+                setRefreshing(false);
             })
             .catch(err => {
                 setError(err.message);
                 setLoading(false);
+                setRefreshing(false);
             });
     }, []);
+
+    useEffect(() => {
+        fetchRanking();
+        // Auto-refrescar automáticamente cada 15 segundos para reflejar aprobaciones en tiempo real
+        const interval = setInterval(() => {
+            fetchRanking();
+        }, 15000);
+        return () => clearInterval(interval);
+    }, [fetchRanking]);
 
     const getMedalIcon = (medalla: string) => {
         switch (medalla) {
@@ -188,25 +201,47 @@ export default function RankingEscuelas({ cicloNombre, isDirector = false }: Pro
                         Monitorea el desempeño de las escuelas. Las medallas se otorgan por cumplimiento y puntualidad.
                     </p>
                 </div>
-                {!isDirector && (
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                     <button
-                        onClick={handleDownloadReport}
+                        onClick={() => fetchRanking(true)}
+                        disabled={refreshing}
                         style={{
                             padding: "0.5rem 1rem",
-                            background: "var(--primary)",
-                            color: "white",
-                            border: "none",
+                            background: "var(--bg-secondary)",
+                            color: "var(--text-primary)",
+                            border: "1px solid var(--border)",
                             borderRadius: "8px",
                             fontWeight: 600,
-                            cursor: "pointer",
+                            cursor: refreshing ? "not-allowed" : "pointer",
                             display: "flex",
                             alignItems: "center",
                             gap: "0.5rem"
                         }}
+                        title="Refrescar datos del ranking en tiempo real"
                     >
-                        <Download size={18} /> Descargar Reporte Final (Word)
+                        <RotateCw size={16} className={refreshing ? "spin" : ""} />
+                        {refreshing ? "Actualizando..." : "Actualizar Ranking"}
                     </button>
-                )}
+                    {!isDirector && (
+                        <button
+                            onClick={handleDownloadReport}
+                            style={{
+                                padding: "0.5rem 1rem",
+                                background: "var(--primary)",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "8px",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.5rem"
+                            }}
+                        >
+                            <Download size={18} /> Descargar Reporte Final (Word)
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="card" style={{ padding: "0" }}>

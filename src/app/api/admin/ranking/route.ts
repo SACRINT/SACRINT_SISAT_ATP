@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
     const session = await auth();
     const role = (session?.user as any)?.role;
@@ -25,7 +28,6 @@ export async function GET() {
                     where: {
                         periodoEntrega: {
                             cicloEscolarId: cicloActivo.id,
-                            activo: true
                         }
                     },
                     include: {
