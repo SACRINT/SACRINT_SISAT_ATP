@@ -83,16 +83,18 @@ export async function callGemini(
         console.error("[orquestador-ia] Error reactivando llaves bloqueadas automáticamente:", err);
     }
 
-    // 2. Obtener llaves de API activas para el proveedor seleccionado
+    // 2. Obtener llaves de API activas ordenadas por menor contador de errores y LUEGO por la llave que lleve MÁS TIEMPO descansando (lastUsedAt: asc)
+    // Esto garantiza un balanceo Round-Robin perfecto entre las 3 partes de cada pre-dictamen.
     const keys = await prisma.apiKey.findMany({
         where: {
             provider: providerToUse,
             active: true,
             isPremium: usePremiumModel ? undefined : false, // para uso estándar de directores, no usar llaves premium
         },
-        orderBy: {
-            errorCount: "asc", // Priorizar llaves con menos errores recientes
-        },
+        orderBy: [
+            { errorCount: "asc" },
+            { lastUsedAt: "asc" }, // Priorizar la llave que lleva más tiempo sin usarse
+        ],
     });
 
     console.log(`[orquestador-ia] Encontradas ${keys.length} llaves activas en base de datos para el proveedor ${providerToUse}.`);
@@ -353,24 +355,9 @@ async function callGeminiNative(
     pdfMimeType: string = "application/pdf",
     responseSchema?: any
 ): Promise<string> {
-    // Cadena de fallback de modelos inteligente e bidireccional:
-    // Permite que llaves Free o Pro usen su mejor modelo disponible automáticamente
+    // Respetar ESTRICTAMENTE el modelo seleccionado por el administrador en la plataforma.
+    // NUNCA debemos probar modelos de cuota restrictiva (ej. 2.0-flash o 2.5-flash) a menos que hayan sido explícitamente configurados.
     const buildModelChain = (requestedModel: string): string[] => {
-        if (requestedModel.includes("1.5") && requestedModel.includes("flash")) {
-            return ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
-        }
-        if (requestedModel.includes("2.5") && requestedModel.includes("flash")) {
-            return ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
-        }
-        if (requestedModel.includes("2.0") && requestedModel.includes("flash")) {
-            return ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"];
-        }
-        if (requestedModel.includes("flash")) {
-            return ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
-        }
-        if (requestedModel.includes("pro")) {
-            return ["gemini-2.5-pro", "gemini-1.5-pro"];
-        }
         return [requestedModel];
     };
 
