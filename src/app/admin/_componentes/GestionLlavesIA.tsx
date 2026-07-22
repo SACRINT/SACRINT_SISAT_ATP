@@ -53,8 +53,12 @@ const PROVIDERS = [
 const MODELS: Record<string, { value: string; label: string }[]> = {
     gemini: [
         { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (Recomendado Estándar - 1,500 RPD)" },
+        { value: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite (Nuevo - 500 RPD / 15 RPM)" },
+        { value: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (Nuevo - 500 RPD / 15 RPM)" },
         { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Cuota Gratuita Limitada - 20 RPD)" },
-        { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Cuentas Pro / Pay-As-You-Go)" },
+        { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Cuentas Pro / 20 RPD Free)" },
+        { value: "gemini-3.5-flash", label: "Gemini 3.5 Flash (Cuentas Pro / 20 RPD Free)" },
+        { value: "gemini-3.6-flash", label: "Gemini 3.6 Flash (Cuentas Pro / 20 RPD Free)" },
         { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Recomendado Premium ATP)" },
         { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }
     ],

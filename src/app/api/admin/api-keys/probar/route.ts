@@ -18,111 +18,79 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
     const key = apiKey.trim();
 
     if (provider === "gemini" || !provider) {
-        // 1. Probar gemini-2.5-flash primero (para detectar cuentas Pro/Pay-as-you-go)
-        const url25 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+        // 1. Probar gemini-1.5-flash primero (modelo estándar de producción)
+        const url15 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
         const payload = {
             contents: [{ parts: [{ text: "Responde OK" }] }]
         };
 
         try {
-            const res25 = await fetch(url25, {
+            const res15 = await fetch(url15, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
                 signal: AbortSignal.timeout(10000)
             });
 
-            if (res25.ok) {
+            if (res15.ok) {
+                // Probar adicionalmente gemini-2.5-flash para saber si es cuenta Pro
+                let isPro = false;
+                try {
+                    const url25 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+                    const res25 = await fetch(url25, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    if (res25.ok) isPro = true;
+                } catch (e) {
+                    // ignorar
+                }
+
                 return {
                     label,
                     provider: "gemini",
-                    status: "OK_PRO",
-                    message: "🟢 Excelente: Llave activa (Cuenta Pro / Soporta 2.5-Flash y 2.0-Flash)",
-                    modelsSupported: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+                    status: isPro ? "OK_PRO" : "OK_FREE",
+                    message: isPro 
+                        ? "🟢 Excelente: Llave activa (Cuenta Pro / Soporta todos los modelos)"
+                        : "🟢 Activa: Llave funcional en Plan Gratuito (Soporta Gemini 1.5 Flash)",
+                    modelsSupported: isPro ? ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"] : ["gemini-1.5-flash"]
                 };
             }
 
-            const errText25 = await res25.text();
+            const errText15 = await res15.text();
 
-            // Si es 404 (Model no disponible para esta cuenta), la cuenta es Free. Probamos 2.0-flash.
-            const is404NotAvailable = res25.status === 404 || errText25.toLowerCase().includes("not found") || errText25.toLowerCase().includes("no longer available");
-
-            if (is404NotAvailable) {
-                // Probar gemini-2.0-flash para verificar si la cuenta gratuita tiene cuota libre hoy
-                const url20 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-                const res20 = await fetch(url20, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                    signal: AbortSignal.timeout(10000)
-                });
-
-                if (res20.ok) {
+            if (res15.status === 429 || errText15.toLowerCase().includes("resource_exhausted") || errText15.toLowerCase().includes("quota exceeded")) {
+                const isDaily = errText15.toLowerCase().includes("perday") || errText15.toLowerCase().includes("per_day") || errText15.toLowerCase().includes("free_tier_requests");
+                if (isDaily) {
                     return {
                         label,
                         provider: "gemini",
-                        status: "OK_FREE",
-                        message: "🟢 Activa: Llave funcional en Plan Gratuito (Soporta 2.0-Flash)",
-                        modelsSupported: ["gemini-2.0-flash", "gemini-1.5-flash"]
-                    };
-                }
-
-                const errText20 = await res20.text();
-
-                // Analizar el error de 2.0-flash
-                if (res20.status === 429 || errText20.toLowerCase().includes("resource_exhausted") || errText20.toLowerCase().includes("quota exceeded")) {
-                    const isDaily = errText20.toLowerCase().includes("perday") || errText20.toLowerCase().includes("per_day") || errText20.toLowerCase().includes("free_tier_requests");
-                    if (isDaily) {
-                        return {
-                            label,
-                            provider: "gemini",
-                            status: "QUOTA_EXHAUSTED",
-                            message: "🔴 Cuota Diaria Agotada: Esta cuenta gratuita agotó sus solicitudes por hoy.",
-                            modelsSupported: [],
-                            rawError: errText20
-                        };
-                    }
-                    return {
-                        label,
-                        provider: "gemini",
-                        status: "RATE_LIMITED",
-                        message: "🟡 Saturada por minuto: Límite de velocidad por minuto alcanzado. Disponible en ~45s.",
-                        modelsSupported: ["gemini-2.0-flash"],
-                        rawError: errText20
-                    };
-                }
-
-                if (res20.status === 400 || res20.status === 403 || errText20.toLowerCase().includes("api_key_invalid")) {
-                    return {
-                        label,
-                        provider: "gemini",
-                        status: "INVALID_KEY",
-                        message: "❌ Clave Inválida: La API key es incorrecta o fue borrada en Google Cloud.",
+                        status: "QUOTA_EXHAUSTED",
+                        message: "🔴 Cuota Diaria Agotada: Esta cuenta gratuita agotó sus solicitudes por hoy.",
                         modelsSupported: [],
-                        rawError: errText20
+                        rawError: errText15
                     };
                 }
-
                 return {
                     label,
                     provider: "gemini",
-                    status: "ERROR",
-                    message: `⚠️ Error de API (${res20.status}): ${errText20.substring(0, 150)}`,
-                    modelsSupported: [],
-                    rawError: errText20
+                    status: "RATE_LIMITED",
+                    message: "🟡 Saturada por minuto: Límite por minuto alcanzado. Disponible en ~45s.",
+                    modelsSupported: ["gemini-1.5-flash"],
+                    rawError: errText15
                 };
             }
 
-            // Si 2.5-flash dio otro error que no fue 404 (ej. 429, 400)
-            if (res25.status === 429 || errText25.toLowerCase().includes("resource_exhausted")) {
-                const isDaily = errText25.toLowerCase().includes("perday") || errText25.toLowerCase().includes("free_tier_requests");
+            if (res15.status === 400 || res15.status === 403 || errText15.toLowerCase().includes("api_key_invalid")) {
                 return {
                     label,
                     provider: "gemini",
-                    status: isDaily ? "QUOTA_EXHAUSTED" : "RATE_LIMITED",
-                    message: isDaily ? "🔴 Cuota Diaria Agotada" : "🟡 Saturada por minuto",
+                    status: "INVALID_KEY",
+                    message: "❌ Clave Inválida: La API key es incorrecta o fue borrada en Google Cloud.",
                     modelsSupported: [],
-                    rawError: errText25
+                    rawError: errText15
                 };
             }
 
@@ -130,9 +98,9 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
                 label,
                 provider: "gemini",
                 status: "ERROR",
-                message: `⚠️ Error (${res25.status}): ${errText25.substring(0, 150)}`,
+                message: `⚠️ Error de API (${res15.status}): ${errText15.substring(0, 150)}`,
                 modelsSupported: [],
-                rawError: errText25
+                rawError: errText15
             };
 
         } catch (e: any) {
