@@ -13,6 +13,9 @@ export interface GeminiResponse {
  * Helper to call AI models (Gemini, Claude, OpenAI, DeepSeek, OpenRouter)
  * with automatic rotative API Key pool and failover.
  */
+// Puntero global en memoria para garantizar la rotación estricta Round-Robin entre llamadas consecutivas (Parte 1, Parte 2, Parte 3)
+let globalKeyPointerIndex = 0;
+
 export async function callGemini(
     systemInstruction: string,
     prompt: string,
@@ -65,7 +68,6 @@ export async function callGemini(
 
     console.log(`[orquestador-ia] Solicitud de IA. Proveedor: ${providerToUse}, Modelo: ${modelToUse}, Premium: ${usePremiumModel}`);
     // Reactivar automáticamente llaves bloqueadas hace más de 60 minutos.
-    // Se usa 60 min (no 5 min) para respetar los límites de cuota diaria de cuentas gratuitas.
     const checkTime = new Date(Date.now() - 60 * 60 * 1000);
     try {
         await prisma.apiKey.updateMany({
@@ -83,18 +85,16 @@ export async function callGemini(
         console.error("[orquestador-ia] Error reactivando llaves bloqueadas automáticamente:", err);
     }
 
-    // 2. Obtener llaves de API activas ordenadas por menor contador de errores y LUEGO por la llave que lleve MÁS TIEMPO descansando (lastUsedAt: asc)
-    // Esto garantiza un balanceo Round-Robin perfecto entre las 3 partes de cada pre-dictamen.
+    // 2. Obtener llaves de API activas para el proveedor seleccionado
     const keys = await prisma.apiKey.findMany({
         where: {
             provider: providerToUse,
             active: true,
-            isPremium: usePremiumModel ? undefined : false, // para uso estándar de directores, no usar llaves premium
+            isPremium: usePremiumModel ? undefined : false,
         },
-        orderBy: [
-            { errorCount: "asc" },
-            { lastUsedAt: "asc" }, // Priorizar la llave que lleva más tiempo sin usarse
-        ],
+        orderBy: {
+            createdAt: "asc",
+        },
     });
 
     console.log(`[orquestador-ia] Encontradas ${keys.length} llaves activas en base de datos para el proveedor ${providerToUse}.`);
@@ -121,9 +121,16 @@ export async function callGemini(
         );
     }
 
-    // 4. Intentar realizar la llamada rotando las llaves del pool
-    for (let ki = 0; ki < keys.length; ki++) {
-        const keyRecord = keys[ki];
+    // 4. Puntero Round-Robin determinista: Reordenar el arreglo para iniciar en el siguiente índice de la rueda
+    const startIndex = globalKeyPointerIndex % keys.length;
+    globalKeyPointerIndex = (globalKeyPointerIndex + 1) % keys.length; // Avanzar el puntero para la siguiente llamada
+    const rotatedKeys = [...keys.slice(startIndex), ...keys.slice(0, startIndex)];
+
+    console.log(`[orquestador-ia] 🔄 Rotación Round-Robin inició en la llave: "${rotatedKeys[0].label}" (Posición ${startIndex + 1}/${keys.length})`);
+
+    // 5. Intentar realizar la llamada probando las llaves en el orden rotado
+    for (let ki = 0; ki < rotatedKeys.length; ki++) {
+        const keyRecord = rotatedKeys[ki];
         try {
             console.log(`[orquestador-ia] Intentando llamada con llave "${keyRecord.label}" (${ki + 1}/${keys.length})`);
             const result = await executeRequestWithRetry(
