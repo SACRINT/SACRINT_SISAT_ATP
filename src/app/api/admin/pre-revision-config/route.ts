@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const updateData: any = {};
     if (body.activoDirectores !== undefined) updateData.activoDirectores = body.activoDirectores;
+    if (body.mantenimiento !== undefined) updateData.mantenimiento = body.mantenimiento;
     if (body.limiteIntentos !== undefined) updateData.limiteIntentos = Number(body.limiteIntentos);
     if (body.providerDefault !== undefined) updateData.providerDefault = body.providerDefault;
     if (body.modelDefault !== undefined) updateData.modelDefault = body.modelDefault;
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
         create: {
             id: "singleton",
             activoDirectores: body.activoDirectores ?? false,
+            mantenimiento: body.mantenimiento ?? false,
             limiteIntentos: body.limiteIntentos !== undefined ? Number(body.limiteIntentos) : 3,
             providerDefault: body.providerDefault ?? "gemini",
             modelDefault: body.modelDefault ?? "gemini-2.5-flash",

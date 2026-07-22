@@ -33,6 +33,7 @@ interface ApiKeyData {
 
 interface ConfigData {
     activoDirectores: boolean;
+    mantenimiento?: boolean;
     limiteIntentos: number;
     providerDefault: string;
     modelDefault: string;
@@ -361,6 +362,25 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
     };
 
 
+    const handleToggleMantenimiento = async (newValue: boolean) => {
+        try {
+            const res = await fetch("/api/admin/pre-revision-config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mantenimiento: newValue }),
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                setConfig(updated);
+                showMsg(newValue ? "🚧 Modo Mantenimiento ACTIVADO. Solo Administrador y Escuela de Prueba tienen acceso." : "✅ Modo Mantenimiento DESACTIVADO. Plataforma accesible para todas las escuelas.");
+            } else {
+                showMsg("Error al cambiar modo mantenimiento", "error");
+            }
+        } catch (e) {
+            showMsg("Error de conexión al cambiar modo mantenimiento", "error");
+        }
+    };
+
     if (loading) {
         return (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "300px" }}>
@@ -373,6 +393,71 @@ export default function GestionLlavesIA({ onSetMessage, readOnly = false }: { on
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", maxWidth: "1200px", margin: "0 auto" }}>
             
+            {/* Tarjeta de Control de Modo Mantenimiento */}
+            <div className="card" style={{
+                padding: "1.25rem 1.5rem",
+                borderRadius: "12px",
+                background: config.mantenimiento 
+                    ? "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)" 
+                    : "var(--bg-surface)",
+                border: config.mantenimiento 
+                    ? "2px solid #f97316" 
+                    : "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "1.5rem",
+                flexWrap: "wrap",
+                boxShadow: config.mantenimiento ? "0 4px 12px rgba(249, 115, 22, 0.15)" : "none"
+            }}>
+                <div style={{ flex: 1, minWidth: "280px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: "1.25rem" }}>🚧</span>
+                        <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: config.mantenimiento ? "#c2410c" : "var(--text-primary)" }}>
+                            Modo Mantenimiento de la Plataforma
+                        </h3>
+                        {config.mantenimiento && (
+                            <span style={{
+                                padding: "0.2rem 0.6rem", borderRadius: "9999px",
+                                background: "#ea580c", color: "white",
+                                fontSize: "0.75rem", fontWeight: 700
+                            }}>
+                                ACTIVADO
+                            </span>
+                        )}
+                    </div>
+                    <p style={{ margin: "0.4rem 0 0", fontSize: "0.85rem", color: config.mantenimiento ? "#9a3412" : "var(--text-muted)", lineHeight: 1.4 }}>
+                        Al activar el mantenimiento, el acceso regular queda suspendido para todas las escuelas. 
+                        <strong> Únicamente los Administradores y la Escuela de Prueba podrán acceder y operar.</strong>
+                    </p>
+                </div>
+
+                {!readOnly && (
+                    <button
+                        type="button"
+                        onClick={() => handleToggleMantenimiento(!config.mantenimiento)}
+                        style={{
+                            padding: "0.6rem 1.25rem",
+                            borderRadius: "10px",
+                            fontWeight: 700,
+                            fontSize: "0.875rem",
+                            cursor: "pointer",
+                            border: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            background: config.mantenimiento ? "#dc2626" : "#16a34a",
+                            color: "white",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                            transition: "all 0.2s"
+                        }}
+                    >
+                        {config.mantenimiento ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                        {config.mantenimiento ? "Desactivar Mantenimiento" : "Activar Mantenimiento"}
+                    </button>
+                )}
+            </div>
+
             {/* Header */}
             <div>
                 <h2 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>

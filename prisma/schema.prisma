@@ -483,6 +483,7 @@ model PreRevision {
 model PreRevisionConfig {
   id              String  @id @default("singleton")
   activoDirectores Boolean @default(false)
+  mantenimiento   Boolean @default(false)
   limiteIntentos  Int     @default(3)
   providerDefault String  @default("gemini")
   modelDefault    String  @default("gemini-2.5-flash")

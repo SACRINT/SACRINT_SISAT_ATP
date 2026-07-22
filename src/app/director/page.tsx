@@ -22,6 +22,12 @@ export default async function DirectorPage() {
 
     if (!escuela) redirect("/login");
 
+    // Verificar si la plataforma está en Modo Mantenimiento
+    const configGlobal = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
+    if (configGlobal?.mantenimiento && !escuela.esDePrueba) {
+        redirect("/mantenimiento");
+    }
+
     // Get selected or active ciclo escolar
     const ciclo = await obtenerCicloActual();
 
