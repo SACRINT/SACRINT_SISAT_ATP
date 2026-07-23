@@ -145,12 +145,32 @@ export async function POST(req: NextRequest) {
         if (g.id) {
           await prisma.horarioGrupo.upsert({
             where: { id: g.id },
-            update: { nombre: g.nombre, semestre: Number(g.semestre) },
-            create: { escuelaId, nombre: g.nombre, semestre: Number(g.semestre) }
+            update: {
+              nombre: g.nombre,
+              semestre: Number(g.semestre),
+              capacitacionNombre: g.capacitacionNombre || null,
+              ffeOptativas: g.ffeOptativas || null,
+              ffeoSocioemocional: g.ffeoSocioemocional || null
+            },
+            create: {
+              escuelaId,
+              nombre: g.nombre,
+              semestre: Number(g.semestre),
+              capacitacionNombre: g.capacitacionNombre || null,
+              ffeOptativas: g.ffeOptativas || null,
+              ffeoSocioemocional: g.ffeoSocioemocional || null
+            }
           });
         } else {
           await prisma.horarioGrupo.create({
-            data: { escuelaId, nombre: g.nombre, semestre: Number(g.semestre) }
+            data: {
+              escuelaId,
+              nombre: g.nombre,
+              semestre: Number(g.semestre),
+              capacitacionNombre: g.capacitacionNombre || null,
+              ffeOptativas: g.ffeOptativas || null,
+              ffeoSocioemocional: g.ffeoSocioemocional || null
+            }
           });
         }
       }

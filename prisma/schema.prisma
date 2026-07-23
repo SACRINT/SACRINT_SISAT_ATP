@@ -640,8 +640,11 @@ model HorarioGrupo {
   id           String   @id @default(cuid())
   escuelaId    String
   nombre       String   // Ej. "1° A", "2° A", "3° A"
-  semestre     Int      // 1 a 6
-  turno        String   @default("MATUTINO")
+  semestre             Int      // 1 a 6
+  turno                String   @default("MATUTINO")
+  capacitacionNombre   String?  // Capacitación elegida para este grupo (3° a 6°)
+  ffeOptativas         Json?    // Array de 4 optativas FFE para este grupo (5° y 6°)
+  ffeoSocioemocional   String?  // Asignatura de Formación Socioemocional elegida para este grupo
 
   escuela      Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
   asignaciones HorarioCargaDocente[]

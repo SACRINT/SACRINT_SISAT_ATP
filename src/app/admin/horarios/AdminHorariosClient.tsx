@@ -86,35 +86,36 @@ export default function AdminHorariosClient({ escuelas }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 space-y-6">
+    <div className="horarios-container">
       {/* Header General de Supervisión */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="horario-header">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link href="/admin" className="text-slate-400 hover:text-slate-600 transition">
-              <ArrowLeft className="w-5 h-5" />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+            <Link href="/admin" style={{ color: "var(--text-muted)", display: "flex" }}>
+              <ArrowLeft style={{ width: "18px", height: "18px" }} />
             </Link>
-            <span className="px-2.5 py-1 bg-purple-100 text-purple-700 font-extrabold text-[11px] rounded-full uppercase">
+            <span className="badge" style={{ background: "#f3e8ff", color: "#7e22ce", fontSize: "0.6875rem" }}>
               Supervisión / ATP Portal
             </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-            <Calendar className="w-7 h-7 text-purple-600" /> Generador de Horarios Multiescuela
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
+            <Calendar style={{ width: "26px", height: "26px", color: "#7e22ce" }} /> Generador de Horarios Multiescuela
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
             Zona Escolar 004 | Bachilleratos Generales Estatales
           </p>
         </div>
 
         {/* Selector de Escuela */}
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-bold text-slate-500 flex items-center gap-1">
-            <Building2 className="w-4 h-4 text-purple-600" /> Plantel:
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <label style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+            <Building2 style={{ width: "16px", height: "16px", color: "#7e22ce" }} /> Plantel:
           </label>
           <select
             value={escuelaSeleccionadaId}
             onChange={(e) => setEscuelaSeleccionadaId(e.target.value)}
-            className="p-2.5 bg-white border border-purple-200 rounded-xl text-xs font-bold text-slate-800 shadow-sm focus:ring-2 focus:ring-purple-500"
+            className="input"
+            style={{ padding: "0.4rem 0.75rem", fontSize: "0.8125rem", fontWeight: 700, minHeight: "auto" }}
           >
             {escuelas.map((e) => (
               <option key={e.id} value={e.id}>
@@ -126,9 +127,9 @@ export default function AdminHorariosClient({ escuelas }: Props) {
       </div>
 
       {loading ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
-          <Sparkles className="w-8 h-8 text-purple-600 animate-spin mx-auto" />
-          <p className="text-sm font-semibold text-slate-600">Cargando horario del plantel...</p>
+        <div style={{ background: "white", borderRadius: "16px", border: "1px solid var(--border)", padding: "3rem", textAlign: "center" }}>
+          <Sparkles style={{ width: "32px", height: "32px", color: "#7e22ce", animation: "pulse 1.5s infinite", margin: "0 auto 0.5rem" }} />
+          <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text)" }}>Cargando horario del plantel...</p>
         </div>
       ) : escuelaActual ? (
         modo === "WIZARD" ? (

@@ -62,7 +62,6 @@ export default function EditorHorarios({
     setMensajeChat("");
     setEnviandoChat(true);
 
-    // Agregar mensaje local
     setChatHistorial((prev) => [...prev, { role: "user", content: userMsg }]);
 
     try {
@@ -172,89 +171,76 @@ export default function EditorHorarios({
   };
 
   return (
-    <div className="space-y-4">
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       {/* Barra Superior de Control y Pestañas */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="horario-header">
         {/* Tabs de Filtro */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-full md:w-auto overflow-x-auto">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "var(--bg)", padding: "0.35rem", borderRadius: "12px", border: "1px solid var(--border)" }}>
           <button
             onClick={() => setVistaTab("GRUPO")}
-            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition ${
-              vistaTab === "GRUPO"
-                ? "bg-white text-blue-700 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`horario-tab-btn ${vistaTab === "GRUPO" ? "active" : ""}`}
           >
-            <Users className="w-4 h-4" /> Por Grupo
+            <Users style={{ width: "16px", height: "16px" }} /> Por Grupo
           </button>
 
           <button
             onClick={() => setVistaTab("DOCENTE")}
-            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition ${
-              vistaTab === "DOCENTE"
-                ? "bg-white text-blue-700 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`horario-tab-btn ${vistaTab === "DOCENTE" ? "active" : ""}`}
           >
-            <UserCheck className="w-4 h-4" /> Por Docente
+            <UserCheck style={{ width: "16px", height: "16px" }} /> Por Docente
           </button>
 
           <button
             onClick={() => setVistaTab("AULA")}
-            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition ${
-              vistaTab === "AULA"
-                ? "bg-white text-blue-700 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`horario-tab-btn ${vistaTab === "AULA" ? "active" : ""}`}
           >
-            <Building2 className="w-4 h-4" /> Por Aula
+            <Building2 style={{ width: "16px", height: "16px" }} /> Por Aula
           </button>
 
           <button
             onClick={() => setVistaTab("SUMARIO")}
-            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition ${
-              vistaTab === "SUMARIO"
-                ? "bg-white text-blue-700 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            className={`horario-tab-btn ${vistaTab === "SUMARIO" ? "active" : ""}`}
           >
-            <Grid className="w-4 h-4" /> Sumario Maestro
+            <Grid style={{ width: "16px", height: "16px" }} /> Sumario Maestro
           </button>
         </div>
 
         {/* Acciones e Impresión */}
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <button
             onClick={onVolverAWizard}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs flex items-center gap-1 transition"
+            className="btn"
+            style={{ background: "var(--bg)", color: "var(--text)", padding: "0.4rem 0.85rem", fontSize: "0.8125rem", minHeight: "auto" }}
           >
-            <Sliders className="w-4 h-4" /> Reconfigurar
+            <Sliders style={{ width: "15px", height: "15px" }} /> Reconfigurar
           </button>
 
           <button
             onClick={() => handleExportar("EXCEL")}
-            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-xl text-xs flex items-center gap-1 border border-emerald-200 transition"
+            className="btn btn-outline"
+            style={{ borderColor: "#10b981", color: "#059669", padding: "0.4rem 0.85rem", fontSize: "0.8125rem", minHeight: "auto" }}
           >
-            <FileSpreadsheet className="w-4 h-4" /> Excel
+            <FileSpreadsheet style={{ width: "15px", height: "15px" }} /> Excel
           </button>
 
           <button
             onClick={() => handleExportar("PDF")}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition"
+            className="btn btn-primary"
+            style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem", minHeight: "auto" }}
           >
-            <FileText className="w-4 h-4" /> Exportar PDF Oficial
+            <FileText style={{ width: "15px", height: "15px" }} /> Exportar PDF Oficial
           </button>
         </div>
       </div>
 
       {/* Selectores de elemento según Tab activa */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-3">
-        <span className="text-xs font-bold text-slate-500 uppercase">Filtrar Vista:</span>
+      <div style={{ padding: "0.75rem 1.25rem", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Filtrar Vista:</span>
         {vistaTab === "GRUPO" && (
           <select
             value={grupoSeleccionadoId}
             onChange={(e) => setGrupoSeleccionadoId(e.target.value)}
-            className="p-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-800"
+            style={{ padding: "0.4rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", background: "white", fontSize: "0.875rem", fontWeight: 700, color: "var(--text)" }}
           >
             {grupos.map((g) => (
               <option key={g.id} value={g.id}>Grupo {g.nombre}</option>
@@ -266,7 +252,7 @@ export default function EditorHorarios({
           <select
             value={docenteSeleccionadoId}
             onChange={(e) => setDocenteSeleccionadoId(e.target.value)}
-            className="p-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-800"
+            style={{ padding: "0.4rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", background: "white", fontSize: "0.875rem", fontWeight: 700, color: "var(--text)" }}
           >
             {docentes.map((d) => (
               <option key={d.id} value={d.id}>{d.nombre} {d.apellidoPaterno}</option>
@@ -278,7 +264,7 @@ export default function EditorHorarios({
           <select
             value={aulaSeleccionadaId}
             onChange={(e) => setAulaSeleccionadaId(e.target.value)}
-            className="p-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-800"
+            style={{ padding: "0.4rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", background: "white", fontSize: "0.875rem", fontWeight: 700, color: "var(--text)" }}
           >
             {aulas.map((a) => (
               <option key={a.id} value={a.id}>{a.nombre} ({a.tipo})</option>
@@ -288,51 +274,46 @@ export default function EditorHorarios({
       </div>
 
       {/* Panel Dual: 70% Grid Matriz / 30% Chat IA */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
-        {/* PANEL IZQUIERDO (70%) - Cuadrícula interactiva */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 overflow-x-auto">
-          <table className="w-full border-collapse">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem" }}>
+        {/* PANEL IZQUIERDO - Cuadrícula interactiva */}
+        <div style={{ background: "white", borderRadius: "16px", border: "1px solid var(--border)", padding: "1.25rem", boxShadow: "var(--shadow)", overflowX: "auto" }}>
+          <table className="horario-grid-table">
             <thead>
-              <tr className="bg-slate-800 text-white">
-                <th className="p-2.5 border border-slate-700 text-xs font-bold text-center w-16">Periodo</th>
+              <tr>
+                <th style={{ width: "90px" }}>Periodo</th>
                 {diasLectivos.map((d, i) => (
-                  <th key={i} className="p-2.5 border border-slate-700 text-xs font-bold text-center">
-                    {d}
-                  </th>
+                  <th key={i}>{d}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {periodos.map((p) => (
-                <tr key={p} className="hover:bg-slate-50/80 transition">
-                  <td className="p-2.5 border border-slate-200 bg-slate-100 text-center font-bold text-xs text-slate-700">
+                <tr key={p}>
+                  <td style={{ background: "var(--bg)", textAlign: "center", fontWeight: 700, fontSize: "0.8125rem", color: "var(--text)" }}>
                     Hora {p}
                   </td>
                   {[1, 2, 3, 4, 5].map((dia) => {
                     const celda = getCeldaInfo(dia, p);
                     return (
-                      <td
-                        key={dia}
-                        className="p-2 border border-slate-200 text-center h-20 align-top relative group"
-                      >
+                      <td key={dia}>
                         {celda ? (
-                          <div className="p-2 rounded-lg bg-blue-50 border border-blue-200 text-left h-full flex flex-col justify-between">
+                          <div className="horario-celda-box">
                             <div>
-                              <p className="text-xs font-bold text-blue-950 truncate">
+                              <p style={{ fontSize: "0.75rem", fontWeight: 800, color: "#1e3a8a", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {celda.docente?.nombre || "Docente"}
                               </p>
-                              <p className="text-[11px] text-blue-700 font-medium truncate">
+                              <p style={{ fontSize: "0.7rem", fontWeight: 600, color: "#1d4ed8", margin: 0 }}>
                                 Grupo: {celda.grupo?.nombre}
                               </p>
                             </div>
                             {celda.esBloqueado && (
-                              <div className="flex items-center gap-1 text-[10px] text-amber-700 font-bold">
-                                <Lock className="w-3 h-3" /> Fijado
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.65rem", fontWeight: 800, color: "#b45309" }}>
+                                <Lock style={{ width: "12px", height: "12px" }} /> Fijado
                               </div>
                             )}
                           </div>
                         ) : (
-                          <div className="h-full flex items-center justify-center text-xs text-slate-300 font-medium italic">
+                          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic" }}>
                             Libre
                           </div>
                         )}
@@ -345,53 +326,57 @@ export default function EditorHorarios({
           </table>
         </div>
 
-        {/* PANEL DERECHO (30%) - Chat IA Asistente */}
-        <div className="lg:col-span-3 bg-slate-900 rounded-2xl p-4 text-white flex flex-col h-[550px] shadow-2xl">
-          <div className="border-b border-slate-800 pb-3 mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-blue-400 animate-pulse" />
-              <div>
-                <h3 className="font-bold text-sm text-slate-100">Asistente IA de Horarios</h3>
-                <p className="text-[10px] text-slate-400">Gemini 3.5 Flash Lite | SISAT-ATP Pool</p>
-              </div>
+        {/* PANEL DERECHO - Chat IA Asistente */}
+        <div className="horario-chat-container">
+          <div style={{ borderBottom: "1px solid #334155", paddingBottom: "0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Sparkles style={{ width: "20px", height: "20px", color: "#60a5fa" }} />
+            <div>
+              <h3 style={{ fontSize: "0.9375rem", fontWeight: 800, color: "white", margin: 0 }}>Asistente IA de Horarios</h3>
+              <p style={{ fontSize: "0.65rem", color: "#94a3b8", margin: 0 }}>Gemini 3.5 Flash Lite | SISAT-ATP Pool</p>
             </div>
           </div>
 
           {/* Historial de Mensajes */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
-            <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-slate-300">
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.75rem", paddingRight: "0.25rem" }}>
+            <div style={{ background: "rgba(30, 41, 59, 0.8)", padding: "0.75rem", borderRadius: "10px", border: "1px solid #334155", fontSize: "0.75rem", color: "#cbd5e1" }}>
               💡 <strong>Directiva:</strong> Pide cualquier ajuste en lenguaje natural. Ej: <em>"Mueve la clase de Química del lunes 1ª hora al martes 3ª hora"</em> o <em>"El profesor Juan Pérez no puede venir los viernes"</em>.
             </div>
 
             {chatHistorial.map((msg: any, i: number) => (
               <div
                 key={i}
-                className={`p-3 rounded-xl max-w-[90%] ${
-                  msg.role === "user"
-                    ? "bg-blue-600 text-white ml-auto"
-                    : "bg-slate-800 text-slate-200 border border-slate-700"
-                }`}
+                style={{
+                  padding: "0.75rem",
+                  borderRadius: "12px",
+                  fontSize: "0.75rem",
+                  maxWidth: "90%",
+                  alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                  background: msg.role === "user" ? "var(--primary)" : "#1e293b",
+                  color: "white",
+                  border: msg.role === "user" ? "none" : "1px solid #334155"
+                }}
               >
-                <p className="leading-relaxed">{msg.content}</p>
+                <p style={{ margin: 0, lineHeight: 1.5 }}>{msg.content}</p>
               </div>
             ))}
           </div>
 
           {/* Input Chat */}
-          <form onSubmit={handleEnviarMensajeIA} className="mt-3 pt-3 border-t border-slate-800 flex gap-2">
+          <form onSubmit={handleEnviarMensajeIA} style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid #334155", display: "flex", gap: "0.5rem" }}>
             <input
               type="text"
               placeholder="Escribe una instrucción para la IA..."
               value={mensajeChat}
               onChange={(e) => setMensajeChat(e.target.value)}
-              className="flex-1 p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ flex: 1, padding: "0.625rem 0.75rem", background: "#1e293b", border: "1px solid #334155", borderRadius: "10px", fontSize: "0.75rem", color: "white", outline: "none" }}
             />
             <button
               type="submit"
               disabled={enviandoChat}
-              className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition flex items-center justify-center disabled:opacity-50"
+              className="btn btn-primary"
+              style={{ minHeight: "auto", padding: "0.625rem 0.75rem", borderRadius: "10px" }}
             >
-              <Send className="w-4 h-4" />
+              <Send style={{ width: "16px", height: "16px" }} />
             </button>
           </form>
         </div>

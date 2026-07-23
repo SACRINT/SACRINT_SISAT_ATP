@@ -81,41 +81,42 @@ export default function HorariosClient({ escuela }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="text-center space-y-3">
-          <Sparkles className="w-10 h-10 text-blue-600 animate-spin mx-auto" />
-          <p className="text-sm font-semibold text-slate-600">Cargando Generador Inteligente de Horarios...</p>
+      <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+        <div style={{ textAlign: "center" }}>
+          <Sparkles style={{ width: "40px", height: "40px", color: "var(--primary)", animation: "pulse 1.5s infinite", margin: "0 auto 1rem" }} />
+          <p style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text)" }}>Cargando Generador Inteligente de Horarios...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 space-y-6">
+    <div className="horarios-container">
       {/* Header General */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="horario-header">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link href="/director" className="text-slate-400 hover:text-slate-600 transition">
-              <ArrowLeft className="w-5 h-5" />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+            <Link href="/director" style={{ color: "var(--text-muted)", display: "flex" }}>
+              <ArrowLeft style={{ width: "18px", height: "18px" }} />
             </Link>
-            <span className="px-2.5 py-1 bg-blue-100 text-blue-700 font-extrabold text-[11px] rounded-full uppercase">
+            <span className="badge" style={{ background: "var(--primary-bg)", color: "var(--primary)", fontSize: "0.6875rem" }}>
               Módulo Inteligente
             </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-            <Calendar className="w-7 h-7 text-blue-600" /> Generador de Horarios con IA
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
+            <Calendar style={{ width: "26px", height: "26px", color: "var(--primary)" }} /> Generador de Horarios con IA
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
             {escuela.nombre} ({escuela.cct}) | Zona Escolar 004
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           {modo === "EDITOR" && (
             <button
               onClick={() => setModo("WIZARD")}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition"
+              className="btn btn-outline"
+              style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem", minHeight: "auto" }}
             >
               ⚙️ Wizard de Configuración
             </button>
