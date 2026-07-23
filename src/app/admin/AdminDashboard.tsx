@@ -809,6 +809,13 @@ export default function AdminDashboard({
                                         <span>Ranking de Cumplimiento</span>
                                     </button>
                                 )}
+                                <a href="/admin/horarios" className="sidebar-link" style={{ textDecoration: 'none' }}>
+                                    <Calendar size={17} />
+                                    <span>Generador Horarios IA</span>
+                                    <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #7c3aed, #2563eb)", color: "white", fontSize: "0.6rem" }}>
+                                        NUEVO
+                                    </span>
+                                </a>
                                 {hasAccess("reportesNivel", "read") && (
                                     <button className={`sidebar-link ${vista === "reportes-nivel" ? "active" : ""}`} onClick={() => navigate("reportes-nivel")}>
                                         <Mail size={17} />

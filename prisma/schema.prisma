@@ -70,6 +70,14 @@ model Escuela {
   personal Personal[]
   directorExpediente DirectorExpediente?
   documentosAdmin DocumentoAdministrativo[]
+  
+  // ─── Generador de Horarios con IA ───
+  horarioConfiguracion HorarioConfiguracion?
+  horariosGenerados HorarioGenerado[]
+  horarioGrupos HorarioGrupo[]
+  horarioAulas HorarioAula[]
+  horarioAsignaturasHorario HorarioAsignaturaCatalogo[]
+  horarioCargas HorarioCargaDocente[]
 }
 
 model CicloEscolar {
@@ -86,6 +94,7 @@ model CicloEscolar {
   inscripcionesOlimpiadas  InscripcionOlimpiada[]
   inscripcionesPAEC        InscripcionEncuentroPAEC[]
   descargasCircular05      Circular05Descarga[]
+  horariosGenerados        HorarioGenerado[]
 }
 
 model Programa {
@@ -448,6 +457,8 @@ model Personal {
   escuela    Escuela             @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
   documentos DocumentoPersonal[]
   documentosAdmin DocumentoAdministrativo[]
+  horarioCargas   HorarioCargaDocente[]
+  horarioCeldas   HorarioCelda[]
 }
 
 model DocumentoPersonal {
@@ -583,3 +594,123 @@ model DocumentoAdministrativo {
   personal           Personal? @relation(fields: [personalId], references: [id])
   escuela            Escuela? @relation(fields: [escuelaId], references: [id])
 }
+
+// ─── Generador de Horarios con IA ──────────────────
+
+model HorarioAsignaturaCatalogo {
+  id              String   @id @default(cuid())
+  escuelaId       String?  // NULL = Catálogo oficial MCCEMS 203 UACs. Si tiene ID = Materia personalizada
+  uacName         String
+  semester        Int      // 1 al 6
+  component       String   // "fundamental", "ext_obligatorio", "ext_optativo", "laboral"
+  totalHours      Int      @default(48)
+  horasSemanales  Int      @default(3)
+  colorHex        String   @default("#3b82f6")
+  createdAt       DateTime @default(now())
+
+  escuela         Escuela? @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  asignaciones    HorarioCargaDocente[]
+}
+
+model HorarioConfiguracion {
+  id                  String   @id @default(cuid())
+  escuelaId           String   @unique
+  diasLectivos        Int      @default(5)
+  horasPorDia         Int      @default(7)
+  horaInicio          String   @default("08:00")
+  duracionMinutos     Int      @default(50)
+  recesoTrasPeriodo   Int      @default(3)
+  duracionReceso      Int      @default(20)
+
+  escuela             Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+}
+
+model HorarioAula {
+  id           String   @id @default(cuid())
+  escuelaId    String
+  nombre       String   // Ej. "Laboratorio de Cómputo", "Aula 1A"
+  tipo         String   @default("REGULAR")
+  capacidad    Int?     @default(40)
+
+  escuela      Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  celdas       HorarioCelda[]
+}
+
+model HorarioGrupo {
+  id           String   @id @default(cuid())
+  escuelaId    String
+  nombre       String   // Ej. "1° A", "2° A", "3° A"
+  semestre     Int      // 1 a 6
+  turno        String   @default("MATUTINO")
+
+  escuela      Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  asignaciones HorarioCargaDocente[]
+  celdas       HorarioCelda[]
+
+  @@unique([escuelaId, nombre])
+}
+
+model HorarioCargaDocente {
+  id                   String   @id @default(cuid())
+  escuelaId            String
+  personalId           String   // Relación con Personal (Docente)
+  grupoId              String
+  asignaturaId         String
+  horasSemanales       Int      @default(3)
+  esHoraDoblePermitida Boolean  @default(true)
+  requiereAulaEspecial Boolean  @default(false)
+  aulaEspecialId       String?
+
+  escuela              Escuela                    @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  personal             Personal                   @relation(fields: [personalId], references: [id], onDelete: Cascade)
+  grupo                HorarioGrupo               @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  asignatura           HorarioAsignaturaCatalogo  @relation(fields: [asignaturaId], references: [id], onDelete: Cascade)
+  celdas               HorarioCelda[]
+}
+
+model HorarioGenerado {
+  id             String   @id @default(cuid())
+  escuelaId      String
+  cicloEscolarId String
+  nombreVersion  String   @default("Borrador 1")
+  estado         String   @default("BORRADOR") // "BORRADOR" | "PUBLICADO"
+  scoreMetricas  Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  escuela        Escuela          @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  cicloEscolar   CicloEscolar     @relation(fields: [cicloEscolarId], references: [id], onDelete: Cascade)
+  celdas         HorarioCelda[]
+  mensajesChat   HorarioChatMensaje[]
+}
+
+model HorarioCelda {
+  id             String   @id @default(cuid())
+  horarioId      String
+  diaSemana      Int      // 1: Lunes ... 5: Viernes
+  periodo        Int      // 1 a N
+  grupoId        String
+  docenteId      String
+  asignaturaId   String
+  aulaId         String?
+  cargaId        String?
+  esBloqueado    Boolean  @default(false)
+
+  horario        HorarioGenerado       @relation(fields: [horarioId], references: [id], onDelete: Cascade)
+  grupo          HorarioGrupo          @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  docente        Personal              @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  aula           HorarioAula?          @relation(fields: [aulaId], references: [id], onDelete: SetNull)
+  carga          HorarioCargaDocente?  @relation(fields: [cargaId], references: [id], onDelete: SetNull)
+}
+
+model HorarioChatMensaje {
+  id             String   @id @default(cuid())
+  horarioId      String
+  role           String   // "user" | "assistant"
+  content        String
+  accionAplicada Json?
+  createdAt      DateTime @default(now())
+
+  horario        HorarioGenerado @relation(fields: [horarioId], references: [id], onDelete: Cascade)
+}
+

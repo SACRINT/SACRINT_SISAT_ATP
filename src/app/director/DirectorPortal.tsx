@@ -20,6 +20,7 @@ import {
     CheckCircle2,
     Search,
     Key,
+    Calendar,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
@@ -303,6 +304,13 @@ export default function DirectorPortal({
                             <BookOpen size={17} />
                             <span>Recursos y Formatos</span>
                         </button>
+                        <a href="/director/horarios" className="sidebar-link" style={{ textDecoration: 'none' }}>
+                            <Calendar size={17} />
+                            <span>Generador Horarios IA</span>
+                            <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "white", fontSize: "0.6rem" }}>
+                                NUEVO
+                            </span>
+                        </a>
                     </div>
 
                     {/* Special modules - conditional */}
