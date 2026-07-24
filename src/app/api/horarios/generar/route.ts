@@ -46,10 +46,25 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // ===== LOGS DE DIAGNÓSTICO =====
+    const resumenCargas: Record<string, { nombre: string; horas: number; cargas: number }> = {};
+    for (const c of cargas) {
+      const d = docentes.find(d => d.id === c.personalId);
+      const nombre = d ? `${d.nombre} ${d.apellidoPaterno}` : c.personalId;
+      if (!resumenCargas[c.personalId]) resumenCargas[c.personalId] = { nombre, horas: 0, cargas: 0 };
+      resumenCargas[c.personalId].horas += c.horasSemanales;
+      resumenCargas[c.personalId].cargas += 1;
+    }
+    console.log(`[generar] TOTAL cargas en DB: ${cargas.length}`);
+    Object.entries(resumenCargas).forEach(([id, info]) => {
+      console.log(`[generar]  → ${info.nombre}: ${info.cargas} cargas = ${info.horas} horas/sem`);
+    });
+    // ================================
+
     // 3. Ejecutar Solver Estricto
     const resultadoSolver = resolverHorario({
       diasLectivos: config?.diasLectivos || 5,
-      horasPorDia: config?.horasPorDia || 7,
+      horasPorDia: config?.horasPorDia || 6,
       grupos: grupos.map(g => ({ id: g.id, nombre: g.nombre, semestre: g.semestre })),
       docentes: docentes.map(d => ({ id: d.id, nombreCompleto: `${d.nombre} ${d.apellidoPaterno}`.trim() })),
       aulas: aulas.map(a => ({ id: a.id, nombre: a.nombre, tipo: a.tipo })),
@@ -63,6 +78,8 @@ export async function POST(req: NextRequest) {
         aulaEspecialId: c.aulaEspecialId || undefined
       }))
     });
+
+    console.log(`[generar] Solver generó: ${resultadoSolver.celdas.length} celdas. Conflictos: ${resultadoSolver.conflictos.length}`);
 
     // 4. Guardar Horario Generado en BD
     const horarioGenerado = await prisma.horarioGenerado.create({

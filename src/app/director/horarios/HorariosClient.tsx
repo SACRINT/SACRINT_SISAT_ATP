@@ -36,7 +36,20 @@ export default function HorariosClient({ escuela }: Props) {
       if (data.grupos) setGrupos(data.grupos);
       if (data.aulas) setAulas(data.aulas);
       if (data.docentes) setDocentes(data.docentes);
-      if (data.cargas) setCargas(data.cargas);
+      
+      // Normalizar cargas de la DB al formato interno del frontend:
+      // { grupoId, asignaturaId (ID real DB), uacName, personalId, horasSemanales }
+      if (data.cargas) {
+        const cargasNormalizadas = data.cargas.map((c: any) => ({
+          grupoId: c.grupoId,
+          asignaturaId: c.asignaturaId,       // ID real de HorarioAsignaturaCatalogo
+          uacName: c.asignatura?.uacName || "", // nombre de la materia para mostrar en la UI
+          personalId: c.personalId,
+          horasSemanales: c.horasSemanales,
+          requiereAulaEspecial: c.requiereAulaEspecial || false
+        }));
+        setCargas(cargasNormalizadas);
+      }
 
       if (data.horario) {
         setHorario(data.horario);

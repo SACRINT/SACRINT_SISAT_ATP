@@ -266,6 +266,7 @@ export default function WizardConfiguracion({
   const [nuevoDocenteHoras, setNuevoDocenteHoras] = useState<number>(20);
 
   // Cargar estado guardado previamente desde localStorage
+  // Las cargas se inicializan siempre en [] y el director las asigna explícitamente en la sesión
   useEffect(() => {
     try {
       const guardado = localStorage.getItem(STORAGE_KEY);
@@ -276,7 +277,8 @@ export default function WizardConfiguracion({
         if (parsed.numPeriodos) setNumPeriodos(parsed.numPeriodos);
         if (parsed.grupos && parsed.grupos.length > 0) setGrupos(parsed.grupos);
         if (parsed.horasDocentes) setHorasDocentes(parsed.horasDocentes);
-        if (parsed.cargas && parsed.cargas.length > 0) setCargas(parsed.cargas);
+        // cargas NO se restauran desde localStorage para evitar datos fantasma.
+        // Los cargasIniciales vienen de la DB y se usan para pre-cargar el estado
       }
     } catch (e) {
       console.warn("No se pudo cargar estado local previo", e);
@@ -284,6 +286,8 @@ export default function WizardConfiguracion({
   }, [escuelaId]);
 
   // Autoguardado continuo en localStorage
+  // NOTA: Las cargas NO se guardan en localStorage para evitar datos fantasma entre sesiones.
+  // Sólo se persisten la estructura (grupos, jornada) y el paso actual.
   const guardarProgresoLocal = () => {
     try {
       localStorage.setItem(
@@ -293,8 +297,8 @@ export default function WizardConfiguracion({
           numGruposPorGrado,
           numPeriodos,
           grupos,
-          horasDocentes,
-          cargas
+          horasDocentes
+          // cargas EXCLUIDAS para evitar datos fantasma
         })
       );
     } catch (e) {
@@ -458,12 +462,14 @@ export default function WizardConfiguracion({
   };
 
   const handleAsignarDocenteMatriz = (grupoId: string, uacObj: any, personalId: string) => {
-    const asignaturaId = uacObj.id;
     const uacName = uacObj.uacName;
+    const asignaturaId = uacObj.id;
     const horasSemanales = uacObj.horasSemanales || 3;
 
-    // Eliminar cualquier carga duplicada o previa de este grupo y UAC
-    const cargasLimpias = cargas.filter((c) => !(c.grupoId === grupoId && (c.asignaturaId === asignaturaId || c.uacName === uacName)));
+    // Eliminar cualquier carga previa de este grupo y esta UAC (por nombre o ID)
+    const cargasLimpias = cargas.filter(
+      (c) => !(c.grupoId === grupoId && (c.uacName === uacName || c.asignaturaId === asignaturaId))
+    );
 
     if (!personalId) {
       setCargas(cargasLimpias);
@@ -484,8 +490,11 @@ export default function WizardConfiguracion({
   };
 
   const getDocenteAsignado = (grupoId: string, uacObj: any) => {
-    const asignacion = cargas.find((c) => c.grupoId === grupoId && (c.asignaturaId === uacObj.id || c.uacName === uacObj.uacName));
-    return asignacion?.personalId || "";
+    // Primero buscar por grupoId + nombre exacto de UAC (comparación más robusta)
+    const asignacionPorNombre = cargas.find(
+      (c) => c.grupoId === grupoId && (c.uacName === uacObj.uacName || c.asignaturaId === uacObj.id)
+    );
+    return asignacionPorNombre?.personalId || "";
   };
 
   // Cálculo Dinámico y Exacto de Horas Asignadas Realmente a cada Docente escaneando las UACs activas de cada grupo

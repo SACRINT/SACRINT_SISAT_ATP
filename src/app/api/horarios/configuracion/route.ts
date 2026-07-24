@@ -208,16 +208,15 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          // Resolver o crear Asignatura UAC en HorarioAsignaturaCatalogo
-          let asignaturaId = c.asignaturaId;
+          const semestreGrupo = grupoExiste.semestre;
           const uacNombreBusqueda = c.uacName || c.asignaturaNombre || "Asignatura UAC";
+          const horasSemanalesCarga = Number(c.horasSemanales) || 3;
 
+          // Buscar asignatura por nombre Y semestre para evitar confundir materias del mismo nombre en distinto semestre
           let asignaturaDB = await prisma.horarioAsignaturaCatalogo.findFirst({
             where: {
-              OR: [
-                { id: asignaturaId },
-                { uacName: { equals: uacNombreBusqueda, mode: "insensitive" } }
-              ]
+              uacName: { equals: uacNombreBusqueda, mode: "insensitive" },
+              semester: semestreGrupo
             }
           });
 
@@ -226,12 +225,14 @@ export async function POST(req: NextRequest) {
               data: {
                 escuelaId: null,
                 uacName: uacNombreBusqueda,
-                semester: c.semestre || 1,
+                semester: semestreGrupo,
                 component: c.tipo || "fundamental",
-                horasSemanales: Number(c.horasSemanales) || 3
+                horasSemanales: horasSemanalesCarga
               }
             });
           }
+
+          console.log(`[configuracion] Creando carga: docente=${c.personalId} grupo=${grupoRealId}(${grupoExiste.nombre}) uac=${uacNombreBusqueda} horas=${horasSemanalesCarga}`);
 
           await prisma.horarioCargaDocente.create({
             data: {
@@ -239,7 +240,7 @@ export async function POST(req: NextRequest) {
               personalId: c.personalId,
               grupoId: grupoRealId,
               asignaturaId: asignaturaDB.id,
-              horasSemanales: Number(c.horasSemanales) || 3,
+              horasSemanales: horasSemanalesCarga,
               requiereAulaEspecial: !!c.requiereAulaEspecial,
               aulaEspecialId: c.aulaEspecialId || null
             }
