@@ -43,13 +43,32 @@ export async function POST(req: NextRequest) {
 
     const user = session.user as any;
     const body = await req.json();
-    const { uacName, semester, component, totalHours, escuelaId } = body;
+    const { accion, uacName, semester, component, totalHours, escuelaId, nombre, apellidoPaterno, apellidoMaterno, sexo } = body;
+    const targetEscuelaId = escuelaId || user.escuelaId || user.id;
+
+    if (accion === "CREAR_DOCENTE") {
+      if (!nombre || !apellidoPaterno) {
+        return NextResponse.json({ error: "Nombre y apellido paterno son requeridos" }, { status: 400 });
+      }
+
+      const nuevoDocente = await prisma.personal.create({
+        data: {
+          escuelaId: targetEscuelaId,
+          nombre,
+          apellidoPaterno,
+          apellidoMaterno: apellidoMaterno || "",
+          sexo: sexo || "MASCULINO",
+          cargo: "DOCENTE"
+        }
+      });
+
+      return NextResponse.json({ success: true, docente: nuevoDocente });
+    }
 
     if (!uacName || !semester) {
       return NextResponse.json({ error: "Nombre y semestre son requeridos" }, { status: 400 });
     }
 
-    const targetEscuelaId = escuelaId || user.escuelaId || user.id;
     const hours = Number(totalHours) || 48;
     const horasSemanales = Math.max(1, Math.round(hours / 16));
 
@@ -68,6 +87,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, asignatura: nuevaAsignatura });
   } catch (error: any) {
     console.error("[api/horarios/catalogos] Error en POST:", error);
-    return NextResponse.json({ error: "Error al crear asignatura personalizada" }, { status: 500 });
+    return NextResponse.json({ error: "Error al procesar solicitud" }, { status: 500 });
   }
 }
