@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Users, BookOpen, Clock, AlertCircle, ShieldCheck, UserCheck, Plus, Trash2, CheckCircle2, UserPlus, Layers, Search } from "lucide-react";
+import { Sparkles, Users, BookOpen, Clock, AlertCircle, ShieldCheck, UserCheck, Plus, Trash2, CheckCircle2, UserPlus, Layers, Search, Save } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -67,7 +67,7 @@ const FFE_AREA_CONOCIMIENTO = [
   "Pensamiento Filosófico I"
 ];
 
-// Mapeo exhaustivo de las 15 Capacitaciones Laborales a sus 2 UACs de 3º semestre y 2 UACs de 5º semestre con sus Abreviaturas
+// Mapeo exhaustivo de las 15 Capacitaciones Laborales a sus 2 UACs de 3º semestre y 2 UACs de 5º semestre con Abreviaturas
 const UACS_LABORALES_MAPA: Record<string, { sem3: { name: string; abrev: string }[]; sem5: { name: string; abrev: string }[] }> = {
   "Administracion": {
     sem3: [
@@ -230,10 +230,12 @@ export default function WizardConfiguracion({
   cargasIniciales,
   onGenerarClick
 }: Props) {
+  const STORAGE_KEY = `horarios_wizard_v2_${escuelaId}`;
+
   const [paso, setPaso] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Configuración de Jornada (Garantizado 6 hrs por defecto)
+  // Jornada Escolar predeterminada estrictamente a 6 Horas Diarias (30 hrs semanales)
   const [numPeriodos, setNumPeriodos] = useState<number>(6);
   const [horaInicio, setHoraInicio] = useState<string>("08:00");
   
@@ -242,7 +244,7 @@ export default function WizardConfiguracion({
     gruposIniciales.length > 0 ? Math.max(1, Math.ceil(gruposIniciales.length / 3)) : 1
   );
 
-  // Estado de Grupos con su Configuración Curricular Específica
+  // Estado de Grupos
   const [grupos, setGrupos] = useState<any[]>([]);
 
   // Docentes activos en la plantilla del horario
@@ -252,7 +254,7 @@ export default function WizardConfiguracion({
   // Cargas Docente-Materia-Grupo (Paso 3)
   const [cargas, setCargas] = useState<any[]>(cargasIniciales || []);
 
-  // Modal para agregar nuevo docente (Manual o desde el Personal completo de la escuela)
+  // Modal para agregar nuevo docente
   const [mostrarModalDocente, setMostrarModalDocente] = useState<boolean>(false);
   const [tabModalDocente, setTabModalDocente] = useState<"PLATAFORMA" | "MANUAL">("PLATAFORMA");
   const [personalPlataforma, setPersonalPlataforma] = useState<any[]>([]);
@@ -263,13 +265,53 @@ export default function WizardConfiguracion({
   const [nuevoDocenteMaterno, setNuevoDocenteMaterno] = useState<string>("");
   const [nuevoDocenteHoras, setNuevoDocenteHoras] = useState<number>(20);
 
+  // Recargar guardado previo desde localStorage si existe
   useEffect(() => {
-    // Cargar personal completo de la escuela
+    try {
+      const guardado = localStorage.getItem(STORAGE_KEY);
+      if (guardado) {
+        const parsed = JSON.parse(guardado);
+        if (parsed.paso) setPaso(parsed.paso);
+        if (parsed.numGruposPorGrado) setNumGruposPorGrado(parsed.numGruposPorGrado);
+        if (parsed.numPeriodos) setNumPeriodos(parsed.numPeriodos);
+        if (parsed.grupos && parsed.grupos.length > 0) setGrupos(parsed.grupos);
+        if (parsed.horasDocentes) setHorasDocentes(parsed.horasDocentes);
+        if (parsed.cargas && parsed.cargas.length > 0) setCargas(parsed.cargas);
+      }
+    } catch (e) {
+      console.warn("No se pudo cargar estado local previo", e);
+    }
+  }, [escuelaId]);
+
+  // Guardar estado en localStorage en cada cambio para persistencia total al recargar la página
+  const guardarProgresoLocal = () => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          paso,
+          numGruposPorGrado,
+          numPeriodos,
+          grupos,
+          horasDocentes,
+          cargas
+        })
+      );
+    } catch (e) {
+      console.warn("Error al guardar en localStorage", e);
+    }
+  };
+
+  useEffect(() => {
+    guardarProgresoLocal();
+  }, [paso, numGruposPorGrado, numPeriodos, grupos, horasDocentes, cargas]);
+
+  useEffect(() => {
     cargarPersonalCompleto();
   }, [escuelaId]);
 
   useEffect(() => {
-    if (docentesIniciales && docentesIniciales.length > 0) {
+    if (docentesIniciales && docentesIniciales.length > 0 && docentes.length === 0) {
       setDocentes(docentesIniciales);
     }
   }, [docentesIniciales]);
@@ -279,13 +321,14 @@ export default function WizardConfiguracion({
     generarGruposSegunEstructura(numGruposPorGrado);
   }, [numGruposPorGrado]);
 
-  // Inicializar mapa de horas por docente
+  // Inicializar mapa de horas por docente (0 hrs por defecto para Administrativos/Apoyo/Responsable, 20 hrs para Docentes)
   useEffect(() => {
     if (docentes.length > 0) {
       const mapaHoras: Record<string, number> = { ...horasDocentes };
       docentes.forEach((d) => {
         if (mapaHoras[d.id] === undefined) {
-          mapaHoras[d.id] = d.horasAsignadas !== undefined ? d.horasAsignadas : 20;
+          const esDocentePuro = d.cargo === "DOCENTE";
+          mapaHoras[d.id] = d.horasAsignadas !== undefined ? d.horasAsignadas : (esDocentePuro ? 20 : 0);
         }
       });
       setHorasDocentes(mapaHoras);
@@ -350,7 +393,6 @@ export default function WizardConfiguracion({
     setGrupos(copia);
   };
 
-  // Filtrado estricto anti-duplicados para optativas FFE de cada grupo
   const handleActualizarOptativaGrupo = (grupoIdx: number, optativaIdx: number, value: string) => {
     const copia = [...grupos];
     const optativas = [...(copia[grupoIdx].ffeOptativas || [])];
@@ -359,30 +401,27 @@ export default function WizardConfiguracion({
     setGrupos(copia);
   };
 
-  // Eliminar docente de la plantilla activa del horario
   const handleEliminarDocentePlantilla = (docenteId: string) => {
     setDocentes(docentes.filter((d) => d.id !== docenteId));
     const copiaHoras = { ...horasDocentes };
     delete copiaHoras[docenteId];
     setHorasDocentes(copiaHoras);
-    // Eliminar también de las cargas asignadas
     setCargas(cargas.filter((c) => c.personalId !== docenteId));
     toast.success("Docente removido de la plantilla activa.");
   };
 
-  // Agregar personal existente desde la base de datos de la escuela
   const handleAgregarPersonalExistente = (persona: any) => {
     if (docentes.some((d) => d.id === persona.id)) {
-      toast.error("El personal ya está agregado en la plantilla.");
+      toast.error("El personal ya está en la plantilla.");
       return;
     }
     setDocentes([...docentes, persona]);
-    setHorasDocentes({ ...horasDocentes, [persona.id]: 20 });
-    toast.success(`${persona.nombre} ${persona.apellidoPaterno} agregado a la plantilla.`);
+    const esDocentePuro = persona.cargo === "DOCENTE";
+    setHorasDocentes({ ...horasDocentes, [persona.id]: esDocentePuro ? 20 : 0 });
+    toast.success(`${persona.nombre} ${persona.apellidoPaterno} agregado.`);
     setMostrarModalDocente(false);
   };
 
-  // Crear nuevo docente manual y añadirlo a la plantilla
   const handleCrearNuevoDocenteManual = async () => {
     if (!nuevoDocenteNombre.trim() || !nuevoDocentePaterno.trim()) {
       toast.error("El nombre y apellido paterno son obligatorios.");
@@ -421,17 +460,22 @@ export default function WizardConfiguracion({
     }
   };
 
-  // Asignar docente en la matriz tabular del Paso 3
-  const handleAsignarDocenteMatriz = (grupoId: string, asignaturaId: string, personalId: string, horasSemanales: number) => {
+  const handleAsignarDocenteMatriz = (grupoId: string, uacObj: any, personalId: string) => {
+    const asignaturaId = uacObj.id;
+    const uacName = uacObj.uacName;
+    const horasSemanales = uacObj.horasSemanales || 3;
+
     if (!personalId) {
-      setCargas(cargas.filter((c) => !(c.grupoId === grupoId && c.asignaturaId === asignaturaId)));
+      setCargas(cargas.filter((c) => !(c.grupoId === grupoId && (c.asignaturaId === asignaturaId || c.uacName === uacName))));
       return;
     }
 
-    const idx = cargas.findIndex((c) => c.grupoId === grupoId && c.asignaturaId === asignaturaId);
+    const idx = cargas.findIndex((c) => c.grupoId === grupoId && (c.asignaturaId === asignaturaId || c.uacName === uacName));
     if (idx >= 0) {
       const copia = [...cargas];
       copia[idx].personalId = personalId;
+      copia[idx].uacName = uacName;
+      copia[idx].horasSemanales = horasSemanales;
       setCargas(copia);
     } else {
       setCargas([
@@ -439,29 +483,51 @@ export default function WizardConfiguracion({
         {
           grupoId,
           asignaturaId,
+          uacName,
           personalId,
-          horasSemanales: horasSemanales || 3,
+          horasSemanales,
           requiereAulaEspecial: false
         }
       ]);
     }
   };
 
-  const getDocenteAsignado = (grupoId: string, asignaturaId: string) => {
-    const asignacion = cargas.find((c) => c.grupoId === grupoId && c.asignaturaId === asignaturaId);
+  const getDocenteAsignado = (grupoId: string, uacObj: any) => {
+    const asignacion = cargas.find((c) => c.grupoId === grupoId && (c.asignaturaId === uacObj.id || c.uacName === uacObj.uacName));
     return asignacion?.personalId || "";
   };
 
-  // Calcular horas consumidas por cada docente en las asignaciones de la matriz
   const getHorasConsumidasDocente = (docenteId: string) => {
     return cargas
       .filter((c) => c.personalId === docenteId)
       .reduce((sum, c) => sum + (c.horasSemanales || 3), 0);
   };
 
-  // Guardar configuración completa y proceder a generar horario
+  // Guardar configuración completa en base de datos
   const handleGuardarConfiguracion = async () => {
     setLoading(true);
+
+    // Auto-completar asignaciones por defecto si alguna UAC no tiene docente asignado para garantizar 100% de la carga
+    const docentePredeterminadoId = docentes.find((d) => (horasDocentes[d.id] || 0) > 0)?.id || docentes[0]?.id || "";
+    const cargasCompletas = [...cargas];
+
+    grupos.forEach((g) => {
+      const uacs = getUACsIndividualesGrupo(g);
+      uacs.forEach((uac) => {
+        const existe = cargasCompletas.some((c) => c.grupoId === g.id && (c.asignaturaId === uac.id || c.uacName === uac.uacName));
+        if (!existe && docentePredeterminadoId) {
+          cargasCompletas.push({
+            grupoId: g.id,
+            asignaturaId: uac.id,
+            uacName: uac.uacName,
+            personalId: docentePredeterminadoId,
+            horasSemanales: uac.horasSemanales || 3,
+            requiereAulaEspecial: false
+          });
+        }
+      });
+    });
+
     try {
       const res = await fetch("/api/horarios/configuracion", {
         method: "POST",
@@ -475,7 +541,7 @@ export default function WizardConfiguracion({
           },
           grupos,
           aulas: aulasIniciales.length > 0 ? aulasIniciales : [{ nombre: "Aula General", tipo: "REGULAR" }],
-          cargas
+          cargas: cargasCompletas
         })
       });
       const data = await res.json();
@@ -486,7 +552,7 @@ export default function WizardConfiguracion({
         toast.error(data.error || "Error al guardar configuración");
       }
     } catch (e) {
-      toast.error("Error al comunicarse con el servidor");
+      toast.error("Error de conexión al servidor");
     } finally {
       setLoading(false);
     }
@@ -497,7 +563,7 @@ export default function WizardConfiguracion({
   const horasRequeridasPlantel = totalGrupos * 30; // 30 hrs por grupo
   const totalHorasPlantillaDocente = Object.values(horasDocentes).reduce((sum, h) => sum + Number(h || 0), 0);
 
-  // Obtener UACs individuales para cada grupo con Abreviaturas destacadas (Igual a Ejemplo tabla por grupo.docx)
+  // Obtener UACs individuales para cada grupo con Abreviaturas destacadas
   const getUACsIndividualesGrupo = (grupo: any) => {
     const sem = grupo.semestre;
 
@@ -566,10 +632,8 @@ export default function WizardConfiguracion({
     return [];
   };
 
-  // Filtrar personal de la escuela para el modal
   const personalDisponibleModal = personalPlataforma.filter((p) => {
-    const coincide = busquedaPersonal === "" || `${p.nombre} ${p.apellidoPaterno} ${p.cargo}`.toLowerCase().includes(busquedaPersonal.toLowerCase());
-    return coincide;
+    return busquedaPersonal === "" || `${p.nombre} ${p.apellidoPaterno} ${p.cargo}`.toLowerCase().includes(busquedaPersonal.toLowerCase());
   });
 
   return (
@@ -668,7 +732,6 @@ export default function WizardConfiguracion({
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "1.25rem" }}>
               {grupos.map((g, idx) => {
-                // Obtener la letra del grupo (ej: 'A', 'B', 'C')
                 const letraGrupo = g.nombre.split(" ")[1];
                 const grupo3Correspondiente = grupos.find((g3) => g3.semestre === 3 && g3.nombre.endsWith(letraGrupo));
                 const ffeoSocio3erSem = grupo3Correspondiente?.ffeoSocioemocional || "";
@@ -716,7 +779,6 @@ export default function WizardConfiguracion({
                           style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.75rem", fontWeight: 700, color: "#0f172a" }}
                         >
                           {CURRICULUM_AMPLIADO_FFEO.map((ffeo) => {
-                            // Regla Anti-Duplicados: Si es 5to semestre, deshabilitar la opción que ya se eligió en 3er semestre para esta letra de grupo
                             const esRepetida5to = g.semestre === 5 && ffeo === ffeoSocio3erSem;
                             return (
                               <option key={ffeo} value={ffeo} disabled={esRepetida5to}>
@@ -735,7 +797,6 @@ export default function WizardConfiguracion({
                           Optativas FFE (2 Recurso Sociocognitivo + 2 Área de Conocimiento)
                         </label>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
-                          {/* Cuadro 1: Recurso Sociocognitivo */}
                           <div>
                             <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 1 (Recurso)</span>
                             <select
@@ -749,7 +810,6 @@ export default function WizardConfiguracion({
                             </select>
                           </div>
 
-                          {/* Cuadro 2: Recurso Sociocognitivo (Filtrado para no repetir Cuadro 1) */}
                           <div>
                             <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 2 (Recurso sin repetir)</span>
                             <select
@@ -765,7 +825,6 @@ export default function WizardConfiguracion({
                             </select>
                           </div>
 
-                          {/* Cuadro 3: Área de Conocimiento */}
                           <div>
                             <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 3 (Área)</span>
                             <select
@@ -779,7 +838,6 @@ export default function WizardConfiguracion({
                             </select>
                           </div>
 
-                          {/* Cuadro 4: Área de Conocimiento (Filtrado para no repetir Cuadro 3) */}
                           <div>
                             <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 4 (Área sin repetir)</span>
                             <select
@@ -825,19 +883,17 @@ export default function WizardConfiguracion({
          ========================================================================= */}
       {paso === 2 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {/* Fila superior: Resumen de Métricas de Horas del Plantel y Botón Agregar Docente */}
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem", background: "#f8fafc", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
             <div>
               <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <UserCheck style={{ width: "18px", height: "18px", color: "#2563eb" }} /> Carga Horaria de la Plantilla Docente Frente a Grupo
               </h3>
               <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem", margin: 0 }}>
-                Ajuste las horas contratadas de cada profesor (puede asignar 0 hrs si no da clases frente a grupo o eliminarlo de la plantilla).
+                Administrativos, Apoyo y Responsables inician con 0 hrs. Asigne únicamente las horas frente a grupo reales.
               </p>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              {/* Stat box de Horas */}
               <div style={{ background: "#ffffff", padding: "0.5rem 1rem", borderRadius: "10px", border: "1px solid #cbd5e1", textAlign: "right" }}>
                 <div style={{ fontSize: "0.6875rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>Plantilla Contratada</div>
                 <div style={{ fontSize: "1.125rem", fontWeight: 900, color: totalHorasPlantillaDocente >= horasRequeridasPlantel ? "#16a34a" : "#d97706" }}>
@@ -885,7 +941,7 @@ export default function WizardConfiguracion({
                         type="number"
                         min={0}
                         max={30}
-                        value={horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : 20}
+                        value={horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0)}
                         onChange={(e) => setHorasDocentes({ ...horasDocentes, [d.id]: Math.max(0, Number(e.target.value)) })}
                         style={{ width: "60px", padding: "0.35rem", borderRadius: "6px", border: "2px solid #3b82f6", fontWeight: 800, textAlign: "center", fontSize: "0.875rem", color: "#1e293b" }}
                       />
@@ -937,7 +993,6 @@ export default function WizardConfiguracion({
             </p>
           </div>
 
-          {/* RENDERIZADO DE TABLAS INDIVIDUALES POR CADA GRUPO (IGUAL A Ejemplo tabla por grupo.docx) */}
           {[1, 3, 5].map((sem) => {
             const gruposSemestre = grupos.filter((g) => g.semestre === sem);
             if (gruposSemestre.length === 0) return null;
@@ -978,7 +1033,7 @@ export default function WizardConfiguracion({
                           </thead>
                           <tbody>
                             {uacsEspecificas.map((uac, uacIdx) => {
-                              const docenteActualId = getDocenteAsignado(g.id, uac.id);
+                              const docenteActualId = getDocenteAsignado(g.id, uac);
 
                               return (
                                 <tr key={uac.id || uacIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
@@ -1034,7 +1089,7 @@ export default function WizardConfiguracion({
                                   <td style={{ padding: "0.35rem" }}>
                                     <select
                                       value={docenteActualId}
-                                      onChange={(e) => handleAsignarDocenteMatriz(g.id, uac.id, e.target.value, uac.horasSemanales || 3)}
+                                      onChange={(e) => handleAsignarDocenteMatriz(g.id, uac, e.target.value)}
                                       style={{
                                         width: "100%",
                                         padding: "0.4rem 0.5rem",
@@ -1049,7 +1104,7 @@ export default function WizardConfiguracion({
                                     >
                                       <option value="">-- Sin Asignar --</option>
                                       {docentes.map((d) => {
-                                        const hrsMax = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : 20;
+                                        const hrsMax = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0);
                                         const hrsConsumidas = getHorasConsumidasDocente(d.id);
                                         const esSeleccionado = docenteActualId === d.id;
                                         const estaLleno = hrsConsumidas >= hrsMax && !esSeleccionado;
@@ -1110,7 +1165,6 @@ export default function WizardConfiguracion({
               </button>
             </div>
 
-            {/* Pestañas de modo */}
             <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", marginBottom: "1.25rem" }}>
               <button
                 onClick={() => setTabModalDocente("PLATAFORMA")}

@@ -15,7 +15,9 @@ import {
   Building2,
   Sliders,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare,
+  X
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { exportarHorarioExcel, exportarHorarioPDF } from "@/lib/horarios/exportador";
@@ -46,13 +48,19 @@ export default function EditorHorarios({
   const [docenteSeleccionadoId, setDocenteSeleccionadoId] = useState<string>(docentes[0]?.id || "");
   const [aulaSeleccionadaId, setAulaSeleccionadaId] = useState<string>(aulas[0]?.id || "");
 
+  // Control de apertura/cierre del panel del Chat IA (para no tapar la tabla)
+  const [mostrarChat, setMostrarChat] = useState<boolean>(true);
+
   // Chat IA
   const [mensajeChat, setMensajeChat] = useState<string>("");
   const [enviandoChat, setEnviandoChat] = useState<boolean>(false);
   const [chatHistorial, setChatHistorial] = useState<any[]>(horarioInicial?.mensajesChat || []);
 
   const diasLectivos = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
-  const periodos = [1, 2, 3, 4, 5, 6, 7];
+  
+  // Número de periodos por día dinámico (default 6)
+  const numHorasPorDia = horarioInicial?.config?.horasPorDia || horario?.config?.horasPorDia || 6;
+  const periodos = Array.from({ length: numHorasPorDia }, (_, i) => i + 1);
 
   const handleEnviarMensajeIA = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +126,7 @@ export default function EditorHorarios({
       
       const celdasMapa: any = {};
       for (let d = 1; d <= 5; d++) {
-        for (let p = 1; p <= 7; p++) {
+        for (let p = 1; p <= numHorasPorDia; p++) {
           const celda = horario?.celdas.find(
             (c: any) => c.diaSemana === d && c.periodo === p && c.grupoId === grupoSeleccionadoId
           );
@@ -137,7 +145,7 @@ export default function EditorHorarios({
       for (const g of grupos) {
         const celdasMapa: any = {};
         for (let d = 1; d <= 5; d++) {
-          for (let p = 1; p <= 7; p++) {
+          for (let p = 1; p <= numHorasPorDia; p++) {
             const celda = horario?.celdas.find(
               (c: any) => c.diaSemana === d && c.periodo === p && c.grupoId === g.id
             );
@@ -153,9 +161,9 @@ export default function EditorHorarios({
       }
     }
 
-    const payload = {
-      nombreEscuela: escuela?.nombre || "Bachillerato General",
-      cct: escuela?.cct || "21EBH0000X",
+    const payload: any = {
+      nombreEscuela: escuela.nombre,
+      cct: escuela.cct || "CCT",
       tipoVista: vistaTab,
       tituloTabla,
       dias: diasLectivos,
@@ -165,38 +173,37 @@ export default function EditorHorarios({
 
     if (formato === "EXCEL") {
       exportarHorarioExcel(payload);
+      toast.success("Horario exportado a Excel");
     } else {
       exportarHorarioPDF(payload);
+      toast.success("Generando reporte PDF...");
     }
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-      {/* Barra Superior de Control y Pestañas */}
-      <div className="horario-header">
-        {/* Tabs de Filtro */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "var(--bg)", padding: "0.35rem", borderRadius: "12px", border: "1px solid var(--border)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", width: "100%" }}>
+      {/* Barra de Controles Superior */}
+      <div style={{ background: "white", padding: "1rem", borderRadius: "12px", border: "1px solid var(--border)", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+        {/* Selector de Vista */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <button
             onClick={() => setVistaTab("GRUPO")}
             className={`horario-tab-btn ${vistaTab === "GRUPO" ? "active" : ""}`}
           >
             <Users style={{ width: "16px", height: "16px" }} /> Por Grupo
           </button>
-
           <button
             onClick={() => setVistaTab("DOCENTE")}
             className={`horario-tab-btn ${vistaTab === "DOCENTE" ? "active" : ""}`}
           >
             <UserCheck style={{ width: "16px", height: "16px" }} /> Por Docente
           </button>
-
           <button
             onClick={() => setVistaTab("AULA")}
             className={`horario-tab-btn ${vistaTab === "AULA" ? "active" : ""}`}
           >
             <Building2 style={{ width: "16px", height: "16px" }} /> Por Aula
           </button>
-
           <button
             onClick={() => setVistaTab("SUMARIO")}
             className={`horario-tab-btn ${vistaTab === "SUMARIO" ? "active" : ""}`}
@@ -207,6 +214,25 @@ export default function EditorHorarios({
 
         {/* Acciones e Impresión */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <button
+            onClick={() => setMostrarChat(!mostrarChat)}
+            style={{
+              background: mostrarChat ? "#eff6ff" : "#ffffff",
+              color: "#2563eb",
+              border: "1px solid #bfdbfe",
+              padding: "0.4rem 0.85rem",
+              borderRadius: "8px",
+              fontWeight: 700,
+              fontSize: "0.8125rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem"
+            }}
+          >
+            <MessageSquare style={{ width: "15px", height: "15px" }} /> {mostrarChat ? "Ocultar Chat IA" : "Abrir Chat IA"}
+          </button>
+
           <button
             onClick={onVolverAWizard}
             className="btn"
@@ -273,37 +299,40 @@ export default function EditorHorarios({
         )}
       </div>
 
-      {/* Panel Dual: 70% Grid Matriz / 30% Chat IA */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem" }}>
-        {/* PANEL IZQUIERDO - Cuadrícula interactiva */}
-        <div style={{ background: "white", borderRadius: "16px", border: "1px solid var(--border)", padding: "1.25rem", boxShadow: "var(--shadow)", overflowX: "auto" }}>
-          <table className="horario-grid-table">
+      {/* Distribución Flex: Tabla al 100% de visibilidad (Lunes a Viernes) y Chat en panel lateral deslizable */}
+      <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start", width: "100%" }}>
+        {/* PANEL IZQUIERDO: Cuadrícula interactiva completa sin cortes */}
+        <div style={{ flex: 1, minWidth: 0, background: "white", borderRadius: "16px", border: "1px solid var(--border)", padding: "1.25rem", boxShadow: "var(--shadow)" }}>
+          <table className="horario-grid-table" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr>
-                <th style={{ width: "90px" }}>Periodo</th>
+                <th style={{ width: "12%", padding: "0.6rem 0.5rem" }}>Periodo</th>
                 {diasLectivos.map((d, i) => (
-                  <th key={i}>{d}</th>
+                  <th key={i} style={{ width: "17.6%", padding: "0.6rem 0.5rem" }}>{d}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {periodos.map((p) => (
                 <tr key={p}>
-                  <td style={{ background: "var(--bg)", textAlign: "center", fontWeight: 700, fontSize: "0.8125rem", color: "var(--text)" }}>
+                  <td style={{ background: "var(--bg)", textAlign: "center", fontWeight: 800, fontSize: "0.8125rem", color: "var(--text)", border: "1px solid #cbd5e1" }}>
                     Hora {p}
                   </td>
                   {[1, 2, 3, 4, 5].map((dia) => {
                     const celda = getCeldaInfo(dia, p);
                     return (
-                      <td key={dia}>
+                      <td key={dia} style={{ border: "1px solid #cbd5e1", height: "70px", padding: "0.35rem", verticalAlign: "top" }}>
                         {celda ? (
-                          <div className="horario-celda-box">
+                          <div className="horario-celda-box" style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "0.35rem", borderRadius: "6px" }}>
                             <div>
-                              <p style={{ fontSize: "0.75rem", fontWeight: 800, color: "#1e3a8a", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {celda.docente?.nombre || "Docente"}
+                              <p style={{ fontSize: "0.75rem", fontWeight: 900, color: "#15803d", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {celda.docente?.nombre ? `${celda.docente.nombre} ${celda.docente.apellidoPaterno || ""}` : "Docente"}
                               </p>
-                              <p style={{ fontSize: "0.7rem", fontWeight: 600, color: "#1d4ed8", margin: 0 }}>
-                                Grupo: {celda.grupo?.nombre}
+                              <p style={{ fontSize: "0.7rem", fontWeight: 800, color: "#1d4ed8", margin: "0.15rem 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {celda.asignatura?.uacName || celda.asignaturaId}
+                              </p>
+                              <p style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", margin: 0 }}>
+                                Grupo {celda.grupo?.nombre}
                               </p>
                             </div>
                             {celda.esBloqueado && (
@@ -313,7 +342,7 @@ export default function EditorHorarios({
                             )}
                           </div>
                         ) : (
-                          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", color: "#94a3b8", fontStyle: "italic" }}>
                             Libre
                           </div>
                         )}
@@ -326,60 +355,87 @@ export default function EditorHorarios({
           </table>
         </div>
 
-        {/* PANEL DERECHO - Chat IA Asistente */}
-        <div className="horario-chat-container">
-          <div style={{ borderBottom: "1px solid #334155", paddingBottom: "0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Sparkles style={{ width: "20px", height: "20px", color: "#60a5fa" }} />
-            <div>
-              <h3 style={{ fontSize: "0.9375rem", fontWeight: 800, color: "white", margin: 0 }}>Asistente IA de Horarios</h3>
-              <p style={{ fontSize: "0.65rem", color: "#94a3b8", margin: 0 }}>Gemini 3.5 Flash Lite | SISAT-ATP Pool</p>
+        {/* PANEL DERECHO: Chat IA Asistente Deslizable */}
+        {mostrarChat && (
+          <div style={{ width: "340px", flexShrink: 0, background: "#0f172a", borderRadius: "16px", border: "1px solid #334155", padding: "1.25rem", display: "flex", flexDirection: "column", height: "600px", boxShadow: "0 10px 25px rgba(0,0,0,0.3)" }}>
+            <div style={{ borderBottom: "1px solid #334155", paddingBottom: "0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <Sparkles style={{ width: "20px", height: "20px", color: "#60a5fa" }} />
+                <div>
+                  <h3 style={{ fontSize: "0.9375rem", fontWeight: 800, color: "white", margin: 0 }}>Asistente IA de Horarios</h3>
+                  <p style={{ fontSize: "0.65rem", color: "#94a3b8", margin: 0 }}>Gemini 3.5 Flash Lite | SISAT-ATP Pool</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMostrarChat(false)}
+                style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}
+              >
+                <X style={{ width: "18px", height: "18px" }} />
+              </button>
             </div>
-          </div>
 
-          {/* Historial de Mensajes */}
-          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.75rem", paddingRight: "0.25rem" }}>
-            <div style={{ background: "rgba(30, 41, 59, 0.8)", padding: "0.75rem", borderRadius: "10px", border: "1px solid #334155", fontSize: "0.75rem", color: "#cbd5e1" }}>
-              💡 <strong>Directiva:</strong> Pide cualquier ajuste en lenguaje natural. Ej: <em>"Mueve la clase de Química del lunes 1ª hora al martes 3ª hora"</em> o <em>"El profesor Juan Pérez no puede venir los viernes"</em>.
+            {/* Historial de Mensajes */}
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.75rem", paddingRight: "0.25rem" }}>
+              <div style={{ background: "rgba(30, 41, 59, 0.8)", padding: "0.75rem", borderRadius: "10px", border: "1px solid #334155", fontSize: "0.75rem", color: "#cbd5e1" }}>
+                💡 <strong>Directiva:</strong> Pide cualquier ajuste en lenguaje natural. Ej: <em>"Mueve la clase de Química del lunes 1ª hora al martes 3ª hora"</em> o <em>"El profesor Juan Pérez no puede venir los viernes"</em>.
+              </div>
+
+              {chatHistorial.map((msg: any, i: number) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "0.75rem",
+                    borderRadius: "12px",
+                    background: msg.role === "user" ? "#2563eb" : "#1e293b",
+                    color: "white",
+                    fontSize: "0.8125rem",
+                    alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                    maxWidth: "90%",
+                    border: msg.role === "user" ? "none" : "1px solid #334155"
+                  }}
+                >
+                  {msg.content}
+                </div>
+              ))}
             </div>
 
-            {chatHistorial.map((msg: any, i: number) => (
-              <div
-                key={i}
+            {/* Input del Chat */}
+            <form onSubmit={handleEnviarMensajeIA} style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+              <input
+                type="text"
+                placeholder="Escribe una instrucción para la IA..."
+                value={mensajeChat}
+                onChange={(e) => setMensajeChat(e.target.value)}
                 style={{
-                  padding: "0.75rem",
-                  borderRadius: "12px",
-                  fontSize: "0.75rem",
-                  maxWidth: "90%",
-                  alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                  background: msg.role === "user" ? "var(--primary)" : "#1e293b",
+                  flex: 1,
+                  background: "#1e293b",
+                  border: "1px solid #334155",
+                  borderRadius: "8px",
+                  padding: "0.5rem 0.75rem",
                   color: "white",
-                  border: msg.role === "user" ? "none" : "1px solid #334155"
+                  fontSize: "0.8125rem"
+                }}
+              />
+              <button
+                type="submit"
+                disabled={enviandoChat}
+                style={{
+                  background: "#2563eb",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "0.5rem 0.75rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
                 }}
               >
-                <p style={{ margin: 0, lineHeight: 1.5 }}>{msg.content}</p>
-              </div>
-            ))}
+                <Send style={{ width: "16px", height: "16px" }} />
+              </button>
+            </form>
           </div>
-
-          {/* Input Chat */}
-          <form onSubmit={handleEnviarMensajeIA} style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid #334155", display: "flex", gap: "0.5rem" }}>
-            <input
-              type="text"
-              placeholder="Escribe una instrucción para la IA..."
-              value={mensajeChat}
-              onChange={(e) => setMensajeChat(e.target.value)}
-              style={{ flex: 1, padding: "0.625rem 0.75rem", background: "#1e293b", border: "1px solid #334155", borderRadius: "10px", fontSize: "0.75rem", color: "white", outline: "none" }}
-            />
-            <button
-              type="submit"
-              disabled={enviandoChat}
-              className="btn btn-primary"
-              style={{ minHeight: "auto", padding: "0.625rem 0.75rem", borderRadius: "10px" }}
-            >
-              <Send style={{ width: "16px", height: "16px" }} />
-            </button>
-          </form>
-        </div>
+        )}
       </div>
     </div>
   );
