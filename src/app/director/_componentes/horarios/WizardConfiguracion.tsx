@@ -247,6 +247,29 @@ export default function WizardConfiguracion({
   // Modo de Configuración: Semiautomático (SEP General) vs Manual Libre (Tecnológicos)
   const [modoConfiguracion, setModoConfiguracion] = useState<"SEMIAUTOMATICO" | "MANUAL_TECNOLOGICO">("SEMIAUTOMATICO");
 
+  // Asignaturas personalizadas para Modo Manual Libre (Bachilleratos Tecnológicos)
+  const [materiasManualesSem1, setMateriasManualesSem1] = useState<any[]>([
+    { id: "man_1_1", uacName: "Matemáticas Tecnológicas I", horasSemanales: 5 },
+    { id: "man_1_2", uacName: "Química I", horasSemanales: 4 },
+    { id: "man_1_3", uacName: "Lengua y Comunicación I", horasSemanales: 4 },
+    { id: "man_1_4", uacName: "Inglés I", horasSemanales: 3 },
+    { id: "man_1_5", uacName: "Tecnologías de la Información", horasSemanales: 4 }
+  ]);
+
+  const [materiasManualesSem3, setMateriasManualesSem3] = useState<any[]>([
+    { id: "man_3_1", uacName: "Física I", horasSemanales: 4 },
+    { id: "man_3_2", uacName: "Cálculo Diferencial", horasSemanales: 5 },
+    { id: "man_3_3", uacName: "Módulo Profesional I (Especialidad)", horasSemanales: 12 },
+    { id: "man_3_4", uacName: "Inglés III", horasSemanales: 3 }
+  ]);
+
+  const [materiasManualesSem5, setMateriasManualesSem5] = useState<any[]>([
+    { id: "man_5_1", uacName: "Cálculo Integral", horasSemanales: 5 },
+    { id: "man_5_2", uacName: "Módulo Profesional II (Especialidad)", horasSemanales: 12 },
+    { id: "man_5_3", uacName: "Ciencia, Tecnología y Sociedad", horasSemanales: 4 },
+    { id: "man_5_4", uacName: "Inglés V", horasSemanales: 3 }
+  ]);
+
   // Estado de Grupos
   const [grupos, setGrupos] = useState<any[]>([]);
 
@@ -326,6 +349,33 @@ export default function WizardConfiguracion({
   useEffect(() => {
     generarGruposSegunEstructura(numGruposPorGrado);
   }, [numGruposPorGrado]);
+
+  const handleAgregarMateriaManual = (semestre: number) => {
+    const nuevaMateria = {
+      id: `man_${semestre}_${Date.now()}`,
+      uacName: `Nueva Asignatura ${semestre}° Semestre`,
+      horasSemanales: 4
+    };
+    if (semestre === 1) setMateriasManualesSem1(prev => [...prev, nuevaMateria]);
+    if (semestre === 3) setMateriasManualesSem3(prev => [...prev, nuevaMateria]);
+    if (semestre === 5) setMateriasManualesSem5(prev => [...prev, nuevaMateria]);
+    toast.success(`Asignatura agregada a ${semestre}° Semestre`);
+  };
+
+  const handleActualizarMateriaManual = (semestre: number, index: number, field: string, value: any) => {
+    const setter = semestre === 1 ? setMateriasManualesSem1 : semestre === 3 ? setMateriasManualesSem3 : setMateriasManualesSem5;
+    setter(prev => {
+      const copia = [...prev];
+      copia[index] = { ...copia[index], [field]: value };
+      return copia;
+    });
+  };
+
+  const handleEliminarMateriaManual = (semestre: number, index: number) => {
+    const setter = semestre === 1 ? setMateriasManualesSem1 : semestre === 3 ? setMateriasManualesSem3 : setMateriasManualesSem5;
+    setter(prev => prev.filter((_, i) => i !== index));
+    toast.success("Asignatura removida");
+  };
 
   // Inicializar horas por docente (0 hrs para Administrativos/Apoyo/Responsable, 20 hrs para Docentes)
   useEffect(() => {
@@ -635,6 +685,17 @@ export default function WizardConfiguracion({
   const getUACsIndividualesGrupo = (grupo: any) => {
     const sem = grupo.semestre;
 
+    if (modoConfiguracion === "MANUAL_TECNOLOGICO") {
+      const listaCustom = sem === 1 ? materiasManualesSem1 : sem === 3 ? materiasManualesSem3 : materiasManualesSem5;
+      return listaCustom.map((m: any, i: number) => ({
+        id: m.id || `uac_custom_${sem}_${i}`,
+        uacName: m.uacName,
+        abrev: (m.uacName || "UAC").substring(0, 10).toUpperCase(),
+        tipo: "CUSTOM_MANUAL",
+        horasSemanales: Number(m.horasSemanales || 3)
+      }));
+    }
+
     if (sem === 1) {
       return [
         { id: `uac_1_1`, uacName: "La Materia y sus Interacciones", abrev: "MAT-INT", tipo: "UNIVERSAL", horasSemanales: 4 },
@@ -880,7 +941,75 @@ export default function WizardConfiguracion({
             </div>
           </div>
 
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: "12px", padding: "1.25rem", background: "#f8fafc" }}>
+          {modoConfiguracion === "MANUAL_TECNOLOGICO" ? (
+            <div style={{ border: "1px solid #d97706", borderRadius: "12px", padding: "1.25rem", background: "#fffbeb" }}>
+              <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#b45309", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <ShieldCheck style={{ width: "18px", height: "18px", color: "#d97706" }} /> Asignaturas y Módulos del Subsistema Tecnológico / CBTIS
+              </h3>
+              <p style={{ fontSize: "0.8125rem", color: "#78350f", marginBottom: "1rem", margin: "0 0 1rem" }}>
+                Escriba libremente los nombres de las asignaturas que se imparten en su plantel para 1er, 3er y 5to semestre y asigne sus horas semanales correspondientes.
+              </p>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "1.25rem" }}>
+                {[
+                  { sem: 1, lista: materiasManualesSem1, label: "1er Semestre (Asignaturas Base)" },
+                  { sem: 3, lista: materiasManualesSem3, label: "3er Semestre (Física / Módulos Especialidad)" },
+                  { sem: 5, lista: materiasManualesSem5, label: "5to Semestre (Cálculo / Módulos Especialidad)" }
+                ].map(({ sem, lista, label }) => (
+                  <div key={sem} style={{ background: "#ffffff", border: "1px solid #fcd34d", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #fef3c7", paddingBottom: "0.5rem", marginBottom: "0.75rem" }}>
+                      <span style={{ fontSize: "0.9375rem", fontWeight: 800, color: "#b45309" }}>
+                        {label}
+                      </span>
+                      <span style={{ fontSize: "0.6875rem", fontWeight: 800, background: "#fef3c7", color: "#b45309", padding: "0.25rem 0.5rem", borderRadius: "6px" }}>
+                        {lista.reduce((sum: number, m: any) => sum + Number(m.horasSemanales || 0), 0)} hrs/sem
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                      {lista.map((m: any, mIdx: number) => (
+                        <div key={m.id || mIdx} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <input
+                            type="text"
+                            value={m.uacName}
+                            onChange={(e) => handleActualizarMateriaManual(sem, mIdx, "uacName", e.target.value)}
+                            placeholder="Nombre de la Asignatura / Módulo"
+                            style={{ flex: 1, padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.8125rem", fontWeight: 700, color: "#0f172a" }}
+                          />
+                          <input
+                            type="number"
+                            min={1}
+                            max={25}
+                            value={m.horasSemanales}
+                            onChange={(e) => handleActualizarMateriaManual(sem, mIdx, "horasSemanales", Math.max(1, Number(e.target.value)))}
+                            style={{ width: "55px", padding: "0.45rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.8125rem", fontWeight: 800, textAlign: "center", color: "#0f172a" }}
+                          />
+                          <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b" }}>hrs</span>
+                          <button
+                            type="button"
+                            onClick={() => handleEliminarMateriaManual(sem, mIdx)}
+                            style={{ background: "#fef2f2", color: "#ef4444", border: "1px solid #fca5a5", padding: "0.4rem", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }}
+                            title="Eliminar asignatura"
+                          >
+                            <Trash2 style={{ width: "14px", height: "14px" }} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAgregarMateriaManual(sem)}
+                      style={{ marginTop: "0.85rem", width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px dashed #d97706", background: "#fffbeb", color: "#b45309", fontSize: "0.75rem", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
+                    >
+                      <Plus style={{ width: "14px", height: "14px" }} /> + Agregar Asignatura a {sem}° Semestre
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ border: "1px solid #e2e8f0", borderRadius: "12px", padding: "1.25rem", background: "#f8fafc" }}>
             <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <ShieldCheck style={{ width: "18px", height: "18px", color: "#2563eb" }} /> Configuración Curricular Individual por Grupo
             </h3>
@@ -1018,6 +1147,7 @@ export default function WizardConfiguracion({
               })}
             </div>
           </div>
+          )}
 
           <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: "1rem" }}>
             <button
@@ -1244,7 +1374,7 @@ export default function WizardConfiguracion({
                                     {uac.tipo?.startsWith("LABORAL") ? (
                                       <div>
                                         <span style={{ fontSize: "0.6875rem", fontWeight: 800, color: "#64748b", display: "block" }}>
-                                          Formación Laboral {uac.tipo === "LABORAL_A" ? '"A"' : '"B"'} ({uac.capNombre})
+                                          Formación Laboral {uac.tipo === "LABORAL_A" ? '"A"' : '"B"'} ({(uac as any).capNombre})
                                         </span>
                                         <span style={{ color: "#d97706", fontWeight: 900, fontSize: "0.8125rem" }}>
                                           {uac.uacName}

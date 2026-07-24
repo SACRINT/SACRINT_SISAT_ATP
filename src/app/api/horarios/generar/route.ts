@@ -126,3 +126,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al generar horario con IA" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const escuelaId = searchParams.get("escuelaId");
+
+    if (!escuelaId) {
+      return NextResponse.json({ error: "escuelaId es requerido" }, { status: 400 });
+    }
+
+    await prisma.horarioGenerado.deleteMany({
+      where: { escuelaId }
+    });
+
+    return NextResponse.json({ success: true, message: "Horario generado eliminado exitosamente." });
+  } catch (error: any) {
+    console.error("[api/horarios/generar] Error en DELETE:", error);
+    return NextResponse.json({ error: "Error al eliminar el horario" }, { status: 500 });
+  }
+}

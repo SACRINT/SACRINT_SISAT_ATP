@@ -382,9 +382,10 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                         {isExpanded && (
                             <div style={{ padding: "0 1rem 1rem", borderTop: "1px solid var(--border)" }}>
                                 {[...esc.entregas].sort((a, b) => {
-                                    const ordenA = a.periodoEntrega.programa.orden ?? 999;
-                                    const ordenB = b.periodoEntrega.programa.orden ?? 999;
-                                    if (ordenA !== ordenB) return ordenA - ordenB;
+                                    const progA = a.periodoEntrega.programa.nombre || "";
+                                    const progB = b.periodoEntrega.programa.nombre || "";
+                                    const compProg = progA.localeCompare(progB);
+                                    if (compProg !== 0) return compProg;
                                     
                                     const SEP_MONTH_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
                                     const getSepMonthOrder = (m: number | null) => m ? (SEP_MONTH_ORDER.indexOf(m) === -1 ? 99 : SEP_MONTH_ORDER.indexOf(m)) : 99;
