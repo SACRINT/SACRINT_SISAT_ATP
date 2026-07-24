@@ -527,36 +527,14 @@ export default function WizardConfiguracion({
       return;
     }
 
-    // Auto-completar asignaciones por defecto con distribución equilibrada (Round-Robin) según capacidad restante
-    const cargasCompletas = [...cargas];
+    // Utilizar estrictamente las cargas asignadas de forma explícita por el director en la matriz
+    const cargasCompletas = cargas.filter((c) => !!c.personalId);
 
-    grupos.forEach((g) => {
-      const uacs = getUACsIndividualesGrupo(g);
-      uacs.forEach((uac) => {
-        const existe = cargasCompletas.some((c) => c.grupoId === g.id && (c.asignaturaId === uac.id || c.uacName === uac.uacName));
-        if (!existe) {
-          // Buscar un docente que tenga capacidad disponible para esta materia
-          const docenteDisponible = docentes.find((d) => {
-            const max = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0);
-            const actual = cargasCompletas
-              .filter((c) => c.personalId === d.id)
-              .reduce((s, c) => s + (c.horasSemanales || 3), 0);
-            return (actual + (uac.horasSemanales || 3)) <= max;
-          }) || docentes[0]; // fallback seguro
-
-          if (docenteDisponible) {
-            cargasCompletas.push({
-              grupoId: g.id,
-              asignaturaId: uac.id,
-              uacName: uac.uacName,
-              personalId: docenteDisponible.id,
-              horasSemanales: uac.horasSemanales || 3,
-              requiereAulaEspecial: false
-            });
-          }
-        }
-      });
-    });
+    if (cargasCompletas.length === 0) {
+      toast.error("Debe asignar al menos una materia a un docente en el Paso 3 antes de generar el horario.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/horarios/configuracion", {
