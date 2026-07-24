@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const grupos = await prisma.horarioGrupo.findMany({ where: { escuelaId } });
     const docentes = await prisma.personal.findMany({
-      where: { escuelaId, cargo: { in: ["DOCENTE", "RESPONSABLE"] } }
+      where: { escuelaId }
     });
     const aulas = await prisma.horarioAula.findMany({ where: { escuelaId } });
     const cargas = await prisma.horarioCargaDocente.findMany({ where: { escuelaId } });

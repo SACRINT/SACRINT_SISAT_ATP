@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
         where: { escuelaId },
         update: {
           diasLectivos: Number(config.diasLectivos) || 5,
-          horasPorDia: Number(config.horasPorDia) || 7,
+          horasPorDia: Number(config.horasPorDia) || 6,
           horaInicio: config.horaInicio || "08:00",
           duracionMinutos: Number(config.duracionMinutos) || 50,
           recesoTrasPeriodo: Number(config.recesoTrasPeriodo) || 3,
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
         create: {
           escuelaId,
           diasLectivos: Number(config.diasLectivos) || 5,
-          horasPorDia: Number(config.horasPorDia) || 7,
+          horasPorDia: Number(config.horasPorDia) || 6,
           horaInicio: config.horaInicio || "08:00",
           duracionMinutos: Number(config.duracionMinutos) || 50,
           recesoTrasPeriodo: Number(config.recesoTrasPeriodo) || 3,
@@ -136,47 +136,44 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Guardar/Sincronizar Grupos
+    // Mapa para asociar IDs temporales o nombres con IDs reales de DB
+    const mapaGrupoIds: Record<string, string> = {};
+
+    // 2. Guardar/Sincronizar Grupos usando la restricción única (escuelaId, nombre)
     if (Array.isArray(grupos)) {
       for (const g of grupos) {
-        if (g.id) {
-          await prisma.horarioGrupo.upsert({
-            where: { id: g.id },
-            update: {
-              nombre: g.nombre,
-              semestre: Number(g.semestre),
-              capacitacionNombre: g.capacitacionNombre || null,
-              ffeOptativas: g.ffeOptativas || null,
-              ffeoSocioemocional: g.ffeoSocioemocional || null
-            },
-            create: {
+        const grupoDB = await prisma.horarioGrupo.upsert({
+          where: {
+            escuelaId_nombre: {
               escuelaId,
-              nombre: g.nombre,
-              semestre: Number(g.semestre),
-              capacitacionNombre: g.capacitacionNombre || null,
-              ffeOptativas: g.ffeOptativas || null,
-              ffeoSocioemocional: g.ffeoSocioemocional || null
+              nombre: g.nombre
             }
-          });
-        } else {
-          await prisma.horarioGrupo.create({
-            data: {
-              escuelaId,
-              nombre: g.nombre,
-              semestre: Number(g.semestre),
-              capacitacionNombre: g.capacitacionNombre || null,
-              ffeOptativas: g.ffeOptativas || null,
-              ffeoSocioemocional: g.ffeoSocioemocional || null
-            }
-          });
-        }
+          },
+          update: {
+            semestre: Number(g.semestre),
+            capacitacionNombre: g.capacitacionNombre || null,
+            ffeOptativas: g.ffeOptativas || null,
+            ffeoSocioemocional: g.ffeoSocioemocional || null
+          },
+          create: {
+            escuelaId,
+            nombre: g.nombre,
+            semestre: Number(g.semestre),
+            capacitacionNombre: g.capacitacionNombre || null,
+            ffeOptativas: g.ffeOptativas || null,
+            ffeoSocioemocional: g.ffeoSocioemocional || null
+          }
+        });
+
+        if (g.id) mapaGrupoIds[g.id] = grupoDB.id;
+        mapaGrupoIds[g.nombre] = grupoDB.id;
       }
     }
 
     // 3. Guardar/Sincronizar Aulas
     if (Array.isArray(aulas)) {
       for (const a of aulas) {
-        if (a.id) {
+        if (a.id && !a.id.startsWith("temp_")) {
           await prisma.horarioAula.upsert({
             where: { id: a.id },
             update: { nombre: a.nombre, tipo: a.tipo || "REGULAR" },
@@ -192,42 +189,60 @@ export async function POST(req: NextRequest) {
 
     // 4. Guardar Cargas Docentes
     if (Array.isArray(cargas)) {
+      // Limpiar cargas anteriores de esta escuela para recrear la estructura limpia
+      await prisma.horarioCargaDocente.deleteMany({
+        where: { escuelaId }
+      });
+
       for (const c of cargas) {
-        if (c.personalId && c.grupoId && c.asignaturaId) {
-          if (c.id) {
-            await prisma.horarioCargaDocente.upsert({
-              where: { id: c.id },
-              update: {
-                personalId: c.personalId,
-                grupoId: c.grupoId,
-                asignaturaId: c.asignaturaId,
-                horasSemanales: Number(c.horasSemanales) || 3,
-                requiereAulaEspecial: !!c.requiereAulaEspecial,
-                aulaEspecialId: c.aulaEspecialId || null
-              },
-              create: {
-                escuelaId,
-                personalId: c.personalId,
-                grupoId: c.grupoId,
-                asignaturaId: c.asignaturaId,
-                horasSemanales: Number(c.horasSemanales) || 3,
-                requiereAulaEspecial: !!c.requiereAulaEspecial,
-                aulaEspecialId: c.aulaEspecialId || null
-              }
-            });
-          } else {
-            await prisma.horarioCargaDocente.create({
+        if (c.personalId && c.grupoId) {
+          const grupoRealId = mapaGrupoIds[c.grupoId] || c.grupoId;
+
+          const grupoExiste = await prisma.horarioGrupo.findUnique({
+            where: { id: grupoRealId }
+          });
+
+          if (!grupoExiste) {
+            console.warn(`[api/horarios/configuracion] Grupo ID ${grupoRealId} no existe, omitiendo.`);
+            continue;
+          }
+
+          // Resolver o crear Asignatura UAC en HorarioAsignaturaCatalogo
+          let asignaturaId = c.asignaturaId;
+          const uacNombreBusqueda = c.uacName || c.asignaturaNombre || "Asignatura UAC";
+
+          let asignaturaDB = await prisma.horarioAsignaturaCatalogo.findFirst({
+            where: {
+              OR: [
+                { id: asignaturaId },
+                { uacName: { equals: uacNombreBusqueda, mode: "insensitive" } }
+              ]
+            }
+          });
+
+          if (!asignaturaDB) {
+            asignaturaDB = await prisma.horarioAsignaturaCatalogo.create({
               data: {
-                escuelaId,
-                personalId: c.personalId,
-                grupoId: c.grupoId,
-                asignaturaId: c.asignaturaId,
-                horasSemanales: Number(c.horasSemanales) || 3,
-                requiereAulaEspecial: !!c.requiereAulaEspecial,
-                aulaEspecialId: c.aulaEspecialId || null
+                escuelaId: null,
+                uacName: uacNombreBusqueda,
+                semester: c.semestre || 1,
+                component: c.tipo || "fundamental",
+                horasSemanales: Number(c.horasSemanales) || 3
               }
             });
           }
+
+          await prisma.horarioCargaDocente.create({
+            data: {
+              escuelaId,
+              personalId: c.personalId,
+              grupoId: grupoRealId,
+              asignaturaId: asignaturaDB.id,
+              horasSemanales: Number(c.horasSemanales) || 3,
+              requiereAulaEspecial: !!c.requiereAulaEspecial,
+              aulaEspecialId: c.aulaEspecialId || null
+            }
+          });
         }
       }
     }
