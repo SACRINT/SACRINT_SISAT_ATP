@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Users, BookOpen, Clock, AlertCircle, ShieldCheck, UserCheck, Plus, Trash2, CheckCircle2, UserPlus } from "lucide-react";
+import { Sparkles, Users, BookOpen, Clock, AlertCircle, ShieldCheck, UserCheck, Plus, Trash2, CheckCircle2, UserPlus, Layers } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -33,6 +33,13 @@ const FORMACIONES_LABORALES = [
   "Turismo"
 ];
 
+// Asignaturas de Currículum Ampliado / Formación Socioemocional (FFEO) para 3º a 6º Semestre
+const CURRICULUM_AMPLIADO_FFEO = [
+  "Educación para la Salud III (2025)",
+  "Educación Integral en Sexualidad y Género III (2025)",
+  "Práctica y Colaboración Ciudadana III (2025)"
+];
+
 // Opciones FFE Optativas MCCEMS 2025-2026 (Puebla)
 const FFE_RECURSO_SOCIOCOGNITIVO = [
   "Comunicación y Sociedad I",
@@ -59,6 +66,160 @@ const FFE_AREA_CONOCIMIENTO = [
   "Lógica y Pensamiento Crítico",
   "Pensamiento Filosófico I"
 ];
+
+// Mapeo exhaustivo de las 15 Capacitaciones Laborales a sus 2 UACs de 3º semestre y 2 UACs de 5º semestre
+const UACS_LABORALES_MAPA: Record<string, { sem3: string[]; sem5: string[] }> = {
+  "Administracion": {
+    sem3: [
+      "Entrega recursos materiales a otras áreas de una organización",
+      "Organiza recursos materiales a solicitud de un superior"
+    ],
+    sem5: [
+      "Elabora trámites administrativos básicos de una organización",
+      "Organiza expedientes y documentación interna de las diferentes áreas de una organización"
+    ]
+  },
+  "Agricultura Sostenible de Traspatio": {
+    sem3: [
+      "Construye huerto para la producción agrícola sostenible de traspatio",
+      "Planea huerto para la producción agrícola sostenible de traspatio"
+    ],
+    sem5: [
+      "Aplica técnicas agroecológicas de conservación de suelo y agua, y de control de plagas y enfermedades",
+      "Distingue técnicas agroecológicas de conservación de suelo y agua y de control de plagas y enfermedades"
+    ]
+  },
+  "Area de la Salud": {
+    sem3: [
+      "Despacha medicamentos y material de curación de acuerdo con prescripciones médicas y productos farmacéuticos",
+      "Lleva registro de recetas, inventarios de medicamentos y productos farmacéuticos"
+    ],
+    sem5: [
+      "Asiste especialistas del área en las necesidades del paciente",
+      "Asiste especialistas del área en las necesidades del paciente diagnosticado"
+    ]
+  },
+  "Comunicacion Grafica": {
+    sem3: [
+      "Elabora bocetos gráficos comprensibles y creativos a partir de las necesidades de comunicación gráfica requerida",
+      "Ilustra dibujos en materiales artesanales o artísticos"
+    ],
+    sem5: [
+      "Integra efectos visuales a imágenes y textos por medio de software o aplicaciones digitales de uso libre",
+      "Utiliza técnicas de impresión para los diversos productos gráficos, artesanales, artísticos y publicitarios"
+    ]
+  },
+  "Contabilidad": {
+    sem3: [
+      "Opera programas de cómputo para efectuar el registro, cálculo, control y análisis de la información contable",
+      "Registra movimientos contables de una entidad económica, con base en documentos fuente"
+    ],
+    sem5: [
+      "Realiza reportes básicos previos a los estados financieros",
+      "Registra compras y ventas del sector comercial"
+    ]
+  },
+  "Domotica": {
+    sem3: [
+      "Separa componentes electrónicos y mecánicos de uso doméstico y comercial",
+      "Separa componentes eléctricos y domóticos de uso doméstico y comercial"
+    ],
+    sem5: [
+      "Asiste instalaciones de equipo de automatización y control para uso residencial y comercial",
+      "Opera equipo domótico en instalaciones residenciales y comerciales, bajo supervisión"
+    ]
+  },
+  "Instalaciones Residenciales": {
+    sem3: [
+      "Interpreta croquis de diferentes instalaciones básicas de una vivienda",
+      "Prepara materiales en cantidad y calidad especificada para llevar a cabo diferentes tipos de mezclas bajo la supervisión del experto"
+    ],
+    sem5: [
+      "Coloca elementos constructivos básicos de una vivienda",
+      "Limpia muebles, tuberías y conexiones para llevar a cabo diferentes instalaciones de una vivienda"
+    ]
+  },
+  "Mecanica Dental": {
+    sem3: [
+      "Prepara modelos, moldes, porta impresiones, bloques o rodillos para realizar impresiones dentales parciales o totales",
+      "Registra órdenes de trabajo siguiendo especificaciones y prescripciones para dispositivos y aparatos dentales"
+    ],
+    sem5: [
+      "Modela alambres de diversos calibres para casos de aparatología ortodóntica",
+      "Realiza perfilado para prótesis dentales fijas y removibles"
+    ]
+  },
+  "Preparacion de Alimentos Artesanales": {
+    sem3: [
+      "Conserva frutas, verduras y legumbres a través de métodos tradicionales",
+      "Transforma cereales y harinas para la elaboración de tortillas y productos afines"
+    ],
+    sem5: [
+      "Obtiene bebidas no alcohólicas mediante procedimientos simples",
+      "Prepara productos de carnes, derivados disponibles y sustitutos de proteína"
+    ]
+  },
+  "Procesos Culinarios y Reposteria": {
+    sem3: [
+      "Elabora productos de panificación siguiendo procesos establecidos",
+      "Emplea productos, utensils y conceptos culinarios durante el proceso de transformación de alimentos"
+    ],
+    sem5: [
+      "Determina costos de producción en la elaboración de platillos",
+      "Prepara postres y productos de repostería básica"
+    ]
+  },
+  "Redes y Mantenimiento": {
+    sem3: [
+      "Actualiza equipos de cómputo de acuerdo con especificaciones del fabricante",
+      "Usa técnicas y estrategias de mantenimiento del equipo de cómputo"
+    ],
+    sem5: [
+      "Administra redes de acuerdo con las condiciones y requerimientos de una organización",
+      "Brinda soporte en software de aplicación y hardware según los requerimientos del usuario"
+    ]
+  },
+  "Servicios Ecosistemicos": {
+    sem3: [
+      "Aplica técnicas de muestreo indicadas por el especialista",
+      "Recopila muestras para las pruebas de niveles de contaminantes con guía del especialista"
+    ],
+    sem5: [
+      "Aplica técnicas para la siembra de diversas semillas forestales bajo supervisión",
+      "Realiza pruebas de suelos y fertilizantes para el mantenimiento del ecosistema forestal"
+    ]
+  },
+  "Sistemas Electricos": {
+    sem3: [
+      "Elabora empalmes acordes con las características de los hilos",
+      "Limpia áreas de trabajo, equipo, materiales y herramientas utilizadas durante la actividad"
+    ],
+    sem5: [
+      "Ensambla componentes sobre tableros en perfocel para circuitos eléctricos básicos",
+      "Reconoce planos de sistemas eléctricos en servicios domésticos y comerciales"
+    ]
+  },
+  "Tecnologia Informatica": {
+    sem3: [
+      "Elabora documentos electrónicos en diferentes procesadores de texto, relacionados con la ofimática",
+      "Utiliza aplicaciones ofimáticas en distintos sistemas operativos"
+    ],
+    sem5: [
+      "Elabora presentaciones electrónicas en diferentes aplicaciones relacionadas con la ofimática",
+      "Opera dispositivos electrónicos multifuncionales en procesos administrativos"
+    ]
+  },
+  "Turismo": {
+    sem3: [
+      "Explica procesos de expedición de documentos oficiales en las instituciones gubernamentales correspondientes para transitar o viajar",
+      "Muestra variedad de servicios que componen el catálogo de la planta turística"
+    ],
+    sem5: [
+      "Asiste usuarios en la selección, adquisición y utilización eficiente de servicios turísticos requeridos",
+      "Promociona sitios alternativos de lugares a visitar según necesidades del turista"
+    ]
+  }
+};
 
 export default function WizardConfiguracion({
   escuelaId,
@@ -153,13 +314,13 @@ export default function WizardConfiguracion({
           nombre: nombreGrupo,
           semestre: sem,
           capacitacionNombre: grupoExistente?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length],
+          ffeoSocioemocional: grupoExistente?.ffeoSocioemocional || CURRICULUM_AMPLIADO_FFEO[0],
           ffeOptativas: grupoExistente?.ffeOptativas || [
             FFE_RECURSO_SOCIOCOGNITIVO[0],
             FFE_RECURSO_SOCIOCOGNITIVO[1],
             FFE_AREA_CONOCIMIENTO[0],
             FFE_AREA_CONOCIMIENTO[1]
-          ],
-          ffeoSocioemocional: grupoExistente?.ffeoSocioemocional || "Actividades Artísticas y Culturales"
+          ]
         });
       }
     }
@@ -296,52 +457,73 @@ export default function WizardConfiguracion({
   const horasRequeridasPlantel = totalGrupos * 30; // 30 hrs por grupo
   const totalHorasPlantillaDocente = Object.values(horasDocentes).reduce((sum, h) => sum + Number(h || 0), 0);
 
-  // Obtener UACs específicas para un grupo según su semestre, capacitación y optativas FFE
-  const getAsignaturasEspecificasGrupo = (grupo: any) => {
+  // Obtener lista exacta de UACs individuales para cada grupo (Igual a Ejemplo tabla por grupo.docx)
+  const getUACsIndividualesGrupo = (grupo: any) => {
     const sem = grupo.semestre;
-    let uacs = catalogAsignaturas.filter((a) => a.semester === sem);
 
     if (sem === 1) {
-      return uacs; // Universal
+      return [
+        { id: `uac_1_1`, uacName: "La Materia y sus Interacciones", horasSemanales: 4 },
+        { id: `uac_1_2`, uacName: "Pensamiento Matemático I", horasSemanales: 4 },
+        { id: `uac_1_3`, uacName: "Humanidades I", horasSemanales: 4 },
+        { id: `uac_1_4`, uacName: "Lenguaje y Comunicación I", horasSemanales: 3 },
+        { id: `uac_1_5`, uacName: "Inglés I", horasSemanales: 3 },
+        { id: `uac_1_6`, uacName: "Cultura Digital I", horasSemanales: 3 },
+        { id: `uac_1_7`, uacName: "Laboratorio de Investigación", horasSemanales: 3 },
+        { id: `uac_1_8`, uacName: "Ciencias Sociales I", horasSemanales: 2 },
+        { id: `uac_1_9`, uacName: "Actividades Artísticas y Culturales I", horasSemanales: 2 },
+        { id: `uac_1_10`, uacName: "Actividades Físicas y Deportivas I", horasSemanales: 2 }
+      ];
     }
 
     if (sem === 3) {
-      // Regla: 7 Fundamental + 2 Laboral del grupo
-      const capNombre = (grupo.capacitacionNombre || "").toLowerCase();
-      return uacs.filter((uac) => {
-        if (uac.component === "laboral") {
-          const uacLower = uac.uacName.toLowerCase();
-          if (capNombre.includes("tecnolog") || capNombre.includes("informatica")) return uacLower.includes("cómputo") || uacLower.includes("procesadores") || uacLower.includes("mantenimiento") || uacLower.includes("ofimática") || uacLower.includes("redes") || uacLower.includes("gráficos");
-          if (capNombre.includes("salud")) return uacLower.includes("medicamentos") || uacLower.includes("paciente") || uacLower.includes("recetas") || uacLower.includes("salud");
-          if (capNombre.includes("administra")) return uacLower.includes("recursos") || uacLower.includes("trámites") || uacLower.includes("organización");
-          if (capNombre.includes("grafica")) return uacLower.includes("bocetos") || uacLower.includes("impresión") || uacLower.includes("efectos") || uacLower.includes("gráficos");
-          return true;
-        }
-        return true;
-      });
+      const capNombre = grupo.capacitacionNombre || FORMACIONES_LABORALES[0];
+      const uacsLab = UACS_LABORALES_MAPA[capNombre]?.sem3 || [
+        `Formación Laboral A (${capNombre})`,
+        `Formación Laboral B (${capNombre})`
+      ];
+
+      return [
+        { id: `uac_3_1`, uacName: "Ecosistemas: Interacciones, Energía y Dinámica", horasSemanales: 4 },
+        { id: `uac_3_2`, uacName: "Pensamiento Matemático III", horasSemanales: 4 },
+        { id: `uac_3_3`, uacName: "Humanidades III", horasSemanales: 5 },
+        { id: `uac_3_4`, uacName: "Taller de Ciencias II", horasSemanales: 3 },
+        { id: `uac_3_5`, uacName: grupo.ffeoSocioemocional || "Educación para la Salud III (2025)", horasSemanales: 2 },
+        { id: `uac_3_6`, uacName: "Lengua y Comunicación III", horasSemanales: 3 },
+        { id: `uac_3_7`, uacName: "Inglés III", horasSemanales: 3 },
+        { id: `uac_3_lab_a`, uacName: `Formación Laboral "A": ${uacsLab[0]}`, horasSemanales: 3 },
+        { id: `uac_3_lab_b`, uacName: `Formación Laboral "B": ${uacsLab[1]}`, horasSemanales: 3 }
+      ];
     }
 
     if (sem === 5) {
-      // Regla: 3 Fundamental + 1 FFEO + 2 Laboral + 4 FFE Optativas seleccionadas
-      const capNombre = (grupo.capacitacionNombre || "").toLowerCase();
-      const ffeElegidas = grupo.ffeOptativas || [];
+      const capNombre = grupo.capacitacionNombre || FORMACIONES_LABORALES[0];
+      const uacsLab = UACS_LABORALES_MAPA[capNombre]?.sem5 || [
+        `Formación Laboral A (${capNombre})`,
+        `Formación Laboral B (${capNombre})`
+      ];
+      const opts = grupo.ffeOptativas || [
+        FFE_RECURSO_SOCIOCOGNITIVO[0],
+        FFE_RECURSO_SOCIOCOGNITIVO[1],
+        FFE_AREA_CONOCIMIENTO[0],
+        FFE_AREA_CONOCIMIENTO[1]
+      ];
 
-      return uacs.filter((uac) => {
-        if (uac.component === "laboral") {
-          const uacLower = uac.uacName.toLowerCase();
-          if (capNombre.includes("tecnolog") || capNombre.includes("informatica")) return uacLower.includes("cómputo") || uacLower.includes("procesadores") || uacLower.includes("mantenimiento") || uacLower.includes("ofimática") || uacLower.includes("redes");
-          if (capNombre.includes("salud")) return uacLower.includes("medicamentos") || uacLower.includes("paciente") || uacLower.includes("recetas");
-          if (capNombre.includes("administra")) return uacLower.includes("recursos") || uacLower.includes("trámites") || uacLower.includes("organización");
-          return true;
-        }
-        if (uac.component === "ext_optativo") {
-          return ffeElegidas.some((opt: string) => uac.uacName.toLowerCase().includes(opt.toLowerCase()) || opt.toLowerCase().includes(uac.uacName.toLowerCase()));
-        }
-        return true;
-      });
+      return [
+        { id: `uac_5_1`, uacName: "La Energía en los Procesos de la Vida Diaria", horasSemanales: 4 },
+        { id: `uac_5_2`, uacName: "Conciencia Histórica II. México Durante el Expansionismo Capitalista", horasSemanales: 3 },
+        { id: `uac_5_3`, uacName: "Taller de Habilidades del Pensamiento", horasSemanales: 3 },
+        { id: `uac_5_ffe_1`, uacName: `Formación Fundamental Extendida (Recurso) "A": ${opts[0]}`, horasSemanales: 3 },
+        { id: `uac_5_ffe_2`, uacName: `Formación Fundamental Extendida (Recurso) "B": ${opts[1]}`, horasSemanales: 3 },
+        { id: `uac_5_ffe_3`, uacName: `Formación Fundamental Extendida (Área) "A": ${opts[2]}`, horasSemanales: 3 },
+        { id: `uac_5_ffe_4`, uacName: `Formación Fundamental Extendida (Área) "B": ${opts[3]}`, horasSemanales: 3 },
+        { id: `uac_5_5`, uacName: grupo.ffeoSocioemocional || "Práctica y Colaboración Ciudadana III (2025)", horasSemanales: 2 },
+        { id: `uac_5_lab_a`, uacName: `Formación Laboral "A": ${uacsLab[0]}`, horasSemanales: 3 },
+        { id: `uac_5_lab_b`, uacName: `Formación Laboral "B": ${uacsLab[1]}`, horasSemanales: 3 }
+      ];
     }
 
-    return uacs;
+    return [];
   };
 
   return (
@@ -353,7 +535,7 @@ export default function WizardConfiguracion({
             <Sparkles style={{ width: "22px", height: "22px", color: "#2563eb" }} /> Asistente de Configuración de Horario (SEP Puebla)
           </h2>
           <p style={{ fontSize: "0.8125rem", color: "#64748b", marginTop: "0.25rem", margin: 0 }}>
-            Defina la cantidad libre de grupos, cargas laborales/optativas y asigne docentes en la matriz por grupo
+            Defina la estructura libre de grupos, cargas laborales/optativas y asigne docentes por grupo
           </p>
         </div>
 
@@ -410,7 +592,7 @@ export default function WizardConfiguracion({
                 </span>
               </div>
               <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.35rem", margin: 0 }}>
-                Escriba la cantidad de grupos por año (1, 2, 3, 4, 5, 10...). Se autogenera la letra alfabética.
+                Escriba el número de grupos por grado (1, 2, 3, 4, 5, 10...). Se autogenera la letra oficial.
               </p>
             </div>
 
@@ -425,6 +607,7 @@ export default function WizardConfiguracion({
                 style={{ width: "100%", padding: "0.625rem", borderRadius: "8px", border: "2px solid #22c55e", background: "#ffffff", fontWeight: 800, fontSize: "0.9375rem", color: "#1e293b" }}
               >
                 <option value={6}>6 Horas diarias (30 hrs semanales - Estándar BGE Predeterminado)</option>
+                <option value={5}>5 Horas diarias (25 hrs semanales)</option>
                 <option value={7}>7 Horas diarias (35 hrs semanales)</option>
                 <option value={8}>8 Horas diarias (40 hrs semanales)</option>
               </select>
@@ -463,6 +646,26 @@ export default function WizardConfiguracion({
                         {FORMACIONES_LABORALES.map((cap) => (
                           <option key={cap} value={cap}>
                             {cap}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Currículum Ampliado / Formación Socioemocional (FFEO) para 3° y 5° semestre */}
+                  {g.semestre >= 3 && (
+                    <div style={{ marginBottom: "0.75rem" }}>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
+                        Currículum Ampliado / Formación Socioemocional (FFEO)
+                      </label>
+                      <select
+                        value={g.ffeoSocioemocional || CURRICULUM_AMPLIADO_FFEO[0]}
+                        onChange={(e) => handleActualizarConfigGrupo(idx, "ffeoSocioemocional", e.target.value)}
+                        style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.75rem", fontWeight: 700, color: "#0f172a" }}
+                      >
+                        {CURRICULUM_AMPLIADO_FFEO.map((ffeo) => (
+                          <option key={ffeo} value={ffeo}>
+                            {ffeo}
                           </option>
                         ))}
                       </select>
@@ -650,7 +853,7 @@ export default function WizardConfiguracion({
       )}
 
       {/* =========================================================================
-         PASO 3: Matriz Tabular Específica por Grupo (3° y 5° Semestre)
+         PASO 3: Matriz Tabular Específica por Grupo (Basada en Ejemplo tabla por grupo.docx)
          ========================================================================= */}
       {paso === 3 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
@@ -659,11 +862,11 @@ export default function WizardConfiguracion({
               <BookOpen style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Matriz de Asignación Docente por Grupo (UACs Específicas)
             </h3>
             <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
-              Cada grupo muestra únicamente sus UACs correspondientes a su Formación Laboral y Optativas FFE seleccionadas.
+              Tablas organizadas por grupo individual mostrando sus asignaturas exclusivas (Fundamentales, Laborales y Optativas).
             </p>
           </div>
 
-          {/* RENDERIZADO DE TABLAS POR GRUPO INDIVIDUAL PARA EVITAR MEZCLAS */}
+          {/* RENDERIZADO DE TABLAS INDIVIDUALES POR CADA GRUPO (IGUAL A Ejemplo tabla por grupo.docx) */}
           {[1, 3, 5].map((sem) => {
             const gruposSemestre = grupos.filter((g) => g.semestre === sem);
             if (gruposSemestre.length === 0) return null;
@@ -677,18 +880,18 @@ export default function WizardConfiguracion({
                   </span>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", gap: "1.25rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "1.5rem" }}>
                   {gruposSemestre.map((g) => {
-                    const uacsEspecificas = getAsignaturasEspecificasGrupo(g);
+                    const uacsEspecificas = getUACsIndividualesGrupo(g);
 
                     return (
-                      <div key={g.id} style={{ border: "1px solid #cbd5e1", borderRadius: "10px", overflow: "hidden", background: "#ffffff" }}>
-                        <div style={{ background: "#eff6ff", padding: "0.625rem 0.85rem", borderBottom: "1px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: "0.875rem", fontWeight: 900, color: "#1d4ed8" }}>
+                      <div key={g.id} style={{ border: "1px solid #cbd5e1", borderRadius: "10px", overflow: "hidden", background: "#ffffff", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                        <div style={{ background: "#eff6ff", padding: "0.75rem 1rem", borderBottom: "1px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: "0.9375rem", fontWeight: 900, color: "#1d4ed8" }}>
                             Grupo {g.nombre}
                           </span>
                           {g.capacitacionNombre && (
-                            <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#2563eb", background: "#ffffff", padding: "0.15rem 0.5rem", borderRadius: "4px", border: "1px solid #bfdbfe" }}>
+                            <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#2563eb", background: "#ffffff", padding: "0.2rem 0.6rem", borderRadius: "6px", border: "1px solid #bfdbfe" }}>
                               {g.capacitacionNombre}
                             </span>
                           )}
@@ -697,7 +900,7 @@ export default function WizardConfiguracion({
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78125rem" }}>
                           <thead>
                             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #cbd5e1" }}>
-                              <th style={{ padding: "0.5rem", textAlign: "left", fontWeight: 800, color: "#334155", width: "55%" }}>Asignatura (UAC)</th>
+                              <th style={{ padding: "0.5rem 0.625rem", textAlign: "left", fontWeight: 800, color: "#334155", width: "55%" }}>Materia (UAC)</th>
                               <th style={{ padding: "0.5rem", textAlign: "center", fontWeight: 800, color: "#2563eb", width: "15%" }}>Horas</th>
                               <th style={{ padding: "0.5rem", textAlign: "center", fontWeight: 800, color: "#1e293b", width: "30%" }}>Docente Asignado</th>
                             </tr>
@@ -708,10 +911,10 @@ export default function WizardConfiguracion({
 
                               return (
                                 <tr key={uac.id || uacIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                  <td style={{ padding: "0.45rem 0.5rem", fontWeight: 700, color: "#1e293b" }}>
+                                  <td style={{ padding: "0.5rem 0.625rem", fontWeight: 700, color: "#1e293b", lineHeight: 1.3 }}>
                                     {uac.uacName}
                                   </td>
-                                  <td style={{ padding: "0.45rem", textAlign: "center", fontWeight: 800, color: "#2563eb" }}>
+                                  <td style={{ padding: "0.5rem", textAlign: "center", fontWeight: 800, color: "#2563eb" }}>
                                     {uac.horasSemanales || 3}h
                                   </td>
                                   <td style={{ padding: "0.35rem" }}>
@@ -720,7 +923,7 @@ export default function WizardConfiguracion({
                                       onChange={(e) => handleAsignarDocenteMatriz(g.id, uac.id, e.target.value, uac.horasSemanales || 3)}
                                       style={{
                                         width: "100%",
-                                        padding: "0.35rem 0.4rem",
+                                        padding: "0.4rem 0.5rem",
                                         borderRadius: "6px",
                                         border: "1px solid " + (docenteActualId ? "#16a34a" : "#cbd5e1"),
                                         background: docenteActualId ? "#f0fdf4" : "#ffffff",
