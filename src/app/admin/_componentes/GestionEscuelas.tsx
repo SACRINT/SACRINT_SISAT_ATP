@@ -358,7 +358,28 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
             const data = await res.json();
             if (data.success) {
                 toast.success(data.message);
-                router.refresh();
+                // Actualizar estado local directamente (router.refresh() no resetea useState en Client Components)
+                if (tipo === "HORARIOS_IA") {
+                    const horariosDesactivado = accion === "DESACTIVAR_TODOS";
+                    setEscuelas(prev => prev.map(e => ({
+                        ...e,
+                        permisos: { ...(e.permisos || {}), horariosDesactivado }
+                    })));
+                } else if (tipo === "PROGRAMA" && programaNombre) {
+                    const esDesactivar = accion === "DESACTIVAR_TODOS";
+                    setEscuelas(prev => prev.map(e => {
+                        const permisosActuales = e.permisos || {};
+                        let programasInactivos: string[] = Array.isArray(permisosActuales.programasInactivos)
+                            ? [...permisosActuales.programasInactivos]
+                            : [];
+                        if (esDesactivar) {
+                            if (!programasInactivos.includes(programaNombre)) programasInactivos.push(programaNombre);
+                        } else {
+                            programasInactivos = programasInactivos.filter(p => p !== programaNombre);
+                        }
+                        return { ...e, permisos: { ...permisosActuales, programasInactivos } };
+                    }));
+                }
             } else {
                 toast.error(data.error || "No se pudo actualizar permisos masivos.");
             }
@@ -544,7 +565,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                                     <td style={{ textAlign: "center", padding: "0.75rem" }}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleToggleHorariosEscuela(esc.id, !horariosActivo)}
+                                                            onClick={() => handleToggleHorariosEscuela(esc.id, horariosActivo)}
                                                             style={{
                                                                 padding: "0.35rem 0.75rem",
                                                                 borderRadius: "20px",
