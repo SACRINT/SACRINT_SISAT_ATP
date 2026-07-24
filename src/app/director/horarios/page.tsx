@@ -20,5 +20,10 @@ export default async function DirectorHorariosPage() {
 
   if (!escuela) redirect("/login");
 
+  const permisosEscuela = (escuela.permisos as any) || {};
+  if (permisosEscuela.horariosDesactivado === true) {
+    redirect("/director");
+  }
+
   return <HorariosClient escuela={escuela} />;
 }

@@ -244,6 +244,9 @@ export default function WizardConfiguracion({
     gruposIniciales.length > 0 ? Math.max(1, Math.ceil(gruposIniciales.length / 3)) : 1
   );
 
+  // Modo de Configuración: Semiautomático (SEP General) vs Manual Libre (Tecnológicos)
+  const [modoConfiguracion, setModoConfiguracion] = useState<"SEMIAUTOMATICO" | "MANUAL_TECNOLOGICO">("SEMIAUTOMATICO");
+
   // Estado de Grupos
   const [grupos, setGrupos] = useState<any[]>([]);
 
@@ -787,6 +790,54 @@ export default function WizardConfiguracion({
          ========================================================================= */}
       {paso === 1 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {/* Banner Selector de Modo de Carga (Semiautomático vs Manual Tecnológico) */}
+          <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "14px", border: "1px solid #cbd5e1", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+            <h3 style={{ fontSize: "0.9375rem", fontWeight: 800, color: "#1e293b", margin: "0 0 0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Layers style={{ width: "18px", height: "18px", color: "#2563eb" }} /> Seleccione el Modo de Generación de Horarios:
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <button
+                type="button"
+                onClick={() => setModoConfiguracion("SEMIAUTOMATICO")}
+                style={{
+                  textAlign: "left",
+                  padding: "1rem",
+                  borderRadius: "10px",
+                  border: "2px solid " + (modoConfiguracion === "SEMIAUTOMATICO" ? "#2563eb" : "#e2e8f0"),
+                  background: modoConfiguracion === "SEMIAUTOMATICO" ? "#eff6ff" : "#ffffff",
+                  cursor: "pointer"
+                }}
+              >
+                <div style={{ fontWeight: 800, fontSize: "0.875rem", color: modoConfiguracion === "SEMIAUTOMATICO" ? "#1d4ed8" : "#1e293b" }}>
+                  🏫 Modo Semiautomático (SEP Bachillerato General Predeterminado)
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+                  Precarga automáticamente el Mapa Curricular Oficial (MCCEMS 2025-2026), UACs universales, capacitaciones laborales y expediente de personal.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModoConfiguracion("MANUAL_TECNOLOGICO")}
+                style={{
+                  textAlign: "left",
+                  padding: "1rem",
+                  borderRadius: "10px",
+                  border: "2px solid " + (modoConfiguracion === "MANUAL_TECNOLOGICO" ? "#d97706" : "#e2e8f0"),
+                  background: modoConfiguracion === "MANUAL_TECNOLOGICO" ? "#fffbeb" : "#ffffff",
+                  cursor: "pointer"
+                }}
+              >
+                <div style={{ fontWeight: 800, fontSize: "0.875rem", color: modoConfiguracion === "MANUAL_TECNOLOGICO" ? "#b45309" : "#1e293b" }}>
+                  ⚙️ Modo Manual Libre (Bachilleratos Tecnológicos / CBTIS)
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+                  Configuración 100% personalizada. Permite ingresar nombres libres de asignaturas, carreras técnicas, horas semanales libres y docentes manuales.
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.25rem" }}>
             <div style={{ background: "#eff6ff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.5rem" }}>

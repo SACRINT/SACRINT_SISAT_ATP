@@ -52,7 +52,6 @@ import GestionATPs from "./_componentes/GestionATPs";
 import VistaGeneral from "./_componentes/VistaGeneral";
 import ListadoEscuelas from "./_componentes/ListadoEscuelas";
 import ListadoProgramas from "./_componentes/ListadoProgramas";
-import GestionPeriodos from "./_componentes/GestionPeriodos";
 import GestionEventos from "./_componentes/GestionEventos";
 import GestionOlimpiada from "./_componentes/GestionOlimpiada";
 import GestionEncuentroPAEC from "./_componentes/GestionEncuentroPAEC";
@@ -1196,20 +1195,12 @@ export default function AdminDashboard({
                     <RankingEscuelas cicloNombre={cicloObj.nombre} />
                 )}
 
-                {/* ========= VISTA: GESTIÓN DE PERIODOS Y FECHAS ========= */}
+                {/* ========= VISTA: FECHAS DE CORTE ========= */}
                 {vista === "gestion-fechas" && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-                        <GestionPeriodos 
-                            programas={programas} 
-                            sidebarConfig={sidebarConfig}
-                            readOnly={!hasAccess("periodos", "write")}
-                        />
-                        <hr style={{ border: "none", borderTop: "1px dashed var(--border)" }} />
-                        <GestionFechas 
-                            programas={programas} 
-                            readOnly={!hasAccess("fechas", "write")}
-                        />
-                    </div>
+                    <GestionFechas 
+                        programas={programas} 
+                        readOnly={!hasAccess("fechas", "write")}
+                    />
                 )}
                 {/* ========= VISTA: GESTIÓN DE CICLOS ESCOLARES ========= */}
                 {vista === "gestion-ciclos" && (

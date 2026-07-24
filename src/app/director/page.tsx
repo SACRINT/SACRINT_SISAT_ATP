@@ -103,7 +103,15 @@ export default async function DirectorPage() {
         programasMap[prog.id].entregas.push(ent);
     }
 
-    const programasAgrupados = Object.values(programasMap);
+    // Verificar permisos específicos de la escuela (JSON)
+    const permisosEscuela = (escuela.permisos as any) || {};
+    const isHorariosActive = permisosEscuela.horariosDesactivado !== true;
+    const programasInactivos: string[] = permisosEscuela.programasInactivos || [];
+
+    // Filtrar programas inactivos para esta escuela
+    const programasFiltrados = Object.values(programasMap).filter(
+        (p) => !programasInactivos.includes(p.programa.id)
+    );
 
     // Fetch configs globales para los tabs
     const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig] = await Promise.all([
@@ -126,7 +134,7 @@ export default async function DirectorPage() {
     return (
         <DirectorPortal
             escuela={JSON.parse(JSON.stringify(escuela))}
-            programas={JSON.parse(JSON.stringify(programasAgrupados))}
+            programas={JSON.parse(JSON.stringify(programasFiltrados))}
             ciclo={ciclo.nombre}
             cicloId={ciclo.id}
             cicloObj={JSON.parse(JSON.stringify(ciclo))}
@@ -140,6 +148,7 @@ export default async function DirectorPage() {
             isCapemsActive={isCapemsActive}
             isExpedientesActive={isExpedientesActive}
             isDocumentosActive={true}
+            isHorariosActive={isHorariosActive}
         />
     );
 }

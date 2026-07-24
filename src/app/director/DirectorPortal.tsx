@@ -57,8 +57,9 @@ export default function DirectorPortal({
     isCapemsActive = false,
     isExpedientesActive = false,
     isDocumentosActive = false,
+    isHorariosActive = true,
 }: {
-    escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null; geminiApiKey?: string | null };
+    escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null; geminiApiKey?: string | null; permisos?: any };
     programas: ProgramaGroup[];
     ciclo: string;
     cicloId: string;
@@ -73,6 +74,7 @@ export default function DirectorPortal({
     isCapemsActive?: boolean;
     isExpedientesActive?: boolean;
     isDocumentosActive?: boolean;
+    isHorariosActive?: boolean;
 }) {
     const [tab, setTab] = useState<TabType>("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -304,13 +306,15 @@ export default function DirectorPortal({
                             <BookOpen size={17} />
                             <span>Recursos y Formatos</span>
                         </button>
-                        <a href="/director/horarios" className="sidebar-link" style={{ textDecoration: 'none' }}>
-                            <Calendar size={17} />
-                            <span>Generador Horarios IA</span>
-                            <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "white", fontSize: "0.6rem" }}>
-                                NUEVO
-                            </span>
-                        </a>
+                        {isHorariosActive && (
+                            <a href="/director/horarios" className="sidebar-link" style={{ textDecoration: 'none' }}>
+                                <Calendar size={17} />
+                                <span>Generador Horarios IA</span>
+                                <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "white", fontSize: "0.6rem" }}>
+                                    NUEVO
+                                </span>
+                            </a>
+                        )}
                     </div>
 
                     {/* Special modules - conditional */}

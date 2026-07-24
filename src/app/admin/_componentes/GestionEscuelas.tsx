@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin, FileDigit } from "lucide-react";
+import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin, FileDigit, Settings2, Calendar, Sparkles, Check, Ban } from "lucide-react";
+import toast from "react-hot-toast";
 import { SECCIONES_PERMISOS, DEFAULT_PERMISOS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
 
@@ -50,9 +51,94 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     const [isCreating, setIsCreating] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [tabEscuelas, setTabEscuelas] = useState<"escuelas" | "supervision">("escuelas");
+    const [tabEscuelas, setTabEscuelas] = useState<"escuelas" | "programas_modulos" | "supervision">("escuelas");
     const [autoridades, setAutoridades] = useState<any>(null);
     const router = useRouter();
+
+    // Handlers para toggle individual y global de Horarios IA y Programas por Escuela
+    const handleToggleHorariosEscuela = async (escuelaId: string, desactivado: boolean) => {
+        const escTarget = escuelas.find(e => e.id === escuelaId);
+        if (!escTarget) return;
+
+        const permisosActuales = escTarget.permisos || {};
+        const permisosNuevos = { ...permisosActuales, horariosDesactivado: desactivado };
+
+        // Optimistic UI update
+        setEscuelas(prev => prev.map(e => e.id === escuelaId ? { ...e, permisos: permisosNuevos } : e));
+
+        try {
+            const res = await fetch(`/api/escuelas/${escuelaId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ permisos: permisosNuevos })
+            });
+            if (res.ok) {
+                toast.success(desactivado ? `Generador Horarios IA DESACTIVADO para ${escTarget.nombre}` : `Generador Horarios IA ACTIVADO para ${escTarget.nombre}`);
+            } else {
+                toast.error("Error al actualizar estado");
+            }
+        } catch (e) {
+            toast.error("Error de red al actualizar");
+        }
+    };
+
+    const handleToggleGlobalHorarios = async (desactivado: boolean) => {
+        setSaving(true);
+        try {
+            for (const esc of escuelas) {
+                if (esc.esSupervision) continue;
+                const permisosActuales = esc.permisos || {};
+                const permisosNuevos = { ...permisosActuales, horariosDesactivado: desactivado };
+                await fetch(`/api/escuelas/${esc.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ permisos: permisosNuevos })
+                });
+            }
+            setEscuelas(prev => prev.map(e => ({
+                ...e,
+                permisos: { ...(e.permisos || {}), horariosDesactivado: desactivado }
+            })));
+            toast.success(desactivado ? "Módulo Horarios IA DESACTIVADO para TODAS las escuelas" : "Módulo Horarios IA ACTIVADO para TODAS las escuelas");
+        } catch (e) {
+            toast.error("Error al realizar cambio global");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleToggleProgramaEscuela = async (escuelaId: string, programaId: string, activar: boolean) => {
+        const escTarget = escuelas.find(e => e.id === escuelaId);
+        if (!escTarget) return;
+
+        const permisosActuales = escTarget.permisos || {};
+        let inactivos: string[] = Array.isArray(permisosActuales.programasInactivos) ? [...permisosActuales.programasInactivos] : [];
+
+        if (activar) {
+            inactivos = inactivos.filter(id => id !== programaId);
+        } else {
+            if (!inactivos.includes(programaId)) inactivos.push(programaId);
+        }
+
+        const permisosNuevos = { ...permisosActuales, programasInactivos: inactivos };
+
+        setEscuelas(prev => prev.map(e => e.id === escuelaId ? { ...e, permisos: permisosNuevos } : e));
+
+        try {
+            const res = await fetch(`/api/escuelas/${escuelaId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ permisos: permisosNuevos })
+            });
+            if (res.ok) {
+                toast.success(activar ? `Programa activado para ${escTarget.nombre}` : `Programa desactivado para ${escTarget.nombre}`);
+            } else {
+                toast.error("Error al actualizar programa");
+            }
+        } catch (e) {
+            toast.error("Error al guardar permiso de programa");
+        }
+    };
 
     // Fetch Autoridades Educativas
     useEffect(() => {
@@ -295,6 +381,15 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                             Escuelas
                         </button>
                         <button 
+                            className={`tab-item ${tabEscuelas === "programas_modulos" ? "active" : ""}`}
+                            onClick={() => { 
+                                setTabEscuelas("programas_modulos"); 
+                                setSelectedId(""); 
+                            }}
+                        >
+                            ⚙️ Programas y Módulos por Escuela
+                        </button>
+                        <button 
                             className={`tab-item ${tabEscuelas === "supervision" ? "active" : ""}`}
                             onClick={() => { 
                                 setTabEscuelas("supervision"); 
@@ -310,7 +405,121 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                         </button>
                     </div>
 
-                    {tabEscuelas === "supervision" && escuelas.filter(e => e.esSupervision).length === 1 ? (
+                    {tabEscuelas === "programas_modulos" ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                            {/* Banner Informativo con Botones de Acción Global */}
+                            <div style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)", border: "1px solid #bfdbfe", padding: "1.25rem", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+                                <div>
+                                    <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                        <Settings2 style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Matriz de Activación de Módulos y Programas por Escuela
+                                    </h3>
+                                    <p style={{ fontSize: "0.78125rem", color: "#475569", margin: "0.25rem 0 0" }}>
+                                        Active o desactive funciones específicas (como el Generador de Horarios IA o programas individuales) para cada escuela en particular o de forma masiva.
+                                    </p>
+                                </div>
+                                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                                    <button
+                                        type="button"
+                                        disabled={saving}
+                                        onClick={() => handleToggleGlobalHorarios(false)}
+                                        style={{ background: "#2563eb", color: "#ffffff", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, fontSize: "0.75rem", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
+                                    >
+                                        <Sparkles size={14} /> Activar Horarios IA para TODAS
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={saving}
+                                        onClick={() => handleToggleGlobalHorarios(true)}
+                                        style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
+                                    >
+                                        <Ban size={14} /> Desactivar Horarios IA para TODAS
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Tabla Matriz Interactivas */}
+                            <div style={{ border: "1px solid var(--border)", borderRadius: "12px", overflowX: "auto", background: "var(--bg)" }}>
+                                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+                                    <thead>
+                                        <tr style={{ background: "var(--bg-secondary)", borderBottom: "2px solid var(--border)", textAlign: "left" }}>
+                                            <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "var(--text)" }}>Escuela / CCT</th>
+                                            <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "#1d4ed8", textAlign: "center", minWidth: "150px" }}>📅 Horarios IA</th>
+                                            {programas.map((prog) => (
+                                                <th key={prog.id} style={{ padding: "0.75rem 0.5rem", fontWeight: 700, color: "var(--text-secondary)", textAlign: "center", minWidth: "110px" }}>
+                                                    {prog.nombre}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {escuelas.filter(e => !e.esSupervision).map((esc) => {
+                                            const permisosEsc = esc.permisos || {};
+                                            const horariosActivo = permisosEsc.horariosDesactivado !== true;
+                                            const programasInactivos: string[] = permisosEsc.programasInactivos || [];
+
+                                            return (
+                                                <tr key={esc.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                    <td style={{ padding: "0.75rem 1rem" }}>
+                                                        <div style={{ fontWeight: 800, color: "var(--text)" }}>{esc.nombre}</div>
+                                                        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 700 }}>{esc.cct} • {esc.localidad || "Puebla"}</div>
+                                                    </td>
+
+                                                    {/* Toggle Horarios IA */}
+                                                    <td style={{ textAlign: "center", padding: "0.75rem" }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleToggleHorariosEscuela(esc.id, !horariosActivo)}
+                                                            style={{
+                                                                padding: "0.35rem 0.75rem",
+                                                                borderRadius: "20px",
+                                                                fontWeight: 800,
+                                                                fontSize: "0.725rem",
+                                                                border: "none",
+                                                                cursor: "pointer",
+                                                                background: horariosActivo ? "#dcfce7" : "#fee2e2",
+                                                                color: horariosActivo ? "#15803d" : "#b91c1c",
+                                                                display: "inline-flex",
+                                                                alignItems: "center",
+                                                                gap: "0.35rem"
+                                                            }}
+                                                        >
+                                                            {horariosActivo ? "🟢 Activo" : "🔴 Desactivado"}
+                                                        </button>
+                                                    </td>
+
+                                                    {/* Toggles por Programa */}
+                                                    {programas.map((prog) => {
+                                                        const progActivo = !programasInactivos.includes(prog.id);
+                                                        return (
+                                                            <td key={prog.id} style={{ textAlign: "center", padding: "0.5rem" }}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleToggleProgramaEscuela(esc.id, prog.id, !progActivo)}
+                                                                    title={progActivo ? `Haga clic para desactivar ${prog.nombre} en ${esc.nombre}` : `Haga clic para activar ${prog.nombre} en ${esc.nombre}`}
+                                                                    style={{
+                                                                        padding: "0.25rem 0.5rem",
+                                                                        borderRadius: "6px",
+                                                                        fontSize: "0.6875rem",
+                                                                        fontWeight: 700,
+                                                                        border: "1px solid " + (progActivo ? "#bbf7d0" : "#fca5a5"),
+                                                                        background: progActivo ? "#f0fdf4" : "#fef2f2",
+                                                                        color: progActivo ? "#16a34a" : "#dc2626",
+                                                                        cursor: "pointer"
+                                                                    }}
+                                                                >
+                                                                    {progActivo ? "✓ Activo" : "✕ Inactivo"}
+                                                                </button>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : tabEscuelas === "supervision" && escuelas.filter(e => e.esSupervision).length === 1 ? (
                         <h3 style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                             <Building2 size={20} color="var(--primary)" />
                             Supervisión

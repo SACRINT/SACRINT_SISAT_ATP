@@ -126,7 +126,19 @@ export async function POST(req: NextRequest) {
     if (respuestaIA.acciones && respuestaIA.acciones.length > 0) {
       for (const accion of respuestaIA.acciones) {
         if (accion.tipo === "REGENERAR_CON_RESTRICCIONES" && accion.bloqueosDocentes) {
-          // Re-ejecutar el Motor Solver con las restricciones de días bloqueados por docente
+          // Extraer las celdas fijadas/bloqueadas por el usuario (esBloqueado === true)
+          const celdasFijasExistentes = horario.celdas
+            .filter((c) => c.esBloqueado)
+            .map((c) => ({
+              diaSemana: c.diaSemana,
+              periodo: c.periodo,
+              grupoId: c.grupoId,
+              docenteId: c.docenteId,
+              asignaturaId: c.asignaturaId,
+              aulaId: c.aulaId || undefined
+            }));
+
+          // Re-ejecutar el Motor Solver con las restricciones y celdas fijas bloqueadas por el usuario
           const resultadoSolver = resolverHorario({
             diasLectivos: config?.diasLectivos || 5,
             horasPorDia: config?.horasPorDia || 6,
@@ -141,6 +153,7 @@ export async function POST(req: NextRequest) {
               horasSemanales: c.horasSemanales,
               requiereAulaEspecial: c.requiereAulaEspecial
             })),
+            celdasFijas: celdasFijasExistentes,
             restriccionesDocentes: accion.bloqueosDocentes
           });
 
