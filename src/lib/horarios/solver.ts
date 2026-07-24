@@ -41,6 +41,12 @@ export interface CeldaFijaInput {
   aulaId?: string;
 }
 
+export interface RestriccionDocenteInput {
+  docenteId: string;
+  diasIndisponibles?: number[]; // ej. [3] para Miércoles
+  periodosIndisponibles?: { dia: number; periodo: number }[];
+}
+
 export interface SolverParams {
   diasLectivos: number;   // Def 5
   horasPorDia: number;    // Def 7
@@ -49,6 +55,7 @@ export interface SolverParams {
   aulas: AulaInput[];
   cargas: CargaInput[];
   celdasFijas?: CeldaFijaInput[];
+  restriccionesDocentes?: RestriccionDocenteInput[];
 }
 
 export interface CeldaResultado {
@@ -77,12 +84,13 @@ export interface SolverResult {
 export function resolverHorario(params: SolverParams): SolverResult {
   const {
     diasLectivos = 5,
-    horasPorDia = 7,
+    horasPorDia = 6,
     grupos,
     docentes,
     aulas,
     cargas,
-    celdasFijas = []
+    celdasFijas = [],
+    restriccionesDocentes = []
   } = params;
 
   const celdasResultado: CeldaResultado[] = [];
@@ -95,6 +103,22 @@ export function resolverHorario(params: SolverParams): SolverResult {
   const ocupacionGrupo = new Set<string>();
   // Key: `${dia}_${periodo}_${aulaId}` -> boolean
   const ocupacionAula = new Set<string>();
+
+  // 0. Bloquear días o periodos indisponibles para docentes por restricciones
+  for (const restr of restriccionesDocentes) {
+    if (restr.diasIndisponibles) {
+      for (const dia of restr.diasIndisponibles) {
+        for (let p = 1; p <= horasPorDia; p++) {
+          ocupacionDocente.add(`${dia}_${p}_${restr.docenteId}`);
+        }
+      }
+    }
+    if (restr.periodosIndisponibles) {
+      for (const pi of restr.periodosIndisponibles) {
+        ocupacionDocente.add(`${pi.dia}_${pi.periodo}_${restr.docenteId}`);
+      }
+    }
+  }
 
   // Contadores de materia por grupo por día (para evitar repetir la misma materia más de 2h/día)
   // Key: `${grupoId}_${asignaturaId}_${dia}` -> count

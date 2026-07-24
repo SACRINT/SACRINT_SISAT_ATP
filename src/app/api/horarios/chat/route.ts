@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { procesarComandoIA } from "@/lib/horarios/ai-assistant";
+import { resolverHorario } from "@/lib/horarios/solver";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "horarioId y mensaje son requeridos" }, { status: 400 });
     }
 
-    // 1. Cargar horario actual y sus relaciones
+    // 1. Cargar horario actual y sus relaciones completas
     const horario = await prisma.horarioGenerado.findUnique({
       where: { id: horarioId },
       include: {
@@ -25,7 +26,9 @@ export async function POST(req: NextRequest) {
         celdas: {
           include: {
             grupo: true,
-            docente: true
+            docente: true,
+            asignatura: true,
+            aula: true
           }
         }
       }
@@ -35,30 +38,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Horario no encontrado" }, { status: 404 });
     }
 
-    // Cargar listas de catálogo para dar contexto a la IA
-    const grupos = await prisma.horarioGrupo.findMany({ where: { escuelaId: horario.escuelaId } });
-    const docentes = await prisma.personal.findMany({ where: { escuelaId: horario.escuelaId } });
+    const escuelaId = horario.escuelaId;
+
+    // Cargar datos de la escuela y cargas actuales
+    const config = await prisma.horarioConfiguracion.findUnique({ where: { escuelaId } });
+    const grupos = await prisma.horarioGrupo.findMany({ where: { escuelaId } });
+    const docentes = await prisma.personal.findMany({ where: { escuelaId } });
     const materias = await prisma.horarioAsignaturaCatalogo.findMany({
-      where: { OR: [{ escuelaId: null }, { escuelaId: horario.escuelaId }] }
+      where: { OR: [{ escuelaId: null }, { escuelaId }] }
+    });
+    const cargas = await prisma.horarioCargaDocente.findMany({ where: { escuelaId } });
+
+    // Calcular horas asignadas reales a cada docente para la validación de factibilidad
+    const docentesConHoras = docentes.map((d) => {
+      const hrsAsignadas = horario.celdas
+        .filter((c) => c.docenteId === d.id)
+        .length; // cada celda es 1 hora lectiva
+      return {
+        id: d.id,
+        nombreCompleto: `${d.nombre} ${d.apellidoPaterno}`.trim(),
+        horasAsignadas: hrsAsignadas
+      };
     });
 
-    // 2. Procesar comando con Gemini AI Assistant
+    // 2. Procesar comando con Gemini AI Assistant (incluyendo validación matemática de factibilidad)
     const respuestaIA = await procesarComandoIA(
       mensaje,
       {
         nombreEscuela: horario.escuela.nombre,
+        horasPorDia: config?.horasPorDia || 6,
+        diasLectivos: config?.diasLectivos || 5,
         grupos: grupos.map(g => ({ id: g.id, nombre: g.nombre })),
-        docentes: docentes.map(d => ({ id: d.id, nombreCompleto: `${d.nombre} ${d.apellidoPaterno}` })),
+        docentes: docentesConHoras,
         materias: materias.map(m => ({ id: m.id, nombre: m.uacName })),
-        celdasActuales: horario.celdas.map(c => ({
-          diaSemana: c.diaSemana,
-          periodo: c.periodo,
-          grupoId: c.grupoId,
-          docenteId: c.docenteId,
-          asignaturaId: c.asignaturaId
-        }))
+        celdasActuales: horario.celdas
       },
-      horario.escuelaId
+      escuelaId
     );
 
     // 3. Guardar mensaje del usuario
@@ -70,29 +85,94 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // 4. Aplicar acciones a las celdas si existen
+    // 4. Si la petición NO es factible, responder de inmediato con la explicación matemática
+    if (!respuestaIA.factible) {
+      await prisma.horarioChatMensaje.create({
+        data: {
+          horarioId,
+          role: "assistant",
+          content: respuestaIA.explicacion,
+          accionAplicada: (respuestaIA.acciones as any) || undefined
+        }
+      });
+
+      const horarioActualizado = await prisma.horarioGenerado.findUnique({
+        where: { id: horarioId },
+        include: {
+          celdas: {
+            include: {
+              grupo: true,
+              docente: true,
+              asignatura: true,
+              aula: true
+            }
+          },
+          mensajesChat: {
+            orderBy: { createdAt: "asc" }
+          }
+        }
+      });
+
+      return NextResponse.json({
+        success: true,
+        respuestaIA,
+        horario: horarioActualizado
+      });
+    }
+
+    // 5. Si es factible y requiere re-optimización mediante Solver
+    let huboReGeneracion = false;
+
     if (respuestaIA.acciones && respuestaIA.acciones.length > 0) {
       for (const accion of respuestaIA.acciones) {
-        if (accion.tipo === "MOVER_CELDA" && accion.diaOrigen && accion.periodoOrigen && accion.diaDestino && accion.periodoDestino) {
-          const celdaOrigen = horario.celdas.find(
-            c => c.diaSemana === accion.diaOrigen && c.periodo === accion.periodoOrigen && (accion.grupoId ? c.grupoId === accion.grupoId : true)
-          );
+        if (accion.tipo === "REGENERAR_CON_RESTRICCIONES" && accion.bloqueosDocentes) {
+          // Re-ejecutar el Motor Solver con las restricciones de días bloqueados por docente
+          const resultadoSolver = resolverHorario({
+            diasLectivos: config?.diasLectivos || 5,
+            horasPorDia: config?.horasPorDia || 6,
+            grupos: grupos.map(g => ({ id: g.id, nombre: g.nombre, semestre: g.semestre })),
+            docentes: docentes.map(d => ({ id: d.id, nombreCompleto: `${d.nombre} ${d.apellidoPaterno}`.trim() })),
+            aulas: [],
+            cargas: cargas.map(c => ({
+              id: c.id,
+              docenteId: c.personalId,
+              grupoId: c.grupoId,
+              asignaturaId: c.asignaturaId,
+              horasSemanales: c.horasSemanales,
+              requiereAulaEspecial: c.requiereAulaEspecial
+            })),
+            restriccionesDocentes: accion.bloqueosDocentes
+          });
 
-          if (celdaOrigen) {
-            await prisma.horarioCelda.update({
-              where: { id: celdaOrigen.id },
-              data: {
-                diaSemana: accion.diaDestino,
-                periodo: accion.periodoDestino
-              }
+          if (resultadoSolver.celdas && resultadoSolver.celdas.length > 0) {
+            // Eliminar celdas anteriores del horario generado
+            await prisma.horarioCelda.deleteMany({
+              where: { horarioId }
             });
+
+            // Re-insertar celdas re-optimizadas sin empalmes
+            await prisma.horarioCelda.createMany({
+              data: resultadoSolver.celdas.map(c => ({
+                horarioId,
+                diaSemana: c.diaSemana,
+                periodo: c.periodo,
+                grupoId: c.grupoId,
+                docenteId: c.docenteId,
+                asignaturaId: c.asignaturaId,
+                aulaId: c.aulaId || null,
+                cargaId: c.cargaId || null,
+                esBloqueado: !!c.esBloqueado
+              }))
+            });
+
+            huboReGeneracion = true;
           }
         }
       }
     }
 
-    // 5. Guardar respuesta del asistente
-    const mensajeAsistente = await prisma.horarioChatMensaje.create({
+    // 6. Guardar respuesta del asistente
+    await prisma.horarioChatMensaje.create({
       data: {
         horarioId,
         role: "assistant",
@@ -101,7 +181,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // Cargar celdas actualizadas
+    // 7. Retornar el horario completamente actualizado en tiempo real
     const horarioActualizado = await prisma.horarioGenerado.findUnique({
       where: { id: horarioId },
       include: {
@@ -109,6 +189,7 @@ export async function POST(req: NextRequest) {
           include: {
             grupo: true,
             docente: true,
+            asignatura: true,
             aula: true
           }
         },

@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
           include: {
             grupo: true,
             docente: true,
+            asignatura: true,
             aula: true
           }
         }

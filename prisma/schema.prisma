@@ -610,6 +610,7 @@ model HorarioAsignaturaCatalogo {
 
   escuela         Escuela? @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
   asignaciones    HorarioCargaDocente[]
+  celdas          HorarioCelda[]
 }
 
 model HorarioConfiguracion {
@@ -702,6 +703,7 @@ model HorarioCelda {
   horario        HorarioGenerado       @relation(fields: [horarioId], references: [id], onDelete: Cascade)
   grupo          HorarioGrupo          @relation(fields: [grupoId], references: [id], onDelete: Cascade)
   docente        Personal              @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  asignatura     HorarioAsignaturaCatalogo @relation(fields: [asignaturaId], references: [id], onDelete: Cascade)
   aula           HorarioAula?          @relation(fields: [aulaId], references: [id], onDelete: SetNull)
   carga          HorarioCargaDocente?  @relation(fields: [cargaId], references: [id], onDelete: SetNull)
 }

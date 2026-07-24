@@ -1,8 +1,8 @@
 import { callGemini } from "@/lib/gemini";
-import { CeldaResultado } from "./solver";
 
 export interface AccionHorario {
-  tipo: "MOVER_CELDA" | "INTERCAMBIAR_CELDAS" | "FIJAR_CELDA" | "DESBLOQUEAR_CELDA";
+  tipo: "REGENERAR_CON_RESTRICCIONES" | "MOVER_CELDA" | "FIJAR_CELDA";
+  bloqueosDocentes?: { docenteId: string; diasIndisponibles?: number[] }[];
   grupoId?: string;
   docenteId?: string;
   diaOrigen?: number;
@@ -22,52 +22,58 @@ export async function procesarComandoIA(
   mensajeUsuario: string,
   contextoHorario: {
     nombreEscuela: string;
+    horasPorDia: number;
+    diasLectivos: number;
     grupos: { id: string; nombre: string }[];
-    docentes: { id: string; nombreCompleto: string }[];
+    docentes: { id: string; nombreCompleto: string; horasAsignadas: number }[];
     materias: { id: string; nombre: string }[];
-    celdasActuales: CeldaResultado[];
+    celdasActuales: any[];
   },
   escuelaId?: string
 ): Promise<RespuestaIAHorario> {
-  const systemInstruction = `Eres un Asistente Experto en Gestión de Horarios Escolares para SISAT-ATP (SEP Puebla).
-Tu objetivo es ayudar a los directores de escuela a realizar ajustes en su matriz de horarios de forma amigable y en lenguaje natural.
+  const systemInstruction = `Eres el Asistente Inteligente de Horarios Escolares para SISAT-ATP (SEP Puebla).
+Tu tarea es analizar en lenguaje natural los comandos de directores, VALIDAR LA FACTIBILIDAD MATEMÁTICA de sus peticiones y ejecutar la reorganización óptima mediante el Solver de Restricciones.
 
-REGLAS DE RESPUESTA:
-Debes responder SIEMPRE en formato JSON estricto con la siguiente estructura:
+REGLA DE VALIDACIÓN MATEMÁTICA DE DÍAS LIBRES (CRÍTICO):
+1. Si un director pide otorgar un día libre a un docente (ej: "darle el miércoles libre a X"):
+   - Días lectivos restantes para el docente = 4 días.
+   - Capacidad máxima de horas en 4 días = 4 × horasPorDia (ej: 4 × 6 = 24 horas).
+   - Compara las 'horasAsignadas' del docente con la capacidad máxima:
+     * Si horasAsignadas > capacidadMáxima (ej: 25 hrs > 24 hrs): ES MATEMÁTICAMENTE IMPOSIBLE otorgar el día entero libre.
+     * En este caso DEBES responder con "factible": false, "acciones": [] y explicar claramente al director: "Estimado Director, no es matemáticamente posible otorgarle el día libre completo al docente X porque cuenta con 25 horas asignadas y en 4 días de trabajo (a 6 hrs por día) solo se pueden cubrir máximo 24 horas. El docente debe asistir al menos 1 hora el 5º día."
+
+2. Si la petición ES FACTIBLE (ej: docente con 20 hrs solicita día libre, y 20 hrs <= 24 hrs):
+   - Genera la acción "REGENERAR_CON_RESTRICCIONES" incluyendo el 'docenteId' y los 'diasIndisponibles' (1: Lunes, 2: Martes, 3: Miércoles, 4: Jueves, 5: Viernes).
+
+FORMATO DE RESPUESTA OBLIGATORIO (JSON ESTRICTO):
 {
-  "explicacion": "Explicación clara y amable de lo que realizaste o por qué no se puede realizar",
+  "explicacion": "Explicación amable y profesional sobre la factibilidad y las acciones aplicadas",
   "factible": true | false,
-  "advertencia": "Mensaje de advertencia si hay algún inconveniente potencial o nulo si no hay",
+  "advertencia": "Advertencia en caso de colisión o nulo",
   "acciones": [
     {
-      "tipo": "MOVER_CELDA" | "INTERCAMBIAR_CELDAS" | "FIJAR_CELDA" | "DESBLOQUEAR_CELDA",
-      "grupoId": "ID del grupo",
-      "docenteId": "ID del docente",
-      "diaOrigen": 1..5,
-      "periodoOrigen": 1..7,
-      "diaDestino": 1..5,
-      "periodoDestino": 1..7
+      "tipo": "REGENERAR_CON_RESTRICCIONES",
+      "bloqueosDocentes": [
+        {
+          "docenteId": "ID_DEL_DOCENTE",
+          "diasIndisponibles": [3]
+        }
+      ]
     }
   ]
-}
-
-Días de la semana: 1: Lunes, 2: Martes, 3: Miércoles, 4: Jueves, 5: Viernes.
-Periodos: 1 a 7 (Salvo configuración contraria).`;
+}`;
 
   const prompt = `
 CONTEXTO DE LA ESCUELA:
 Escuela: ${contextoHorario.nombreEscuela}
+Jornada: ${contextoHorario.horasPorDia} Horas/Día × ${contextoHorario.diasLectivos} Días = ${contextoHorario.horasPorDia * contextoHorario.diasLectivos} hrs semanales máximas por grupo.
 Grupos: ${JSON.stringify(contextoHorario.grupos)}
-Docentes (Muestreo): ${JSON.stringify(contextoHorario.docentes.slice(0, 15))}
-Materias (Muestreo): ${JSON.stringify(contextoHorario.materias.slice(0, 15))}
-
-ESTADO ACTUAL DE CELDAS PROGRAMADAS (${contextoHorario.celdasActuales.length} celdas):
-${JSON.stringify(contextoHorario.celdasActuales.slice(0, 30))}
+Docentes con Horas Asignadas: ${JSON.stringify(contextoHorario.docentes)}
 
 INSTRUCCIÓN DEL DIRECTOR:
 "${mensajeUsuario}"
 
-Analiza la solicitud y devuelve la acción matemática requerida en formato JSON.`;
+Analiza la factibilidad matemática y responde exclusivamente en JSON.`;
 
   try {
     const rawResponse = await callGemini(
@@ -80,7 +86,6 @@ Analiza la solicitud y devuelve la acción matemática requerida en formato JSON
       escuelaId
     );
 
-    // Limpiar markdown json codeblock si existe
     const cleanJson = rawResponse
       .replace(/```json/gi, "")
       .replace(/```/g, "")
@@ -91,7 +96,7 @@ Analiza la solicitud y devuelve la acción matemática requerida en formato JSON
   } catch (error) {
     console.error("[ai-assistant] Error procesando comando de horario:", error);
     return {
-      explicacion: "No pude procesar el comando correctamente. Por favor intenta reformular tu instrucción (ej. 'Mueve Matemáticas de 1°A del lunes a la 1ª hora al martes a la 3ª hora').",
+      explicacion: "No pude procesar la instrucción en este momento. Por favor reformula la solicitud.",
       acciones: [],
       factible: false,
       advertencia: "Error de comunicación con el motor de IA."

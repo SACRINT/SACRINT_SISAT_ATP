@@ -97,6 +97,16 @@ export default function EditorHorarios({
     }
   };
 
+  const getNombreAsignaturaCelda = (celda: any) => {
+    if (!celda) return "";
+    if (celda.asignatura?.uacName) return celda.asignatura.uacName;
+    
+    const cargaMatch = cargas.find(c => c.asignaturaId === celda.asignaturaId || c.id === celda.cargaId);
+    if (cargaMatch?.uacName) return cargaMatch.uacName;
+
+    return "UAC / Materia";
+  };
+
   const getCeldaInfo = (diaSemana: number, periodo: number) => {
     if (!horario?.celdas) return null;
 
@@ -325,15 +335,17 @@ export default function EditorHorarios({
                         {celda ? (
                           <div className="horario-celda-box" style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "0.35rem", borderRadius: "6px" }}>
                             <div>
-                              <p style={{ fontSize: "0.75rem", fontWeight: 900, color: "#15803d", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {celda.docente?.nombre ? `${celda.docente.nombre} ${celda.docente.apellidoPaterno || ""}` : "Docente"}
+                              <p style={{ fontSize: "0.75rem", fontWeight: 900, color: "#1d4ed8", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={getNombreAsignaturaCelda(celda)}>
+                                {getNombreAsignaturaCelda(celda)}
                               </p>
-                              <p style={{ fontSize: "0.7rem", fontWeight: 800, color: "#1d4ed8", margin: "0.15rem 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {celda.asignatura?.uacName || celda.asignaturaId}
+                              <p style={{ fontSize: "0.7rem", fontWeight: 800, color: "#15803d", margin: "0.15rem 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {vistaTab === "DOCENTE" ? `Grupo ${celda.grupo?.nombre}` : (celda.docente?.nombre ? `${celda.docente.nombre} ${celda.docente.apellidoPaterno || ""}` : "Docente")}
                               </p>
-                              <p style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", margin: 0 }}>
-                                Grupo {celda.grupo?.nombre}
-                              </p>
+                              {vistaTab !== "DOCENTE" && (
+                                <p style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", margin: 0 }}>
+                                  Grupo {celda.grupo?.nombre}
+                                </p>
+                              )}
                             </div>
                             {celda.esBloqueado && (
                               <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.65rem", fontWeight: 800, color: "#b45309" }}>

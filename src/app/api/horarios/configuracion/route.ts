@@ -73,6 +73,7 @@ export async function GET(req: NextRequest) {
           include: {
             grupo: true,
             docente: true,
+            asignatura: true,
             aula: true
           }
         },
