@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         data: {
           escuelaId,
           diasLectivos: 5,
-          horasPorDia: 7,
+          horasPorDia: 6,
           horaInicio: "08:00",
           duracionMinutos: 50,
           recesoTrasPeriodo: 3,
@@ -48,12 +48,9 @@ export async function GET(req: NextRequest) {
       orderBy: { nombre: "asc" }
     });
 
-    // Docentes registrados en la escuela (de la tabla Personal donde cargo = 'DOCENTE')
+    // Todo el personal de la escuela (Docentes, Responsables, Administrativos, Apoyo)
     const docentes = await prisma.personal.findMany({
-      where: {
-        escuelaId,
-        cargo: { in: ["DOCENTE", "RESPONSABLE"] }
-      },
+      where: { escuelaId },
       orderBy: [{ apellidoPaterno: "asc" }, { nombre: "asc" }]
     });
 

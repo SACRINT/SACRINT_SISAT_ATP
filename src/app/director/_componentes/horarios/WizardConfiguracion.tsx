@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Users, BookOpen, Clock, AlertCircle, ShieldCheck, UserCheck, Plus, Trash2, CheckCircle2, UserPlus, Layers } from "lucide-react";
+import { Sparkles, Users, BookOpen, Clock, AlertCircle, ShieldCheck, UserCheck, Plus, Trash2, CheckCircle2, UserPlus, Layers, Search } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -67,156 +67,156 @@ const FFE_AREA_CONOCIMIENTO = [
   "Pensamiento Filosófico I"
 ];
 
-// Mapeo exhaustivo de las 15 Capacitaciones Laborales a sus 2 UACs de 3º semestre y 2 UACs de 5º semestre
-const UACS_LABORALES_MAPA: Record<string, { sem3: string[]; sem5: string[] }> = {
+// Mapeo exhaustivo de las 15 Capacitaciones Laborales a sus 2 UACs de 3º semestre y 2 UACs de 5º semestre con sus Abreviaturas
+const UACS_LABORALES_MAPA: Record<string, { sem3: { name: string; abrev: string }[]; sem5: { name: string; abrev: string }[] }> = {
   "Administracion": {
     sem3: [
-      "Entrega recursos materiales a otras áreas de una organización",
-      "Organiza recursos materiales a solicitud de un superior"
+      { name: "Entrega recursos materiales a otras áreas de una organización", abrev: "ENTR-REC" },
+      { name: "Organiza recursos materiales a solicitud de un superior", abrev: "ORG-REC" }
     ],
     sem5: [
-      "Elabora trámites administrativos básicos de una organización",
-      "Organiza expedientes y documentación interna de las diferentes áreas de una organización"
+      { name: "Elabora trámites administrativos básicos de una organización", abrev: "TRAM-ADM" },
+      { name: "Organiza expedientes y documentación interna de las diferentes áreas de una organización", abrev: "ORG-EXP" }
     ]
   },
   "Agricultura Sostenible de Traspatio": {
     sem3: [
-      "Construye huerto para la producción agrícola sostenible de traspatio",
-      "Planea huerto para la producción agrícola sostenible de traspatio"
+      { name: "Construye huerto para la producción agrícola sostenible de traspatio", abrev: "CONST-HUERTO" },
+      { name: "Planea huerto para la producción agrícola sostenible de traspatio", abrev: "PLAN-HUERTO" }
     ],
     sem5: [
-      "Aplica técnicas agroecológicas de conservación de suelo y agua, y de control de plagas y enfermedades",
-      "Distingue técnicas agroecológicas de conservación de suelo y agua y de control de plagas y enfermedades"
+      { name: "Aplica técnicas agroecológicas de conservación de suelo y agua, y de control de plagas y enfermedades", abrev: "TECN-AGROE" },
+      { name: "Distingue técnicas agroecológicas de conservación de suelo y agua y de control de plagas y enfermedades", abrev: "DIST-AGROE" }
     ]
   },
   "Area de la Salud": {
     sem3: [
-      "Despacha medicamentos y material de curación de acuerdo con prescripciones médicas y productos farmacéuticos",
-      "Lleva registro de recetas, inventarios de medicamentos y productos farmacéuticos"
+      { name: "Despacha medicamentos y material de curación de acuerdo con prescripciones médicas y productos farmacéuticos", abrev: "DESP-MED" },
+      { name: "Lleva registro de recetas, inventarios de medicamentos y productos farmacéuticos", abrev: "REG-RECET" }
     ],
     sem5: [
-      "Asiste especialistas del área en las necesidades del paciente",
-      "Asiste especialistas del área en las necesidades del paciente diagnosticado"
+      { name: "Asiste especialistas del área en las necesidades del paciente", abrev: "ASIST-PAC" },
+      { name: "Asiste especialistas del área en las necesidades del paciente diagnosticado", abrev: "ASIST-DIAG" }
     ]
   },
   "Comunicacion Grafica": {
     sem3: [
-      "Elabora bocetos gráficos comprensibles y creativos a partir de las necesidades de comunicación gráfica requerida",
-      "Ilustra dibujos en materiales artesanales o artísticos"
+      { name: "Elabora bocetos gráficos comprensibles y creativos a partir de las necesidades de comunicación gráfica requerida", abrev: "BOC-GRAF" },
+      { name: "Ilustra dibujos en materiales artesanales o artísticos", abrev: "ILUS-DIB" }
     ],
     sem5: [
-      "Integra efectos visuales a imágenes y textos por medio de software o aplicaciones digitales de uso libre",
-      "Utiliza técnicas de impresión para los diversos productos gráficos, artesanales, artísticos y publicitarios"
+      { name: "Integra efectos visuales a imágenes y textos por medio de software o aplicaciones digitales de uso libre", abrev: "EFEC-VIS" },
+      { name: "Utiliza técnicas de impresión para los diversos productos gráficos, artesanales, artísticos y publicitarios", abrev: "TECN-IMP" }
     ]
   },
   "Contabilidad": {
     sem3: [
-      "Opera programas de cómputo para efectuar el registro, cálculo, control y análisis de la información contable",
-      "Registra movimientos contables de una entidad económica, con base en documentos fuente"
+      { name: "Opera programas de cómputo para efectuar el registro, cálculo, control y análisis de la información contable", abrev: "PROG-CONT" },
+      { name: "Registra movimientos contables de una entidad económica, con base en documentos fuente", abrev: "REG-MOV" }
     ],
     sem5: [
-      "Realiza reportes básicos previos a los estados financieros",
-      "Registra compras y ventas del sector comercial"
+      { name: "Realiza reportes básicos previos a los estados financieros", abrev: "REP-FIN" },
+      { name: "Registra compras y ventas del sector comercial", abrev: "REG-COMP" }
     ]
   },
   "Domotica": {
     sem3: [
-      "Separa componentes electrónicos y mecánicos de uso doméstico y comercial",
-      "Separa componentes eléctricos y domóticos de uso doméstico y comercial"
+      { name: "Separa componentes electrónicos y mecánicos de uso doméstico y comercial", abrev: "COMP-ELEC" },
+      { name: "Separa componentes eléctricos y domóticos de uso doméstico y comercial", abrev: "COMP-DOM" }
     ],
     sem5: [
-      "Asiste instalaciones de equipo de automatización y control para uso residencial y comercial",
-      "Opera equipo domótico en instalaciones residenciales y comerciales, bajo supervisión"
+      { name: "Asiste instalaciones de equipo de automatización y control para uso residencial y comercial", abrev: "ASIST-AUTO" },
+      { name: "Opera equipo domótico en instalaciones residenciales y comerciales, bajo supervisión", abrev: "OP-DOM" }
     ]
   },
   "Instalaciones Residenciales": {
     sem3: [
-      "Interpreta croquis de diferentes instalaciones básicas de una vivienda",
-      "Prepara materiales en cantidad y calidad especificada para llevar a cabo diferentes tipos de mezclas bajo la supervisión del experto"
+      { name: "Interpreta croquis de diferentes instalaciones básicas de una vivienda", abrev: "INTERP-CROQ" },
+      { name: "Prepara materiales en cantidad y calidad especificada para llevar a cabo diferentes tipos de mezclas bajo la supervisión del experto", abrev: "PREP-MEZC" }
     ],
     sem5: [
-      "Coloca elementos constructivos básicos de una vivienda",
-      "Limpia muebles, tuberías y conexiones para llevar a cabo diferentes instalaciones de una vivienda"
+      { name: "Coloca elementos constructivos básicos de una vivienda", abrev: "ELEM-CONST" },
+      { name: "Limpia muebles, tuberías y conexiones para llevar a cabo diferentes instalaciones de una vivienda", abrev: "LIMP-TUB" }
     ]
   },
   "Mecanica Dental": {
     sem3: [
-      "Prepara modelos, moldes, porta impresiones, bloques o rodillos para realizar impresiones dentales parciales o totales",
-      "Registra órdenes de trabajo siguiendo especificaciones y prescripciones para dispositivos y aparatos dentales"
+      { name: "Prepara modelos, moldes, porta impresiones, bloques o rodillos para realizar impresiones dentales parciales o totales", abrev: "PREP-MOLD" },
+      { name: "Registra órdenes de trabajo siguiendo especificaciones y prescripciones para dispositivos y aparatos dentales", abrev: "REG-ORD" }
     ],
     sem5: [
-      "Modela alambres de diversos calibres para casos de aparatología ortodóntica",
-      "Realiza perfilado para prótesis dentales fijas y removibles"
+      { name: "Modela alambres de diversos calibres para casos de aparatología ortodóntica", abrev: "MOD-ALAMB" },
+      { name: "Realiza perfilado para prótesis dentales fijas y removibles", abrev: "PERF-PROT" }
     ]
   },
   "Preparacion de Alimentos Artesanales": {
     sem3: [
-      "Conserva frutas, verduras y legumbres a través de métodos tradicionales",
-      "Transforma cereales y harinas para la elaboración de tortillas y productos afines"
+      { name: "Conserva frutas, verduras y legumbres a través de métodos tradicionales", abrev: "CONS-FRUT" },
+      { name: "Transforma cereales y harinas para la elaboración de tortillas y productos afines", abrev: "TRANS-CER" }
     ],
     sem5: [
-      "Obtiene bebidas no alcohólicas mediante procedimientos simples",
-      "Prepara productos de carnes, derivados disponibles y sustitutos de proteína"
+      { name: "Obtiene bebidas no alcohólicas mediante procedimientos simples", abrev: "OBT-BEB" },
+      { name: "Prepara productos de carnes, derivados disponibles y sustitutos de proteína", abrev: "PREP-CARN" }
     ]
   },
   "Procesos Culinarios y Reposteria": {
     sem3: [
-      "Elabora productos de panificación siguiendo procesos establecidos",
-      "Emplea productos, utensils y conceptos culinarios durante el proceso de transformación de alimentos"
+      { name: "Elabora productos de panificación siguiendo procesos establecidos", abrev: "PROD-PAN" },
+      { name: "Emplea productos, utensilios y conceptos culinarios durante el proceso de transformación de alimentos", abrev: "TRANS-ALIM" }
     ],
     sem5: [
-      "Determina costos de producción en la elaboración de platillos",
-      "Prepara postres y productos de repostería básica"
+      { name: "Determina costos de producción en la elaboración de platillos", abrev: "COST-PLAT" },
+      { name: "Prepara postres y productos de repostería básica", abrev: "PREP-POST" }
     ]
   },
   "Redes y Mantenimiento": {
     sem3: [
-      "Actualiza equipos de cómputo de acuerdo con especificaciones del fabricante",
-      "Usa técnicas y estrategias de mantenimiento del equipo de cómputo"
+      { name: "Actualiza equipos de cómputo de acuerdo con especificaciones del fabricante", abrev: "ACT-EQUIP" },
+      { name: "Usa técnicas y estrategias de mantenimiento del equipo de cómputo", abrev: "MANT-COMP" }
     ],
     sem5: [
-      "Administra redes de acuerdo con las condiciones y requerimientos de una organización",
-      "Brinda soporte en software de aplicación y hardware según los requerimientos del usuario"
+      { name: "Administra redes de acuerdo con las condiciones y requerimientos de una organización", abrev: "ADM-REDES" },
+      { name: "Brinda soporte en software de aplicación y hardware según los requerimientos del usuario", abrev: "SOP-SOFT" }
     ]
   },
   "Servicios Ecosistemicos": {
     sem3: [
-      "Aplica técnicas de muestreo indicadas por el especialista",
-      "Recopila muestras para las pruebas de niveles de contaminantes con guía del especialista"
+      { name: "Aplica técnicas de muestreo indicadas por el especialista", abrev: "TECN-MUEST" },
+      { name: "Recopila muestras para las pruebas de niveles de contaminantes con guía del especialista", abrev: "RECOP-MUEST" }
     ],
     sem5: [
-      "Aplica técnicas para la siembra de diversas semillas forestales bajo supervisión",
-      "Realiza pruebas de suelos y fertilizantes para el mantenimiento del ecosistema forestal"
+      { name: "Aplica técnicas para la siembra de diversas semillas forestales bajo supervisión", abrev: "SIEMB-FOR" },
+      { name: "Realiza pruebas de suelos y fertilizantes para el mantenimiento del ecosistema forestal", abrev: "PRUEB-SUEL" }
     ]
   },
   "Sistemas Electricos": {
     sem3: [
-      "Elabora empalmes acordes con las características de los hilos",
-      "Limpia áreas de trabajo, equipo, materiales y herramientas utilizadas durante la actividad"
+      { name: "Elabora empalmes acordes con las características de los hilos", abrev: "ELAB-EMP" },
+      { name: "Limpia áreas de trabajo, equipo, materiales y herramientas utilizadas durante la actividad", abrev: "LIMP-HERR" }
     ],
     sem5: [
-      "Ensambla componentes sobre tableros en perfocel para circuitos eléctricos básicos",
-      "Reconoce planos de sistemas eléctricos en servicios domésticos y comerciales"
+      { name: "Ensambla componentes sobre tableros en perfocel para circuitos eléctricos básicos", abrev: "ENS-PERF" },
+      { name: "Reconoce planos de sistemas eléctricos en servicios domésticos y comerciales", abrev: "PLAN-ELEC" }
     ]
   },
   "Tecnologia Informatica": {
     sem3: [
-      "Elabora documentos electrónicos en diferentes procesadores de texto, relacionados con la ofimática",
-      "Utiliza aplicaciones ofimáticas en distintos sistemas operativos"
+      { name: "Elabora documentos electrónicos en diferentes procesadores de texto, relacionados con la ofimática", abrev: "DOC-OFIM" },
+      { name: "Utiliza aplicaciones ofimáticas en distintos sistemas operativos", abrev: "APL-OFIM" }
     ],
     sem5: [
-      "Elabora presentaciones electrónicas en diferentes aplicaciones relacionadas con la ofimática",
-      "Opera dispositivos electrónicos multifuncionales en procesos administrativos"
+      { name: "Elabora presentaciones electrónicas en diferentes aplicaciones relacionadas con la ofimática", abrev: "PRES-OFIM" },
+      { name: "Opera dispositivos electrónicos multifuncionales en procesos administrativos", abrev: "OP-MULTIF" }
     ]
   },
   "Turismo": {
     sem3: [
-      "Explica procesos de expedición de documentos oficiales en las instituciones gubernamentales correspondientes para transitar o viajar",
-      "Muestra variedad de servicios que componen el catálogo de la planta turística"
+      { name: "Explica procesos de expedición de documentos oficiales en las instituciones gubernamentales correspondientes para transitar o viajar", abrev: "DOC-TUR" },
+      { name: "Muestra variedad de servicios que componen el catálogo de la planta turística", abrev: "SERV-TUR" }
     ],
     sem5: [
-      "Asiste usuarios en la selección, adquisición y utilización eficiente de servicios turísticos requeridos",
-      "Promociona sitios alternativos de lugares a visitar según necesidades del turista"
+      { name: "Asiste usuarios en la selección, adquisición y utilización eficiente de servicios turísticos requeridos", abrev: "ASIST-TUR" },
+      { name: "Promociona sitios alternativos de lugares a visitar según necesidades del turista", abrev: "PROM-TUR" }
     ]
   }
 };
@@ -233,9 +233,9 @@ export default function WizardConfiguracion({
   const [paso, setPaso] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Configuración de Jornada (Predeterminada 6 hrs diarias)
-  const [numPeriodos, setNumPeriodos] = useState<number>(configInicial?.horasPorDia || 6);
-  const [horaInicio, setHoraInicio] = useState<string>(configInicial?.horaInicio || "08:00");
+  // Configuración de Jornada (Garantizado 6 hrs por defecto)
+  const [numPeriodos, setNumPeriodos] = useState<number>(6);
+  const [horaInicio, setHoraInicio] = useState<string>("08:00");
   
   // Número abierto de grupos por grado (1, 2, 3, 4, 5, 10...)
   const [numGruposPorGrado, setNumGruposPorGrado] = useState<number>(
@@ -245,30 +245,36 @@ export default function WizardConfiguracion({
   // Estado de Grupos con su Configuración Curricular Específica
   const [grupos, setGrupos] = useState<any[]>([]);
 
-  // Docentes (locales + plantilla inicial)
+  // Docentes activos en la plantilla del horario
   const [docentes, setDocentes] = useState<any[]>(docentesIniciales || []);
   const [horasDocentes, setHorasDocentes] = useState<Record<string, number>>({});
 
   // Cargas Docente-Materia-Grupo (Paso 3)
   const [cargas, setCargas] = useState<any[]>(cargasIniciales || []);
-  const [catalogAsignaturas, setCatalogAsignaturas] = useState<any[]>([]);
 
-  // Modal para agregar nuevo docente
+  // Modal para agregar nuevo docente (Manual o desde el Personal completo de la escuela)
   const [mostrarModalDocente, setMostrarModalDocente] = useState<boolean>(false);
+  const [tabModalDocente, setTabModalDocente] = useState<"PLATAFORMA" | "MANUAL">("PLATAFORMA");
+  const [personalPlataforma, setPersonalPlataforma] = useState<any[]>([]);
+  const [busquedaPersonal, setBusquedaPersonal] = useState<string>("");
+
   const [nuevoDocenteNombre, setNuevoDocenteNombre] = useState<string>("");
   const [nuevoDocentePaterno, setNuevoDocentePaterno] = useState<string>("");
   const [nuevoDocenteMaterno, setNuevoDocenteMaterno] = useState<string>("");
   const [nuevoDocenteHoras, setNuevoDocenteHoras] = useState<number>(20);
 
   useEffect(() => {
-    cargarCatalogos();
+    // Cargar personal completo de la escuela
+    cargarPersonalCompleto();
   }, [escuelaId]);
 
   useEffect(() => {
-    setDocentes(docentesIniciales || []);
+    if (docentesIniciales && docentesIniciales.length > 0) {
+      setDocentes(docentesIniciales);
+    }
   }, [docentesIniciales]);
 
-  // Generar grupos según la cantidad de grupos por grado (sin límite rígido)
+  // Generar grupos según la cantidad de grupos por grado
   useEffect(() => {
     generarGruposSegunEstructura(numGruposPorGrado);
   }, [numGruposPorGrado]);
@@ -278,23 +284,23 @@ export default function WizardConfiguracion({
     if (docentes.length > 0) {
       const mapaHoras: Record<string, number> = { ...horasDocentes };
       docentes.forEach((d) => {
-        if (!mapaHoras[d.id]) {
-          mapaHoras[d.id] = d.horasAsignadas || 20;
+        if (mapaHoras[d.id] === undefined) {
+          mapaHoras[d.id] = d.horasAsignadas !== undefined ? d.horasAsignadas : 20;
         }
       });
       setHorasDocentes(mapaHoras);
     }
   }, [docentes]);
 
-  const cargarCatalogos = async () => {
+  const cargarPersonalCompleto = async () => {
     try {
-      const res = await fetch(`/api/horarios/catalogos?escuelaId=${escuelaId}`);
+      const res = await fetch(`/api/expedientes/personal?escuelaId=${escuelaId}`);
       const data = await res.json();
-      if (data.asignaturas) {
-        setCatalogAsignaturas(data.asignaturas);
+      if (data.personal) {
+        setPersonalPlataforma(data.personal);
       }
     } catch (e) {
-      console.error("Error al cargar asignaturas:", e);
+      console.error("Error al cargar personal de la escuela:", e);
     }
   };
 
@@ -314,7 +320,7 @@ export default function WizardConfiguracion({
           nombre: nombreGrupo,
           semestre: sem,
           capacitacionNombre: grupoExistente?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length],
-          ffeoSocioemocional: grupoExistente?.ffeoSocioemocional || CURRICULUM_AMPLIADO_FFEO[0],
+          ffeoSocioemocional: grupoExistente?.ffeoSocioemocional || (sem === 3 ? CURRICULUM_AMPLIADO_FFEO[0] : CURRICULUM_AMPLIADO_FFEO[1]),
           ffeOptativas: grupoExistente?.ffeOptativas || [
             FFE_RECURSO_SOCIOCOGNITIVO[0],
             FFE_RECURSO_SOCIOCOGNITIVO[1],
@@ -330,6 +336,17 @@ export default function WizardConfiguracion({
   const handleActualizarConfigGrupo = (index: number, field: string, value: any) => {
     const copia = [...grupos];
     copia[index][field] = value;
+
+    // Regla Anti-Duplicados de FFEO: Si se cambia 3er semestre, asegurar que 5to semestre no repita el mismo
+    if (field === "ffeoSocioemocional" && copia[index].semestre === 3) {
+      const letraGrupo = copia[index].nombre.split(" ")[1];
+      const grupo5 = copia.find((g) => g.semestre === 5 && g.nombre.endsWith(letraGrupo));
+      if (grupo5 && grupo5.ffeoSocioemocional === value) {
+        const disponible = CURRICULUM_AMPLIADO_FFEO.find((item) => item !== value);
+        if (disponible) grupo5.ffeoSocioemocional = disponible;
+      }
+    }
+
     setGrupos(copia);
   };
 
@@ -342,8 +359,31 @@ export default function WizardConfiguracion({
     setGrupos(copia);
   };
 
-  // Crear nuevo docente y añadirlo a la plantilla del plantel
-  const handleCrearNuevoDocente = async () => {
+  // Eliminar docente de la plantilla activa del horario
+  const handleEliminarDocentePlantilla = (docenteId: string) => {
+    setDocentes(docentes.filter((d) => d.id !== docenteId));
+    const copiaHoras = { ...horasDocentes };
+    delete copiaHoras[docenteId];
+    setHorasDocentes(copiaHoras);
+    // Eliminar también de las cargas asignadas
+    setCargas(cargas.filter((c) => c.personalId !== docenteId));
+    toast.success("Docente removido de la plantilla activa.");
+  };
+
+  // Agregar personal existente desde la base de datos de la escuela
+  const handleAgregarPersonalExistente = (persona: any) => {
+    if (docentes.some((d) => d.id === persona.id)) {
+      toast.error("El personal ya está agregado en la plantilla.");
+      return;
+    }
+    setDocentes([...docentes, persona]);
+    setHorasDocentes({ ...horasDocentes, [persona.id]: 20 });
+    toast.success(`${persona.nombre} ${persona.apellidoPaterno} agregado a la plantilla.`);
+    setMostrarModalDocente(false);
+  };
+
+  // Crear nuevo docente manual y añadirlo a la plantilla
+  const handleCrearNuevoDocenteManual = async () => {
     if (!nuevoDocenteNombre.trim() || !nuevoDocentePaterno.trim()) {
       toast.error("El nombre y apellido paterno son obligatorios.");
       return;
@@ -364,7 +404,7 @@ export default function WizardConfiguracion({
       });
       const data = await res.json();
       if (data.success && data.docente) {
-        toast.success(`Docente ${data.docente.nombre} ${data.docente.apellidoPaterno} agregado a la plantilla.`);
+        toast.success(`Docente ${data.docente.nombre} ${data.docente.apellidoPaterno} registrado y agregado.`);
         setDocentes([...docentes, data.docente]);
         setHorasDocentes({ ...horasDocentes, [data.docente.id]: nuevoDocenteHoras });
         setNuevoDocenteNombre("");
@@ -457,50 +497,50 @@ export default function WizardConfiguracion({
   const horasRequeridasPlantel = totalGrupos * 30; // 30 hrs por grupo
   const totalHorasPlantillaDocente = Object.values(horasDocentes).reduce((sum, h) => sum + Number(h || 0), 0);
 
-  // Obtener lista exacta de UACs individuales para cada grupo (Igual a Ejemplo tabla por grupo.docx)
+  // Obtener UACs individuales para cada grupo con Abreviaturas destacadas (Igual a Ejemplo tabla por grupo.docx)
   const getUACsIndividualesGrupo = (grupo: any) => {
     const sem = grupo.semestre;
 
     if (sem === 1) {
       return [
-        { id: `uac_1_1`, uacName: "La Materia y sus Interacciones", horasSemanales: 4 },
-        { id: `uac_1_2`, uacName: "Pensamiento Matemático I", horasSemanales: 4 },
-        { id: `uac_1_3`, uacName: "Humanidades I", horasSemanales: 4 },
-        { id: `uac_1_4`, uacName: "Lenguaje y Comunicación I", horasSemanales: 3 },
-        { id: `uac_1_5`, uacName: "Inglés I", horasSemanales: 3 },
-        { id: `uac_1_6`, uacName: "Cultura Digital I", horasSemanales: 3 },
-        { id: `uac_1_7`, uacName: "Laboratorio de Investigación", horasSemanales: 3 },
-        { id: `uac_1_8`, uacName: "Ciencias Sociales I", horasSemanales: 2 },
-        { id: `uac_1_9`, uacName: "Actividades Artísticas y Culturales I", horasSemanales: 2 },
-        { id: `uac_1_10`, uacName: "Actividades Físicas y Deportivas I", horasSemanales: 2 }
+        { id: `uac_1_1`, uacName: "La Materia y sus Interacciones", abrev: "MAT-INT", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_1_2`, uacName: "Pensamiento Matemático I", abrev: "PENS-MAT-I", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_1_3`, uacName: "Humanidades I", abrev: "HUM-I", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_1_4`, uacName: "Lenguaje y Comunicación I", abrev: "LENG-COM-I", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_1_5`, uacName: "Inglés I", abrev: "ING-I", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_1_6`, uacName: "Cultura Digital I", abrev: "CULT-DIG-I", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_1_7`, uacName: "Laboratorio de Investigación", abrev: "LAB-INV", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_1_8`, uacName: "Ciencias Sociales I", abrev: "CS-SOC-I", tipo: "UNIVERSAL", horasSemanales: 2 },
+        { id: `uac_1_9`, uacName: "Actividades Artísticas y Culturales I", abrev: "ART-CULT-I", tipo: "UNIVERSAL", horasSemanales: 2 },
+        { id: `uac_1_10`, uacName: "Actividades Físicas y Deportivas I", abrev: "ACT-FIS-I", tipo: "UNIVERSAL", horasSemanales: 2 }
       ];
     }
 
     if (sem === 3) {
       const capNombre = grupo.capacitacionNombre || FORMACIONES_LABORALES[0];
-      const uacsLab = UACS_LABORALES_MAPA[capNombre]?.sem3 || [
-        `Formación Laboral A (${capNombre})`,
-        `Formación Laboral B (${capNombre})`
+      const uacsLabInfo = UACS_LABORALES_MAPA[capNombre]?.sem3 || [
+        { name: `Asignatura 1 de ${capNombre}`, abrev: "LAB-1" },
+        { name: `Asignatura 2 de ${capNombre}`, abrev: "LAB-2" }
       ];
 
       return [
-        { id: `uac_3_1`, uacName: "Ecosistemas: Interacciones, Energía y Dinámica", horasSemanales: 4 },
-        { id: `uac_3_2`, uacName: "Pensamiento Matemático III", horasSemanales: 4 },
-        { id: `uac_3_3`, uacName: "Humanidades III", horasSemanales: 5 },
-        { id: `uac_3_4`, uacName: "Taller de Ciencias II", horasSemanales: 3 },
-        { id: `uac_3_5`, uacName: grupo.ffeoSocioemocional || "Educación para la Salud III (2025)", horasSemanales: 2 },
-        { id: `uac_3_6`, uacName: "Lengua y Comunicación III", horasSemanales: 3 },
-        { id: `uac_3_7`, uacName: "Inglés III", horasSemanales: 3 },
-        { id: `uac_3_lab_a`, uacName: `Formación Laboral "A": ${uacsLab[0]}`, horasSemanales: 3 },
-        { id: `uac_3_lab_b`, uacName: `Formación Laboral "B": ${uacsLab[1]}`, horasSemanales: 3 }
+        { id: `uac_3_1`, uacName: "Ecosistemas: Interacciones, Energía y Dinámica", abrev: "ECOSIST", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_3_2`, uacName: "Pensamiento Matemático III", abrev: "PENS-MAT-III", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_3_3`, uacName: "Humanidades III", abrev: "HUM-III", tipo: "UNIVERSAL", horasSemanales: 5 },
+        { id: `uac_3_4`, uacName: "Taller de Ciencias II", abrev: "TALL-CIEN-II", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_3_5`, uacName: grupo.ffeoSocioemocional || "Educación para la Salud III (2025)", abrev: "CURR-AMP-3", tipo: "AMPLIADO", horasSemanales: 2 },
+        { id: `uac_3_6`, uacName: "Lengua y Comunicación III", abrev: "LENG-COM-III", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_3_7`, uacName: "Inglés III", abrev: "ING-III", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_3_lab_a`, uacName: uacsLabInfo[0].name, abrev: uacsLabInfo[0].abrev, capNombre, tipo: "LABORAL_A", horasSemanales: 3 },
+        { id: `uac_3_lab_b`, uacName: uacsLabInfo[1].name, abrev: uacsLabInfo[1].abrev, capNombre, tipo: "LABORAL_B", horasSemanales: 3 }
       ];
     }
 
     if (sem === 5) {
       const capNombre = grupo.capacitacionNombre || FORMACIONES_LABORALES[0];
-      const uacsLab = UACS_LABORALES_MAPA[capNombre]?.sem5 || [
-        `Formación Laboral A (${capNombre})`,
-        `Formación Laboral B (${capNombre})`
+      const uacsLabInfo = UACS_LABORALES_MAPA[capNombre]?.sem5 || [
+        { name: `Asignatura 1 de ${capNombre}`, abrev: "LAB-1" },
+        { name: `Asignatura 2 de ${capNombre}`, abrev: "LAB-2" }
       ];
       const opts = grupo.ffeOptativas || [
         FFE_RECURSO_SOCIOCOGNITIVO[0],
@@ -510,21 +550,27 @@ export default function WizardConfiguracion({
       ];
 
       return [
-        { id: `uac_5_1`, uacName: "La Energía en los Procesos de la Vida Diaria", horasSemanales: 4 },
-        { id: `uac_5_2`, uacName: "Conciencia Histórica II. México Durante el Expansionismo Capitalista", horasSemanales: 3 },
-        { id: `uac_5_3`, uacName: "Taller de Habilidades del Pensamiento", horasSemanales: 3 },
-        { id: `uac_5_ffe_1`, uacName: `Formación Fundamental Extendida (Recurso) "A": ${opts[0]}`, horasSemanales: 3 },
-        { id: `uac_5_ffe_2`, uacName: `Formación Fundamental Extendida (Recurso) "B": ${opts[1]}`, horasSemanales: 3 },
-        { id: `uac_5_ffe_3`, uacName: `Formación Fundamental Extendida (Área) "A": ${opts[2]}`, horasSemanales: 3 },
-        { id: `uac_5_ffe_4`, uacName: `Formación Fundamental Extendida (Área) "B": ${opts[3]}`, horasSemanales: 3 },
-        { id: `uac_5_5`, uacName: grupo.ffeoSocioemocional || "Práctica y Colaboración Ciudadana III (2025)", horasSemanales: 2 },
-        { id: `uac_5_lab_a`, uacName: `Formación Laboral "A": ${uacsLab[0]}`, horasSemanales: 3 },
-        { id: `uac_5_lab_b`, uacName: `Formación Laboral "B": ${uacsLab[1]}`, horasSemanales: 3 }
+        { id: `uac_5_1`, uacName: "La Energía en los Procesos de la Vida Diaria", abrev: "ENERG-VIDA", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_5_2`, uacName: "Conciencia Histórica II. México Durante el Expansionismo Capitalista", abrev: "CONC-HIST-II", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_5_3`, uacName: "Taller de Habilidades del Pensamiento", abrev: "TALL-HAB-PENS", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_5_ffe_1`, uacName: opts[0], abrev: "FFE-REC-A", tipo: "FFE_REC_A", horasSemanales: 3 },
+        { id: `uac_5_ffe_2`, uacName: opts[1], abrev: "FFE-REC-B", tipo: "FFE_REC_B", horasSemanales: 3 },
+        { id: `uac_5_ffe_3`, uacName: opts[2], abrev: "FFE-AREA-A", tipo: "FFE_AREA_A", horasSemanales: 3 },
+        { id: `uac_5_ffe_4`, uacName: opts[3], abrev: "FFE-AREA-B", tipo: "FFE_AREA_B", horasSemanales: 3 },
+        { id: `uac_5_5`, uacName: grupo.ffeoSocioemocional || "Práctica y Colaboración Ciudadana III (2025)", abrev: "CURR-AMP-5", tipo: "AMPLIADO", horasSemanales: 2 },
+        { id: `uac_5_lab_a`, uacName: uacsLabInfo[0].name, abrev: uacsLabInfo[0].abrev, capNombre, tipo: "LABORAL_A", horasSemanales: 3 },
+        { id: `uac_5_lab_b`, uacName: uacsLabInfo[1].name, abrev: uacsLabInfo[1].abrev, capNombre, tipo: "LABORAL_B", horasSemanales: 3 }
       ];
     }
 
     return [];
   };
+
+  // Filtrar personal de la escuela para el modal
+  const personalDisponibleModal = personalPlataforma.filter((p) => {
+    const coincide = busquedaPersonal === "" || `${p.nombre} ${p.apellidoPaterno} ${p.cargo}`.toLowerCase().includes(busquedaPersonal.toLowerCase());
+    return coincide;
+  });
 
   return (
     <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "16px", padding: "1.5rem", boxShadow: "0 4px 20px rgba(0,0,0,0.05)", maxWidth: "1250px", margin: "0 auto" }}>
@@ -621,134 +667,145 @@ export default function WizardConfiguracion({
             </h3>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "1.25rem" }}>
-              {grupos.map((g, idx) => (
-                <div key={idx} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 6px rgba(0,0,0,0.03)" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem", marginBottom: "0.75rem" }}>
-                    <span style={{ fontSize: "0.9375rem", fontWeight: 800, color: "#1d4ed8" }}>
-                      Grupo {g.nombre} ({g.semestre}° Semestre)
-                    </span>
-                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, background: "#eff6ff", color: "#2563eb", padding: "0.25rem 0.5rem", borderRadius: "6px" }}>
-                      {g.semestre === 1 ? "Universal (10 UACs)" : g.semestre === 3 ? "Laboral (9 UACs)" : "Laboral + FFE (10 UACs)"}
-                    </span>
-                  </div>
+              {grupos.map((g, idx) => {
+                // Obtener la letra del grupo (ej: 'A', 'B', 'C')
+                const letraGrupo = g.nombre.split(" ")[1];
+                const grupo3Correspondiente = grupos.find((g3) => g3.semestre === 3 && g3.nombre.endsWith(letraGrupo));
+                const ffeoSocio3erSem = grupo3Correspondiente?.ffeoSocioemocional || "";
 
-                  {/* Formación Laboral (para 3° y 5° semestre) */}
-                  {g.semestre >= 3 && (
-                    <div style={{ marginBottom: "0.75rem" }}>
-                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
-                        Formación Laboral (Capacitación del Grupo)
-                      </label>
-                      <select
-                        value={g.capacitacionNombre || FORMACIONES_LABORALES[0]}
-                        onChange={(e) => handleActualizarConfigGrupo(idx, "capacitacionNombre", e.target.value)}
-                        style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.8125rem", fontWeight: 700, color: "#0f172a" }}
-                      >
-                        {FORMACIONES_LABORALES.map((cap) => (
-                          <option key={cap} value={cap}>
-                            {cap}
-                          </option>
-                        ))}
-                      </select>
+                return (
+                  <div key={idx} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 6px rgba(0,0,0,0.03)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem", marginBottom: "0.75rem" }}>
+                      <span style={{ fontSize: "0.9375rem", fontWeight: 800, color: "#1d4ed8" }}>
+                        Grupo {g.nombre} ({g.semestre}° Semestre)
+                      </span>
+                      <span style={{ fontSize: "0.6875rem", fontWeight: 700, background: "#eff6ff", color: "#2563eb", padding: "0.25rem 0.5rem", borderRadius: "6px" }}>
+                        {g.semestre === 1 ? "Universal (10 UACs)" : g.semestre === 3 ? "Laboral (9 UACs)" : "Laboral + FFE (10 UACs)"}
+                      </span>
                     </div>
-                  )}
 
-                  {/* Currículum Ampliado / Formación Socioemocional (FFEO) para 3° y 5° semestre */}
-                  {g.semestre >= 3 && (
-                    <div style={{ marginBottom: "0.75rem" }}>
-                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
-                        Currículum Ampliado / Formación Socioemocional (FFEO)
-                      </label>
-                      <select
-                        value={g.ffeoSocioemocional || CURRICULUM_AMPLIADO_FFEO[0]}
-                        onChange={(e) => handleActualizarConfigGrupo(idx, "ffeoSocioemocional", e.target.value)}
-                        style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.75rem", fontWeight: 700, color: "#0f172a" }}
-                      >
-                        {CURRICULUM_AMPLIADO_FFEO.map((ffeo) => (
-                          <option key={ffeo} value={ffeo}>
-                            {ffeo}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                    {/* Formación Laboral (para 3° y 5° semestre) */}
+                    {g.semestre >= 3 && (
+                      <div style={{ marginBottom: "0.75rem" }}>
+                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
+                          Formación Laboral (Capacitación del Grupo)
+                        </label>
+                        <select
+                          value={g.capacitacionNombre || FORMACIONES_LABORALES[0]}
+                          onChange={(e) => handleActualizarConfigGrupo(idx, "capacitacionNombre", e.target.value)}
+                          style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.8125rem", fontWeight: 700, color: "#0f172a" }}
+                        >
+                          {FORMACIONES_LABORALES.map((cap) => (
+                            <option key={cap} value={cap}>
+                              {cap}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
-                  {/* FFE Optativas (para 5° semestre) con filtrado anti-duplicados */}
-                  {g.semestre === 5 && (
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.35rem" }}>
-                        Optativas FFE (2 Recurso Sociocognitivo + 2 Área de Conocimiento)
-                      </label>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
-                        {/* Cuadro 1: Recurso Sociocognitivo */}
-                        <div>
-                          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 1 (Recurso)</span>
-                          <select
-                            value={g.ffeOptativas?.[0] || FFE_RECURSO_SOCIOCOGNITIVO[0]}
-                            onChange={(e) => handleActualizarOptativaGrupo(idx, 0, e.target.value)}
-                            style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
-                          >
-                            {FFE_RECURSO_SOCIOCOGNITIVO.map((rec) => (
-                              <option key={rec} value={rec}>{rec}</option>
-                            ))}
-                          </select>
-                        </div>
+                    {/* Currículum Ampliado / Formación Socioemocional (FFEO) para 3° y 5° semestre */}
+                    {g.semestre >= 3 && (
+                      <div style={{ marginBottom: "0.75rem" }}>
+                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
+                          Currículum Ampliado / Formación Socioemocional (FFEO)
+                        </label>
+                        <select
+                          value={g.ffeoSocioemocional || (g.semestre === 3 ? CURRICULUM_AMPLIADO_FFEO[0] : CURRICULUM_AMPLIADO_FFEO[1])}
+                          onChange={(e) => handleActualizarConfigGrupo(idx, "ffeoSocioemocional", e.target.value)}
+                          style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.75rem", fontWeight: 700, color: "#0f172a" }}
+                        >
+                          {CURRICULUM_AMPLIADO_FFEO.map((ffeo) => {
+                            // Regla Anti-Duplicados: Si es 5to semestre, deshabilitar la opción que ya se eligió en 3er semestre para esta letra de grupo
+                            const esRepetida5to = g.semestre === 5 && ffeo === ffeoSocio3erSem;
+                            return (
+                              <option key={ffeo} value={ffeo} disabled={esRepetida5to}>
+                                {ffeo} {esRepetida5to ? "[Elegida en 3° Semestre]" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    )}
 
-                        {/* Cuadro 2: Recurso Sociocognitivo (Filtrado para no repetir Cuadro 1) */}
-                        <div>
-                          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 2 (Recurso sin repetir)</span>
-                          <select
-                            value={g.ffeOptativas?.[1] || FFE_RECURSO_SOCIOCOGNITIVO[1]}
-                            onChange={(e) => handleActualizarOptativaGrupo(idx, 1, e.target.value)}
-                            style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
-                          >
-                            {FFE_RECURSO_SOCIOCOGNITIVO
-                              .filter((rec) => rec !== g.ffeOptativas?.[0])
-                              .map((rec) => (
+                    {/* FFE Optativas (para 5° semestre) con filtrado anti-duplicados */}
+                    {g.semestre === 5 && (
+                      <div>
+                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.35rem" }}>
+                          Optativas FFE (2 Recurso Sociocognitivo + 2 Área de Conocimiento)
+                        </label>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
+                          {/* Cuadro 1: Recurso Sociocognitivo */}
+                          <div>
+                            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 1 (Recurso)</span>
+                            <select
+                              value={g.ffeOptativas?.[0] || FFE_RECURSO_SOCIOCOGNITIVO[0]}
+                              onChange={(e) => handleActualizarOptativaGrupo(idx, 0, e.target.value)}
+                              style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
+                            >
+                              {FFE_RECURSO_SOCIOCOGNITIVO.map((rec) => (
                                 <option key={rec} value={rec}>{rec}</option>
                               ))}
-                          </select>
-                        </div>
+                            </select>
+                          </div>
 
-                        {/* Cuadro 3: Área de Conocimiento */}
-                        <div>
-                          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 3 (Área)</span>
-                          <select
-                            value={g.ffeOptativas?.[2] || FFE_AREA_CONOCIMIENTO[0]}
-                            onChange={(e) => handleActualizarOptativaGrupo(idx, 2, e.target.value)}
-                            style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
-                          >
-                            {FFE_AREA_CONOCIMIENTO.map((area) => (
-                              <option key={area} value={area}>{area}</option>
-                            ))}
-                          </select>
-                        </div>
+                          {/* Cuadro 2: Recurso Sociocognitivo (Filtrado para no repetir Cuadro 1) */}
+                          <div>
+                            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 2 (Recurso sin repetir)</span>
+                            <select
+                              value={g.ffeOptativas?.[1] || FFE_RECURSO_SOCIOCOGNITIVO[1]}
+                              onChange={(e) => handleActualizarOptativaGrupo(idx, 1, e.target.value)}
+                              style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
+                            >
+                              {FFE_RECURSO_SOCIOCOGNITIVO
+                                .filter((rec) => rec !== g.ffeOptativas?.[0])
+                                .map((rec) => (
+                                  <option key={rec} value={rec}>{rec}</option>
+                                ))}
+                            </select>
+                          </div>
 
-                        {/* Cuadro 4: Área de Conocimiento (Filtrado para no repetir Cuadro 3) */}
-                        <div>
-                          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 4 (Área sin repetir)</span>
-                          <select
-                            value={g.ffeOptativas?.[3] || FFE_AREA_CONOCIMIENTO[1]}
-                            onChange={(e) => handleActualizarOptativaGrupo(idx, 3, e.target.value)}
-                            style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
-                          >
-                            {FFE_AREA_CONOCIMIENTO
-                              .filter((area) => area !== g.ffeOptativas?.[2])
-                              .map((area) => (
+                          {/* Cuadro 3: Área de Conocimiento */}
+                          <div>
+                            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 3 (Área)</span>
+                            <select
+                              value={g.ffeOptativas?.[2] || FFE_AREA_CONOCIMIENTO[0]}
+                              onChange={(e) => handleActualizarOptativaGrupo(idx, 2, e.target.value)}
+                              style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
+                            >
+                              {FFE_AREA_CONOCIMIENTO.map((area) => (
                                 <option key={area} value={area}>{area}</option>
                               ))}
-                          </select>
+                            </select>
+                          </div>
+
+                          {/* Cuadro 4: Área de Conocimiento (Filtrado para no repetir Cuadro 3) */}
+                          <div>
+                            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 4 (Área sin repetir)</span>
+                            <select
+                              value={g.ffeOptativas?.[3] || FFE_AREA_CONOCIMIENTO[1]}
+                              onChange={(e) => handleActualizarOptativaGrupo(idx, 3, e.target.value)}
+                              style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
+                            >
+                              {FFE_AREA_CONOCIMIENTO
+                                .filter((area) => area !== g.ffeOptativas?.[2])
+                                .map((area) => (
+                                  <option key={area} value={area}>{area}</option>
+                                ))}
+                            </select>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {g.semestre === 1 && (
-                    <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0, fontStyle: "italic" }}>
-                      1er Semestre lleva el Currículum Fundamental 100% universal para todos los Bachilleratos de Puebla.
-                    </p>
-                  )}
-                </div>
-              ))}
+                    {g.semestre === 1 && (
+                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0, fontStyle: "italic" }}>
+                        1er Semestre lleva el Currículum Fundamental 100% universal para todos los Bachilleratos de Puebla.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -775,7 +832,7 @@ export default function WizardConfiguracion({
                 <UserCheck style={{ width: "18px", height: "18px", color: "#2563eb" }} /> Carga Horaria de la Plantilla Docente Frente a Grupo
               </h3>
               <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem", margin: 0 }}>
-                Ingrese la carga horaria semanal (1 a 30 hrs) contratada para cada docente.
+                Ajuste las horas contratadas de cada profesor (puede asignar 0 hrs si no da clases frente a grupo o eliminarlo de la plantilla).
               </p>
             </div>
 
@@ -793,7 +850,7 @@ export default function WizardConfiguracion({
                 onClick={() => setMostrarModalDocente(true)}
                 style={{ background: "#2563eb", color: "#ffffff", padding: "0.625rem 1.25rem", borderRadius: "10px", fontWeight: 700, fontSize: "0.8125rem", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
               >
-                <UserPlus style={{ width: "16px", height: "16px" }} /> + Agregar Docente a Plantilla
+                <UserPlus style={{ width: "16px", height: "16px" }} /> + Agregar Docente / Personal a Plantilla
               </button>
             </div>
           </div>
@@ -801,34 +858,48 @@ export default function WizardConfiguracion({
           {docentes.length === 0 ? (
             <div style={{ padding: "2rem", textAlign: "center", background: "#f8fafc", border: "2px dashed #cbd5e1", borderRadius: "12px" }}>
               <AlertCircle style={{ width: "32px", height: "32px", color: "#94a3b8", margin: "0 auto 0.5rem" }} />
-              <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "#1e293b" }}>No se encontraron docentes registrados en la plantilla de este plantel.</p>
+              <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "#1e293b" }}>No se encontraron docentes activos en la plantilla del horario.</p>
               <button
                 onClick={() => setMostrarModalDocente(true)}
                 style={{ marginTop: "0.75rem", background: "#2563eb", color: "#ffffff", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, fontSize: "0.8125rem", border: "none", cursor: "pointer" }}
               >
-                + Registrar Primer Docente
+                + Agregar Personal a la Plantilla
               </button>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "0.75rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "0.85rem" }}>
               {docentes.map((d) => (
-                <div key={d.id} style={{ padding: "0.85rem", border: "1px solid #cbd5e1", borderRadius: "10px", background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
+                <div key={d.id} style={{ padding: "0.85rem", border: "1px solid #cbd5e1", borderRadius: "10px", background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <div style={{ flex: 1, paddingRight: "0.5rem" }}>
                     <p style={{ fontSize: "0.875rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
                       {d.apellidoPaterno} {d.apellidoMaterno || ""} {d.nombre}
                     </p>
-                    <p style={{ fontSize: "0.7rem", color: "#64748b", margin: 0 }}>{d.cargo || "Docente Frente a Grupo"}</p>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: d.cargo === "DOCENTE" ? "#2563eb" : "#d97706", background: "#f8fafc", padding: "0.1rem 0.4rem", borderRadius: "4px", border: "1px solid #cbd5e1" }}>
+                      {d.cargo || "DOCENTE"}
+                    </span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                    <input
-                      type="number"
-                      min={1}
-                      max={30}
-                      value={horasDocentes[d.id] || 20}
-                      onChange={(e) => setHorasDocentes({ ...horasDocentes, [d.id]: Number(e.target.value) })}
-                      style={{ width: "65px", padding: "0.4rem", borderRadius: "6px", border: "2px solid #3b82f6", fontWeight: 800, textAlign: "center", fontSize: "0.875rem", color: "#1e293b" }}
-                    />
-                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b" }}>hrs/sem</span>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={30}
+                        value={horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : 20}
+                        onChange={(e) => setHorasDocentes({ ...horasDocentes, [d.id]: Math.max(0, Number(e.target.value)) })}
+                        style={{ width: "60px", padding: "0.35rem", borderRadius: "6px", border: "2px solid #3b82f6", fontWeight: 800, textAlign: "center", fontSize: "0.875rem", color: "#1e293b" }}
+                      />
+                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b" }}>hrs</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      title="Remover docente de la plantilla activa"
+                      onClick={() => handleEliminarDocentePlantilla(d.id)}
+                      style={{ background: "#fef2f2", color: "#ef4444", border: "1px solid #fca5a5", padding: "0.4rem", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }}
+                    >
+                      <Trash2 style={{ width: "16px", height: "16px" }} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -862,7 +933,7 @@ export default function WizardConfiguracion({
               <BookOpen style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Matriz de Asignación Docente por Grupo (UACs Específicas)
             </h3>
             <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
-              Tablas organizadas por grupo individual mostrando sus asignaturas exclusivas (Fundamentales, Laborales y Optativas).
+              Tablas organizadas por grupo individual con nombres destacados y abreviaturas para el horario generado.
             </p>
           </div>
 
@@ -911,8 +982,51 @@ export default function WizardConfiguracion({
 
                               return (
                                 <tr key={uac.id || uacIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                  <td style={{ padding: "0.5rem 0.625rem", fontWeight: 700, color: "#1e293b", lineHeight: 1.3 }}>
-                                    {uac.uacName}
+                                  <td style={{ padding: "0.5rem 0.625rem", fontWeight: 700, color: "#1e293b", lineHeight: 1.35 }}>
+                                    {uac.tipo?.startsWith("LABORAL") ? (
+                                      <div>
+                                        <span style={{ fontSize: "0.6875rem", fontWeight: 800, color: "#64748b", display: "block" }}>
+                                          Formación Laboral {uac.tipo === "LABORAL_A" ? '"A"' : '"B"'} ({uac.capNombre})
+                                        </span>
+                                        <span style={{ color: "#d97706", fontWeight: 900, fontSize: "0.8125rem" }}>
+                                          {uac.uacName}
+                                        </span>
+                                        <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#2563eb", marginLeft: "0.35rem" }}>
+                                          ({uac.abrev})
+                                        </span>
+                                      </div>
+                                    ) : uac.tipo === "AMPLIADO" ? (
+                                      <div>
+                                        <span style={{ fontSize: "0.6875rem", fontWeight: 800, color: "#0284c7", display: "block" }}>
+                                          Currículum Ampliado (FFEO)
+                                        </span>
+                                        <span style={{ color: "#0369a1", fontWeight: 800 }}>
+                                          {uac.uacName}
+                                        </span>
+                                        <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#64748b", marginLeft: "0.35rem" }}>
+                                          ({uac.abrev})
+                                        </span>
+                                      </div>
+                                    ) : uac.tipo?.startsWith("FFE_") ? (
+                                      <div>
+                                        <span style={{ fontSize: "0.6875rem", fontWeight: 800, color: "#7c3aed", display: "block" }}>
+                                          Formación Fundamental Extendida (Optativa FFE)
+                                        </span>
+                                        <span style={{ color: "#6d28d9", fontWeight: 800 }}>
+                                          {uac.uacName}
+                                        </span>
+                                        <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#64748b", marginLeft: "0.35rem" }}>
+                                          ({uac.abrev})
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <span>{uac.uacName}</span>
+                                        <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#64748b", marginLeft: "0.35rem" }}>
+                                          ({uac.abrev})
+                                        </span>
+                                      </div>
+                                    )}
                                   </td>
                                   <td style={{ padding: "0.5rem", textAlign: "center", fontWeight: 800, color: "#2563eb" }}>
                                     {uac.horasSemanales || 3}h
@@ -935,7 +1049,7 @@ export default function WizardConfiguracion({
                                     >
                                       <option value="">-- Sin Asignar --</option>
                                       {docentes.map((d) => {
-                                        const hrsMax = horasDocentes[d.id] || 20;
+                                        const hrsMax = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : 20;
                                         const hrsConsumidas = getHorasConsumidasDocente(d.id);
                                         const esSeleccionado = docenteActualId === d.id;
                                         const estaLleno = hrsConsumidas >= hrsMax && !esSeleccionado;
@@ -980,81 +1094,175 @@ export default function WizardConfiguracion({
         </div>
       )}
 
-      {/* MODAL PARA AGREGAR NUEVO DOCENTE A LA PLANTILLA */}
+      {/* MODAL ENHANCED: SELECCIONAR PERSONAL DE LA PLATAFORMA O REGISTRAR MANUALMENTE */}
       {mostrarModalDocente && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-          <div style={{ background: "white", borderRadius: "16px", padding: "1.5rem", maxWidth: "450px", width: "100%", boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}>
-            <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.25rem" }}>
-              Registrar Nuevo Docente en Plantilla
-            </h3>
-            <p style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: "1rem" }}>
-              Agregue el nombre y las horas contratadas del profesor para incluirlo en el horario.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.25rem" }}>
-              <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.25rem" }}>Nombre(s)</label>
-                <input
-                  type="text"
-                  placeholder="Ej. Juan Manuel"
-                  value={nuevoDocenteNombre}
-                  onChange={(e) => setNuevoDocenteNombre(e.target.value)}
-                  style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem", fontWeight: 700 }}
-                />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.25rem" }}>Apellido Paterno</label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Pérez"
-                    value={nuevoDocentePaterno}
-                    onChange={(e) => setNuevoDocentePaterno(e.target.value)}
-                    style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem", fontWeight: 700 }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.25rem" }}>Apellido Materno</label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Gómez"
-                    value={nuevoDocenteMaterno}
-                    onChange={(e) => setNuevoDocenteMaterno(e.target.value)}
-                    style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem", fontWeight: 700 }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.25rem" }}>Horas Frente a Grupo Contratadas</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={nuevoDocenteHoras}
-                  onChange={(e) => setNuevoDocenteHoras(Number(e.target.value))}
-                  style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "2px solid #2563eb", fontSize: "0.875rem", fontWeight: 800 }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+          <div style={{ background: "white", borderRadius: "16px", padding: "1.5rem", maxWidth: "520px", width: "100%", boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+              <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
+                Agregar Personal a la Plantilla Horaria
+              </h3>
               <button
-                type="button"
                 onClick={() => setMostrarModalDocente(false)}
-                style={{ background: "#f1f5f9", color: "#1e293b", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, border: "none", cursor: "pointer" }}
+                style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#64748b" }}
               >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleCrearNuevoDocente}
-                style={{ background: "#2563eb", color: "#ffffff", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, border: "none", cursor: "pointer" }}
-              >
-                Guardar Docente
+                ✕
               </button>
             </div>
+
+            {/* Pestañas de modo */}
+            <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", marginBottom: "1.25rem" }}>
+              <button
+                onClick={() => setTabModalDocente("PLATAFORMA")}
+                style={{
+                  flex: 1,
+                  padding: "0.5rem",
+                  fontWeight: 800,
+                  fontSize: "0.8125rem",
+                  border: "none",
+                  background: "none",
+                  borderBottom: tabModalDocente === "PLATAFORMA" ? "3px solid #2563eb" : "none",
+                  color: tabModalDocente === "PLATAFORMA" ? "#2563eb" : "#64748b",
+                  cursor: "pointer"
+                }}
+              >
+                1. Personal de la Escuela ({personalPlataforma.length})
+              </button>
+              <button
+                onClick={() => setTabModalDocente("MANUAL")}
+                style={{
+                  flex: 1,
+                  padding: "0.5rem",
+                  fontWeight: 800,
+                  fontSize: "0.8125rem",
+                  border: "none",
+                  background: "none",
+                  borderBottom: tabModalDocente === "MANUAL" ? "3px solid #2563eb" : "none",
+                  color: tabModalDocente === "MANUAL" ? "#2563eb" : "#64748b",
+                  cursor: "pointer"
+                }}
+              >
+                2. Registrar Nuevo Docente Manual
+              </button>
+            </div>
+
+            {tabModalDocente === "PLATAFORMA" ? (
+              <div>
+                <div style={{ position: "relative", marginBottom: "0.85rem" }}>
+                  <Search style={{ width: "16px", height: "16px", position: "absolute", left: "10px", top: "10px", color: "#94a3b8" }} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre o cargo (Docente, Administrativo...)..."
+                    value={busquedaPersonal}
+                    onChange={(e) => setBusquedaPersonal(e.target.value)}
+                    style={{ width: "100%", padding: "0.45rem 0.6rem 0.45rem 2.2rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.8125rem" }}
+                  />
+                </div>
+
+                <div style={{ maxHeight: "240px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.5rem", paddingRight: "0.25rem" }}>
+                  {personalDisponibleModal.length === 0 ? (
+                    <p style={{ fontSize: "0.8125rem", color: "#64748b", textAlign: "center", padding: "1rem" }}>
+                      No se encontró personal coincidente en los expedientes de la escuela.
+                    </p>
+                  ) : (
+                    personalDisponibleModal.map((p) => {
+                      const yaEstaAgregado = docentes.some((d) => d.id === p.id);
+                      return (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 0.75rem", border: "1px solid #e2e8f0", borderRadius: "8px", background: yaEstaAgregado ? "#f8fafc" : "#ffffff" }}>
+                          <div>
+                            <p style={{ fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
+                              {p.apellidoPaterno} {p.apellidoMaterno || ""} {p.nombre}
+                            </p>
+                            <span style={{ fontSize: "0.6875rem", color: p.cargo === "DOCENTE" ? "#2563eb" : "#d97706", fontWeight: 700 }}>
+                              {p.cargo || "DOCENTE"}
+                            </span>
+                          </div>
+
+                          {yaEstaAgregado ? (
+                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "0.2rem 0.5rem", borderRadius: "6px" }}>
+                              ✓ En Plantilla
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleAgregarPersonalExistente(p)}
+                              style={{ background: "#2563eb", color: "#ffffff", padding: "0.35rem 0.75rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, border: "none", cursor: "pointer" }}
+                            >
+                              + Agregar
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.25rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.25rem" }}>Nombre(s)</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Juan Manuel"
+                    value={nuevoDocenteNombre}
+                    onChange={(e) => setNuevoDocenteNombre(e.target.value)}
+                    style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem", fontWeight: 700 }}
+                  />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.25rem" }}>Apellido Paterno</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Pérez"
+                      value={nuevoDocentePaterno}
+                      onChange={(e) => setNuevoDocentePaterno(e.target.value)}
+                      style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem", fontWeight: 700 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.25rem" }}>Apellido Materno</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Gómez"
+                      value={nuevoDocenteMaterno}
+                      onChange={(e) => setNuevoDocenteMaterno(e.target.value)}
+                      style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem", fontWeight: 700 }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.25rem" }}>Horas Frente a Grupo Contratadas</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={30}
+                    value={nuevoDocenteHoras}
+                    onChange={(e) => setNuevoDocenteHoras(Number(e.target.value))}
+                    style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "2px solid #2563eb", fontSize: "0.875rem", fontWeight: 800 }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarModalDocente(false)}
+                    style={{ background: "#f1f5f9", color: "#1e293b", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, border: "none", cursor: "pointer" }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCrearNuevoDocenteManual}
+                    style={{ background: "#2563eb", color: "#ffffff", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, border: "none", cursor: "pointer" }}
+                  >
+                    Guardar Docente
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
