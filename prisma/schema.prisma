@@ -450,6 +450,7 @@ model Personal {
   gradoAcademico   String?  // "LICENCIATURA" | "MAESTRIA" | "DOCTORADO" | "OTRO"
   fechaIngreso     DateTime?
   clavePresupuestal String?
+  horasOficiales   Int      @default(20)
   orden            Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

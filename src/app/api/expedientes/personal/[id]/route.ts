@@ -52,11 +52,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         updateData.rfc = null;
     }
 
-    const allowedFields = ["nombre", "apellidoPaterno", "apellidoMaterno", "sexo", "cargo", "telefono", "correoElectronico", "gradoAcademico", "fechaIngreso", "clavePresupuestal"];
+    const allowedFields = ["nombre", "apellidoPaterno", "apellidoMaterno", "sexo", "cargo", "telefono", "correoElectronico", "gradoAcademico", "fechaIngreso", "clavePresupuestal", "horasOficiales"];
     for (const field of allowedFields) {
         if (body[field] !== undefined) {
             if (field === "fechaIngreso") {
                 updateData[field] = body[field] ? new Date(body[field]) : null;
+            } else if (field === "horasOficiales") {
+                updateData[field] = Number(body[field] || 0);
             } else {
                 updateData[field] = typeof body[field] === "string" ? body[field].trim() || null : body[field];
             }

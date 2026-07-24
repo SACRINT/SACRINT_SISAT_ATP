@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     }
 
     const body2 = body; // alias – we already parsed body above
-    const { nombre, apellidoPaterno, apellidoMaterno, sexo, cargo, curp, rfc, telefono, correoElectronico, gradoAcademico, fechaIngreso, clavePresupuestal } = body2;
+    const { nombre, apellidoPaterno, apellidoMaterno, sexo, cargo, curp, rfc, telefono, correoElectronico, gradoAcademico, fechaIngreso, clavePresupuestal, horasOficiales } = body2;
 
     if (!nombre?.trim() || !apellidoPaterno?.trim() || !apellidoMaterno?.trim() || !sexo || !cargo) {
         return NextResponse.json({ error: "Nombre, apellidos, sexo y cargo son obligatorios" }, { status: 400 });
@@ -108,6 +108,7 @@ export async function POST(req: Request) {
             gradoAcademico: gradoAcademico || null,
             fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null,
             clavePresupuestal: clavePresupuestal?.trim() || null,
+            horasOficiales: horasOficiales !== undefined && horasOficiales !== null ? Number(horasOficiales) : (cargo === "DOCENTE" ? 20 : 0),
             orden: (lastPersonal?.orden ?? 0) + 1,
         },
         include: {

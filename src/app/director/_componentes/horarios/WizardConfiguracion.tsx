@@ -384,7 +384,7 @@ export default function WizardConfiguracion({
       docentes.forEach((d) => {
         if (mapaHoras[d.id] === undefined) {
           const esDocentePuro = d.cargo === "DOCENTE";
-          mapaHoras[d.id] = d.horasAsignadas !== undefined ? d.horasAsignadas : (esDocentePuro ? 20 : 0);
+          mapaHoras[d.id] = d.horasAsignadas !== undefined ? d.horasAsignadas : (d.horasOficiales !== undefined ? d.horasOficiales : (esDocentePuro ? 20 : 0));
         }
       });
       setHorasDocentes(mapaHoras);

@@ -888,7 +888,7 @@ export default function AdminDashboard({
                                 {hasAccess("periodos", "read") && (
                                     <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => navigate("gestion-fechas")}>
                                         <Calendar size={17} />
-                                        <span>Periodos y Tareas</span>
+                                        <span>Fechas y Entregas de Programas</span>
                                     </button>
                                 )}
                                 {hasAccess("ciclos", "read") && (

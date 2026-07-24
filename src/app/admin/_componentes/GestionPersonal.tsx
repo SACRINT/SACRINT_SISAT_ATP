@@ -46,6 +46,7 @@ const EMPTY_FORM = {
     gradoAcademico: "",
     fechaIngreso: "",
     clavePresupuestal: "",
+    horasOficiales: 20,
     escuelaId: "",
 };
 
@@ -135,6 +136,7 @@ export default function GestionPersonal({ escuelas }: { escuelas: EscuelaRef[] }
             gradoAcademico: p.gradoAcademico || "",
             fechaIngreso: p.fechaIngreso ? p.fechaIngreso.substring(0, 10) : "",
             clavePresupuestal: p.clavePresupuestal || "",
+            horasOficiales: (p as any).horasOficiales ?? 20,
             escuelaId: p.escuelaId,
         });
         setEditTarget(p);
@@ -464,6 +466,10 @@ export default function GestionPersonal({ escuelas }: { escuelas: EscuelaRef[] }
                                 <div style={fieldStyle()}>
                                     <label style={labelStyle()}>Clave Presupuestal</label>
                                     <input className="form-control" value={form.clavePresupuestal} onChange={e => setForm(f => ({ ...f, clavePresupuestal: e.target.value }))} />
+                                </div>
+                                <div style={fieldStyle()}>
+                                    <label style={{ ...labelStyle(), color: "var(--primary)", fontWeight: 800 }}>Horas Oficiales (Nombramientos) *</label>
+                                    <input type="number" min={0} max={50} className="form-control" value={form.horasOficiales ?? 20} onChange={e => setForm(f => ({ ...f, horasOficiales: Number(e.target.value) }))} style={{ fontWeight: 800 }} />
                                 </div>
                                 <div style={fieldStyle()}>
                                     <label style={labelStyle()}>Grado Académico</label>

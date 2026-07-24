@@ -343,6 +343,32 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         }
     };
 
+    const handleAccionMasivaPermisos = async (tipo: "HORARIOS_IA" | "PROGRAMA", accion: "ACTIVAR_TODOS" | "DESACTIVAR_TODOS", programaNombre?: string) => {
+        const targetLabel = tipo === "HORARIOS_IA" ? "Horarios IA" : `Programa "${programaNombre}"`;
+        const accionLabel = accion === "ACTIVAR_TODOS" ? "ACTIVAR" : "DESACTIVAR";
+        if (!confirm(`¿Estás seguro de ${accionLabel} ${targetLabel} para TODAS las escuelas?`)) return;
+
+        setSaving(true);
+        try {
+            const res = await fetch("/api/admin/escuelas/masivo-permisos", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tipo, accion, programaNombre })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(data.message);
+                router.refresh();
+            } else {
+                toast.error(data.error || "No se pudo actualizar permisos masivos.");
+            }
+        } catch (e) {
+            toast.error("Error al actualizar permisos masivos.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const showForm = isCreating || selectedEscuela;
     const isEditingMode = isCreating || isEditing;
 
@@ -407,50 +433,100 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
 
                     {tabEscuelas === "programas_modulos" ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                            {/* Banner Informativo con Botones de Acción Global */}
-                            <div style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)", border: "1px solid #bfdbfe", padding: "1.25rem", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
-                                <div>
-                                    <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                        <Settings2 style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Matriz de Activación de Módulos y Programas por Escuela
-                                    </h3>
-                                    <p style={{ fontSize: "0.78125rem", color: "#475569", margin: "0.25rem 0 0" }}>
-                                        Active o desactive funciones específicas (como el Generador de Horarios IA o programas individuales) para cada escuela en particular o de forma masiva.
-                                    </p>
-                                </div>
-                                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                                    <button
-                                        type="button"
-                                        disabled={saving}
-                                        onClick={() => handleToggleGlobalHorarios(false)}
-                                        style={{ background: "#2563eb", color: "#ffffff", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, fontSize: "0.75rem", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
-                                    >
-                                        <Sparkles size={14} /> Activar Horarios IA para TODAS
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={saving}
-                                        onClick={() => handleToggleGlobalHorarios(true)}
-                                        style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
-                                    >
-                                        <Ban size={14} /> Desactivar Horarios IA para TODAS
-                                    </button>
-                                </div>
+                            {/* Banner Informativo */}
+                            <div style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)", border: "1px solid #bfdbfe", padding: "1.25rem", borderRadius: "12px" }}>
+                                <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <Settings2 style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Matriz de Activación de Módulos y Programas por Escuela
+                                </h3>
+                                <p style={{ fontSize: "0.78125rem", color: "#475569", margin: "0.25rem 0 0" }}>
+                                    Active o desactive funciones específicas para cada escuela o use las acciones en el encabezado de cada columna para activar/desactivar masivamente a TODAS las escuelas.
+                                </p>
                             </div>
 
                             {/* Tabla Matriz Interactivas */}
                             <div style={{ border: "1px solid var(--border)", borderRadius: "12px", overflowX: "auto", background: "var(--bg)" }}>
                                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-                                    <thead>
-                                        <tr style={{ background: "var(--bg-secondary)", borderBottom: "2px solid var(--border)", textAlign: "left" }}>
-                                            <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "var(--text)" }}>Escuela / CCT</th>
-                                            <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "#1d4ed8", textAlign: "center", minWidth: "150px" }}>📅 Horarios IA</th>
-                                            {programas.map((prog) => (
-                                                <th key={prog.id} style={{ padding: "0.75rem 0.5rem", fontWeight: 700, color: "var(--text-secondary)", textAlign: "center", minWidth: "110px" }}>
-                                                    {prog.nombre}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
+                                    {(() => {
+                                        const escuelasLista = escuelas.filter(e => !e.esSupervision);
+                                        const todosHorariosActivos = escuelasLista.every(e => e.permisos?.horariosDesactivado !== true);
+
+                                        return (
+                                            <thead>
+                                                <tr style={{ background: "var(--bg-secondary)", borderBottom: "2px solid var(--border)", textAlign: "left" }}>
+                                                    <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "var(--text)", verticalAlign: "top" }}>Escuela / CCT</th>
+                                                    
+                                                    {/* Columna Horarios IA con Botón Único Master */}
+                                                    <th style={{ padding: "0.75rem 0.5rem", fontWeight: 800, color: "#1d4ed8", textAlign: "center", minWidth: "140px", verticalAlign: "top" }}>
+                                                        <div>📅 Horarios IA</div>
+                                                        <div style={{ display: "flex", justifyContent: "center", marginTop: "0.35rem" }}>
+                                                            <button
+                                                                type="button"
+                                                                disabled={saving}
+                                                                onClick={() => handleAccionMasivaPermisos("HORARIOS_IA", todosHorariosActivos ? "DESACTIVAR_TODOS" : "ACTIVAR_TODOS")}
+                                                                style={{
+                                                                    padding: "0.25rem 0.6rem",
+                                                                    borderRadius: "20px",
+                                                                    fontSize: "0.725rem",
+                                                                    fontWeight: 800,
+                                                                    border: "none",
+                                                                    cursor: "pointer",
+                                                                    background: todosHorariosActivos ? "#dcfce7" : "#fee2e2",
+                                                                    color: todosHorariosActivos ? "#15803d" : "#b91c1c",
+                                                                    display: "inline-flex",
+                                                                    alignItems: "center",
+                                                                    gap: "0.35rem",
+                                                                    boxShadow: "0 1px 3px rgba(0,0,0,0.08)"
+                                                                }}
+                                                                title={todosHorariosActivos ? "Clic para DESACTIVAR Horarios IA en TODAS las escuelas" : "Clic para ACTIVAR Horarios IA en TODAS las escuelas"}
+                                                            >
+                                                                {todosHorariosActivos ? "🟢 Activo" : "🔴 Inactivo"}
+                                                            </button>
+                                                        </div>
+                                                    </th>
+
+                                                    {/* Columnas de Programas con Botón Único Master */}
+                                                    {programas.map((prog) => {
+                                                        const todosProgActivos = escuelasLista.every(e => {
+                                                            const inactivos: string[] = e.permisos?.programasInactivos || [];
+                                                            return !inactivos.includes(prog.id) && !inactivos.includes(prog.nombre);
+                                                        });
+
+                                                        return (
+                                                            <th key={prog.id} style={{ padding: "0.75rem 0.5rem", fontWeight: 700, color: "var(--text-secondary)", textAlign: "center", minWidth: "130px", verticalAlign: "top" }}>
+                                                                <div style={{ fontSize: "0.75rem", fontWeight: 800 }} title={prog.nombre}>
+                                                                    {prog.nombre}
+                                                                </div>
+                                                                <div style={{ display: "flex", justifyContent: "center", marginTop: "0.35rem" }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={saving}
+                                                                        onClick={() => handleAccionMasivaPermisos("PROGRAMA", todosProgActivos ? "DESACTIVAR_TODOS" : "ACTIVAR_TODOS", prog.nombre)}
+                                                                        style={{
+                                                                            padding: "0.25rem 0.55rem",
+                                                                            borderRadius: "20px",
+                                                                            fontSize: "0.7rem",
+                                                                            fontWeight: 800,
+                                                                            border: "none",
+                                                                            cursor: "pointer",
+                                                                            background: todosProgActivos ? "#dcfce7" : "#fee2e2",
+                                                                            color: todosProgActivos ? "#15803d" : "#b91c1c",
+                                                                            display: "inline-flex",
+                                                                            alignItems: "center",
+                                                                            gap: "0.25rem",
+                                                                            boxShadow: "0 1px 2px rgba(0,0,0,0.06)"
+                                                                        }}
+                                                                        title={todosProgActivos ? `Clic para DESACTIVAR ${prog.nombre} en TODAS las escuelas` : `Clic para ACTIVAR ${prog.nombre} en TODAS las escuelas`}
+                                                                    >
+                                                                        {todosProgActivos ? "✓ Activo" : "✕ Inactivo"}
+                                                                    </button>
+                                                                </div>
+                                                            </th>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            </thead>
+                                        );
+                                    })()}
                                     <tbody>
                                         {escuelas.filter(e => !e.esSupervision).map((esc) => {
                                             const permisosEsc = esc.permisos || {};

@@ -16,7 +16,9 @@ Criterios de validación por tipo de documento:
 2. "CURP": Debe ser la Clave Única de Registro de Población oficial mexicana.
 3. "ACTA_NACIMIENTO": Debe ser un acta de nacimiento mexicana oficial.
 4. "COMPROBANTE_DOMICILIO": Debe ser un recibo de servicio (luz, agua, teléfono, etc.) legible.
-5. "TITULO": Debe ser un título profesional universitario o de bachillerato.
+5. "TITULO": Regla diferenciada según el Cargo de la persona:
+   - Para "ADMINISTRATIVO" o "APOYO" (Personal de Apoyo): Un Certificado de Estudios de Bachillerato / Preparatoria o Nivel Medio Superior es VÁLIDO y debe marcarse como "APROBADO".
+   - Para "DOCENTE", "RESPONSABLE", "DIRECTOR", "ATP" o "SUPERVISOR": Se exige estrictamente un Título Profesional Universitario / Licenciatura.
 6. "CEDULA": Debe ser una cédula profesional oficial.
 7. "ORDEN_ADSCRIPCION": Documento de adscripción al centro de trabajo/plantel.
 8. "MOVIMIENTO_PERSONAL": Formato de movimiento o asignación de personal.
@@ -135,9 +137,16 @@ export async function validarDocumentoPersonalConIA(documentoId: string): Promis
 
         const personalNombre = `${documento.personal.apellidoPaterno} ${documento.personal.apellidoMaterno} ${documento.personal.nombre}`.trim();
 
+        const cargoPersonal = (documento.personal.cargo || "").toUpperCase();
+
         // Llamar a Gemini Vision
         const prompt = `Analiza y valida el documento correspondiente a la persona "${personalNombre}" de la escuela "${documento.personal.escuela.nombre}".
-El tipo de documento requerido es: "${documento.tipoDocumento}" ${documento.etiqueta ? `(Nombre personalizado: "${documento.etiqueta}")` : ""}.`;
+Cargo de la persona: "${cargoPersonal}".
+El tipo de documento requerido es: "${documento.tipoDocumento}" ${documento.etiqueta ? `(Nombre personalizado: "${documento.etiqueta}")` : ""}.
+
+NOTA IMPORTANTE SOBRE "TITULO":
+- Si el tipo de documento es "TITULO" y el cargo de la persona es "ADMINISTRATIVO", "APOYO" o "PERSONAL_DE_APOYO": si el archivo presentado es un Certificado de Estudios de Bachillerato / Preparatoria o Nivel Medio Superior, DEBES MARCARLO COMO VÁLIDO Y APROBARLO ("valido": "APROBADO") con la observación: "✓ Certificado de Bachillerato válido como documento académico máximo para Personal Administrativo / Apoyo."
+- Si el cargo es "DOCENTE", "RESPONSABLE", "DIRECTOR", "ATP" o "SUPERVISOR", exige un Título Profesional de Licenciatura / Universidad.`;
 
         const responseText = await callGemini(
             systemInstruction,

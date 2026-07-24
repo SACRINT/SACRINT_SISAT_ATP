@@ -74,6 +74,7 @@ const EMPTY_FORM = {
     gradoAcademico: "",
     fechaIngreso: "",
     clavePresupuestal: "",
+    horasOficiales: 20,
 };
 
 
@@ -568,6 +569,10 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: "0.25rem" }}>Clave(s) Presupuestal(es)</label>
                             <input className="form-control" placeholder="Ej: E451710.0 003339; E451710.0 003340" value={form.clavePresupuestal} onChange={e => setForm({ ...form, clavePresupuestal: e.target.value.toUpperCase() })} />
                         </div>
+                        <div>
+                            <label style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--primary)", display: "block", marginBottom: "0.25rem" }}>Horas Oficiales (Nombramientos) *</label>
+                            <input className="form-control" type="number" min={0} max={50} placeholder="20" value={form.horasOficiales ?? 20} onChange={e => setForm({ ...form, horasOficiales: Number(e.target.value) })} style={{ fontWeight: 800 }} />
+                        </div>
                     </div>
 
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem", gap: "0.5rem" }}>
@@ -695,6 +700,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                 <input className="form-control" placeholder="Correo Electrónico" value={editForm.correoElectronico} onChange={e => setEditForm({ ...editForm, correoElectronico: e.target.value })} style={{ padding: "0.375rem 0.5rem" }} />
                                                 <input className="form-control" type="date" value={editForm.fechaIngreso} onChange={e => setEditForm({ ...editForm, fechaIngreso: e.target.value })} style={{ padding: "0.375rem 0.5rem" }} />
                                                 <input className="form-control" placeholder="Clave(s) Presupuestal(es) (separadas por ;)" value={editForm.clavePresupuestal} onChange={e => setEditForm({ ...editForm, clavePresupuestal: e.target.value.toUpperCase() })} style={{ padding: "0.375rem 0.5rem" }} />
+                                                <input className="form-control" type="number" min={0} max={50} placeholder="Horas Oficiales (20)" value={editForm.horasOficiales ?? 20} onChange={e => setEditForm({ ...editForm, horasOficiales: Number(e.target.value) })} style={{ padding: "0.375rem 0.5rem", fontWeight: 800 }} />
                                             </div>
                                             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", justifyContent: "flex-end" }}>
                                                 <button className="btn btn-outline" onClick={() => setEditingPerson(null)} style={{ minHeight: "auto", padding: "0.375rem 0.75rem" }}>
@@ -732,6 +738,7 @@ export default function ExpedientesPanel({ escuela, highlightPersonId }: Props) 
                                                             gradoAcademico: person.gradoAcademico || "",
                                                             fechaIngreso: person.fechaIngreso ? person.fechaIngreso.split("T")[0] : "",
                                                             clavePresupuestal: person.clavePresupuestal || "",
+                                                            horasOficiales: (person as any).horasOficiales ?? 20,
                                                         });
                                                     }}
                                                     style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0.25rem" }}
