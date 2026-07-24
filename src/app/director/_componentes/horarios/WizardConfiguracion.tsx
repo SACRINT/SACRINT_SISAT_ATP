@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Users, BookOpen, Clock, AlertCircle, ShieldCheck, UserCheck, Plus, Trash2, CheckCircle2, UserPlus, Layers, Search, Save } from "lucide-react";
+import { Sparkles, Users, BookOpen, Clock, AlertCircle, ShieldCheck, UserCheck, Plus, Trash2, CheckCircle2, UserPlus, Layers, Search, Save, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -230,7 +230,7 @@ export default function WizardConfiguracion({
   cargasIniciales,
   onGenerarClick
 }: Props) {
-  const STORAGE_KEY = `horarios_wizard_v2_${escuelaId}`;
+  const STORAGE_KEY = `horarios_wizard_v3_${escuelaId}`;
 
   const [paso, setPaso] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
@@ -265,7 +265,7 @@ export default function WizardConfiguracion({
   const [nuevoDocenteMaterno, setNuevoDocenteMaterno] = useState<string>("");
   const [nuevoDocenteHoras, setNuevoDocenteHoras] = useState<number>(20);
 
-  // Recargar guardado previo desde localStorage si existe
+  // Cargar estado guardado previamente desde localStorage
   useEffect(() => {
     try {
       const guardado = localStorage.getItem(STORAGE_KEY);
@@ -283,7 +283,7 @@ export default function WizardConfiguracion({
     }
   }, [escuelaId]);
 
-  // Guardar estado en localStorage en cada cambio para persistencia total al recargar la página
+  // Autoguardado continuo en localStorage
   const guardarProgresoLocal = () => {
     try {
       localStorage.setItem(
@@ -316,12 +316,11 @@ export default function WizardConfiguracion({
     }
   }, [docentesIniciales]);
 
-  // Generar grupos según la cantidad de grupos por grado
   useEffect(() => {
     generarGruposSegunEstructura(numGruposPorGrado);
   }, [numGruposPorGrado]);
 
-  // Inicializar mapa de horas por docente (0 hrs por defecto para Administrativos/Apoyo/Responsable, 20 hrs para Docentes)
+  // Inicializar horas por docente (0 hrs para Administrativos/Apoyo/Responsable, 20 hrs para Docentes)
   useEffect(() => {
     if (docentes.length > 0) {
       const mapaHoras: Record<string, number> = { ...horasDocentes };
@@ -339,9 +338,8 @@ export default function WizardConfiguracion({
     try {
       const res = await fetch(`/api/expedientes/personal?escuelaId=${escuelaId}`);
       const data = await res.json();
-      if (data.personal) {
-        setPersonalPlataforma(data.personal);
-      }
+      const arrayPersonal = Array.isArray(data) ? data : (data.personal || []);
+      setPersonalPlataforma(arrayPersonal);
     } catch (e) {
       console.error("Error al cargar personal de la escuela:", e);
     }
@@ -380,7 +378,6 @@ export default function WizardConfiguracion({
     const copia = [...grupos];
     copia[index][field] = value;
 
-    // Regla Anti-Duplicados de FFEO: Si se cambia 3er semestre, asegurar que 5to semestre no repita el mismo
     if (field === "ffeoSocioemocional" && copia[index].semestre === 3) {
       const letraGrupo = copia[index].nombre.split(" ")[1];
       const grupo5 = copia.find((g) => g.semestre === 5 && g.nombre.endsWith(letraGrupo));
@@ -418,7 +415,7 @@ export default function WizardConfiguracion({
     setDocentes([...docentes, persona]);
     const esDocentePuro = persona.cargo === "DOCENTE";
     setHorasDocentes({ ...horasDocentes, [persona.id]: esDocentePuro ? 20 : 0 });
-    toast.success(`${persona.nombre} ${persona.apellidoPaterno} agregado.`);
+    toast.success(`${persona.nombre} ${persona.apellidoPaterno} agregado a la plantilla.`);
     setMostrarModalDocente(false);
   };
 
@@ -497,33 +494,63 @@ export default function WizardConfiguracion({
     return asignacion?.personalId || "";
   };
 
-  const getHorasConsumidasDocente = (docenteId: string) => {
+  // Cálculo exacto de horas asignadas a un docente (opcionalmente excluyendo una celda específica)
+  const getHorasConsumidasDocente = (docenteId: string, excludeGrupoId?: string, excludeUacId?: string) => {
     return cargas
-      .filter((c) => c.personalId === docenteId)
+      .filter((c) => {
+        if (c.personalId !== docenteId) return false;
+        if (excludeGrupoId && excludeUacId && c.grupoId === excludeGrupoId && (c.asignaturaId === excludeUacId || c.uacName === excludeUacId)) {
+          return false;
+        }
+        return true;
+      })
       .reduce((sum, c) => sum + (c.horasSemanales || 3), 0);
   };
 
-  // Guardar configuración completa en base de datos
+  // Guardar configuración completa en base de datos con distribución inteligente Round-Robin
   const handleGuardarConfiguracion = async () => {
     setLoading(true);
 
-    // Auto-completar asignaciones por defecto si alguna UAC no tiene docente asignado para garantizar 100% de la carga
-    const docentePredeterminadoId = docentes.find((d) => (horasDocentes[d.id] || 0) > 0)?.id || docentes[0]?.id || "";
+    // Verificar si hay docentes con sobrecarga (> hrs contratadas)
+    const docentesSobrecargados = docentes.filter((d) => {
+      const hrsConsumidas = getHorasConsumidasDocente(d.id);
+      const hrsMax = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0);
+      return hrsConsumidas > hrsMax;
+    });
+
+    if (docentesSobrecargados.length > 0) {
+      toast.error(`Atención: ${docentesSobrecargados.length} docente(s) exceden sus horas contratadas. Por favor reasigne materias.`);
+      setLoading(false);
+      return;
+    }
+
+    // Auto-completar asignaciones por defecto con distribución equilibrada (Round-Robin) según capacidad restante
     const cargasCompletas = [...cargas];
 
     grupos.forEach((g) => {
       const uacs = getUACsIndividualesGrupo(g);
       uacs.forEach((uac) => {
         const existe = cargasCompletas.some((c) => c.grupoId === g.id && (c.asignaturaId === uac.id || c.uacName === uac.uacName));
-        if (!existe && docentePredeterminadoId) {
-          cargasCompletas.push({
-            grupoId: g.id,
-            asignaturaId: uac.id,
-            uacName: uac.uacName,
-            personalId: docentePredeterminadoId,
-            horasSemanales: uac.horasSemanales || 3,
-            requiereAulaEspecial: false
-          });
+        if (!existe) {
+          // Buscar un docente que tenga capacidad disponible para esta materia
+          const docenteDisponible = docentes.find((d) => {
+            const max = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0);
+            const actual = cargasCompletas
+              .filter((c) => c.personalId === d.id)
+              .reduce((s, c) => s + (c.horasSemanales || 3), 0);
+            return (actual + (uac.horasSemanales || 3)) <= max;
+          }) || docentes[0]; // fallback seguro
+
+          if (docenteDisponible) {
+            cargasCompletas.push({
+              grupoId: g.id,
+              asignaturaId: uac.id,
+              uacName: uac.uacName,
+              personalId: docenteDisponible.id,
+              horasSemanales: uac.horasSemanales || 3,
+              requiereAulaEspecial: false
+            });
+          }
         }
       });
     });
@@ -562,6 +589,7 @@ export default function WizardConfiguracion({
   const totalGrupos = grupos.length;
   const horasRequeridasPlantel = totalGrupos * 30; // 30 hrs por grupo
   const totalHorasPlantillaDocente = Object.values(horasDocentes).reduce((sum, h) => sum + Number(h || 0), 0);
+  const totalHorasAsignadasMatriz = cargas.reduce((sum, c) => sum + (c.horasSemanales || 3), 0);
 
   // Obtener UACs individuales para cada grupo con Abreviaturas destacadas
   const getUACsIndividualesGrupo = (grupo: any) => {
@@ -632,7 +660,10 @@ export default function WizardConfiguracion({
     return [];
   };
 
-  const personalDisponibleModal = personalPlataforma.filter((p) => {
+  // Filtrar personal que AÚN NO ha sido agregado a la plantilla del paso 2
+  const personalNoAgregado = personalPlataforma.filter((p) => !docentes.some((d) => d.id === p.id));
+  
+  const personalDisponibleModal = personalNoAgregado.filter((p) => {
     return busquedaPersonal === "" || `${p.nombre} ${p.apellidoPaterno} ${p.cargo}`.toLowerCase().includes(busquedaPersonal.toLowerCase());
   });
 
@@ -681,7 +712,6 @@ export default function WizardConfiguracion({
          ========================================================================= */}
       {paso === 1 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {/* Fila superior: Cantidad abierta de grupos e Jornada escolar (Predeterminada 6 hrs) */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.25rem" }}>
             <div style={{ background: "#eff6ff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.5rem" }}>
@@ -724,7 +754,6 @@ export default function WizardConfiguracion({
             </div>
           </div>
 
-          {/* Configuración Curricular Individual por Grupo */}
           <div style={{ border: "1px solid #e2e8f0", borderRadius: "12px", padding: "1.25rem", background: "#f8fafc" }}>
             <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <ShieldCheck style={{ width: "18px", height: "18px", color: "#2563eb" }} /> Configuración Curricular Individual por Grupo
@@ -747,7 +776,6 @@ export default function WizardConfiguracion({
                       </span>
                     </div>
 
-                    {/* Formación Laboral (para 3° y 5° semestre) */}
                     {g.semestre >= 3 && (
                       <div style={{ marginBottom: "0.75rem" }}>
                         <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
@@ -767,7 +795,6 @@ export default function WizardConfiguracion({
                       </div>
                     )}
 
-                    {/* Currículum Ampliado / Formación Socioemocional (FFEO) para 3° y 5° semestre */}
                     {g.semestre >= 3 && (
                       <div style={{ marginBottom: "0.75rem" }}>
                         <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
@@ -790,7 +817,6 @@ export default function WizardConfiguracion({
                       </div>
                     )}
 
-                    {/* FFE Optativas (para 5° semestre) con filtrado anti-duplicados */}
                     {g.semestre === 5 && (
                       <div>
                         <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.35rem" }}>
@@ -924,41 +950,66 @@ export default function WizardConfiguracion({
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "0.85rem" }}>
-              {docentes.map((d) => (
-                <div key={d.id} style={{ padding: "0.85rem", border: "1px solid #cbd5e1", borderRadius: "10px", background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                  <div style={{ flex: 1, paddingRight: "0.5rem" }}>
-                    <p style={{ fontSize: "0.875rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
-                      {d.apellidoPaterno} {d.apellidoMaterno || ""} {d.nombre}
-                    </p>
-                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: d.cargo === "DOCENTE" ? "#2563eb" : "#d97706", background: "#f8fafc", padding: "0.1rem 0.4rem", borderRadius: "4px", border: "1px solid #cbd5e1" }}>
-                      {d.cargo || "DOCENTE"}
-                    </span>
-                  </div>
+              {docentes.map((d) => {
+                const hrsAsignadasMatriz = getHorasConsumidasDocente(d.id);
+                const hrsContratadas = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0);
+                const esExcedido = hrsAsignadasMatriz > hrsContratadas;
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                      <input
-                        type="number"
-                        min={0}
-                        max={30}
-                        value={horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0)}
-                        onChange={(e) => setHorasDocentes({ ...horasDocentes, [d.id]: Math.max(0, Number(e.target.value)) })}
-                        style={{ width: "60px", padding: "0.35rem", borderRadius: "6px", border: "2px solid #3b82f6", fontWeight: 800, textAlign: "center", fontSize: "0.875rem", color: "#1e293b" }}
-                      />
-                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b" }}>hrs</span>
+                return (
+                  <div
+                    key={d.id}
+                    style={{
+                      padding: "0.85rem",
+                      border: "1px solid " + (esExcedido ? "#fca5a5" : "#cbd5e1"),
+                      borderRadius: "10px",
+                      background: esExcedido ? "#fef2f2" : "#ffffff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                    }}
+                  >
+                    <div style={{ flex: 1, paddingRight: "0.5rem" }}>
+                      <p style={{ fontSize: "0.875rem", fontWeight: 800, color: esExcedido ? "#dc2626" : "#1e293b", margin: 0 }}>
+                        {d.apellidoPaterno} {d.apellidoMaterno || ""} {d.nombre}
+                      </p>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.2rem" }}>
+                        <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: d.cargo === "DOCENTE" ? "#2563eb" : "#d97706", background: "#f8fafc", padding: "0.1rem 0.4rem", borderRadius: "4px", border: "1px solid #cbd5e1" }}>
+                          {d.cargo || "DOCENTE"}
+                        </span>
+                        {hrsAsignadasMatriz > 0 && (
+                          <span style={{ fontSize: "0.6875rem", fontWeight: 800, color: esExcedido ? "#dc2626" : "#16a34a" }}>
+                            Asignadas: {hrsAsignadasMatriz}/{hrsContratadas}h {esExcedido ? "⚠️ EXCEDIDO" : ""}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <button
-                      type="button"
-                      title="Remover docente de la plantilla activa"
-                      onClick={() => handleEliminarDocentePlantilla(d.id)}
-                      style={{ background: "#fef2f2", color: "#ef4444", border: "1px solid #fca5a5", padding: "0.4rem", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }}
-                    >
-                      <Trash2 style={{ width: "16px", height: "16px" }} />
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={30}
+                          value={horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0)}
+                          onChange={(e) => setHorasDocentes({ ...horasDocentes, [d.id]: Math.max(0, Number(e.target.value)) })}
+                          style={{ width: "60px", padding: "0.35rem", borderRadius: "6px", border: "2px solid " + (esExcedido ? "#ef4444" : "#3b82f6"), fontWeight: 800, textAlign: "center", fontSize: "0.875rem", color: "#1e293b" }}
+                        />
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b" }}>hrs</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        title="Remover docente de la plantilla activa"
+                        onClick={() => handleEliminarDocentePlantilla(d.id)}
+                        style={{ background: "#fef2f2", color: "#ef4444", border: "1px solid #fca5a5", padding: "0.4rem", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }}
+                      >
+                        <Trash2 style={{ width: "16px", height: "16px" }} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -980,18 +1031,40 @@ export default function WizardConfiguracion({
       )}
 
       {/* =========================================================================
-         PASO 3: Matriz Tabular Específica por Grupo (Basada en Ejemplo tabla por grupo.docx)
+         PASO 3: Matriz Tabular Específica por Grupo
          ========================================================================= */}
       {paso === 3 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-          <div>
-            <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <BookOpen style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Matriz de Asignación Docente por Grupo (UACs Específicas)
-            </h3>
-            <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
-              Tablas organizadas por grupo individual con nombres destacados y abreviaturas para el horario generado.
-            </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {/* Banner Resumen de Cargas Horarias del Plantel */}
+          <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "1rem 1.25rem", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+            <div>
+              <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <BookOpen style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Matriz de Asignación Docente por Grupo (UACs Específicas)
+              </h3>
+              <p style={{ fontSize: "0.75rem", color: "#64748b", margin: "0.25rem 0 0" }}>
+                Seleccione el docente responsable para cada UAC. Las opciones con exceso de horas contratadas se deshabilitan automáticamente.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <div style={{ background: "#ffffff", padding: "0.5rem 1rem", borderRadius: "10px", border: "1px solid #cbd5e1", textAlign: "right" }}>
+                <div style={{ fontSize: "0.6875rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>Horas Asignadas en Matriz</div>
+                <div style={{ fontSize: "1.125rem", fontWeight: 900, color: totalHorasAsignadasMatriz === horasRequeridasPlantel ? "#16a34a" : "#2563eb" }}>
+                  {totalHorasAsignadasMatriz} / {horasRequeridasPlantel} hrs
+                </div>
+              </div>
+            </div>
           </div>
+
+          {/* Alertas de Sobrecarga de Docentes */}
+          {docentes.some((d) => getHorasConsumidasDocente(d.id) > (horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0))) && (
+            <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "10px", padding: "0.85rem 1.25rem", color: "#991b1b", fontSize: "0.8125rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <AlertTriangle style={{ width: "20px", height: "20px", color: "#dc2626", flexShrink: 0 }} />
+              <div>
+                <strong>⚠️ Advertencia de Sobre-asignación:</strong> Hay docente(s) que superan las horas contratadas en la plantilla. Ajuste las selecciones resaltadas en rojo para evitar empalmes.
+              </div>
+            </div>
+          )}
 
           {[1, 3, 5].map((sem) => {
             const gruposSemestre = grupos.filter((g) => g.semestre === sem);
@@ -1034,6 +1107,10 @@ export default function WizardConfiguracion({
                           <tbody>
                             {uacsEspecificas.map((uac, uacIdx) => {
                               const docenteActualId = getDocenteAsignado(g.id, uac);
+                              const docenteActualObj = docentes.find((d) => d.id === docenteActualId);
+                              const hrsConsumidasDocenteActual = docenteActualId ? getHorasConsumidasDocente(docenteActualId) : 0;
+                              const hrsMaxDocenteActual = docenteActualId ? (horasDocentes[docenteActualId] !== undefined ? horasDocentes[docenteActualId] : (docenteActualObj?.cargo === "DOCENTE" ? 20 : 0)) : 0;
+                              const esDocenteExcedido = docenteActualId && hrsConsumidasDocenteActual > hrsMaxDocenteActual;
 
                               return (
                                 <tr key={uac.id || uacIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
@@ -1094,24 +1171,25 @@ export default function WizardConfiguracion({
                                         width: "100%",
                                         padding: "0.4rem 0.5rem",
                                         borderRadius: "6px",
-                                        border: "1px solid " + (docenteActualId ? "#16a34a" : "#cbd5e1"),
-                                        background: docenteActualId ? "#f0fdf4" : "#ffffff",
+                                        border: "2px solid " + (esDocenteExcedido ? "#ef4444" : docenteActualId ? "#16a34a" : "#cbd5e1"),
+                                        background: esDocenteExcedido ? "#fef2f2" : docenteActualId ? "#f0fdf4" : "#ffffff",
                                         fontSize: "0.72rem",
-                                        fontWeight: 700,
-                                        color: docenteActualId ? "#15803d" : "#64748b",
+                                        fontWeight: 800,
+                                        color: esDocenteExcedido ? "#dc2626" : docenteActualId ? "#15803d" : "#64748b",
                                         outline: "none"
                                       }}
                                     >
                                       <option value="">-- Sin Asignar --</option>
                                       {docentes.map((d) => {
                                         const hrsMax = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0);
-                                        const hrsConsumidas = getHorasConsumidasDocente(d.id);
+                                        const hrsConsumidasSinEstaCelda = getHorasConsumidasDocente(d.id, g.id, uac.id);
+                                        const hrsTrasAsignar = hrsConsumidasSinEstaCelda + (uac.horasSemanales || 3);
                                         const esSeleccionado = docenteActualId === d.id;
-                                        const estaLleno = hrsConsumidas >= hrsMax && !esSeleccionado;
+                                        const excedeHoras = hrsTrasAsignar > hrsMax && !esSeleccionado;
 
                                         return (
-                                          <option key={d.id} value={d.id} disabled={estaLleno}>
-                                            {d.apellidoPaterno} {d.nombre} ({hrsConsumidas}/{hrsMax}h) {estaLleno ? "[LLENO]" : ""}
+                                          <option key={d.id} value={d.id} disabled={excedeHoras}>
+                                            {d.apellidoPaterno} {d.nombre} ({hrsConsumidasSinEstaCelda + (esSeleccionado ? (uac.horasSemanales || 3) : 0)}/{hrsMax}h) {excedeHoras ? `⚠️ EXCEDE LÍMITE (${hrsTrasAsignar}h > ${hrsMax}h)` : ""}
                                           </option>
                                         );
                                       })}
@@ -1149,7 +1227,7 @@ export default function WizardConfiguracion({
         </div>
       )}
 
-      {/* MODAL ENHANCED: SELECCIONAR PERSONAL DE LA PLATAFORMA O REGISTRAR MANUALMENTE */}
+      {/* MODAL CORREGIDO: MOSTRAR ÚNICAMENTE EL PERSONAL NO AGREGADO AL PASO 2 */}
       {mostrarModalDocente && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
           <div style={{ background: "white", borderRadius: "16px", padding: "1.5rem", maxWidth: "520px", width: "100%", boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}>
@@ -1180,7 +1258,7 @@ export default function WizardConfiguracion({
                   cursor: "pointer"
                 }}
               >
-                1. Personal de la Escuela ({personalPlataforma.length})
+                1. Personal No Agregado ({personalNoAgregado.length})
               </button>
               <button
                 onClick={() => setTabModalDocente("MANUAL")}
@@ -1215,39 +1293,36 @@ export default function WizardConfiguracion({
 
                 <div style={{ maxHeight: "240px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.5rem", paddingRight: "0.25rem" }}>
                   {personalDisponibleModal.length === 0 ? (
-                    <p style={{ fontSize: "0.8125rem", color: "#64748b", textAlign: "center", padding: "1rem" }}>
-                      No se encontró personal coincidente en los expedientes de la escuela.
-                    </p>
+                    <div style={{ padding: "1.25rem", textAlign: "center", background: "#f8fafc", borderRadius: "10px", border: "1px border #e2e8f0" }}>
+                      <p style={{ fontSize: "0.8125rem", color: "#64748b", margin: 0, fontWeight: 600 }}>
+                        {personalPlataforma.length === 0
+                          ? "Cargando personal registrado de la escuela..."
+                          : personalNoAgregado.length === 0
+                          ? "Todo el personal registrado en los expedientes de la escuela ya forma parte de la plantilla del Paso 2. Puedes registrar un nuevo docente usando la pestaña '2. Registrar Nuevo Docente Manual'."
+                          : "No se encontró personal coincidente con el filtro."}
+                      </p>
+                    </div>
                   ) : (
-                    personalDisponibleModal.map((p) => {
-                      const yaEstaAgregado = docentes.some((d) => d.id === p.id);
-                      return (
-                        <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 0.75rem", border: "1px solid #e2e8f0", borderRadius: "8px", background: yaEstaAgregado ? "#f8fafc" : "#ffffff" }}>
-                          <div>
-                            <p style={{ fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
-                              {p.apellidoPaterno} {p.apellidoMaterno || ""} {p.nombre}
-                            </p>
-                            <span style={{ fontSize: "0.6875rem", color: p.cargo === "DOCENTE" ? "#2563eb" : "#d97706", fontWeight: 700 }}>
-                              {p.cargo || "DOCENTE"}
-                            </span>
-                          </div>
-
-                          {yaEstaAgregado ? (
-                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "0.2rem 0.5rem", borderRadius: "6px" }}>
-                              ✓ En Plantilla
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleAgregarPersonalExistente(p)}
-                              style={{ background: "#2563eb", color: "#ffffff", padding: "0.35rem 0.75rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, border: "none", cursor: "pointer" }}
-                            >
-                              + Agregar
-                            </button>
-                          )}
+                    personalDisponibleModal.map((p) => (
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 0.75rem", border: "1px solid #e2e8f0", borderRadius: "8px", background: "#ffffff" }}>
+                        <div>
+                          <p style={{ fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
+                            {p.apellidoPaterno} {p.apellidoMaterno || ""} {p.nombre}
+                          </p>
+                          <span style={{ fontSize: "0.6875rem", color: p.cargo === "DOCENTE" ? "#2563eb" : "#d97706", fontWeight: 700 }}>
+                            {p.cargo || "DOCENTE"}
+                          </span>
                         </div>
-                      );
-                    })
+
+                        <button
+                          type="button"
+                          onClick={() => handleAgregarPersonalExistente(p)}
+                          style={{ background: "#2563eb", color: "#ffffff", padding: "0.35rem 0.75rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, border: "none", cursor: "pointer" }}
+                        >
+                          + Agregar
+                        </button>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
