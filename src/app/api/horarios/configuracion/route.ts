@@ -195,6 +195,16 @@ export async function POST(req: NextRequest) {
         where: { escuelaId }
       });
 
+      // También limpiar horarios generados previos (quedan obsoletos con nueva configuración)
+      const horariosViejos = await prisma.horarioGenerado.findMany({
+        where: { escuelaId },
+        select: { id: true }
+      });
+      for (const h of horariosViejos) {
+        await prisma.horarioCelda.deleteMany({ where: { horarioId: h.id } });
+      }
+      await prisma.horarioGenerado.deleteMany({ where: { escuelaId } });
+
       for (const c of cargas) {
         if (c.personalId && c.grupoId) {
           const grupoRealId = mapaGrupoIds[c.grupoId] || c.grupoId;
@@ -253,5 +263,49 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("[api/horarios/configuracion] Error en POST:", error);
     return NextResponse.json({ error: "Error al guardar configuración de horario" }, { status: 500 });
+  }
+}
+
+// DELETE: Limpiar todos los datos de horarios de la escuela (cargas + horarios generados)
+// Esto permite al director empezar de cero sin datos fantasma de configuraciones anteriores
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const user = session.user as any;
+    const { searchParams } = new URL(req.url);
+    const escuelaId = searchParams.get("escuelaId") || user.escuelaId;
+
+    if (!escuelaId) {
+      return NextResponse.json({ error: "escuelaId es requerido" }, { status: 400 });
+    }
+
+    // 1. Eliminar celdas de horarios generados (por cascade deben borrarse, pero por si acaso)
+    const horariosExistentes = await prisma.horarioGenerado.findMany({
+      where: { escuelaId },
+      select: { id: true }
+    });
+    for (const h of horariosExistentes) {
+      await prisma.horarioCelda.deleteMany({ where: { horarioId: h.id } });
+    }
+
+    // 2. Eliminar horarios generados
+    await prisma.horarioGenerado.deleteMany({ where: { escuelaId } });
+
+    // 3. Eliminar cargas docentes (datos fantasma)
+    const cargasEliminadas = await prisma.horarioCargaDocente.deleteMany({ where: { escuelaId } });
+
+    console.log(`[DELETE /api/horarios/configuracion] Limpieza escuela=${escuelaId}: ${horariosExistentes.length} horarios + ${cargasEliminadas.count} cargas eliminadas`);
+
+    return NextResponse.json({
+      success: true,
+      message: `Datos de horario limpiados: ${horariosExistentes.length} horario(s) y ${cargasEliminadas.count} carga(s) eliminada(s)`
+    });
+  } catch (error: any) {
+    console.error("[api/horarios/configuracion] Error en DELETE:", error);
+    return NextResponse.json({ error: "Error al limpiar datos de horario" }, { status: 500 });
   }
 }

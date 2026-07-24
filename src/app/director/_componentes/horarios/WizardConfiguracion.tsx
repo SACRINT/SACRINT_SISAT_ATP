@@ -536,8 +536,25 @@ export default function WizardConfiguracion({
       return;
     }
 
-    // Utilizar estrictamente las cargas asignadas de forma explícita por el director en la matriz
-    const cargasCompletas = cargas.filter((c) => !!c.personalId);
+    // Construir la lista de cargas de forma limpia y estricta a partir de la matriz activa (grupos + UACs reales)
+    // Esto garantiza 100% que NO se incluyan cargas fantasma u obsoletas de sesiones previas en la DB.
+    const cargasCompletas: any[] = [];
+    grupos.forEach((g) => {
+      const uacs = getUACsIndividualesGrupo(g);
+      uacs.forEach((uac) => {
+        const docenteId = getDocenteAsignado(g.id, uac);
+        if (docenteId) {
+          cargasCompletas.push({
+            grupoId: g.id,
+            asignaturaId: uac.id,
+            uacName: uac.uacName,
+            personalId: docenteId,
+            horasSemanales: uac.horasSemanales || 3,
+            tipo: uac.tipo || "fundamental"
+          });
+        }
+      });
+    });
 
     if (cargasCompletas.length === 0) {
       toast.error("Debe asignar al menos una materia a un docente en el Paso 3 antes de generar el horario.");
@@ -575,11 +592,41 @@ export default function WizardConfiguracion({
     }
   };
 
-  // Métricas de Horas del Plantel
+  // =========================================================================
+  // LIMPIAR DATOS FANTASMA: Borrar cargas + horarios previos de la DB
+  // =========================================================================
+  const handleLimpiarDatosHorario = async () => {
+    const confirmar = window.confirm(
+      "⚠️ ¿Está seguro? Esto eliminará TODAS las cargas docentes y horarios generados de esta escuela. " +
+      "Tendrá que asignar los docentes nuevamente en el Paso 3 y generar un nuevo horario."
+    );
+    if (!confirmar) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/horarios/configuracion?escuelaId=${escuelaId}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Limpiar también el estado local
+        setCargas([]);
+        toast.success("✅ Datos limpiados. Ahora puede asignar los docentes en el Paso 3 y generar el horario.");
+      } else {
+        toast.error(data.error || "Error al limpiar datos");
+      }
+    } catch (e) {
+      toast.error("Error de conexión al limpiar datos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Métricas simples del Plantel (no dependen de getUACsIndividualesGrupo)
   const totalGrupos = grupos.length;
   const horasRequeridasPlantel = totalGrupos * 30; // 30 hrs por grupo
   const totalHorasPlantillaDocente = Object.values(horasDocentes).reduce((sum, h) => sum + Number(h || 0), 0);
-  const totalHorasAsignadasMatriz = cargas.reduce((sum, c) => sum + (c.horasSemanales || 3), 0);
+  // totalHorasAsignadasMatriz se calcula más abajo, después de definir getUACsIndividualesGrupo
 
   // Obtener UACs individuales para cada grupo con Abreviaturas destacadas
   const getUACsIndividualesGrupo = (grupo: any) => {
@@ -650,6 +697,22 @@ export default function WizardConfiguracion({
     return [];
   };
 
+  // CORRECTO: Calcular horas asignadas iterando la matriz visible (grupos + UACs activos)
+  // NO usar cargas.reduce() porque puede haber datos fantasma de sesiones previas en el estado
+  const totalHorasAsignadasMatriz = (() => {
+    let total = 0;
+    grupos.forEach((g) => {
+      const uacs = getUACsIndividualesGrupo(g);
+      uacs.forEach((uac) => {
+        const docenteId = getDocenteAsignado(g.id, uac);
+        if (docenteId) {
+          total += uac.horasSemanales || 3;
+        }
+      });
+    });
+    return total;
+  })();
+
   // Filtrar personal que AÚN NO ha sido agregado a la plantilla del paso 2
   const personalNoAgregado = personalPlataforma.filter((p) => !docentes.some((d) => d.id === p.id));
   
@@ -694,6 +757,28 @@ export default function WizardConfiguracion({
               {step.label}
             </div>
           ))}
+
+          {/* Botón para limpiar datos fantasma de la DB */}
+          <button
+            onClick={handleLimpiarDatosHorario}
+            disabled={loading}
+            title="Eliminar todas las cargas docentes y horarios generados para empezar de cero"
+            style={{
+              padding: "0.5rem 0.85rem",
+              borderRadius: "10px",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              cursor: loading ? "not-allowed" : "pointer",
+              background: "#fef2f2",
+              color: "#dc2626",
+              border: "1px solid #fca5a5",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem"
+            }}
+          >
+            🗑️ Limpiar Datos
+          </button>
         </div>
       </div>
 

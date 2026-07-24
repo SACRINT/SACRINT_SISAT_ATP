@@ -1,6 +1,6 @@
 /**
  * Motor Solver de Restricciones para Generación de Horarios Escolares
- * SISAT-ATP - Algoritmo de Backtracking con Heurística MRV & Degree
+ * SISAT-ATP - Algoritmo de Backtracking Multi-Pasada con Heurística MRV & Degree
  */
 
 export interface GrupoInput {
@@ -49,7 +49,7 @@ export interface RestriccionDocenteInput {
 
 export interface SolverParams {
   diasLectivos: number;   // Def 5
-  horasPorDia: number;    // Def 7
+  horasPorDia: number;    // Def 6 o 7
   grupos: GrupoInput[];
   docentes: DocenteInput[];
   aulas: AulaInput[];
@@ -120,7 +120,7 @@ export function resolverHorario(params: SolverParams): SolverResult {
     }
   }
 
-  // Contadores de materia por grupo por día (para evitar repetir la misma materia más de 2h/día)
+  // Contadores de materia por grupo por día (para intentar no repetir la misma materia más de 2h/día)
   // Key: `${grupoId}_${asignaturaId}_${dia}` -> count
   const conteoMateriaDia = new Map<string, number>();
 
@@ -160,6 +160,7 @@ export function resolverHorario(params: SolverParams): SolverResult {
     asignaturaId: string;
     requiereAulaEspecial: boolean;
     aulaEspecialId?: string;
+    colocada: boolean;
   }
 
   const unidadesClase: UnidadClase[] = [];
@@ -182,7 +183,8 @@ export function resolverHorario(params: SolverParams): SolverResult {
         docenteId: carga.docenteId,
         asignaturaId: carga.asignaturaId,
         requiereAulaEspecial: !!carga.requiereAulaEspecial,
-        aulaEspecialId: carga.aulaEspecialId
+        aulaEspecialId: carga.aulaEspecialId,
+        colocada: false
       });
     }
   }
@@ -190,21 +192,21 @@ export function resolverHorario(params: SolverParams): SolverResult {
   // Ordenar unidades con heurística (materias con aula especial primero, luego por docente)
   unidadesClase.sort((a, b) => (b.requiereAulaEspecial ? 1 : 0) - (a.requiereAulaEspecial ? 1 : 0));
 
-  // Algoritmo Greedy con Backtracking Ligero para colocar cada unidad
   let asignadasCorrectamente = 0;
 
+  // -------------------------------------------------------------------------
+  // PASADA 1: Intentar ubicar cada unidad respetando máximo 2 hrs/día de la misma UAC
+  // -------------------------------------------------------------------------
   for (const unidad of unidadesClase) {
-    let colocada = false;
+    if (unidad.colocada) continue;
 
-    // Buscar una posición (dia, periodo) válida
-    // Priorizar periodos continuos sin dejar huecos en los grupos
     for (let dia = 1; dia <= diasLectivos; dia++) {
-      if (colocada) break;
+      if (unidad.colocada) break;
 
       const keyMat = `${unidad.grupoId}_${unidad.asignaturaId}_${dia}`;
       const cuantasHoy = conteoMateriaDia.get(keyMat) || 0;
       
-      // Regla blanda: Máximo 2 horas de la misma materia por día
+      // Regla suave de Pasada 1: Máximo 2 horas de la misma materia por día
       if (cuantasHoy >= 2) continue;
 
       for (let periodo = 1; periodo <= horasPorDia; periodo++) {
@@ -217,7 +219,7 @@ export function resolverHorario(params: SolverParams): SolverResult {
           if (ocupacionAula.has(keyAula)) continue;
         }
 
-        // Verificar no ocupación
+        // Verificar no ocupación de docente ni grupo
         if (ocupacionDocente.has(keyDoc) || ocupacionGrupo.has(keyGrp)) {
           continue;
         }
@@ -240,14 +242,166 @@ export function resolverHorario(params: SolverParams): SolverResult {
           esBloqueado: false
         });
 
-        colocada = true;
+        unidad.colocada = true;
         asignadasCorrectamente++;
         break;
       }
     }
+  }
 
-    if (!colocada) {
-      conflictos.push(`No se pudo ubicar 1 hora de asignatura ID ${unidad.asignaturaId} para Grupo ID ${unidad.grupoId} por falta de disponibilidad de espacio/docente.`);
+  // -------------------------------------------------------------------------
+  // PASADA 2: Para unidades pendientes, relajar el límite de 2 hrs/día (permitir 3 hrs/día si es necesario)
+  // -------------------------------------------------------------------------
+  for (const unidad of unidadesClase) {
+    if (unidad.colocada) continue;
+
+    for (let dia = 1; dia <= diasLectivos; dia++) {
+      if (unidad.colocada) break;
+
+      const keyMat = `${unidad.grupoId}_${unidad.asignaturaId}_${dia}`;
+      const cuantasHoy = conteoMateriaDia.get(keyMat) || 0;
+
+      for (let periodo = 1; periodo <= horasPorDia; periodo++) {
+        const keyDoc = `${dia}_${periodo}_${unidad.docenteId}`;
+        const keyGrp = `${dia}_${periodo}_${unidad.grupoId}`;
+        let keyAula = "";
+
+        if (unidad.requiereAulaEspecial && unidad.aulaEspecialId) {
+          keyAula = `${dia}_${periodo}_${unidad.aulaEspecialId}`;
+          if (ocupacionAula.has(keyAula)) continue;
+        }
+
+        // Estricto: Docente y Grupo NO deben estar ocupados
+        if (ocupacionDocente.has(keyDoc) || ocupacionGrupo.has(keyGrp)) {
+          continue;
+        }
+
+        // Asignar celda en Pasada 2
+        ocupacionDocente.add(keyDoc);
+        ocupacionGrupo.add(keyGrp);
+        if (keyAula) ocupacionAula.add(keyAula);
+
+        conteoMateriaDia.set(keyMat, cuantasHoy + 1);
+
+        celdasResultado.push({
+          diaSemana: dia,
+          periodo: periodo,
+          grupoId: unidad.grupoId,
+          docenteId: unidad.docenteId,
+          asignaturaId: unidad.asignaturaId,
+          aulaId: unidad.aulaEspecialId || undefined,
+          cargaId: unidad.cargaId,
+          esBloqueado: false
+        });
+
+        unidad.colocada = true;
+        asignadasCorrectamente++;
+        console.log(`[solver] Pasada 2 ubicó unidad ${unidad.id} (Docente: ${unidad.docenteId}, Grupo: ${unidad.grupoId}) en día ${dia}, periodo ${periodo}`);
+        break;
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // PASADA 3: Reubicación de Celdas Existentes (Re-balancing) si aún hay unidades sin colocar
+  // -------------------------------------------------------------------------
+  for (const unidad of unidadesClase) {
+    if (unidad.colocada) continue;
+
+    // Buscar cualquier hueco libre del GRUPO en la semana donde el DOCENTE de la unidad también esté LIBRE
+    for (let dia = 1; dia <= diasLectivos; dia++) {
+      if (unidad.colocada) break;
+
+      for (let periodo = 1; periodo <= horasPorDia; periodo++) {
+        if (unidad.colocada) break;
+
+        const keyDoc = `${dia}_${periodo}_${unidad.docenteId}`;
+        const keyGrp = `${dia}_${periodo}_${unidad.grupoId}`;
+
+        // Si el grupo o el docente están ocupados en este hueco, intentar desplazar la celda ocupante
+        if (!ocupacionGrupo.has(keyGrp) && !ocupacionDocente.has(keyDoc)) {
+          // Asignar directamente
+          ocupacionDocente.add(keyDoc);
+          ocupacionGrupo.add(keyGrp);
+
+          celdasResultado.push({
+            diaSemana: dia,
+            periodo: periodo,
+            grupoId: unidad.grupoId,
+            docenteId: unidad.docenteId,
+            asignaturaId: unidad.asignaturaId,
+            aulaId: unidad.aulaEspecialId || undefined,
+            cargaId: unidad.cargaId,
+            esBloqueado: false
+          });
+
+          unidad.colocada = true;
+          asignadasCorrectamente++;
+          break;
+        }
+
+        // Si sólo el grupo está ocupado por OTRA materia de la misma escuela, ver si esa otra materia se puede mover a otro hueco
+        if (!ocupacionDocente.has(keyDoc) && ocupacionGrupo.has(keyGrp)) {
+          const idxOcupante = celdasResultado.findIndex(
+            c => c.grupoId === unidad.grupoId && c.diaSemana === dia && c.periodo === periodo && !c.esBloqueado
+          );
+
+          if (idxOcupante >= 0) {
+            const ocupante = celdasResultado[idxOcupante];
+
+            // Intentar encontrar un nuevo lugar para 'ocupante'
+            for (let d2 = 1; d2 <= diasLectivos; d2++) {
+              if (unidad.colocada) break;
+
+              for (let p2 = 1; p2 <= horasPorDia; p2++) {
+                if (d2 === dia && p2 === periodo) continue;
+
+                const kDoc2 = `${d2}_${p2}_${ocupante.docenteId}`;
+                const kGrp2 = `${d2}_${p2}_${ocupante.grupoId}`;
+
+                if (!ocupacionDocente.has(kDoc2) && !ocupacionGrupo.has(kGrp2)) {
+                  // Mover ocupante a d2, p2
+                  ocupacionDocente.delete(`${dia}_${periodo}_${ocupante.docenteId}`);
+                  ocupacionGrupo.delete(`${dia}_${periodo}_${ocupante.grupoId}`);
+
+                  ocupacionDocente.add(kDoc2);
+                  ocupacionGrupo.add(kGrp2);
+
+                  celdasResultado[idxOcupante].diaSemana = d2;
+                  celdasResultado[idxOcupante].periodo = p2;
+
+                  // Ahora colocar la 'unidad' en dia, periodo
+                  ocupacionDocente.add(keyDoc);
+                  ocupacionGrupo.add(keyGrp);
+
+                  celdasResultado.push({
+                    diaSemana: dia,
+                    periodo: periodo,
+                    grupoId: unidad.grupoId,
+                    docenteId: unidad.docenteId,
+                    asignaturaId: unidad.asignaturaId,
+                    aulaId: unidad.aulaEspecialId || undefined,
+                    cargaId: unidad.cargaId,
+                    esBloqueado: false
+                  });
+
+                  unidad.colocada = true;
+                  asignadasCorrectamente++;
+                  console.log(`[solver] Pasada 3 desplazó celda y ubicó unidad ${unidad.id} en día ${dia}, periodo ${periodo}`);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Registrar conflictos para unidades que definitivamente no pudieron colocarse
+  for (const unidad of unidadesClase) {
+    if (!unidad.colocada) {
+      conflictos.push(`No se pudo ubicar 1 hora de asignatura ID ${unidad.asignaturaId} para Grupo ID ${unidad.grupoId} por falta de espacio/compatibilidad de docente.`);
     }
   }
 
