@@ -462,31 +462,25 @@ export default function WizardConfiguracion({
     const uacName = uacObj.uacName;
     const horasSemanales = uacObj.horasSemanales || 3;
 
+    // Eliminar cualquier carga duplicada o previa de este grupo y UAC
+    const cargasLimpias = cargas.filter((c) => !(c.grupoId === grupoId && (c.asignaturaId === asignaturaId || c.uacName === uacName)));
+
     if (!personalId) {
-      setCargas(cargas.filter((c) => !(c.grupoId === grupoId && (c.asignaturaId === asignaturaId || c.uacName === uacName))));
+      setCargas(cargasLimpias);
       return;
     }
 
-    const idx = cargas.findIndex((c) => c.grupoId === grupoId && (c.asignaturaId === asignaturaId || c.uacName === uacName));
-    if (idx >= 0) {
-      const copia = [...cargas];
-      copia[idx].personalId = personalId;
-      copia[idx].uacName = uacName;
-      copia[idx].horasSemanales = horasSemanales;
-      setCargas(copia);
-    } else {
-      setCargas([
-        ...cargas,
-        {
-          grupoId,
-          asignaturaId,
-          uacName,
-          personalId,
-          horasSemanales,
-          requiereAulaEspecial: false
-        }
-      ]);
-    }
+    setCargas([
+      ...cargasLimpias,
+      {
+        grupoId,
+        asignaturaId,
+        uacName,
+        personalId,
+        horasSemanales,
+        requiereAulaEspecial: false
+      }
+    ]);
   };
 
   const getDocenteAsignado = (grupoId: string, uacObj: any) => {
@@ -494,17 +488,26 @@ export default function WizardConfiguracion({
     return asignacion?.personalId || "";
   };
 
-  // Cálculo exacto de horas asignadas a un docente (opcionalmente excluyendo una celda específica)
+  // Cálculo Dinámico y Exacto de Horas Asignadas Realmente a cada Docente escaneando las UACs activas de cada grupo
   const getHorasConsumidasDocente = (docenteId: string, excludeGrupoId?: string, excludeUacId?: string) => {
-    return cargas
-      .filter((c) => {
-        if (c.personalId !== docenteId) return false;
-        if (excludeGrupoId && excludeUacId && c.grupoId === excludeGrupoId && (c.asignaturaId === excludeUacId || c.uacName === excludeUacId)) {
-          return false;
+    let total = 0;
+
+    grupos.forEach((g) => {
+      const uacs = getUACsIndividualesGrupo(g);
+      uacs.forEach((uac) => {
+        // Excluir la celda actual si se especifica (para validar disponibilidad antes de seleccionar)
+        if (excludeGrupoId && excludeUacId && g.id === excludeGrupoId && (uac.id === excludeUacId || uac.uacName === excludeUacId)) {
+          return;
         }
-        return true;
-      })
-      .reduce((sum, c) => sum + (c.horasSemanales || 3), 0);
+
+        const asignadoId = getDocenteAsignado(g.id, uac);
+        if (asignadoId === docenteId) {
+          total += (uac.horasSemanales || 3);
+        }
+      });
+    });
+
+    return total;
   };
 
   // Guardar configuración completa en base de datos con distribución inteligente Round-Robin
