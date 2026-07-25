@@ -17,7 +17,8 @@ import {
   X,
   Package,
   Download,
-  Check
+  Check,
+  Trash2
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { exportarHorarioExcel, exportarHorarioPDF, getHashColor } from "@/lib/horarios/exportador";
@@ -71,6 +72,7 @@ export default function EditorHorarios({
   const [mensajeChat, setMensajeChat] = useState<string>("");
   const [enviandoChat, setEnviandoChat] = useState<boolean>(false);
   const [chatHistorial, setChatHistorial] = useState<any[]>(horarioInicial?.mensajesChat || []);
+  const [limpiadoChat, setLimpiadoChat] = useState<boolean>(false);
 
   // Estado para Drag and Drop
   const [draggedCelda, setDraggedCelda] = useState<any>(null);
@@ -148,7 +150,7 @@ export default function EditorHorarios({
     toast.success(estadoNuevo ? "🔒 Celda fijada (la IA no la moverá)" : "Celda desbloqueada para la IA");
   };
 
-  // Chat IA
+  // Chat IA — Enviar mensaje
   const handleEnviarMensajeIA = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mensajeChat.trim() || enviandoChat) return;
@@ -156,6 +158,7 @@ export default function EditorHorarios({
     const userMsg = mensajeChat.trim();
     setMensajeChat("");
     setEnviandoChat(true);
+    setLimpiadoChat(false);
 
     setChatHistorial((prev) => [...prev, { role: "user", content: userMsg }]);
 
@@ -181,6 +184,31 @@ export default function EditorHorarios({
       toast.error("Error de conexión con el chat de IA");
     } finally {
       setEnviandoChat(false);
+    }
+  };
+
+  // Chat IA — Limpiar historial (no resetea el contador del admin)
+  const handleLimpiarChat = async () => {
+    if (!horario?.id) return;
+    const confirmar = window.confirm(
+      "¿Limpiar el historial de chat? Los mensajes anteriores se borrarán pero el contador de uso del administrador se mantiene."
+    );
+    if (!confirmar) return;
+
+    try {
+      const res = await fetch(`/api/horarios/chat?horarioId=${horario.id}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (data.success) {
+        setChatHistorial([]);
+        setLimpiadoChat(true);
+        toast.success("🗑️ Historial del chat limpiado correctamente");
+      } else {
+        toast.error(data.error || "Error al limpiar el chat");
+      }
+    } catch (err) {
+      toast.error("Error de conexión al limpiar el chat");
     }
   };
 
@@ -573,7 +601,7 @@ export default function EditorHorarios({
         {/* PANEL DERECHO: Chat IA Asistente Deslizable */}
         {mostrarChat && (
           <div style={{ width: "340px", flexShrink: 0, background: "#0f172a", borderRadius: "16px", border: "1px solid #334155", padding: "1.25rem", display: "flex", flexDirection: "column", height: "600px", boxShadow: "0 10px 25px rgba(0,0,0,0.3)" }}>
-            <div style={{ borderBottom: "1px solid #334155", paddingBottom: "0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ borderBottom: "1px solid #334155", paddingBottom: "0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <Sparkles style={{ width: "20px", height: "20px", color: "#60a5fa" }} />
                 <div>
@@ -581,12 +609,36 @@ export default function EditorHorarios({
                   <p style={{ fontSize: "0.65rem", color: "#94a3b8", margin: 0 }}>Gemini 3.5 Flash Lite | SISAT-ATP Pool</p>
                 </div>
               </div>
-              <button
-                onClick={() => setMostrarChat(false)}
-                style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}
-              >
-                <X style={{ width: "18px", height: "18px" }} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                {/* Botón: Limpiar historial del chat (solo borra mensajes, no el contador del admin) */}
+                <button
+                  onClick={handleLimpiarChat}
+                  title="Limpiar historial de conversación"
+                  style={{
+                    background: chatHistorial.length === 0 ? "#1e293b" : "rgba(239,68,68,0.15)",
+                    border: "1px solid rgba(239,68,68,0.3)",
+                    color: chatHistorial.length === 0 ? "#475569" : "#f87171",
+                    cursor: chatHistorial.length === 0 ? "not-allowed" : "pointer",
+                    borderRadius: "6px",
+                    padding: "0.3rem 0.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                    fontSize: "0.7rem",
+                    fontWeight: 700
+                  }}
+                  disabled={chatHistorial.length === 0}
+                >
+                  <Trash2 style={{ width: "13px", height: "13px" }} />
+                  Limpiar
+                </button>
+                <button
+                  onClick={() => setMostrarChat(false)}
+                  style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}
+                >
+                  <X style={{ width: "18px", height: "18px" }} />
+                </button>
+              </div>
             </div>
 
             {/* Historial de Mensajes */}

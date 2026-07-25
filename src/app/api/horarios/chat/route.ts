@@ -85,6 +85,21 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    // ─── CONTADOR ACUMULATIVO (nunca se decrementa al limpiar el chat) ───
+    await prisma.horarioStats.upsert({
+      where: { escuelaId },
+      create: {
+        escuelaId,
+        totalUsos: 0,
+        totalMensajesChat: 1,
+        ultimoUso: new Date()
+      },
+      update: {
+        totalMensajesChat: { increment: 1 },
+        ultimoUso: new Date()
+      }
+    });
+
     // 4. Si la petición NO es factible, responder de inmediato con la explicación matemática
     if (!respuestaIA.factible) {
       await prisma.horarioChatMensaje.create({
@@ -126,7 +141,6 @@ export async function POST(req: NextRequest) {
     if (respuestaIA.acciones && respuestaIA.acciones.length > 0) {
       for (const accion of respuestaIA.acciones) {
         if (accion.tipo === "REGENERAR_CON_RESTRICCIONES" && accion.bloqueosDocentes) {
-          // Extraer las celdas fijadas/bloqueadas por el usuario (esBloqueado === true)
           const celdasFijasExistentes = horario.celdas
             .filter((c) => c.esBloqueado)
             .map((c) => ({
@@ -138,7 +152,6 @@ export async function POST(req: NextRequest) {
               aulaId: c.aulaId || undefined
             }));
 
-          // Re-ejecutar el Motor Solver con las restricciones y celdas fijas bloqueadas por el usuario
           const resultadoSolver = resolverHorario({
             diasLectivos: config?.diasLectivos || 5,
             horasPorDia: config?.horasPorDia || 6,
@@ -158,12 +171,7 @@ export async function POST(req: NextRequest) {
           });
 
           if (resultadoSolver.celdas && resultadoSolver.celdas.length > 0) {
-            // Eliminar celdas anteriores del horario generado
-            await prisma.horarioCelda.deleteMany({
-              where: { horarioId }
-            });
-
-            // Re-insertar celdas re-optimizadas sin empalmes
+            await prisma.horarioCelda.deleteMany({ where: { horarioId } });
             await prisma.horarioCelda.createMany({
               data: resultadoSolver.celdas.map(c => ({
                 horarioId,
@@ -177,7 +185,6 @@ export async function POST(req: NextRequest) {
                 esBloqueado: !!c.esBloqueado
               }))
             });
-
             huboReGeneracion = true;
           }
         }
@@ -220,5 +227,46 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("[api/horarios/chat] Error en POST:", error);
     return NextResponse.json({ error: "Error al procesar mensaje en el chat IA" }, { status: 500 });
+  }
+}
+
+// ─── DELETE: Limpiar historial de chat (acción del Director) ───
+// Elimina solo los mensajes. El contador acumulativo en HorarioStats NO se modifica.
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const horarioId = searchParams.get("horarioId");
+
+    if (!horarioId) {
+      return NextResponse.json({ error: "horarioId es requerido" }, { status: 400 });
+    }
+
+    // Verificar que el horario existe
+    const horario = await prisma.horarioGenerado.findUnique({
+      where: { id: horarioId },
+      select: { escuelaId: true }
+    });
+
+    if (!horario) {
+      return NextResponse.json({ error: "Horario no encontrado" }, { status: 404 });
+    }
+
+    // Borrar SOLO los mensajes del historial (el contador NO se toca)
+    const resultado = await prisma.horarioChatMensaje.deleteMany({
+      where: { horarioId }
+    });
+
+    return NextResponse.json({
+      success: true,
+      mensaje: `Historial limpiado: ${resultado.count} mensajes eliminados. El contador de uso se mantiene.`
+    });
+  } catch (error: any) {
+    console.error("[api/horarios/chat] Error en DELETE:", error);
+    return NextResponse.json({ error: "Error al limpiar el historial del chat" }, { status: 500 });
   }
 }

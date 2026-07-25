@@ -78,6 +78,7 @@ model Escuela {
   horarioAulas HorarioAula[]
   horarioAsignaturasHorario HorarioAsignaturaCatalogo[]
   horarioCargas HorarioCargaDocente[]
+  horarioStats  HorarioStats?
 }
 
 model CicloEscolar {
@@ -720,3 +721,17 @@ model HorarioChatMensaje {
   horario        HorarioGenerado @relation(fields: [horarioId], references: [id], onDelete: Cascade)
 }
 
+// ─── Estadísticas de uso del Generador de Horarios por Escuela ───
+// El contador NO se resetea al limpiar el historial de chat.
+// Solo el administrador puede reiniciar los contadores.
+model HorarioStats {
+  id                  String   @id @default(cuid())
+  escuelaId           String   @unique
+  totalUsos           Int      @default(0)  // veces que se ha generado/confirmado un horario
+  totalMensajesChat   Int      @default(0)  // mensajes enviados al chat IA acumulados (nunca se resta)
+  ultimoUso           DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  escuela             Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+}

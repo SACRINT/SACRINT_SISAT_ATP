@@ -230,7 +230,7 @@ export default function WizardConfiguracion({
   cargasIniciales,
   onGenerarClick
 }: Props) {
-  const STORAGE_KEY = `horarios_wizard_v3_${escuelaId}`;
+  const STORAGE_KEY = `horarios_wizard_v4_${escuelaId}`;
 
   const [paso, setPaso] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
@@ -247,28 +247,12 @@ export default function WizardConfiguracion({
   // Modo de Configuración: Semiautomático (SEP General) vs Manual Libre (Tecnológicos)
   const [modoConfiguracion, setModoConfiguracion] = useState<"SEMIAUTOMATICO" | "MANUAL_TECNOLOGICO">("SEMIAUTOMATICO");
 
-  // Asignaturas personalizadas para Modo Manual Libre (Bachilleratos Tecnológicos)
-  const [materiasManualesSem1, setMateriasManualesSem1] = useState<any[]>([
-    { id: "man_1_1", uacName: "Matemáticas Tecnológicas I", horasSemanales: 5 },
-    { id: "man_1_2", uacName: "Química I", horasSemanales: 4 },
-    { id: "man_1_3", uacName: "Lengua y Comunicación I", horasSemanales: 4 },
-    { id: "man_1_4", uacName: "Inglés I", horasSemanales: 3 },
-    { id: "man_1_5", uacName: "Tecnologías de la Información", horasSemanales: 4 }
-  ]);
+  // Tab activa en editor manual (letra del grupo: "A", "B", "C"...)
+  const [grupoActivoManual, setGrupoActivoManual] = useState<string>("A");
 
-  const [materiasManualesSem3, setMateriasManualesSem3] = useState<any[]>([
-    { id: "man_3_1", uacName: "Física I", horasSemanales: 4 },
-    { id: "man_3_2", uacName: "Cálculo Diferencial", horasSemanales: 5 },
-    { id: "man_3_3", uacName: "Módulo Profesional I (Especialidad)", horasSemanales: 12 },
-    { id: "man_3_4", uacName: "Inglés III", horasSemanales: 3 }
-  ]);
-
-  const [materiasManualesSem5, setMateriasManualesSem5] = useState<any[]>([
-    { id: "man_5_1", uacName: "Cálculo Integral", horasSemanales: 5 },
-    { id: "man_5_2", uacName: "Módulo Profesional II (Especialidad)", horasSemanales: 12 },
-    { id: "man_5_3", uacName: "Ciencia, Tecnología y Sociedad", horasSemanales: 4 },
-    { id: "man_5_4", uacName: "Inglés V", horasSemanales: 3 }
-  ]);
+  // Currículo manual por grupo: clave = "semestre_letra" (ej: "1_A", "3_B", "5_C")
+  // Cada grupo puede tener asignaturas distintas según su carrera/especialidad
+  const [curriculoManualPorGrupo, setCurriculoManualPorGrupo] = useState<Record<string, any[]>>({});
 
   // Estado de Grupos
   const [grupos, setGrupos] = useState<any[]>([]);
@@ -303,6 +287,8 @@ export default function WizardConfiguracion({
         if (parsed.numPeriodos) setNumPeriodos(parsed.numPeriodos);
         if (parsed.grupos && parsed.grupos.length > 0) setGrupos(parsed.grupos);
         if (parsed.horasDocentes) setHorasDocentes(parsed.horasDocentes);
+        if (parsed.curriculoManualPorGrupo) setCurriculoManualPorGrupo(parsed.curriculoManualPorGrupo);
+        if (parsed.grupoActivoManual) setGrupoActivoManual(parsed.grupoActivoManual);
         // cargas NO se restauran desde localStorage para evitar datos fantasma.
         // Los cargasIniciales vienen de la DB y se usan para pre-cargar el estado
       }
@@ -323,7 +309,9 @@ export default function WizardConfiguracion({
           numGruposPorGrado,
           numPeriodos,
           grupos,
-          horasDocentes
+          horasDocentes,
+          curriculoManualPorGrupo,
+          grupoActivoManual
           // cargas EXCLUIDAS para evitar datos fantasma
         })
       );
@@ -334,7 +322,7 @@ export default function WizardConfiguracion({
 
   useEffect(() => {
     guardarProgresoLocal();
-  }, [paso, numGruposPorGrado, numPeriodos, grupos, horasDocentes, cargas]);
+  }, [paso, numGruposPorGrado, numPeriodos, grupos, horasDocentes, cargas, curriculoManualPorGrupo, grupoActivoManual]);
 
   useEffect(() => {
     cargarPersonalCompleto();
@@ -350,30 +338,59 @@ export default function WizardConfiguracion({
     generarGruposSegunEstructura(numGruposPorGrado);
   }, [numGruposPorGrado]);
 
-  const handleAgregarMateriaManual = (semestre: number) => {
+  // Asignaturas predeterminadas por semestre y letra de grupo (se clonan individualmente por grupo)
+  const getDefaultMateriasSem = (sem: number, letra: string): any[] => {
+    if (sem === 1) return [
+      { id: `man_1_1_${letra}`, uacName: "Matemáticas Tecnológicas I", horasSemanales: 5 },
+      { id: `man_1_2_${letra}`, uacName: "Química I", horasSemanales: 4 },
+      { id: `man_1_3_${letra}`, uacName: "Lengua y Comunicación I", horasSemanales: 4 },
+      { id: `man_1_4_${letra}`, uacName: "Inglés I", horasSemanales: 3 },
+      { id: `man_1_5_${letra}`, uacName: "Tecnologías de la Información", horasSemanales: 4 }
+    ];
+    if (sem === 3) return [
+      { id: `man_3_1_${letra}`, uacName: "Física I", horasSemanales: 4 },
+      { id: `man_3_2_${letra}`, uacName: "Cálculo Diferencial", horasSemanales: 5 },
+      { id: `man_3_3_${letra}`, uacName: "Módulo Profesional I (Especialidad)", horasSemanales: 12 },
+      { id: `man_3_4_${letra}`, uacName: "Inglés III", horasSemanales: 3 }
+    ];
+    if (sem === 5) return [
+      { id: `man_5_1_${letra}`, uacName: "Cálculo Integral", horasSemanales: 5 },
+      { id: `man_5_2_${letra}`, uacName: "Módulo Profesional II (Especialidad)", horasSemanales: 12 },
+      { id: `man_5_3_${letra}`, uacName: "Ciencia, Tecnología y Sociedad", horasSemanales: 4 },
+      { id: `man_5_4_${letra}`, uacName: "Inglés V", horasSemanales: 3 }
+    ];
+    return [];
+  };
+
+  const handleAgregarMateriaManual = (semestre: number, letra: string) => {
+    const key = `${semestre}_${letra}`;
     const nuevaMateria = {
-      id: `man_${semestre}_${Date.now()}`,
+      id: `man_${semestre}_${letra}_${Date.now()}`,
       uacName: `Nueva Asignatura ${semestre}° Semestre`,
       horasSemanales: 4
     };
-    if (semestre === 1) setMateriasManualesSem1(prev => [...prev, nuevaMateria]);
-    if (semestre === 3) setMateriasManualesSem3(prev => [...prev, nuevaMateria]);
-    if (semestre === 5) setMateriasManualesSem5(prev => [...prev, nuevaMateria]);
-    toast.success(`Asignatura agregada a ${semestre}° Semestre`);
+    setCurriculoManualPorGrupo(prev => ({
+      ...prev,
+      [key]: [...(prev[key] || []), nuevaMateria]
+    }));
+    toast.success(`Asignatura agregada al Grupo ${letra} – ${semestre}° Semestre`);
   };
 
-  const handleActualizarMateriaManual = (semestre: number, index: number, field: string, value: any) => {
-    const setter = semestre === 1 ? setMateriasManualesSem1 : semestre === 3 ? setMateriasManualesSem3 : setMateriasManualesSem5;
-    setter(prev => {
-      const copia = [...prev];
+  const handleActualizarMateriaManual = (semestre: number, letra: string, index: number, field: string, value: any) => {
+    const key = `${semestre}_${letra}`;
+    setCurriculoManualPorGrupo(prev => {
+      const copia = [...(prev[key] || [])];
       copia[index] = { ...copia[index], [field]: value };
-      return copia;
+      return { ...prev, [key]: copia };
     });
   };
 
-  const handleEliminarMateriaManual = (semestre: number, index: number) => {
-    const setter = semestre === 1 ? setMateriasManualesSem1 : semestre === 3 ? setMateriasManualesSem3 : setMateriasManualesSem5;
-    setter(prev => prev.filter((_, i) => i !== index));
+  const handleEliminarMateriaManual = (semestre: number, letra: string, index: number) => {
+    const key = `${semestre}_${letra}`;
+    setCurriculoManualPorGrupo(prev => ({
+      ...prev,
+      [key]: (prev[key] || []).filter((_: any, i: number) => i !== index)
+    }));
     toast.success("Asignatura removida");
   };
 
@@ -429,6 +446,26 @@ export default function WizardConfiguracion({
       }
     }
     setGrupos(nuevosGrupos);
+
+    // Inicializar currículo manual para cada grupo-semestre que no tenga datos previos
+    // Se conservan datos existentes (merge, no reemplazo)
+    setCurriculoManualPorGrupo(prev => {
+      const nuevoMapa = { ...prev };
+      for (const sem of [1, 3, 5]) {
+        for (let i = 0; i < nGrupos; i++) {
+          const letra = letras[i] || `G${i + 1}`;
+          const key = `${sem}_${letra}`;
+          if (!nuevoMapa[key]) {
+            nuevoMapa[key] = getDefaultMateriasSem(sem, letra);
+          }
+        }
+      }
+      return nuevoMapa;
+    });
+
+    // Si el grupo activo ya no existe en el nuevo conjunto, volver al Grupo A
+    const letrasActivas = letras.slice(0, nGrupos);
+    setGrupoActivoManual(prev => letrasActivas.includes(prev) ? prev : "A");
   };
 
   const handleActualizarConfigGrupo = (index: number, field: string, value: any) => {
@@ -686,9 +723,11 @@ export default function WizardConfiguracion({
     const sem = grupo.semestre;
 
     if (modoConfiguracion === "MANUAL_TECNOLOGICO") {
-      const listaCustom = sem === 1 ? materiasManualesSem1 : sem === 3 ? materiasManualesSem3 : materiasManualesSem5;
+      const letraGrupo = grupo.nombre.split(" ")[1] || "A"; // "1° A" → "A"
+      const key = `${sem}_${letraGrupo}`;
+      const listaCustom = curriculoManualPorGrupo[key] || [];
       return listaCustom.map((m: any, i: number) => ({
-        id: m.id || `uac_custom_${sem}_${i}`,
+        id: m.id || `uac_custom_${sem}_${letraGrupo}_${i}`,
         uacName: m.uacName,
         abrev: (m.uacName || "UAC").substring(0, 10).toUpperCase(),
         tipo: "CUSTOM_MANUAL",
@@ -946,67 +985,111 @@ export default function WizardConfiguracion({
               <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#b45309", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <ShieldCheck style={{ width: "18px", height: "18px", color: "#d97706" }} /> Asignaturas y Módulos del Subsistema Tecnológico / CBTIS
               </h3>
-              <p style={{ fontSize: "0.8125rem", color: "#78350f", marginBottom: "1rem", margin: "0 0 1rem" }}>
-                Escriba libremente los nombres de las asignaturas que se imparten en su plantel para 1er, 3er y 5to semestre y asigne sus horas semanales correspondientes.
+              <p style={{ fontSize: "0.8125rem", color: "#78350f", margin: "0 0 1rem" }}>
+                Configure las asignaturas de <strong>cada grupo de manera independiente</strong>. Si hay 2 o más grupos por grado, cada uno puede tener una carrera diferente con distintas asignaturas.
               </p>
 
+              {/* Selector de Grupo (tabs) — visible cuando hay 2 o más grupos por grado */}
+              {numGruposPorGrado > 1 && (
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.25rem", padding: "0.75rem 1rem", background: "#fef3c7", borderRadius: "10px", border: "1px solid #fcd34d", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#92400e", marginRight: "0.25rem" }}>Configurar Grupo:</span>
+                  {["A","B","C","D","E","F","G","H","I","J"].slice(0, numGruposPorGrado).map(letra => (
+                    <button
+                      key={letra}
+                      type="button"
+                      onClick={() => setGrupoActivoManual(letra)}
+                      style={{
+                        padding: "0.45rem 1.1rem",
+                        borderRadius: "8px",
+                        fontWeight: 800,
+                        fontSize: "0.8125rem",
+                        border: "none",
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                        background: grupoActivoManual === letra ? "#d97706" : "#ffffff",
+                        color: grupoActivoManual === letra ? "#ffffff" : "#92400e",
+                        boxShadow: grupoActivoManual === letra ? "0 2px 8px rgba(217,119,6,0.4)" : "0 1px 3px rgba(0,0,0,0.1)"
+                      }}
+                    >
+                      Grupo {letra}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* 3 paneles para 1er, 3er y 5to semestre del grupo activo */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "1.25rem" }}>
                 {[
-                  { sem: 1, lista: materiasManualesSem1, label: "1er Semestre (Asignaturas Base)" },
-                  { sem: 3, lista: materiasManualesSem3, label: "3er Semestre (Física / Módulos Especialidad)" },
-                  { sem: 5, lista: materiasManualesSem5, label: "5to Semestre (Cálculo / Módulos Especialidad)" }
-                ].map(({ sem, lista, label }) => (
-                  <div key={sem} style={{ background: "#ffffff", border: "1px solid #fcd34d", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #fef3c7", paddingBottom: "0.5rem", marginBottom: "0.75rem" }}>
-                      <span style={{ fontSize: "0.9375rem", fontWeight: 800, color: "#b45309" }}>
-                        {label}
-                      </span>
-                      <span style={{ fontSize: "0.6875rem", fontWeight: 800, background: "#fef3c7", color: "#b45309", padding: "0.25rem 0.5rem", borderRadius: "6px" }}>
-                        {lista.reduce((sum: number, m: any) => sum + Number(m.horasSemanales || 0), 0)} hrs/sem
-                      </span>
-                    </div>
+                  { sem: 1, label: "1er Semestre (Asignaturas Base)" },
+                  { sem: 3, label: "3er Semestre (Física / Módulos Especialidad)" },
+                  { sem: 5, label: "5to Semestre (Cálculo / Módulos Especialidad)" }
+                ].map(({ sem, label }) => {
+                  const key = `${sem}_${grupoActivoManual}`;
+                  const lista: any[] = curriculoManualPorGrupo[key] || [];
+                  return (
+                    <div key={sem} style={{ background: "#ffffff", border: "1px solid #fcd34d", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #fef3c7", paddingBottom: "0.5rem", marginBottom: "0.75rem" }}>
+                        <span style={{ fontSize: "0.875rem", fontWeight: 800, color: "#b45309", display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
+                          {label}
+                          {numGruposPorGrado > 1 && (
+                            <span style={{ fontSize: "0.7rem", fontWeight: 700, background: "#d97706", color: "#fff", padding: "0.15rem 0.5rem", borderRadius: "20px" }}>
+                              Grupo {grupoActivoManual}
+                            </span>
+                          )}
+                        </span>
+                        <span style={{ fontSize: "0.6875rem", fontWeight: 800, background: "#fef3c7", color: "#b45309", padding: "0.25rem 0.5rem", borderRadius: "6px", whiteSpace: "nowrap" }}>
+                          {lista.reduce((sum: number, m: any) => sum + Number(m.horasSemanales || 0), 0)} hrs/sem
+                        </span>
+                      </div>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                      {lista.map((m: any, mIdx: number) => (
-                        <div key={m.id || mIdx} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                          <input
-                            type="text"
-                            value={m.uacName}
-                            onChange={(e) => handleActualizarMateriaManual(sem, mIdx, "uacName", e.target.value)}
-                            placeholder="Nombre de la Asignatura / Módulo"
-                            style={{ flex: 1, padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.8125rem", fontWeight: 700, color: "#0f172a" }}
-                          />
-                          <input
-                            type="number"
-                            min={1}
-                            max={25}
-                            value={m.horasSemanales}
-                            onChange={(e) => handleActualizarMateriaManual(sem, mIdx, "horasSemanales", Math.max(1, Number(e.target.value)))}
-                            style={{ width: "55px", padding: "0.45rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.8125rem", fontWeight: 800, textAlign: "center", color: "#0f172a" }}
-                          />
-                          <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b" }}>hrs</span>
-                          <button
-                            type="button"
-                            onClick={() => handleEliminarMateriaManual(sem, mIdx)}
-                            style={{ background: "#fef2f2", color: "#ef4444", border: "1px solid #fca5a5", padding: "0.4rem", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }}
-                            title="Eliminar asignatura"
-                          >
-                            <Trash2 style={{ width: "14px", height: "14px" }} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                        {lista.map((m: any, mIdx: number) => (
+                          <div key={m.id || mIdx} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                            <input
+                              type="text"
+                              value={m.uacName}
+                              onChange={(e) => handleActualizarMateriaManual(sem, grupoActivoManual, mIdx, "uacName", e.target.value)}
+                              placeholder="Nombre de la Asignatura / Módulo"
+                              style={{ flex: 1, padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.8125rem", fontWeight: 700, color: "#0f172a" }}
+                            />
+                            <input
+                              type="number"
+                              min={1}
+                              max={25}
+                              value={m.horasSemanales}
+                              onChange={(e) => handleActualizarMateriaManual(sem, grupoActivoManual, mIdx, "horasSemanales", Math.max(1, Number(e.target.value)))}
+                              style={{ width: "55px", padding: "0.45rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.8125rem", fontWeight: 800, textAlign: "center", color: "#0f172a" }}
+                            />
+                            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b" }}>hrs</span>
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarMateriaManual(sem, grupoActivoManual, mIdx)}
+                              style={{ background: "#fef2f2", color: "#ef4444", border: "1px solid #fca5a5", padding: "0.4rem", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }}
+                              title="Eliminar asignatura"
+                            >
+                              <Trash2 style={{ width: "14px", height: "14px" }} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleAgregarMateriaManual(sem)}
-                      style={{ marginTop: "0.85rem", width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px dashed #d97706", background: "#fffbeb", color: "#b45309", fontSize: "0.75rem", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
-                    >
-                      <Plus style={{ width: "14px", height: "14px" }} /> + Agregar Asignatura a {sem}° Semestre
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => handleAgregarMateriaManual(sem, grupoActivoManual)}
+                        style={{ marginTop: "0.85rem", width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px dashed #d97706", background: "#fffbeb", color: "#b45309", fontSize: "0.75rem", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
+                      >
+                        <Plus style={{ width: "14px", height: "14px" }} /> + Agregar Asignatura a {sem}° Semestre{numGruposPorGrado > 1 ? ` – Grupo ${grupoActivoManual}` : ""}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
+
+              {numGruposPorGrado > 1 && (
+                <p style={{ fontSize: "0.75rem", color: "#92400e", marginTop: "1rem", background: "#fef3c7", padding: "0.6rem 0.85rem", borderRadius: "6px", margin: "1rem 0 0" }}>
+                  💡 <strong>Tip:</strong> Use las pestañas de arriba para navegar entre grupos (A, B, C...) y configure las asignaturas que impartirá cada carrera de manera independiente.
+                </p>
+              )}
             </div>
           ) : (
             <div style={{ border: "1px solid #e2e8f0", borderRadius: "12px", padding: "1.25rem", background: "#f8fafc" }}>

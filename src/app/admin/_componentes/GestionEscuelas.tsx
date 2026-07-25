@@ -53,6 +53,8 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [tabEscuelas, setTabEscuelas] = useState<"escuelas" | "programas_modulos" | "supervision">("escuelas");
     const [autoridades, setAutoridades] = useState<any>(null);
+    // Stats de uso de Horarios IA por escuela (cargadas desde la API)
+    const [horarioStats, setHorarioStats] = useState<Record<string, { totalMensajesChat: number; totalUsos: number; ultimoUso: string | null }>>({});
     const router = useRouter();
 
     // Handlers para toggle individual y global de Horarios IA y Programas por Escuela
@@ -79,6 +81,49 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
             }
         } catch (e) {
             toast.error("Error de red al actualizar");
+        }
+    };
+
+    // Cargar stats de uso de Horarios IA al entrar a la pestaña de programas/módulos
+    const cargarHorarioStats = async () => {
+        try {
+            const res = await fetch("/api/admin/horarios/reset-stats");
+            const data = await res.json();
+            if (data.success && Array.isArray(data.stats)) {
+                const mapa: Record<string, any> = {};
+                data.stats.forEach((s: any) => {
+                    mapa[s.escuelaId] = {
+                        totalMensajesChat: s.totalMensajesChat,
+                        totalUsos: s.totalUsos,
+                        ultimoUso: s.ultimoUso
+                    };
+                });
+                setHorarioStats(mapa);
+            }
+        } catch { /* silencioso */ }
+    };
+
+    // Reiniciar contador de una escuela (solo admin)
+    const handleResetStats = async (escuelaId: string, nombre: string) => {
+        if (!confirm(`¿Reiniciar el contador de uso de Horarios IA para "${nombre}"? Esta acción no se puede deshacer.`)) return;
+        try {
+            const res = await fetch("/api/admin/horarios/reset-stats", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ escuelaId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setHorarioStats(prev => ({
+                    ...prev,
+                    [escuelaId]: { totalMensajesChat: 0, totalUsos: 0, ultimoUso: null }
+                }));
+                toast.success(`Contador reiniciado para ${nombre}`);
+            } else {
+                toast.error(data.error || "Error al reiniciar contador");
+            }
+        } catch {
+            toast.error("Error de conexión al reiniciar contador");
         }
     };
 
@@ -505,6 +550,16 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                                         </div>
                                                     </th>
 
+                                                    {/* Columna de Stats de Chat IA */}
+                                                    <th
+                                                        style={{ padding: "0.75rem 0.5rem", fontWeight: 800, color: "#7c3aed", textAlign: "center", minWidth: "120px", verticalAlign: "top", cursor: "pointer" }}
+                                                        onClick={cargarHorarioStats}
+                                                        title="Haga clic para cargar/actualizar los contadores de uso"
+                                                    >
+                                                        <div>💬 Uso Chat IA</div>
+                                                        <div style={{ fontSize: "0.65rem", color: "#a78bfa", fontWeight: 600, marginTop: "0.2rem" }}>Clic para actualizar</div>
+                                                    </th>
+
                                                     {/* Columnas de Programas con Botón Único Master */}
                                                     {programas.map((prog) => {
                                                         const todosProgActivos = escuelasLista.every(e => {
@@ -582,6 +637,47 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                                         >
                                                             {horariosActivo ? "🟢 Activo" : "🔴 Desactivado"}
                                                         </button>
+                                                    </td>
+
+                                                    {/* Celda de stats de Chat IA con botón de reset (solo admin) */}
+                                                    <td style={{ textAlign: "center", padding: "0.5rem 0.75rem" }}>
+                                                        {(() => {
+                                                            const st = horarioStats[esc.id];
+                                                            const msgs = st?.totalMensajesChat ?? null;
+                                                            return (
+                                                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.3rem" }}>
+                                                                    <span style={{
+                                                                        fontWeight: 800,
+                                                                        fontSize: "0.9rem",
+                                                                        color: msgs === null ? "#94a3b8" : msgs > 0 ? "#7c3aed" : "#94a3b8"
+                                                                    }}>
+                                                                        {msgs === null ? "—" : `${msgs} msgs`}
+                                                                    </span>
+                                                                    {msgs !== null && msgs > 0 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleResetStats(esc.id, esc.nombre)}
+                                                                            title="Reiniciar contador de este escuela"
+                                                                            style={{
+                                                                                padding: "0.15rem 0.45rem",
+                                                                                borderRadius: "6px",
+                                                                                fontSize: "0.65rem",
+                                                                                fontWeight: 700,
+                                                                                border: "1px solid #fca5a5",
+                                                                                background: "#fef2f2",
+                                                                                color: "#dc2626",
+                                                                                cursor: "pointer"
+                                                                            }}
+                                                                        >
+                                                                            🔄 Reset
+                                                                        </button>
+                                                                    )}
+                                                                    {msgs === 0 && (
+                                                                        <span style={{ fontSize: "0.65rem", color: "#94a3b8" }}>Sin uso</span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
 
                                                     {/* Toggles por Programa */}

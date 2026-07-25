@@ -23,95 +23,287 @@ El portal administrativo se encuentra en la ruta `src/app/admin/AdminDashboard.t
 
 ### 2.1 Sección: Monitoreo
 Enfocada en la visualización de métricas y el cumplimiento de las escuelas.
-*   **Vista General (`VistaGeneral.tsx`)**: Un dashboard estadístico que cruza datos de escuelas con el total de entregas aprobadas, pendientes y rechazadas. Calcula el "semáforo" de cumplimiento de la zona escolar.
-*   **Avance de Entregas (`GestionPeriodos.tsx` / `ListadoProgramas.tsx`)**: Muestra matrices de doble entrada (Escuela vs Programa) para identificar rápidamente qué escuela ya subió el PMC, PAEC, etc., y el estado de revisión por parte del ATP.
-*   **Reportes al Nivel (`ReportesNivel.tsx`)**: Genera sábanas de excel (XLSX) y reportes automatizados (CEDAVIM, Día Naranja). Internamente llama a `/api/entregas/reportes` para consolidar toda la información de la zona.
+*   **Vista General (`VistaGeneral.tsx`)**: Dashboard estadístico que cruza datos de escuelas con el total de entregas aprobadas, pendientes y rechazadas. Calcula el "semáforo" de cumplimiento de la zona escolar.
+*   **Avance de Entregas (`GestionPeriodos.tsx` / `ListadoProgramas.tsx`)**: Matrices de doble entrada (Escuela vs Programa) para identificar qué escuela ya subió el PMC, PAEC, etc.
+*   **Reportes al Nivel (`ReportesNivel.tsx`)**: Genera sábanas Excel (XLSX) y reportes automatizados (CEDAVIM, Día Naranja). Llama a `/api/entregas/reportes`.
 
 ### 2.2 Sección: Configuración
 El núcleo de parametrización del sistema.
-*   **Escuelas (`GestionEscuelas.tsx` / `ListadoEscuelas.tsx`)**: CRUD de las escuelas (CCT, Nombre, Director). Incluye el reseteo de contraseñas de directores (NextAuth).
-*   **Programas y Módulos (`GestionProgramas.tsx`)**: Define los programas federales/estatales (ej. PEMC, PAEC). Aquí se asocian las **Plantillas de Evaluación** (Rúbricas en texto) que la IA leerá para pre-evaluar el documento.
-*   **Periodos y Tareas (`GestionPeriodos.tsx` / `GestionFechas.tsx`)**: Controla las fechas de apertura y cierre para las entregas de cada escuela.
-*   **Ciclos Escolares (`GestionCiclos.tsx`)**: Gestiona años lectivos (ej. "2025-2026") para separar la base de datos temporalmente.
-*   **Formatos y Plantillas**: Subida de machotes oficiales en formato DOCX y PDF que los directores pueden descargar.
-*   **Configuración CAPEMS (`GestionCapems.tsx`)**: Parametriza las fichas de Control de Actividades. Establece qué meses están activos y los requisitos de cada ficha.
-*   **Accesos y Seguridad (`GestionATPs.tsx`)**: Panel exclusivo del SUPER ADMIN para dar de alta a ATPs. Utiliza un objeto JSON de Permisos para habilitar/deshabilitar lectura o escritura en las pestañas de este mismo menú.
-*   **Herramientas de IA (`GestionLlavesIA.tsx` / `GestionPrompts.tsx`)**: Administración de llaves de API (Gemini/OpenRouter). Las llaves se marcan como premium o regulares, y el sistema rota entre ellas automáticamente si alguna excede la cuota.
+
+*   **Gestión de Escuelas (`GestionEscuelas.tsx`)**: CRUD de escuelas (CCT, Nombre, Director). Incluye:
+    - Reset de contraseñas de directores.
+    - **Pestaña "Programas y Módulos por Escuela"** (nueva): Tabla-matriz donde cada fila es una escuela y cada columna es un módulo del sistema (Horarios IA, PMC, PAEC-PEC, etc.). Permite activar o desactivar módulos de forma individual por escuela o masivamente para todas. Ver sección 5.1.
+
+*   **Programas y Módulos (`GestionProgramas.tsx`)**: Define los programas federales/estatales. Aquí se asocian las **Plantillas de Evaluación** (Rúbricas) que la IA leerá. Cuando se crea un programa nuevo, automáticamente aparece como columna nueva en la Matriz de Escuelas.
+
+*   **Fechas y Entregas de Programas** *(antes llamada "Periodos y Tareas")*: Controla las fechas de apertura y cierre de entregas.
+
+*   **Ciclos Escolares (`GestionCiclos.tsx`)**: Gestiona años lectivos (ej. "2025-2026").
+
+*   **Formatos y Plantillas**: Subida de machotes en DOCX/PDF descargables por los directores.
+
+*   **Configuración CAPEMS (`GestionCapems.tsx`)**: Parametriza las fichas de Control de Actividades. Establece qué meses están activos.
+
+*   **Accesos y Seguridad (`GestionATPs.tsx`)**: Panel exclusivo del SUPER ADMIN para dar de alta a ATPs con permisos granulares en JSON.
+
+*   **Herramientas de IA (`GestionLlavesIA.tsx` / `GestionPrompts.tsx`)**: Administración de llaves de API (Gemini/OpenRouter). Rotación automática entre llaves.
 
 ### 2.3 Sección: Módulos Activos
-*   **Expedientes de Personal (`GestionExpedientes.tsx`)**: Permite a la supervisión ver el listado completo de trabajadores de toda la zona. Filtra documentos faltantes o rechazados y visualiza los datos extraídos por el OCR (Clave Presupuestal, RFC, Grado).
-*   **Documentos Admin (`GestionCircular05.tsx` etc)**: Sub-panel para administrar documentos exclusivos de la supervisión.
+*   **Expedientes de Personal**: Listado completo de trabajadores de toda la zona con filtros por documento faltante/rechazado.
+*   **Documentos Admin**: Sub-panel para documentos exclusivos de la supervisión.
 
 ---
 
 ## 3. Portal del Director (Escuelas)
 
-Ubicado en `src/app/director/DirectorPortal.tsx`. La interfaz de cada escuela está simplificada y centrada en tareas ("To-Do"). Los componentes viven en `src/app/director/_componentes/`.
+Ubicado en `src/app/director/DirectorPortal.tsx`. Los componentes viven en `src/app/director/_componentes/`.
 
-*   **Avance de Entregas (`EntregasListado.tsx`)**: Lista de tareas (PMC, PAEC, etc). Al subir un archivo (`<input type="file">`), se dispara `/api/upload` y automáticamente se invoca la Pre-Revisión IA. Aquí vive el **Asistente de Correcciones**, una ventana de chat incrustada que habla con el LLM pasándole como contexto las observaciones de esa entrega.
-*   **Expedientes de Personal (`ExpedientesPanel.tsx`)**: CRUD local de los trabajadores de esa escuela. El director llena datos básicos (RFC, nombre) y sube 10 tipos de documentos (INE, Título, Comprobante de Pago). Al subir, se lanza una validación de OCR en segundo plano.
-*   **Fichas CAPEMS (`CapemsPanel.tsx`)**: Subida mensual de controles. La IA valida que la imagen corresponda a una ficha oficial y extrae observaciones si está borrosa.
-*   **Inscripción de Eventos (`InscripcionEventos.tsx` / `OlimpiadaMatematicas.tsx`)**: Módulos temporales para cargar alumnos a concursos zonales.
+*   **Avance de Entregas (`EntregasListado.tsx`)**: Lista de tareas (PMC, PAEC, etc). Al subir un archivo, se dispara `/api/upload` y se invoca la Pre-Revisión IA automáticamente. El **Asistente de Correcciones** es una ventana de chat embebida que habla con el LLM usando como contexto las observaciones de esa entrega.
+
+*   **Expedientes de Personal (`ExpedientesPanel.tsx`)**: CRUD de trabajadores de la escuela. El director llena datos básicos (RFC, nombre) y sube hasta 10 tipos de documentos. Al subir, se lanza validación OCR en segundo plano. **Regla de validación de Título según Cargo**:
+    - **Personal de Apoyo Administrativo**: acepta Certificado de Bachillerato como Título válido (marcado como correcto).
+    - **Docentes, Directores, Responsables de Plantel, ATPs, Supervisores**: requieren Título universitario completo.
+
+*   **Fichas CAPEMS (`CapemsPanel.tsx`)**: Subida mensual de controles. La IA valida que la imagen corresponda a una ficha oficial.
+
+*   **Generador de Horarios IA** (`src/app/director/_componentes/horarios/`): Ver sección 5.2.
+
+*   **Inscripción de Eventos (`InscripcionEventos.tsx` / `OlimpiadaMatematicas.tsx`)**: Módulos temporales para concursos zonales.
 
 ---
 
 ## 4. Manual Técnico de Sistemas Centrales (Subsistemas)
 
-Esta es la explicación profunda de cómo funcionan los motores invisibles de SISAT-ATP. Si necesitas modificarlos, busca en las rutas indicadas.
-
 ### 4.1 Sistema de Autenticación y Autorización (JWT / Middlewares)
 *   **Ubicación**: `src/lib/auth.ts`, `src/middleware.ts`, `src/lib/permissions.ts`.
-*   **Funcionamiento**: Utiliza NextAuth v5. Al hacer login (ruta `/api/auth/callback/credentials`), se verifica el password cifrado con `bcryptjs`. Si es correcto, NextAuth inyecta en el JSON Web Token (JWT) el `rol` (admin/director), `cct` (clave de escuela), y `permisos`.
-*   **Modificación**: Si agregas una nueva pestaña en el Admin, debes agregar la llave de permiso en `src/lib/permissions.ts` y actualizar la base de datos (`schema.prisma > Admin > permisos (JSON)`).
+*   **Funcionamiento**: NextAuth v5. Al hacer login (`/api/auth/callback/credentials`), se verifica el password con `bcryptjs`. Si es correcto, NextAuth inyecta en el JWT el `rol`, `cct` y `permisos`.
+*   **Modificación**: Si agregas una nueva pestaña en el Admin, añade la llave de permiso en `src/lib/permissions.ts` y actualiza la DB (`schema.prisma > Admin > permisos (JSON)`).
 
 ### 4.2 Sistema OCR y Extracción de Datos Multimodal (Gemini Vision)
-*   **Ubicación**: `src/lib/ocr-validator.ts` y la ruta `/api/expedientes/documentos/route.ts`.
-*   **Funcionamiento**: Cuando se sube un documento personal (ej. INE o Comprobante de Pago) o una ficha CAPEMS:
-    1. Se descarga temporalmente de Cloudinary al servidor local.
+*   **Ubicación**: `src/lib/ocr-validator.ts` y `/api/expedientes/documentos/route.ts`.
+*   **Funcionamiento**:
+    1. Se descarga temporalmente de Cloudinary al servidor.
     2. Se convierte a buffer y se detecta el MimeType.
-    3. Se arma un prompt de sistema rígido exigiendo respuesta en `JSON`.
-    4. Se le pide a Gemini Vision analizar el documento. Por ejemplo: *"Si el documento es un COMPROBANTE_PAGO, extrae TODAS las Claves Presupuestales y únelas con punto y coma"*.
-    5. El backend intercepta el JSON y actualiza automáticamente los registros en la base de datos (ej. parchea el campo `clavePresupuestal` del modelo `Personal`).
-*   **Actualización**: Para añadir nuevos documentos al OCR, simplemente edita la constante `systemInstruction` y expande el `responseSchema` en `src/lib/ocr-validator.ts`.
+    3. Se arma un prompt rígido exigiendo respuesta en JSON.
+    4. Gemini Vision analiza el documento (ej. extrae TODAS las Claves Presupuestales si es COMPROBANTE_PAGO).
+    5. El backend intercepta el JSON y actualiza la DB automáticamente.
+*   **Actualización**: Edita `systemInstruction` y expande `responseSchema` en `src/lib/ocr-validator.ts`.
 
 ### 4.3 Sistema de Pre-Revisión Textual, Evaluación Multiparte y Chat Contextual
-*   **Ubicación**: `src/lib/pre-revision.ts`, `src/lib/gemini.ts` y `/api/entregas/[id]/chat/route.ts`.
-*   **Funcionamiento (Pre-revisión en 3 Partes)**: Al subir un DOCX/PDF largo (PMC, PAEC-PEC, Informe Final, etc.), el backend extrae el texto puro usando `pdfjs-dist` o `jszip`. Para evitar recortes por límite de ventana de contexto o timeouts de Vercel, el documento se divide en 3 secciones temáticas (Parte 1: Diagnóstico y Contexto, Parte 2: Objetivos y Metas, Parte 3: Acciones y Seguimiento). Cada parte se procesa mediante una llamada independiente al motor `callGemini`.
-*   **Funcionamiento (Chat Asistente)**: Si el director abre el chat, la API recupera de Prisma el historial de mensajes (`ChatMensaje`) y el JSON de la Pre-revisión actual. Se concatena un System Prompt pasándole la rúbrica y observaciones. La respuesta se procesa con la llave activa del pool y se transmite en tiempo real hacia el frontend.
+*   **Ubicación**: `src/lib/pre-revision.ts`, `src/lib/gemini.ts`, `/api/entregas/[id]/chat/route.ts`.
+*   **Pre-revisión en 3 Partes**: Documentos largos (PMC, PAEC-PEC, etc.) se dividen en 3 secciones temáticas para evitar timeouts de Vercel y recortes por ventana de contexto.
+*   **Chat Asistente**: La API recupera el historial de mensajes (`ChatMensaje`) y el JSON de la Pre-revisión. Se concatena un System Prompt con la rúbrica y observaciones. Respuesta en tiempo real al frontend.
 
----
+### 4.4 Generador de Códigos CVD y Firmas SHA-256 (Trazabilidad)
+*   **Ubicación**: Lógica al aprobar documentos y en la visualización de formatos.
+*   **Funcionamiento**: Hash SHA-256 combinando ID de escuela, fecha y un salt secreto. Se genera una URL de validación pública con QR estampado en el PDF final.
+
+### 4.5 Generación de Documentos Oficiales en Masa (Docxtemplater)
+*   **Ubicación**: `src/app/api/expedientes/generar-oficios/`.
+*   **Funcionamiento**: `docxtemplater` + `pizzip`. Lee machotes `.docx` con tags tipo `{DIRECTOR_NOMBRE}`, `{ATP1_CLAVE}`, `{FECHA}`. El backend carga autoridades desde `AutoridadesConfig`, cruza con `Personal` e inyecta variables. Comprime todo en `.zip` descargable.
 
 ### 4.6 Arquitectura de Orquestación de IA, Pool Multiproveedor y Rotación Round-Robin
 *   **Ubicación**: `src/lib/gemini.ts`, `src/app/admin/_componentes/GestionLlavesIA.tsx`, `/api/admin/api-keys/probar/route.ts` y `schema.prisma` (`ApiKey`, `PreRevisionConfig`).
-*   **Gestión del Pool de Llaves**: Permite registrar múltiples llaves de API (Google Gemini, OpenAI, MorphLLM, etc.) marcadas como activas/inactivas y de uso general o exclusivo ATP (Premium).
-*   **Rotación Determinista Round-Robin (`globalKeyPointerIndex`)**:
-    Para evitar saturar una sola API Key o agotar su límite por minuto (RPM) o por día (RPD), `callGemini` implementa un puntero anular en memoria (`globalKeyPointerIndex`). En cada llamada a la IA (incluso entre las partes 1, 2 y 3 de un mismo pre-dictamen), el motor calcula:
-    $$\text{startIndex} = \text{globalKeyPointerIndex} \pmod{\text{keys.length}}$$
-    Esto reordena el anillo de llaves para iniciar en la siguiente llave de la lista de manera matemática y secuencial. Por ejemplo, en una evaluación de 3 partes:
-    - **Parte 1**: Consume la **Llave #1** y avanza el puntero global a 2.
-    - **Parte 2**: Consume la **Llave #2** y avanza el puntero global a 3.
-    - **Parte 3**: Consume la **Llave #3** y avanza el puntero global a 1.
-*   **Catálogo de Modelos de Alta Cuota (500 RPD)**:
-    El sistema prioriza y soporta modelos oficiales de alta cuota gratuita de Google AI Studio:
-    - **`Gemini 3.5 Flash Lite`** (`gemini-3.5-flash-lite`): 15 RPM | 250K TPM | **500 solicitudes/día (RPD)**.
-    - **`Gemini 3.1 Flash Lite`** (`gemini-3.1-flash-lite`): 15 RPM | 250K TPM | **500 solicitudes/día (RPD)**.
-    - **`Gemini 1.5 Flash`**: Modelo legacy con fallback automático a modelos Lite en caso de recibir respuesta HTTP 404 (modelo descontinuado/no encontrado).
-    - **`Gemini 2.5 Flash`**: 5 RPM | 20 RPD (usado para cuentas Pro / Pay-As-You-Go).
-*   **Sistema de Diagnóstico y Salud de Llaves (`/api/admin/api-keys/probar`)**:
-    Permite probar individualmente o en lote todas las llaves registradas. El probador ejecuta un barrido en orden por el catálogo de modelos oficiales (`2.5-flash` ➔ `3.5-flash-lite` ➔ `3.1-flash-lite` ➔ `2.5-flash-lite` ➔ `1.5-flash`). Si detecta respuesta `200 OK`, marca la llave como activa y reporta cuál modelo específico soporta esa cuenta, evitando falsos positivos de cuota agotada.
-*   **Failover y Reactivación Automática**:
-    Si una llave devuelve un error HTTP 429 transitorio (límite por minuto alcanzado), el sistema la salta en el bucle y prueba la siguiente llave rotada sin desactivarla en la base de datos. Si una llave sufre más de 5 errores graves consecutivos (ej. clave borrada o inválida), se desactiva temporalmente y se reactiva automáticamente tras 60 minutos.
+*   **Rotación Round-Robin**: Puntero anular `globalKeyPointerIndex` que rota entre llaves en cada llamada.
+*   **Catálogo de Modelos de Alta Cuota**: Prioriza `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-1.5-flash` con fallback automático.
+*   **Failover y Reactivación Automática**: Si una llave devuelve HTTP 429 transitorio, se salta y prueba la siguiente. Si una llave tiene 5+ errores graves, se desactiva y reactiva tras 60 minutos.
 
-### 4.4 Generador de Códigos CVD y Firmas SHA-256 (Trazabilidad)
-*   **Ubicación**: Lógica embebida al aprobar documentos y en la visualización de formatos.
-*   **Funcionamiento**: Para evitar falsificaciones de oficios (ej. Constancias de Participación). Cuando el ATP aprueba y genera una constancia oficial, el sistema crea un Hash SHA-256 combinando el ID de la escuela, la fecha, y un "salt" secreto.
-*   **Código QR**: Este hash genera una URL de validación pública (ej. `sisat-atp.com/verify?cvd=ABCD...`). El backend usa librerías de códigos QR para estampar este código en el PDF final. Cualquiera que escanee el QR verá un portal validando que el oficio fue emitido oficialmente por la zona escolar.
+---
 
-### 4.5 Generación de Documentos Oficiales en Masa (Docxtemplater)
-*   **Ubicación**: `src/app/api/expedientes/generar-oficios/` (y scripts de constancias).
-*   **Funcionamiento**: Utiliza la librería `docxtemplater` combinada con `pizzip`. El sistema lee de la base de datos un machote `.docx` que tiene tags tipo `{DIRECTOR_NOMBRE}`, `{ATP1_CLAVE}`, `{FECHA}`.
-*   **Inyección de Autoridades**: Existe un registro singleton en Prisma llamado `AutoridadesConfig`. Al generar un documento, el backend carga a las autoridades de la zona, a los docentes seleccionados de la tabla `Personal`, cruza la información, e inyecta las variables en el documento Word. Finalmente, comprime todo en un archivo `.zip` con todos los oficios de la escuela para que el director lo descargue en un solo clic.
+## 5. Módulos Nuevos (v3.0 - v3.1)
+
+### 5.1 Módulo: Generador de Horarios IA
+
+#### Rutas y Archivos
+| Archivo | Descripción |
+|---------|-------------|
+| `src/app/director/horarios/page.tsx` | Página principal del generador (Server Component) |
+| `src/app/director/horarios/HorariosClient.tsx` | Shell cliente que decide si mostrar el Wizard o el Editor |
+| `src/app/director/_componentes/horarios/WizardConfiguracion.tsx` | Wizard de 3 pasos para configurar el horario |
+| `src/app/director/_componentes/horarios/EditorHorarios.tsx` | Visor y editor del horario ya generado |
+| `src/app/api/horarios/configuracion/route.ts` | API para guardar/leer/borrar configuración de grupos y cargas |
+| `src/app/api/horarios/generar/route.ts` | API que invoca la IA para generar el horario sin empalmes |
+| `src/app/api/horarios/catalogos/route.ts` | API para gestionar catálogos (docentes manuales, etc.) |
+
+#### Flujo del Wizard (3 Pasos)
+
+**Paso 1 — Estructura & Currículo**
+- Selector de Modo:
+  - **Semiautomático (SEP Bachillerato General)**: Pre-carga el Mapa Curricular Oficial MCCEMS 2025-2026 (UACs universales, Capacitaciones Laborales, FFE Optativas). Cada grupo tiene un selector de Formación Laboral y opciones FFE independientes.
+  - **Manual Libre (Tecnológicos / CBTIS)**: El usuario escribe libremente los nombres de las asignaturas y sus horas semanales. **Clave técnica**: se usa `curriculoManualPorGrupo: Record<string, any[]>` con clave `"semestre_letra"` (ej. `"1_A"`, `"3_B"`). Si hay 2+ grupos, aparece una barra de **tabs** (Grupo A | Grupo B | Grupo C…) que permite configurar las asignaturas de cada grupo de forma completamente independiente.
+- Número de grupos por grado (1–20). Se autogenera la letra oficial (A, B, C…).
+- Jornada Escolar (5, 6, 7 u 8 horas diarias).
+
+**Paso 2 — Plantilla Docente**
+- Lista de docentes activos en la escuela.
+- Cada docente tiene un campo de **Horas Oficiales de Nombramiento** (cargado automáticamente desde `Personal.horasOficiales` en la DB).
+- Permite agregar docentes directamente desde los expedientes de la plataforma (botón "Usar Expedientes") o crear docentes manuales.
+- El sistema deshabilita la asignación de materias a docentes que ya superaron sus horas contratadas.
+
+**Paso 3 — Matriz de Asignación Docente por Semestre**
+- Muestra todos los grupos y sus UACs/asignaturas.
+- Para cada celda (UAC × Grupo), el director selecciona el docente responsable de un `<select>`.
+- Las opciones con exceso de horas se deshabilitan automáticamente.
+- Contador en tiempo real: Horas Asignadas vs Horas Totales Requeridas del plantel.
+- Botón **"Generar Horarios con IA"**: envía la configuración completa a la API que construye el horario sin empalmes usando lógica de restricciones.
+- Botón **"Limpiar Datos"**: borra todas las cargas docentes y horarios generados de la DB (para empezar de cero).
+
+#### Descarga de Horarios
+- **Por Grupo (PDF)**: incluye nombre completo de asignaturas, horario de lunes a viernes.
+- **Por Docente (PDF)**: horario personal de un único docente con todas sus horas.
+- **Todos los Docentes (lote)**: descarga masiva en un solo clic.
+- **Excel**: exportación de la matriz completa.
+
+#### Campo `horasOficiales` en Modelo `Personal` (Prisma)
+```prisma
+model Personal {
+  ...
+  fechaIngreso      DateTime?
+  clavePresupuestal String?
+  horasOficiales    Int       @default(20)   // ← NUEVO en v3.0
+  orden             Int       @default(0)
+  ...
+}
+```
+Este campo se carga automáticamente en el Paso 2 del Wizard para evitar inconsistencias entre lo que el director escribe manualmente y el nombramiento oficial del docente.
+
+#### Variables de LocalStorage (v4)
+El Wizard persiste su estado en `localStorage` con clave `horarios_wizard_v4_${escuelaId}`. Guarda: `paso`, `numGruposPorGrado`, `numPeriodos`, `grupos`, `horasDocentes`, `curriculoManualPorGrupo`, `grupoActivoManual`. Las **cargas (asignaciones docente-materia)** se excluyen del localStorage para evitar datos fantasma entre sesiones.
+
+> ⚠️ **Nota de versión**: Si se cambia la estructura de datos del Wizard, hay que incrementar el sufijo de versión (`v4` → `v5`, etc.) para forzar la limpieza del caché viejo en los navegadores de los usuarios.
+
+---
+
+### 5.2 Módulo: Matriz de Control de Programas y Módulos por Escuela
+
+#### Ubicación
+`src/app/admin/_componentes/GestionEscuelas.tsx` — pestaña **"Programas y Módulos por Escuela"**
+
+#### Descripción
+Tabla-matriz donde:
+- Cada **fila** representa una escuela de la zona.
+- Cada **columna** representa un módulo del sistema (Horarios IA, PMC, PAEC-PEC, y cualquier programa nuevo).
+
+#### Comportamiento de los Toggles
+- **Toggle individual por escuela**: Activa/desactiva un módulo para una sola escuela. Optimistic UI update (cambia el color inmediatamente, luego hace el POST al API `/api/escuelas/${escuelaId}`).
+- **Botón maestro por columna** (en el encabezado): Activa/desactiva un módulo para TODAS las escuelas en un solo clic. Usa el endpoint `/api/admin/escuelas/masivo-permisos`. **Importante**: después de la respuesta exitosa se actualiza el estado local directamente (`setEscuelas`) en lugar de llamar a `router.refresh()` (que no resetea `useState` en Client Components).
+
+#### Endpoint Masivo
+`POST /api/admin/escuelas/masivo-permisos`
+
+Cuerpo de solicitud:
+```json
+{
+  "tipo": "HORARIOS_IA" | "PROGRAMA",
+  "accion": "ACTIVAR_TODOS" | "DESACTIVAR_TODOS",
+  "programaNombre": "string (solo si tipo=PROGRAMA)"
+}
+```
+
+#### Persistencia de Permisos en la DB
+Los permisos se almacenan como JSON en el campo `permisos` de `Escuela`:
+```json
+{
+  "horariosDesactivado": false,
+  "programasInactivos": ["PMC", "PAEC-PEC"]
+}
+```
+
+#### Propagación Automática de Nuevos Programas
+Cuando el administrador crea un nuevo programa en "Programas y Módulos", automáticamente aparece como una nueva columna en la tabla de escuelas. No se requiere intervención manual.
+
+#### Visibilidad del módulo Horarios IA en el Portal del Director
+Si `horariosDesactivado === true` para la escuela del director (o el módulo está desactivado globalmente), el botón/sección de "Generador de Horarios" desaparece completamente del portal del director.
+
+---
+
+## 6. Historial de Bugs Corregidos (relevantes para futuros desarrollos)
+
+### Bug: Toggle individual de Horarios IA (lógica invertida)
+**Archivo**: `GestionEscuelas.tsx` — función `handleToggleHorariosEscuela`
+
+**Causa**: El onClick pasaba `!horariosActivo` cuando debería pasar `horariosActivo`.
+```tsx
+// ❌ Incorrecto (bug)
+onClick={() => handleToggleHorariosEscuela(esc.id, !horariosActivo)}
+
+// ✅ Correcto
+onClick={() => handleToggleHorariosEscuela(esc.id, horariosActivo)}
+```
+La función recibe `desactivado: boolean`. Si la escuela está activa (`horariosActivo = true`), hay que desactivarla (`desactivado = true`). Con `!horariosActivo` siempre se pasaba el valor incorrecto y el botón no cambiaba nada.
+
+### Bug: Botones masivos no actualizaban la UI
+**Archivo**: `GestionEscuelas.tsx` — función `handleAccionMasivaPermisos`
+
+**Causa**: Después de un POST exitoso se llamaba `router.refresh()`. En Next.js App Router, `router.refresh()` re-renderiza Server Components pero **no resetea el `useState` de Client Components** que ya tienen datos cargados. El estado de la tabla permanecía igual aunque la DB sí se actualizaba.
+
+**Solución**: Reemplazar `router.refresh()` por una actualización directa del estado local:
+```tsx
+// ❌ Incorrecto
+if (data.success) { toast.success(...); router.refresh(); }
+
+// ✅ Correcto
+if (data.success) {
+  toast.success(...);
+  if (tipo === "HORARIOS_IA") {
+    setEscuelas(prev => prev.map(e => ({ ...e, permisos: { ...e.permisos, horariosDesactivado } })));
+  }
+}
+```
+
+### Bug: Unique Constraint en `/api/horarios/configuracion`
+**Error**: `PrismaClientKnownRequestError: Unique constraint failed on the fields: (escuelaId, nombre)`
+
+**Causa**: Se intentaba hacer `upsert` de `HorarioGrupo` con una combinación de `escuelaId + nombre` que ya existía pero con un `id` diferente.
+
+**Solución**: Usar `deleteMany` + `createMany` en lugar de `upsert` para grupos, garantizando idempotencia completa.
+
+### Arquitectura: Modo Manual con currículo compartido (bug de diseño)
+**Problema original**: El modo manual usaba 3 arrays compartidos (`materiasManualesSem1/3/5`) para TODOS los grupos. Con 2+ grupos, todos veían las mismas materias.
+
+**Solución**: Cambio de estructura de datos a `curriculoManualPorGrupo: Record<string, any[]>` con clave `"semestre_letra"`. Así el Grupo A puede tener "Módulo de Mecatrónica" en 3er semestre mientras el Grupo B tiene "Módulo de Electrónica".
+
+---
+
+## 7. Modelos de Prisma Relevantes (actualizados)
+
+```prisma
+model Personal {
+  id                String    @id @default(cuid())
+  escuelaId         String
+  nombre            String
+  apellidoPaterno   String
+  apellidoMaterno   String?
+  cargo             String    // DOCENTE, DIRECTOR, ATP, APOYO_ADMINISTRATIVO, etc.
+  rfcSinHomoclave   String?
+  sexo              String    @default("MASCULINO")
+  fechaIngreso      DateTime?
+  clavePresupuestal String?
+  horasOficiales    Int       @default(20)   // ← v3.0: horas de nombramiento oficial
+  orden             Int       @default(0)
+  escuela           Escuela   @relation(...)
+  documentos        Documento[]
+}
+
+model Escuela {
+  id           String   @id @default(cuid())
+  cct          String   @unique
+  nombre       String
+  permisos     Json     @default("{}")  // horariosDesactivado, programasInactivos
+  // ... otros campos
+}
+
+model HorarioGrupo {
+  id        String  @id @default(cuid())
+  escuelaId String
+  nombre    String  // "1° A", "3° B", etc.
+  // Unique constraint: @@unique([escuelaId, nombre])
+  escuela   Escuela @relation(...)
+}
+```
 
 ---
 
 *Este manual debe ser consultado y actualizado cada vez que se realicen modificaciones a la arquitectura profunda o se añadan nuevos modelos Prisma.*
+
+*Última actualización: Julio 2025 — v3.1*
