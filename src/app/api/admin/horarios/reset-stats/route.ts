@@ -7,7 +7,8 @@ import { auth } from "@/lib/auth";
 export async function PATCH(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    const userRole = (session?.user as any)?.role;
+    if (!session?.user || userRole !== "admin") {
       return NextResponse.json({ error: "Solo el administrador puede reiniciar los contadores" }, { status: 403 });
     }
 
@@ -48,7 +49,8 @@ export async function PATCH(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    const userRole = (session?.user as any)?.role;
+    if (!session?.user || userRole !== "admin") {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
