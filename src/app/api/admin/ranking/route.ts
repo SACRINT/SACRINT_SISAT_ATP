@@ -45,6 +45,16 @@ export async function GET() {
             const totalRequeridas = entregasRequeridas.length;
             const entregadas = entregasRequeridas.filter((e: any) => ["APROBADO", "ENTREGADO_FISICO", "EN_REVISION", "REQUIERE_CORRECCION"].includes(e.estado));
             const aprobadas = entregasRequeridas.filter((e: any) => ["APROBADO", "ENTREGADO_FISICO"].includes(e.estado));
+
+            // TIPO A: entregó pero el director no atendió las correcciones señaladas por el ATP
+            const docsConCorreccionesPendientes = entregasRequeridas.filter((e: any) =>
+                e.estado === "REQUIERE_CORRECCION"
+            ).length;
+
+            // TIPO B: nunca entregó nada — incumplimiento total (más grave que TIPO A)
+            const docsNoEntregados = entregasRequeridas.filter((e: any) =>
+                ["PENDIENTE", "NO_ENTREGADO", "NO_APROBADO"].includes(e.estado)
+            ).length;
             
             // Check if all were on time (fechaSubida <= fechaLimite)
             const todasAprobadasYATiempo = entregasRequeridas.length > 0 && entregasRequeridas.every((e: any) => {
@@ -80,18 +90,33 @@ export async function GET() {
                 entregadas: entregadas.length,
                 cumplimiento,
                 entregadasPorcentaje,
-                medalla
+                medalla,
+                // Campos adicionales para distinguir la naturaleza del incumplimiento
+                docsConCorreccionesPendientes, // TIPO A: entregó pero no corrigió
+                docsNoEntregados               // TIPO B: nunca entregó (más grave)
             };
         });
 
         ranking.sort((a, b) => {
+            // 1. Por medalla: ORO > PLATA > BRONCE > NINGUNA
             if (a.medalla !== b.medalla) {
-                const map: Record<string, number> = { "ORO": 3, "PLATA": 2, "BRONCE": 1, "NINGUNA": 0 };
+                const map: Record<string, number> = { "ORO": 4, "PLATA": 3, "BRONCE": 2, "NINGUNA": 1 };
                 return map[b.medalla] - map[a.medalla];
             }
+            // 2. Por cumplimiento descendente
             if (b.cumplimiento !== a.cumplimiento) {
                 return b.cumplimiento - a.cumplimiento;
             }
+            // 3. Mismo cumplimiento: TIPO B (nunca entregó) es más grave → posición más baja en ranking
+            //    Menos docsNoEntregados = mejor posición
+            if (a.docsNoEntregados !== b.docsNoEntregados) {
+                return a.docsNoEntregados - b.docsNoEntregados;
+            }
+            // 4. Mismo tipo B: menos correcciones pendientes (TIPO A) = mejor posición
+            if (a.docsConCorreccionesPendientes !== b.docsConCorreccionesPendientes) {
+                return a.docsConCorreccionesPendientes - b.docsConCorreccionesPendientes;
+            }
+            // 5. Alfabético
             return a.nombre.localeCompare(b.nombre);
         });
 
