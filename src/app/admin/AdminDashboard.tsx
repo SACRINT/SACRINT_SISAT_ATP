@@ -65,6 +65,7 @@ import GestionPrompts from "./_componentes/GestionPrompts";
 import GestionLlavesIA from "./_componentes/GestionLlavesIA";
 import ReportesNivel from "./_componentes/ReportesNivel";
 import RankingEscuelas from "./_componentes/RankingEscuelas";
+import PlaneacionesAdminPanel from "./_componentes/PlaneacionesAdminPanel";
 
 // Componentes exclusivos para Supervisor
 import EntregasListado from "../director/_componentes/EntregasListado";
@@ -119,7 +120,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
+    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -148,6 +149,7 @@ export default function AdminDashboard({
             case "capems": return "capems";
             case "expedientes": return "expedientes";
             case "documentos": return "documentos";
+            case "planeaciones-ia": return "planeaciones";
             case "gestion-atps": return "seguridad";
             case "mis-entregas": return "supervision_entregas";
             case "ajustes-api": return "supervision_api";
@@ -643,10 +645,11 @@ export default function AdminDashboard({
         sidebarConfig.showOlimpiada && hasAccess("olimpiada", "read"),
         sidebarConfig.showPAEC && hasAccess("paec", "read"),
         sidebarConfig.showExpedientes && hasAccess("expedientes", "read"),
-        hasAccess("documentos", "read")
+        hasAccess("documentos", "read"),
+        true, // Planeaciones IA siempre visible para el admin
     ].filter(Boolean).length;
 
-    const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "expedientes", "documentos"].includes(vista);
+    const modulosVistaActiva = ["eventos", "circular05", "olimpiada", "paec", "expedientes", "documentos", "planeaciones-ia"].includes(vista);
     const configVistaActiva = ["gestion-escuelas", "gestion-programas", "gestion-periodos", "gestion-fechas", "recursos", "gestion-atps", "modulos-control", "gestion-ciclos", "gestion-prompts", "orquestador-ia", "capems"].includes(vista);
 
     const hasMonitoreoGroupAccess = [
@@ -981,6 +984,14 @@ export default function AdminDashboard({
                                             <span>Documentos Admin</span>
                                         </button>
                                     )}
+                                    {/* Planeaciones Didácticas IA — siempre visible para el admin */}
+                                    <button className={`sidebar-link ${vista === "planeaciones-ia" ? "active" : ""}`} onClick={() => navigate("planeaciones-ia")}>
+                                        <GraduationCap size={17} />
+                                        <span>Planeaciones Didácticas</span>
+                                        <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #7c3aed, #2563eb)", color: "white", fontSize: "0.6rem" }}>
+                                            IA
+                                        </span>
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -1403,6 +1414,11 @@ export default function AdminDashboard({
                             />
                         )}
                     </div>
+                )}
+
+                {/* ========= VISTA: PLANEACIONES DIDÁCTICAS IA ========= */}
+                {vista === "planeaciones-ia" && (
+                    <PlaneacionesAdminPanel />
                 )}
             </main >
 
