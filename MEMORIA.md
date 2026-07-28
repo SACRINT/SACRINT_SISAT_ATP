@@ -105,7 +105,10 @@ Ubicado en `src/app/director/DirectorPortal.tsx`. Los componentes viven en `src/
 ### 4.6 Arquitectura de Orquestación de IA, Pool Multiproveedor y Rotación Round-Robin
 *   **Ubicación**: `src/lib/gemini.ts`, `src/app/admin/_componentes/GestionLlavesIA.tsx`, `/api/admin/api-keys/probar/route.ts` y `schema.prisma` (`ApiKey`, `PreRevisionConfig`).
 *   **Rotación Round-Robin**: Puntero anular `globalKeyPointerIndex` que rota entre llaves en cada llamada.
-*   **Catálogo de Modelos de Alta Cuota**: Prioriza `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-1.5-flash` con fallback automático.
+*   **Modelos Autorizados Exclusivos**:
+    - **Predeterminado (Principal)**: `gemini-3.5-flash-lite`
+    - **Reserva (Fallback)**: `gemini-3.1-flash-lite`
+    - ⛔ **REGLA ESTRICTA**: Queda prohibido usar o solicitar modelos obsoletos o de alto costo como `gemini-1.5-flash`, `gemini-2.0-flash`, `gemini-pro` o similares. Toda la plataforma (Pre-revisión, OCR, Horarios, Reportes y Planeaciones) debe operar exclusivamente con `gemini-3.5-flash-lite` (o `gemini-3.1-flash-lite`).
 *   **Failover y Reactivación Automática**: Si una llave devuelve HTTP 429 transitorio, se salta y prueba la siguiente. Si una llave tiene 5+ errores graves, se desactiva y reactiva tras 60 minutos.
 
 ---
@@ -194,7 +197,7 @@ Tabla-matriz donde:
 Cuerpo de solicitud:
 ```json
 {
-  "tipo": "HORARIOS_IA" | "PROGRAMA",
+  "tipo": "HORARIOS_IA" | "PLANEACIONES_IA" | "PROGRAMA",
   "accion": "ACTIVAR_TODOS" | "DESACTIVAR_TODOS",
   "programaNombre": "string (solo si tipo=PROGRAMA)"
 }
@@ -205,6 +208,7 @@ Los permisos se almacenan como JSON en el campo `permisos` de `Escuela`:
 ```json
 {
   "horariosDesactivado": false,
+  "planeacionesDesactivado": false,
   "programasInactivos": ["PMC", "PAEC-PEC"]
 }
 ```
@@ -212,8 +216,242 @@ Los permisos se almacenan como JSON en el campo `permisos` de `Escuela`:
 #### Propagación Automática de Nuevos Programas
 Cuando el administrador crea un nuevo programa en "Programas y Módulos", automáticamente aparece como una nueva columna en la tabla de escuelas. No se requiere intervención manual.
 
-#### Visibilidad del módulo Horarios IA en el Portal del Director
-Si `horariosDesactivado === true` para la escuela del director (o el módulo está desactivado globalmente), el botón/sección de "Generador de Horarios" desaparece completamente del portal del director.
+#### Visibilidad de módulos en el Portal del Director
+- Si `horariosDesactivado === true`, el Generador de Horarios desaparece del portal.
+- Si `planeacionesDesactivado === true`, la Revisión de Planeaciones desaparece del portal.
+- Ambas condiciones se consultan en `src/app/director/page.tsx` junto con la configuración global del módulo (`HorariosConfig`, `PlaneacionesConfig`).
+
+---
+
+### 5.4 Módulo: Revisión de Planeaciones Didácticas con IA (v3.3)
+
+Implementado en julio 2026. Permite a los directores subir planeaciones didácticas de sus docentes y recibir retroalimentación automática generada por IA con base en el Anexo 12 USICAMM.
+
+#### Rutas y Archivos
+| Archivo | Descripción |
+|---------|-------------|
+| `src/lib/planeaciones-evaluator.ts` | Motor de IA: prompt engineering, criterios Anexo 12, llamada a `callGemini()` |
+| `src/app/api/director/planeaciones/route.ts` | GET (lista + requisitos) / POST (sube y lanza revisión IA asíncrona) |
+| `src/app/api/director/planeaciones/[id]/route.ts` | GET (detalle) / DELETE (eliminar) |
+| `src/app/api/admin/planeaciones-config/route.ts` | GET/POST para que el admin active/desactive globalmente |
+| `src/app/director/_componentes/planeaciones/GestionPlaneaciones.tsx` | UI del director: subida, listado, dictámenes, descarga Word |
+| `src/app/admin/_componentes/GestionEscuelas.tsx` | Columna "📋 Planeaciones IA" en la Matriz de Módulos |
+
+#### Modelos Prisma Nuevos
+```prisma
+model PlaneacionesConfig {
+  id              String   @id @default("singleton")
+  activoGlobal    Boolean  @default(false)   // El admin activa/desactiva el módulo para todos
+  requierePaecPec Boolean  @default(true)    // ← CANDADO: Sin PAEC-PEC no se puede usar
+  requiereApiKey  Boolean  @default(true)
+}
+
+model PlaneacionDidactica {
+  id                      String   @id @default(cuid())
+  escuelaId               String
+  cct                     String
+  docenteNombre           String
+  asignatura              String
+  semestre                Int
+  estado                  String   // PENDIENTE | EN_REVISION | REVISADO | ERROR
+  archivoUrl              String
+  puntajeObtenido         Int?
+  puntajeMaximo           Int?
+  nivelCumplimiento       String?  // COMPLETO | PARCIAL | REQUIERE_CORRECCION
+  retroalimentacionDocente String?
+  resultadoJson           Json?
+  observacionesJson       Json?
+  revisadoPor             String?
+  fechaRevision           DateTime?
+  fechaSubida             DateTime @default(now())
+  escuela                 Escuela  @relation(fields: [escuelaId], references: [id])
+}
+```
+
+#### Flujo de Revisión IA
+1. Director sube PDF/DOCX de planeación en `GestionPlaneaciones.tsx`.
+2. El POST sube el archivo a Cloudinary, crea el registro con `estado: EN_REVISION`.
+3. Se lanza `revisarPlaneacionEnBackground()` (sin `await`) → respuesta rápida al frontend.
+4. El background: descarga el PDF con `fetch()`, determina el tipo de evaluación (sem 1-4 / 5-6 / Laboral), llama a `evaluarPlaneacion()` → `callGemini()` con el buffer del PDF + prompt del Anexo 12.
+5. Al terminar, actualiza el registro con el JSON de resultados y `estado: REVISADO`.
+6. El director puede descargar la retroalimentación como `.docx` formal.
+
+#### Tipos de Evaluación (según semestre)
+| Tipo | Semestres | Rúbrica | Términos |
+|------|-----------|---------|----------|
+| `FUNDAMENTAL_1_4` | 1° – 4° | Anexo 12 CC 1-4 | Propósitos Formativos, Contenidos |
+| `FUNDAMENTAL_5_6` | 5° – 6° | Anexo 12 CC 5-6 | Progresiones, Categorías, Metas |
+| `LABORAL` | Cualquiera | Guía Retroalimentación Laboral | Competencias Laborales |
+
+#### Candado de PAEC-PEC (REGLA CRÍTICA)
+> ⚠️ Si la escuela **no ha subido su PAEC-PEC** (en cualquier estado distinto a `PENDIENTE`/`NO_ENTREGADO`), el módulo queda **completamente bloqueado** para esa escuela. La UI muestra un banner con el mensaje: *"Para usar la Revisión de Planeaciones Didácticas es obligatorio haber subido el PAEC-PEC de tu escuela."*
+
+#### Control de Acceso por Nivel
+| Nivel | Control |
+|-------|---------|
+| **Global** | `PlaneacionesConfig.activoGlobal` (el admin activa/desactiva para todos) |
+| **Por escuela** | `Escuela.permisos.planeacionesDesactivado` (toggle en Matriz de Módulos) |
+| **Por requisito** | `PlaneacionesConfig.requierePaecPec` + existencia de entrega PAEC-PEC |
+
+#### Modelos Autorizados para Evaluación
+- **Principal**: `gemini-3.5-flash-lite` (configurado en `PreRevisionConfig.modelDefault`)
+- **Reserva**: `gemini-3.1-flash-lite`
+- ⛔ NO usar `gemini-1.5-flash`, `gemini-2.0-flash` ni ningún modelo de costo elevado.
+
+
+### 5.3 Módulo: Reporte de Cumplimiento con IA (v3.2)
+
+Implementado en julio 2026. Reemplaza el antiguo reporte estático del botón "Descargar Reporte Final (Word)" con un sistema completo de análisis narrativo generado por IA.
+
+#### Rutas y Archivos
+| Archivo | Descripción |
+|---------|-------------|
+| `src/app/api/admin/reporte-cumplimiento/route.ts` | **[NUEVO]** API que consulta la BD, clasifica documentos y llama a la IA |
+| `src/app/api/admin/ranking/route.ts` | **[MODIFICADO]** Agrega campos de breakdown y corrige el orden del ranking |
+| `src/app/admin/_componentes/RankingEscuelas.tsx` | **[MODIFICADO]** Indicadores visuales + botón con IA + Word generado en cliente |
+
+#### Distinción Crítica de Tipos de Incumplimiento
+
+El sistema diferencia explícitamente dos situaciones con distinta severidad:
+
+| Tipo | Estado en BD | Significado | Severidad | Lenguaje en el reporte |
+|------|-------------|-------------|-----------|----------------------|
+| **TIPO A** | `REQUIERE_CORRECCION` | La escuela SÍ entregó el documento, el ATP señaló correcciones que el director NO ha atendido | Moderada | "entregó el documento, sin embargo las correcciones no han sido atendidas" |
+| **TIPO B** | `PENDIENTE`, `NO_ENTREGADO`, `NO_APROBADO` | La escuela NUNCA presentó el documento | **Grave** — penalización | "no fue presentado en ningún momento", "incumplimiento total", "el plantel adeuda completamente" |
+
+> ⚠️ **Regla de negocio**: TIPO A y TIPO B **no son equivalentes**. Una escuela que entregó pero no corrigió es MENOS grave que una que nunca entregó. Esta distinción se refleja tanto en el ranking (posición) como en el Word (narrativa y color de tabla).
+
+#### API: `GET /api/admin/reporte-cumplimiento`
+
+**Proceso interno:**
+1. Consulta todas las escuelas con entregas del ciclo activo (incluyendo `programa.nombre` y `correcciones` vía Prisma includes).
+2. Clasifica cada documento:
+   - `APROBADO` / `ENTREGADO_FISICO` → aprobados
+   - `EN_REVISION` → en revisión (pendiente de dictamen ATP)
+   - `REQUIERE_CORRECCION` → **TIPO A** (`docsConCorreccionesPendientes`)
+   - `PENDIENTE` / `NO_ENTREGADO` / `NO_APROBADO` → **TIPO B** (`docsNoEntregados`)
+   - `EXENTO` → excluido del cálculo
+3. Calcula cumplimiento, medalla y ordenamiento.
+4. Construye un prompt textual con datos de cada escuela, indicando explícitamente el tipo de incumplimiento y su gravedad.
+5. Llama a `callGemini()` con el pool de llaves configurado en la plataforma.
+6. Si la IA falla, genera narrativas de respaldo con `generarNarrativaFallback()`.
+7. Retorna JSON con: `escuelas`, `narrativaPorEscuela`, `observacionesGenerales`, `conclusion`, `resumen`.
+
+**Respuesta JSON (esquema):**
+```typescript
+{
+  cicloNombre: string,
+  fechaGeneracion: string,        // ISO
+  supervisor: string,
+  atpNombre: string,
+  escuelas: EscuelaData[],
+  narrativaPorEscuela: { cct: string; narrativa: string }[],
+  observacionesGenerales: string,
+  conclusion: string,
+  resumen: {
+    total: number,
+    conOro: number, conPlata: number, conBronce: number, sinMedalla: number,
+    conCorreccionesPendientes: number,  // escuelas con TIPO A
+    conDocsNoEntregados: number,        // escuelas con TIPO B
+    ningunoATiempo: boolean,
+    promedioZona: number
+  }
+}
+```
+
+**Configuración de timeout:** `export const maxDuration = 60;` para permitir hasta 60 segundos en Vercel (necesario para la llamada IA con 17+ escuelas).
+
+#### Prompt Engineering (Sistema de IA)
+
+El `SYSTEM_INSTRUCTION` distingue explícitamente los dos tipos:
+
+```
+TIPO A — ENTREGÓ PERO NO ATENDIÓ CORRECCIONES:
+  Severidad: MODERADA — entregó, pero el expediente quedó con observaciones.
+  Redacción: "presentó el documento, sin embargo las correcciones no han sido atendidas"
+
+TIPO B — NUNCA ENTREGÓ:
+  Severidad: GRAVE — incumplimiento total.
+  Redacción: "no fue presentado en ningún momento", "adeuda completamente"
+```
+
+El prompt de usuario envía los datos estructurados de cada escuela con marcadores explícitos:
+```
+--- TIPO A: ENTREGÓ PERO NO ATENDIÓ CORRECCIONES (1 documento) ---
+   * Informe de Diagnóstico | Observación ATP: "Faltan gráficas de la sección 3"
+
+--- TIPO B: NUNCA ENTREGÓ — INCUMPLIMIENTO TOTAL (2 documentos) ---
+   * PAEC-PEC [NO_ENTREGADO] ← NO presentado en ningún momento
+   * Plan de Mejora Continua [PENDIENTE] ← NO presentado en ningún momento
+```
+
+#### Corrección del Ranking (`ranking/route.ts`)
+
+Se agregaron dos campos nuevos a cada elemento del ranking:
+```typescript
+docsConCorreccionesPendientes: number  // TIPO A: entregó pero no corrigió
+docsNoEntregados: number               // TIPO B: nunca entregó (más grave)
+```
+
+**Nuevo orden de clasificación** (cuando el % de cumplimiento es igual):
+1. Por medalla (ORO > PLATA > BRONCE > NINGUNA)
+2. Por `cumplimiento` descendente
+3. **Menos `docsNoEntregados` = mejor posición** (TIPO B penaliza el ranking)
+4. Menos `docsConCorreccionesPendientes` (TIPO A penaliza menos)
+5. Alfabético por nombre
+
+**Ejemplo:** Dos escuelas con 87.5% de cumplimiento:
+- Escuela A: 2 docs `REQUIERE_CORRECCION` → posición más alta
+- Escuela B: 1 `REQUIERE_CORRECCION` + 1 `NO_ENTREGADO` → posición media
+- Escuela C: 2 docs `NO_ENTREGADO` → posición más baja (Luis Donaldo Colosio)
+
+#### Componente `RankingEscuelas.tsx`
+
+**Cambios en la interfaz:**
+```typescript
+interface RankingItem {
+  // ... campos existentes ...
+  docsConCorreccionesPendientes: number;  // nuevo — TIPO A
+  docsNoEntregados: number;               // nuevo — TIPO B
+}
+```
+
+**Nueva columna "Estado de Entrega"** con etiquetas coloreadas:
+- 🔴 Rojo `#fdecea` → nunca entregó (`docsNoEntregados > 0`)
+- 🟠 Ámbar `#fffbeb` → sin corregir (`docsConCorreccionesPendientes > 0`)
+- ✅ Verde → completo (ambos en 0)
+
+**Botón "Descargar Reporte Final (Word)":**
+- Muestra spinner con texto "Generando con IA..." mientras llama a `/api/admin/reporte-cumplimiento`
+- Al recibir respuesta, llama a `buildWordReport(data)` en el cliente
+- Descarga automáticamente el DOCX generado
+
+#### Generador del Word (`buildWordReport`)
+
+Función cliente que usa la librería `docx` para construir un documento con **8 secciones**:
+
+| Sección | Contenido |
+|---------|-----------|
+| I | Datos de identificación (tabla) |
+| II | Antecedentes y contexto (párrafos) |
+| III | Resumen ejecutivo (tabla con estadísticas) |
+| IV.1 | Tabla de escuelas con Medalla ORO (fondo dorado) |
+| IV.2 | Tabla de escuelas con Medalla PLATA (fondo azul) |
+| IV.3 | **TIPO A** — Entregaron sin corregir (fondo ámbar) |
+| IV.4 | **TIPO B** — Nunca entregaron (fondo rojo) |
+| V.A | Narrativas IA de planteles con cumplimiento completo |
+| V.B | Narrativas IA de planteles con incumplimiento (con etiquetas de color) |
+| VI | Observaciones y recomendaciones (párrafo IA) |
+| VII | Conclusión (párrafo IA) |
+| VIII | Firmas (tabla sin bordes, dos columnas: ATP y Supervisor) |
+
+**Colores de tablas:**
+```
+ORO:    encabezado #B7860D / filas #FEF9C3, #FFFFF0
+PLATA:  encabezado #2E5F9A / filas #D6E4F0, #EFF5FB
+TIPO A: encabezado #C57B21 / filas #FEF3E2, #FFFBF5
+TIPO B: encabezado #8B1A1A / filas #FDECEA, #FFF5F5
+```
 
 ---
 
@@ -289,7 +527,7 @@ model Escuela {
   id           String   @id @default(cuid())
   cct          String   @unique
   nombre       String
-  permisos     Json     @default("{}")  // horariosDesactivado, programasInactivos
+  permisos     Json     @default("{}")  // horariosDesactivado, planeacionesDesactivado, programasInactivos
   // ... otros campos
 }
 
@@ -306,4 +544,4 @@ model HorarioGrupo {
 
 *Este manual debe ser consultado y actualizado cada vez que se realicen modificaciones a la arquitectura profunda o se añadan nuevos modelos Prisma.*
 
-*Última actualización: Julio 2025 — v3.1*
+*Última actualización: Julio 2026 — v3.3 — Módulo Revisión de Planeaciones con IA integrado*

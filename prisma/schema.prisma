@@ -79,6 +79,9 @@ model Escuela {
   horarioAsignaturasHorario HorarioAsignaturaCatalogo[]
   horarioCargas HorarioCargaDocente[]
   horarioStats  HorarioStats?
+
+  // ─── Revisión de Planeaciones con IA ───
+  planeaciones PlaneacionDidactica[]
 }
 
 model CicloEscolar {
@@ -499,9 +502,9 @@ model PreRevisionConfig {
   mantenimiento   Boolean @default(false)
   limiteIntentos  Int     @default(3)
   providerDefault String  @default("gemini")
-  modelDefault    String  @default("gemini-2.5-flash")
+  modelDefault    String  @default("gemini-3.5-flash-lite")  // Modelo autorizado principal
   providerPremium String  @default("gemini")
-  modelPremium    String  @default("gemini-2.5-pro")
+  modelPremium    String  @default("gemini-3.1-flash-lite")  // Fallback autorizado
 }
 
 model PlantillaEvaluacion {
@@ -734,4 +737,110 @@ model HorarioStats {
   updatedAt           DateTime @updatedAt
 
   escuela             Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+}
+
+// ─── Revisión de Planeaciones y Secuencias Didácticas con IA ─────────────────
+
+model PlaneacionDidactica {
+  id                       String    @id @default(cuid())
+  escuelaId                String
+  cct                      String
+
+  // Identificación docente y asignatura
+  docenteNombre            String
+  docenteRFC               String?
+  asignatura               String    // Ej. "Pensamiento Matemático I"
+  semestre                 Int       // 1 a 6
+  bloqueCorte              String?   // Ej. "Corte 1 - Bloque I"
+  tipoAsignatura           String    @default("FUNDAMENTAL")
+  // "FUNDAMENTAL" | "LABORAL" | "EXTENDIDO"
+
+  // Archivo original subido
+  archivoUrl               String
+  archivoNombre            String
+  archivoTipo              String    @default("PDF") // "PDF" | "DOCX"
+
+  // Estado del proceso de revisión
+  estado                   String    @default("PENDIENTE")
+  // "PENDIENTE" | "EN_REVISION" | "REVISADO" | "ERROR"
+
+  // Resultados de la evaluación
+  puntajeObtenido          Float?    // 0 - 300 pts (Anexo 12 USICAMM)
+  puntajeMaximo            Float?    @default(300)
+  nivelCumplimiento        String?
+  // "COMPLETO" | "PARCIAL" | "REQUIERE_CORRECCION"
+
+  // Resultados estructurados en JSON
+  resultadoJson            Json?
+  // { rubricaUsada, criterios: [{id, criterio, puntajeMax, puntajeObtenido, cumple, evidencia, observacion, recomendacion}] }
+
+  observacionesJson        Json?
+  // { puntosFuertes: string[], mejorasUrgentes: string[], observacionesExtendidas: string }
+
+  // Texto de retroalimentación listo para imprimir/entregar al docente
+  retroalimentacionDocente String?   @db.Text
+
+  // Metadatos de auditoría
+  fechaSubida              DateTime  @default(now())
+  fechaRevision            DateTime?
+  revisadoPor              String?   @default("IA_GEMINI_3_5")
+
+  escuela                  Escuela   @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+
+  @@index([escuelaId])
+  @@index([semestre])
+  @@index([estado])
+}
+
+// Rúbricas y criterios de evaluación (Anexo 12 USICAMM y Lista de Cotejo)
+// Se cargan en DB para que sean editables desde el panel de administración.
+model RubricaPlaneacion {
+  id              String   @id @default(cuid())
+  rangoSemestre   String   // "1-4" | "5-6" | "LABORAL"
+  nombre          String
+  // "ANEXO_12_USICAMM_1_4" | "ANEXO_12_USICAMM_5_6" | "LISTA_COTEJO_1_4" | "LISTA_COTEJO_5_6" | "GUIA_LABORAL"
+  descripcion     String?
+  criterios       Json
+  // Array de { id, criterio, descripcion, puntajeMax, categoria, instruccion }
+  // Categorías: "PLANEACION_DIDACTICA" | "PRACTICA_INTERVENCION" | "EVALUACION_MEJORA"
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([rangoSemestre, nombre])
+}
+
+// Programas de Estudio Oficiales SEP cargados en la plataforma
+// Se usan como contexto de alineación curricular en la evaluación de IA
+model ProgramaEstudio {
+  id                        String   @id @default(cuid())
+  nombre                    String
+  // Ej. "Pensamiento Matemático", "Ciencias Naturales", "Inglés"
+  asignaturaSlug            String   @unique
+  // Ej. "pensamiento-matematico", "ciencias-naturales"
+  semestresAplica           Int[]    // [1, 2, 3, 4] o [5, 6]
+  generacion                String
+  // "2025-2028" (Propósitos Formativos) | "2023-2026" (Progresiones)
+  tipoEstructura            String
+  // "PROPOSITOS_FORMATIVOS" | "PROGRESIONES" | "COMPETENCIAS_LABORALES"
+  propositosOProgresiones   Json
+  // Array de { id, texto, contenidos: string[] }
+  contenidosClave           Json     @default("[]")
+  // Array de string: contenidos obligatorios mínimos
+  archivoUrl                String?  // URL del PDF oficial subido en Cloudinary
+  archivoNombre             String?
+  activo                    Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+// Configuración global del módulo de Planeaciones (activar/desactivar)
+model PlaneacionesConfig {
+  id               String  @id @default("singleton")
+  activoGlobal     Boolean @default(false)
+  // Si false, ningún director puede usar el módulo
+  requierePaecPec  Boolean @default(true)
+  // Si true, exige que la escuela tenga PAEC-PEC subido antes de revisar planeaciones
+  requiereApiKey   Boolean @default(true)
+  // Si true, exige que la escuela tenga API Key activa
 }

@@ -114,7 +114,7 @@ export default async function DirectorPage() {
     );
 
     // Fetch configs globales para los tabs
-    const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig] = await Promise.all([
+    const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig, planeacionesConfig] = await Promise.all([
         prisma.adminSidebarConfig.findUnique({ where: { id: "singleton" } }),
         prisma.eventosConfig.findUnique({ where: { id: "singleton" } }),
         prisma.circular05Config.findUnique({ where: { id: "singleton" } }),
@@ -122,6 +122,7 @@ export default async function DirectorPage() {
         prisma.encuentroPAECConfig.findUnique({ where: { id: "singleton" } }),
         prisma.capemsConfig.findFirst(),
         prisma.expedientesConfig.findUnique({ where: { id: "singleton" } }),
+        prisma.planeacionesConfig.findUnique({ where: { id: "singleton" } }),
     ]);
 
     const isEventosActive = (eventosConfig?.activo ?? false) && (sidebarConfig?.showEventos ?? true);
@@ -130,6 +131,8 @@ export default async function DirectorPage() {
     const isPAECActive = (paecConfig?.activo ?? false) && (sidebarConfig?.showPAEC ?? true);
     const isCapemsActive = (capemsConfig?.activo ?? false) && (sidebarConfig?.showCapems ?? true);
     const isExpedientesActive = (expedientesConfig?.activo ?? false) && (sidebarConfig?.showExpedientes ?? true);
+    // Planeaciones IA: activo globalmente Y no desactivado para esta escuela
+    const isPlaneacionesActive = (planeacionesConfig?.activoGlobal ?? false) && permisosEscuela.planeacionesDesactivado !== true;
 
     return (
         <DirectorPortal
@@ -149,6 +152,7 @@ export default async function DirectorPage() {
             isExpedientesActive={isExpedientesActive}
             isDocumentosActive={true}
             isHorariosActive={isHorariosActive}
+            isPlaneacionesActive={isPlaneacionesActive}
         />
     );
 }

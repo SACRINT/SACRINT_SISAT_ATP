@@ -39,6 +39,26 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (tipo === "PLANEACIONES_IA") {
+      const planeacionesDesactivado = accion === "DESACTIVAR_TODOS";
+      await Promise.all(
+        escuelas
+          .filter(esc => !(esc as any).esSupervision)
+          .map((esc) => {
+            const permisosActuales = (esc.permisos as any) || {};
+            const nuevosPermisos = { ...permisosActuales, planeacionesDesactivado };
+            return prisma.escuela.update({
+              where: { id: esc.id },
+              data: { permisos: nuevosPermisos }
+            });
+          })
+      );
+      return NextResponse.json({
+        success: true,
+        message: `Módulo Planeaciones IA ${planeacionesDesactivado ? "desactivado" : "activado"} para TODAS las escuelas.`
+      });
+    }
+
     if (tipo === "PROGRAMA" && programaNombre) {
       const esDesactivar = accion === "DESACTIVAR_TODOS";
 

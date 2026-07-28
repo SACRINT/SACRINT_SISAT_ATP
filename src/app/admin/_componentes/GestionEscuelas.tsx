@@ -388,8 +388,8 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         }
     };
 
-    const handleAccionMasivaPermisos = async (tipo: "HORARIOS_IA" | "PROGRAMA", accion: "ACTIVAR_TODOS" | "DESACTIVAR_TODOS", programaNombre?: string) => {
-        const targetLabel = tipo === "HORARIOS_IA" ? "Horarios IA" : `Programa "${programaNombre}"`;
+    const handleAccionMasivaPermisos = async (tipo: "HORARIOS_IA" | "PLANEACIONES_IA" | "PROGRAMA", accion: "ACTIVAR_TODOS" | "DESACTIVAR_TODOS", programaNombre?: string) => {
+        const targetLabel = tipo === "HORARIOS_IA" ? "Horarios IA" : tipo === "PLANEACIONES_IA" ? "Planeaciones IA" : `Programa "${programaNombre}"`;
         const accionLabel = accion === "ACTIVAR_TODOS" ? "ACTIVAR" : "DESACTIVAR";
         if (!confirm(`¿Estás seguro de ${accionLabel} ${targetLabel} para TODAS las escuelas?`)) return;
 
@@ -403,12 +403,17 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
             const data = await res.json();
             if (data.success) {
                 toast.success(data.message);
-                // Actualizar estado local directamente (router.refresh() no resetea useState en Client Components)
                 if (tipo === "HORARIOS_IA") {
                     const horariosDesactivado = accion === "DESACTIVAR_TODOS";
                     setEscuelas(prev => prev.map(e => ({
                         ...e,
                         permisos: { ...(e.permisos || {}), horariosDesactivado }
+                    })));
+                } else if (tipo === "PLANEACIONES_IA") {
+                    const planeacionesDesactivado = accion === "DESACTIVAR_TODOS";
+                    setEscuelas(prev => prev.map(e => ({
+                        ...e,
+                        permisos: { ...(e.permisos || {}), planeacionesDesactivado }
                     })));
                 } else if (tipo === "PROGRAMA" && programaNombre) {
                     const esDesactivar = accion === "DESACTIVAR_TODOS";
@@ -432,6 +437,29 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
             toast.error("Error al actualizar permisos masivos.");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleTogglePlaneacionesEscuela = async (escuelaId: string, actualmenteDesactivado: boolean) => {
+        const escTarget = escuelas.find(e => e.id === escuelaId);
+        if (!escTarget) return;
+        const permisosNuevos = { ...(escTarget.permisos || {}), planeacionesDesactivado: !actualmenteDesactivado };
+        setEscuelas(prev => prev.map(e => e.id === escuelaId ? { ...e, permisos: permisosNuevos } : e));
+        try {
+            const res = await fetch(`/api/escuelas/${escuelaId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ permisos: permisosNuevos })
+            });
+            if (res.ok) {
+                toast.success(!actualmenteDesactivado
+                    ? `Planeaciones IA DESACTIVADO para ${escTarget.nombre}`
+                    : `Planeaciones IA ACTIVADO para ${escTarget.nombre}`);
+            } else {
+                toast.error("Error al actualizar estado de Planeaciones IA");
+            }
+        } catch {
+            toast.error("Error de red al actualizar Planeaciones IA");
         }
     };
 
@@ -515,6 +543,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                     {(() => {
                                         const escuelasLista = escuelas.filter(e => !e.esSupervision);
                                         const todosHorariosActivos = escuelasLista.every(e => e.permisos?.horariosDesactivado !== true);
+                                        const todosPlaneacionesActivos = escuelasLista.every(e => e.permisos?.planeacionesDesactivado !== true);
 
                                         return (
                                             <thead>
@@ -558,6 +587,35 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                                     >
                                                         <div>💬 Uso Chat IA</div>
                                                         <div style={{ fontSize: "0.65rem", color: "#a78bfa", fontWeight: 600, marginTop: "0.2rem" }}>Clic para actualizar</div>
+                                                    </th>
+
+                                                    {/* Columna Planeaciones IA con Botón Master */}
+                                                    <th style={{ padding: "0.75rem 0.5rem", fontWeight: 800, color: "#7c3aed", textAlign: "center", minWidth: "150px", verticalAlign: "top" }}>
+                                                        <div>📋 Planeaciones IA</div>
+                                                        <div style={{ display: "flex", justifyContent: "center", marginTop: "0.35rem" }}>
+                                                            <button
+                                                                type="button"
+                                                                disabled={saving}
+                                                                onClick={() => handleAccionMasivaPermisos("PLANEACIONES_IA", todosPlaneacionesActivos ? "DESACTIVAR_TODOS" : "ACTIVAR_TODOS")}
+                                                                style={{
+                                                                    padding: "0.25rem 0.6rem",
+                                                                    borderRadius: "20px",
+                                                                    fontSize: "0.725rem",
+                                                                    fontWeight: 800,
+                                                                    border: "none",
+                                                                    cursor: "pointer",
+                                                                    background: todosPlaneacionesActivos ? "#f3e8ff" : "#fee2e2",
+                                                                    color: todosPlaneacionesActivos ? "#7c3aed" : "#b91c1c",
+                                                                    display: "inline-flex",
+                                                                    alignItems: "center",
+                                                                    gap: "0.35rem",
+                                                                    boxShadow: "0 1px 3px rgba(0,0,0,0.08)"
+                                                                }}
+                                                                title={todosPlaneacionesActivos ? "Clic para DESACTIVAR Planeaciones IA en TODAS" : "Clic para ACTIVAR Planeaciones IA en TODAS"}
+                                                            >
+                                                                {todosPlaneacionesActivos ? "🟣 Activo" : "🔴 Inactivo"}
+                                                            </button>
+                                                        </div>
                                                     </th>
 
                                                     {/* Columnas de Programas con Botón Único Master */}
@@ -636,6 +694,29 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                                             }}
                                                         >
                                                             {horariosActivo ? "🟢 Activo" : "🔴 Desactivado"}
+                                                        </button>
+                                                    </td>
+
+                                                    {/* Toggle Planeaciones IA */}
+                                                    <td style={{ textAlign: "center", padding: "0.75rem" }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleTogglePlaneacionesEscuela(esc.id, permisosEsc.planeacionesDesactivado === true)}
+                                                            style={{
+                                                                padding: "0.35rem 0.75rem",
+                                                                borderRadius: "20px",
+                                                                fontWeight: 800,
+                                                                fontSize: "0.725rem",
+                                                                border: "none",
+                                                                cursor: "pointer",
+                                                                background: permisosEsc.planeacionesDesactivado === true ? "#fee2e2" : "#f3e8ff",
+                                                                color: permisosEsc.planeacionesDesactivado === true ? "#b91c1c" : "#7c3aed",
+                                                                display: "inline-flex",
+                                                                alignItems: "center",
+                                                                gap: "0.35rem"
+                                                            }}
+                                                        >
+                                                            {permisosEsc.planeacionesDesactivado === true ? "🔴 Desactivado" : "🟣 Activo"}
                                                         </button>
                                                     </td>
 

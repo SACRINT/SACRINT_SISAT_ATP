@@ -21,6 +21,7 @@ import {
     Search,
     Key,
     Calendar,
+    ClipboardList,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
@@ -36,10 +37,11 @@ import ExpedientesPanel from "./_componentes/ExpedientesPanel";
 import AjustesApiPanel from "./_componentes/AjustesApiPanel";
 import DocumentosPanel from "./_componentes/DocumentosPanel";
 import RankingEscuelas from "../admin/_componentes/RankingEscuelas";
+import GestionPlaneaciones from "./_componentes/planeaciones/GestionPlaneaciones";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
-type TabType = "entregas" | "ranking" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "configuracion";
+type TabType = "entregas" | "ranking" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "configuracion" | "planeaciones";
 
 export default function DirectorPortal({
     escuela,
@@ -58,6 +60,7 @@ export default function DirectorPortal({
     isExpedientesActive = false,
     isDocumentosActive = false,
     isHorariosActive = true,
+    isPlaneacionesActive = false,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null; geminiApiKey?: string | null; permisos?: any };
     programas: ProgramaGroup[];
@@ -75,6 +78,7 @@ export default function DirectorPortal({
     isExpedientesActive?: boolean;
     isDocumentosActive?: boolean;
     isHorariosActive?: boolean;
+    isPlaneacionesActive?: boolean;
 }) {
     const [tab, setTab] = useState<TabType>("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -127,6 +131,7 @@ export default function DirectorPortal({
         expedientes: "Expedientes",
         documentos: "Generar Documentos",
         configuracion: "Ajustes de API",
+        planeaciones: "Revisión de Planeaciones con IA",
     };
 
     return (
@@ -315,6 +320,15 @@ export default function DirectorPortal({
                                 </span>
                             </a>
                         )}
+                        {isPlaneacionesActive && (
+                            <button className={`sidebar-link ${tab === "planeaciones" ? "active" : ""}`} onClick={() => navigate("planeaciones")}>
+                                <ClipboardList size={17} />
+                                <span>Revisión Planeaciones IA</span>
+                                <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #7c3aed, #ec4899)", color: "white", fontSize: "0.6rem" }}>
+                                    IA
+                                </span>
+                            </button>
+                        )}
                     </div>
 
                     {/* Special modules - conditional */}
@@ -459,6 +473,10 @@ export default function DirectorPortal({
 
                 {tab === "documentos" && isDocumentosActive && (
                     <DocumentosPanel escuela={escuela} hasApiKey={!!escuela.geminiApiKey} />
+                )}
+
+                {tab === "planeaciones" && isPlaneacionesActive && (
+                    <GestionPlaneaciones escuela={escuela} />
                 )}
 
                 {tab === "configuracion" && (
