@@ -292,6 +292,7 @@ model PlaneacionDidactica {
 | **Global** | `PlaneacionesConfig.activoGlobal` (el admin activa/desactiva para todos) |
 | **Por escuela** | `Escuela.permisos.planeacionesDesactivado` (toggle en Matriz de Módulos) |
 | **Por requisito** | `PlaneacionesConfig.requierePaecPec` + existencia de entrega PAEC-PEC |
+| **Modo Pruebas (Admin)** | `PlaneacionesConfig.modoSinRestricciones` / `PreRevisionConfig.modoSinRestriccionesHorarios` (Omite todas las restricciones de PAEC-PEC, API Key y permisos para pruebas rápidas) |
 
 #### Modelos Autorizados para Evaluación
 - **Principal**: `gemini-3.5-flash-lite` (configurado en `PreRevisionConfig.modelDefault`)
