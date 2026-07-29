@@ -13,13 +13,13 @@ export async function GET(_req: NextRequest) {
 
     const config = await prisma.planeacionesConfig.findUnique({ where: { id: "singleton" } });
 
-    // Si no existe, devuelve los defaults
+    // Si no existe, devuelve los defaults habilitados para fácil inicio
     return NextResponse.json(config ?? {
         id: "singleton",
-        activoGlobal: false,
+        activoGlobal: true,
         requierePaecPec: true,
         requiereApiKey: true,
-        modoSinRestricciones: false,
+        modoSinRestricciones: true,
     });
 }
 
@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
         where: { id: "singleton" },
         create: {
             id: "singleton",
-            activoGlobal: activoGlobal ?? false,
+            activoGlobal: activoGlobal ?? true,
             requierePaecPec: requierePaecPec ?? true,
             requiereApiKey: requiereApiKey ?? true,
-            modoSinRestricciones: modoSinRestricciones ?? false,
+            modoSinRestricciones: modoSinRestricciones ?? true,
         },
         update: {
             ...(activoGlobal !== undefined && { activoGlobal }),

@@ -133,11 +133,10 @@ export default async function DirectorPage() {
     const isPAECActive = (paecConfig?.activo ?? false) && (sidebarConfig?.showPAEC ?? true);
     const isCapemsActive = (capemsConfig?.activo ?? false) && (sidebarConfig?.showCapems ?? true);
     const isExpedientesActive = (expedientesConfig?.activo ?? false) && (sidebarConfig?.showExpedientes ?? true);
-    // Planeaciones IA: activo globalmente Y no desactivado para esta escuela
-    // Si modoSinRestricciones está activo, siempre se muestra el módulo
-    const isPlaneacionesActive = (planeacionesConfig?.modoSinRestricciones === true)
+    // Planeaciones IA: activo si es escuela de prueba, o modoSinRestricciones activo, o (activoGlobal !== false Y no desactivado para esta escuela)
+    const isPlaneacionesActive = escuela.esDePrueba || (planeacionesConfig?.modoSinRestricciones === true)
         ? true
-        : (planeacionesConfig?.activoGlobal ?? false) && permisosEscuela.planeacionesDesactivado !== true;
+        : (planeacionesConfig ? planeacionesConfig.activoGlobal : true) && permisosEscuela.planeacionesDesactivado !== true;
 
     return (
         <DirectorPortal

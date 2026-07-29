@@ -16,7 +16,7 @@ export const maxDuration = 60;
 async function verificarRequisitos(escuelaId: string) {
     const [config, escuela, entregaPaec] = await Promise.all([
         prisma.planeacionesConfig.findUnique({ where: { id: "singleton" } }),
-        prisma.escuela.findUnique({ where: { id: escuelaId }, select: { geminiApiKey: true, permisos: true } }),
+        prisma.escuela.findUnique({ where: { id: escuelaId }, select: { geminiApiKey: true, permisos: true, esDePrueba: true } }),
         // Buscar si la escuela tiene PAEC-PEC aprobado o entregado en cualquier ciclo
         prisma.entrega.findFirst({
             where: {
@@ -28,8 +28,8 @@ async function verificarRequisitos(escuelaId: string) {
         }),
     ]);
 
-    // ── Modo Sin Restricciones (activado por el admin para pruebas) ──
-    if (config?.modoSinRestricciones === true) {
+    // ── Si es escuela de prueba O está en Modo Sin Restricciones ──
+    if (escuela?.esDePrueba || config?.modoSinRestricciones === true) {
         return {
             moduloHabilitado: true,
             tieneApiKey: true,
@@ -44,9 +44,9 @@ async function verificarRequisitos(escuelaId: string) {
     }
 
     const moduloHabilitado = (escuela?.permisos as any)?.planeacionesDesactivado !== true;
-    const globalActivo = config?.activoGlobal ?? false;
-    const requierePaecPec = config?.requierePaecPec ?? true;
-    const requiereApiKey = config?.requiereApiKey ?? true;
+    const globalActivo = config ? config.activoGlobal : true;
+    const requierePaecPec = config ? config.requierePaecPec : true;
+    const requiereApiKey = config ? config.requiereApiKey : true;
 
     const tieneApiKey = !!(escuela?.geminiApiKey) || true; // también usa el pool del sistema
     const tienePaecPec = !!entregaPaec;
@@ -59,7 +59,7 @@ async function verificarRequisitos(escuelaId: string) {
         requiereApiKey,
         puedeUsar: moduloHabilitado && globalActivo && (!requiereApiKey || tieneApiKey) && (!requierePaecPec || tienePaecPec),
         motivoBloqueo: !moduloHabilitado || !globalActivo
-            ? "El módulo de Revisión de Planeaciones no está habilitado para tu escuela. Contacta a la supervisión."
+            ? "El módulo de Revisión de Planeaciones no está habilitado actualmente por la supervisión."
             : requierePaecPec && !tienePaecPec
                 ? "Para usar la Revisión de Planeaciones Didácticas es obligatorio haber subido el PAEC-PEC de tu escuela. Dirígete al apartado de entregas y sube tu PAEC-PEC primero."
                 : requiereApiKey && !tieneApiKey
@@ -95,8 +95,11 @@ export async function GET(req: NextRequest) {
             puedeUsar: requisitos.puedeUsar,
             tieneApiKey: requisitos.tieneApiKey,
             tienePaecPec: requisitos.tienePaecPec,
+            requierePaecPec: requisitos.requierePaecPec,
+            requiereApiKey: requisitos.requiereApiKey,
             motivoBloqueo: requisitos.motivoBloqueo,
         },
+
         planeaciones,
         estadisticas: {
             total: planeaciones.length,

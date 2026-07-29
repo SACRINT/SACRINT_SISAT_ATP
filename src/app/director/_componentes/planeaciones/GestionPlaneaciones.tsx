@@ -14,6 +14,8 @@ interface Requisitos {
     puedeUsar: boolean;
     tieneApiKey: boolean;
     tienePaecPec: boolean;
+    requierePaecPec?: boolean;
+    requiereApiKey?: boolean;
     motivoBloqueo: string | null;
 }
 
@@ -301,8 +303,8 @@ export default function GestionPlaneaciones({ escuela }: Props) {
 
     // ── Pantalla de bloqueo si no cumple requisitos ───────────────────────────
     if (!requisitos?.puedeUsar) {
-        const faltaPaec = requisitos && !requisitos.tienePaecPec;
-        const faltaApi = requisitos && !requisitos.tieneApiKey;
+        const faltaPaec = requisitos ? (!requisitos.tienePaecPec && (requisitos.requierePaecPec ?? true)) : false;
+        const faltaApi = requisitos ? (!requisitos.tieneApiKey && (requisitos.requiereApiKey ?? true)) : false;
 
         return (
             <div style={{ maxWidth: "640px", margin: "2rem auto", textAlign: "center" }}>
