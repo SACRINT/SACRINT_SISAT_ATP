@@ -105,7 +105,9 @@ export default async function DirectorPage() {
 
     // Verificar permisos específicos de la escuela (JSON)
     const permisosEscuela = (escuela.permisos as any) || {};
-    const isHorariosActive = permisosEscuela.horariosDesactivado !== true;
+    // Si el admin activó modo sin restricciones para Horarios, siempre está activo
+    const modoSinRestriccionesHorarios = configGlobal?.modoSinRestriccionesHorarios ?? false;
+    const isHorariosActive = modoSinRestriccionesHorarios ? true : permisosEscuela.horariosDesactivado !== true;
     const programasInactivos: string[] = permisosEscuela.programasInactivos || [];
 
     // Filtrar programas inactivos para esta escuela
@@ -132,7 +134,10 @@ export default async function DirectorPage() {
     const isCapemsActive = (capemsConfig?.activo ?? false) && (sidebarConfig?.showCapems ?? true);
     const isExpedientesActive = (expedientesConfig?.activo ?? false) && (sidebarConfig?.showExpedientes ?? true);
     // Planeaciones IA: activo globalmente Y no desactivado para esta escuela
-    const isPlaneacionesActive = (planeacionesConfig?.activoGlobal ?? false) && permisosEscuela.planeacionesDesactivado !== true;
+    // Si modoSinRestricciones está activo, siempre se muestra el módulo
+    const isPlaneacionesActive = (planeacionesConfig?.modoSinRestricciones === true)
+        ? true
+        : (planeacionesConfig?.activoGlobal ?? false) && permisosEscuela.planeacionesDesactivado !== true;
 
     return (
         <DirectorPortal

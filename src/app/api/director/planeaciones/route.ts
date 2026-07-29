@@ -28,6 +28,21 @@ async function verificarRequisitos(escuelaId: string) {
         }),
     ]);
 
+    // ── Modo Sin Restricciones (activado por el admin para pruebas) ──
+    if (config?.modoSinRestricciones === true) {
+        return {
+            moduloHabilitado: true,
+            tieneApiKey: true,
+            tienePaecPec: true,
+            requierePaecPec: false,
+            requiereApiKey: false,
+            puedeUsar: true,
+            motivoBloqueo: null,
+            entregaPaecPec: entregaPaec,
+            modoSinRestricciones: true,
+        };
+    }
+
     const moduloHabilitado = (escuela?.permisos as any)?.planeacionesDesactivado !== true;
     const globalActivo = config?.activoGlobal ?? false;
     const requierePaecPec = config?.requierePaecPec ?? true;
@@ -51,6 +66,7 @@ async function verificarRequisitos(escuelaId: string) {
                     ? "Se requiere una API Key activa de Gemini para usar este módulo. Configúrala en la sección de ajustes de tu perfil."
                     : null,
         entregaPaecPec: entregaPaec,
+        modoSinRestricciones: false,
     };
 }
 

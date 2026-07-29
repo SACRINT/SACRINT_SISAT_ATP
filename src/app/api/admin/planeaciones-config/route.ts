@@ -19,6 +19,7 @@ export async function GET(_req: NextRequest) {
         activoGlobal: false,
         requierePaecPec: true,
         requiereApiKey: true,
+        modoSinRestricciones: false,
     });
 }
 
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const body = await req.json();
-    const { activoGlobal, requierePaecPec, requiereApiKey } = body;
+    const { activoGlobal, requierePaecPec, requiereApiKey, modoSinRestricciones } = body;
 
     const config = await prisma.planeacionesConfig.upsert({
         where: { id: "singleton" },
@@ -36,11 +37,13 @@ export async function POST(req: NextRequest) {
             activoGlobal: activoGlobal ?? false,
             requierePaecPec: requierePaecPec ?? true,
             requiereApiKey: requiereApiKey ?? true,
+            modoSinRestricciones: modoSinRestricciones ?? false,
         },
         update: {
             ...(activoGlobal !== undefined && { activoGlobal }),
             ...(requierePaecPec !== undefined && { requierePaecPec }),
             ...(requiereApiKey !== undefined && { requiereApiKey }),
+            ...(modoSinRestricciones !== undefined && { modoSinRestricciones }),
         },
     });
 

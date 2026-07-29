@@ -28,6 +28,7 @@ interface ConfigData {
     activoGlobal: boolean;
     requierePaecPec: boolean;
     requiereApiKey: boolean;
+    modoSinRestricciones: boolean;
 }
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -49,9 +50,11 @@ const NIVEL_COLOR: Record<string, string> = {
 
 export default function PlaneacionesAdminPanel() {
     const [config, setConfig] = useState<ConfigData | null>(null);
+    const [modoSinRestriccionesHorarios, setModoSinRestriccionesHorarios] = useState(false);
     const [planeaciones, setPlaneaciones] = useState<PlaneacionRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [savingHorarios, setSavingHorarios] = useState(false);
     const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [configOpen, setConfigOpen] = useState(true);
     const [search, setSearch] = useState("");
@@ -61,12 +64,17 @@ export default function PlaneacionesAdminPanel() {
     const cargar = useCallback(async () => {
         setLoading(true);
         try {
-            const [cfgRes, listRes] = await Promise.all([
+            const [cfgRes, listRes, horariosCfgRes] = await Promise.all([
                 fetch("/api/admin/planeaciones-config"),
                 fetch("/api/admin/planeaciones"),
+                fetch("/api/admin/horarios/config"),
             ]);
             if (cfgRes.ok) setConfig(await cfgRes.json());
             if (listRes.ok) setPlaneaciones(await listRes.json());
+            if (horariosCfgRes.ok) {
+                const hCfg = await horariosCfgRes.json();
+                setModoSinRestriccionesHorarios(hCfg.modoSinRestriccionesHorarios ?? false);
+            }
         } catch {
             setMsg({ type: "error", text: "Error al cargar datos" });
         } finally {
@@ -76,7 +84,7 @@ export default function PlaneacionesAdminPanel() {
 
     useEffect(() => { cargar(); }, [cargar]);
 
-    // ── Guardar configuración ─────────────────────────────────
+    // ── Guardar configuración de Planeaciones ─────────────────
     const guardarConfig = async () => {
         if (!config) return;
         setSaving(true);
@@ -87,7 +95,7 @@ export default function PlaneacionesAdminPanel() {
                 body: JSON.stringify(config),
             });
             if (res.ok) {
-                setMsg({ type: "success", text: "Configuración guardada correctamente" });
+                setMsg({ type: "success", text: "Configuración de Planeaciones guardada correctamente" });
             } else {
                 setMsg({ type: "error", text: "Error al guardar configuración" });
             }
@@ -95,6 +103,33 @@ export default function PlaneacionesAdminPanel() {
             setMsg({ type: "error", text: "Error de conexión" });
         } finally {
             setSaving(false);
+        }
+    };
+
+    // ── Guardar bypass de Horarios IA ─────────────────────────
+    const guardarBypassHorarios = async (valor: boolean) => {
+        setSavingHorarios(true);
+        try {
+            const res = await fetch("/api/admin/horarios/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ modoSinRestriccionesHorarios: valor }),
+            });
+            if (res.ok) {
+                setModoSinRestriccionesHorarios(valor);
+                setMsg({
+                    type: "success",
+                    text: valor
+                        ? "⚠️ Modo Sin Restricciones para Horarios IA activado. Todas las escuelas pueden usar el módulo."
+                        : "✅ Restricciones de Horarios IA restauradas."
+                });
+            } else {
+                setMsg({ type: "error", text: "Error al guardar bypass de Horarios" });
+            }
+        } catch {
+            setMsg({ type: "error", text: "Error de conexión" });
+        } finally {
+            setSavingHorarios(false);
         }
     };
 
@@ -159,6 +194,142 @@ export default function PlaneacionesAdminPanel() {
                     <button onClick={() => setMsg(null)} style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 700, fontSize: "1rem" }}>×</button>
                 </div>
             )}
+
+            {/* ── 🔓 Panel de Modo Pruebas / Sin Restricciones ── */}
+            <div style={{
+                border: `2px solid ${(config?.modoSinRestricciones || modoSinRestriccionesHorarios) ? "#f59e0b" : "#e2e8f0"}`,
+                borderRadius: "12px",
+                background: (config?.modoSinRestricciones || modoSinRestriccionesHorarios) ? "#fffbeb" : "var(--bg-secondary, #f8fafc)",
+                overflow: "hidden",
+                transition: "all 0.2s",
+            }}>
+                {/* Cabecera */}
+                <div style={{
+                    padding: "0.875rem 1.25rem",
+                    background: (config?.modoSinRestricciones || modoSinRestriccionesHorarios) ? "#fef3c7" : "transparent",
+                    display: "flex", alignItems: "center", gap: "0.625rem", borderBottom: "1px solid #e2e8f0",
+                }}>
+                    <span style={{ fontSize: "1.25rem" }}>🔓</span>
+                    <div>
+                        <div style={{ fontWeight: 800, fontSize: "0.9375rem", color: "#92400e" }}>
+                            Modo Pruebas — Sin Restricciones
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#b45309" }}>
+                            Permite el acceso a módulos IA sin requerir PAEC-PEC, API Key ni activación individual de cada escuela. <strong>Solo para pruebas del administrador.</strong>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Toggles */}
+                <div style={{ padding: "1rem 1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.875rem" }}>
+
+                    {/* Toggle: Planeaciones Sin Restricciones */}
+                    <div style={{
+                        padding: "1rem",
+                        borderRadius: "10px",
+                        border: `2px solid ${config?.modoSinRestricciones ? "#f59e0b" : "#e2e8f0"}`,
+                        background: config?.modoSinRestricciones ? "#fef9c3" : "white",
+                        display: "flex", flexDirection: "column", gap: "0.625rem",
+                        transition: "all 0.2s",
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span style={{ fontSize: "1.1rem" }}>📋</span>
+                            <span style={{ fontWeight: 700, fontSize: "0.875rem", color: config?.modoSinRestricciones ? "#92400e" : "var(--text)" }}>
+                                Planeaciones Didácticas IA
+                            </span>
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                            {config?.modoSinRestricciones
+                                ? "⚠️ Activo: todas las escuelas pueden usar el módulo sin requisitos previos."
+                                : "Los directores deben cumplir los requisitos configurados."}
+                        </div>
+                        <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginTop: "0.25rem" }}>
+                            <span style={{
+                                fontSize: "0.8125rem", fontWeight: 600,
+                                color: config?.modoSinRestricciones ? "#b45309" : "var(--text-muted)"
+                            }}>
+                                {config?.modoSinRestricciones ? "SIN RESTRICCIONES ✓" : "Con restricciones"}
+                            </span>
+                            <div
+                                onClick={() => {
+                                    if (!config) return;
+                                    const nuevo = { ...config, modoSinRestricciones: !config.modoSinRestricciones };
+                                    setConfig(nuevo);
+                                    setSaving(true);
+                                    fetch("/api/admin/planeaciones-config", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(nuevo),
+                                    }).then(r => {
+                                        if (r.ok) setMsg({ type: "success", text: nuevo.modoSinRestricciones ? "⚠️ Modo Sin Restricciones para Planeaciones ACTIVADO" : "✅ Restricciones de Planeaciones restauradas" });
+                                        else setMsg({ type: "error", text: "Error al guardar" });
+                                    }).finally(() => setSaving(false));
+                                }}
+                                style={{
+                                    width: "44px", height: "24px", borderRadius: "12px",
+                                    background: config?.modoSinRestricciones ? "#f59e0b" : "#cbd5e1",
+                                    position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0,
+                                }}
+                            >
+                                <div style={{
+                                    position: "absolute", top: "2px",
+                                    left: config?.modoSinRestricciones ? "22px" : "2px",
+                                    width: "20px", height: "20px", borderRadius: "50%",
+                                    background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                                    transition: "left 0.2s",
+                                }} />
+                            </div>
+                        </label>
+                    </div>
+
+                    {/* Toggle: Horarios IA Sin Restricciones */}
+                    <div style={{
+                        padding: "1rem",
+                        borderRadius: "10px",
+                        border: `2px solid ${modoSinRestriccionesHorarios ? "#f59e0b" : "#e2e8f0"}`,
+                        background: modoSinRestriccionesHorarios ? "#fef9c3" : "white",
+                        display: "flex", flexDirection: "column", gap: "0.625rem",
+                        transition: "all 0.2s",
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span style={{ fontSize: "1.1rem" }}>📅</span>
+                            <span style={{ fontWeight: 700, fontSize: "0.875rem", color: modoSinRestriccionesHorarios ? "#92400e" : "var(--text)" }}>
+                                Generador de Horarios IA
+                            </span>
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                            {modoSinRestriccionesHorarios
+                                ? "⚠️ Activo: todas las escuelas acceden al Generador de Horarios sin importar permisos individuales."
+                                : "Solo las escuelas con permiso activo pueden usar el módulo."}
+                        </div>
+                        <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginTop: "0.25rem" }}>
+                            <span style={{
+                                fontSize: "0.8125rem", fontWeight: 600,
+                                color: modoSinRestriccionesHorarios ? "#b45309" : "var(--text-muted)"
+                            }}>
+                                {modoSinRestriccionesHorarios ? "SIN RESTRICCIONES ✓" : "Con restricciones"}
+                            </span>
+                            <div
+                                onClick={() => guardarBypassHorarios(!modoSinRestriccionesHorarios)}
+                                style={{
+                                    width: "44px", height: "24px", borderRadius: "12px",
+                                    background: modoSinRestriccionesHorarios ? "#f59e0b" : "#cbd5e1",
+                                    position: "relative", cursor: savingHorarios ? "not-allowed" : "pointer",
+                                    transition: "background 0.2s", opacity: savingHorarios ? 0.6 : 1, flexShrink: 0,
+                                }}
+                            >
+                                <div style={{
+                                    position: "absolute", top: "2px",
+                                    left: modoSinRestriccionesHorarios ? "22px" : "2px",
+                                    width: "20px", height: "20px", borderRadius: "50%",
+                                    background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                                    transition: "left 0.2s",
+                                }} />
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
 
             {/* ── Tarjetas de estadísticas ── */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "1rem" }}>

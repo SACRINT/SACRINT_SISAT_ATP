@@ -505,6 +505,7 @@ model PreRevisionConfig {
   modelDefault    String  @default("gemini-3.5-flash-lite")  // Modelo autorizado principal
   providerPremium String  @default("gemini")
   modelPremium    String  @default("gemini-3.1-flash-lite")  // Fallback autorizado
+  modoSinRestriccionesHorarios    Boolean @default(false)  // Si true, saltea todos los requisitos del módulo Horarios IA
 }
 
 model PlantillaEvaluacion {
@@ -843,4 +844,6 @@ model PlaneacionesConfig {
   // Si true, exige que la escuela tenga PAEC-PEC subido antes de revisar planeaciones
   requiereApiKey   Boolean @default(true)
   // Si true, exige que la escuela tenga API Key activa
+  modoSinRestricciones Boolean @default(false)
+  // Si true, saltea todos los requisitos (PAEC-PEC, API Key, módulo activo, etc.) — sólo para pruebas del admin
 }
