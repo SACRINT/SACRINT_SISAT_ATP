@@ -6,6 +6,7 @@ import EditorHorarios from "../_componentes/horarios/EditorHorarios";
 import { Sparkles, Calendar, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import ModalConfiguracionMapaCurricular from "@/components/ModalConfiguracionMapaCurricular";
 
 interface Props {
   escuela: any;
@@ -14,7 +15,9 @@ interface Props {
 export default function HorariosClient({ escuela }: Props) {
   const [loading, setLoading] = useState<boolean>(true);
   const [modo, setModo] = useState<"WIZARD" | "EDITOR">("WIZARD");
-  
+  const [mapaModalAbierto, setMapaModalAbierto] = useState<boolean>(false);
+  const [escuelaState, setEscuelaState] = useState<any>(escuela);
+
   const [config, setConfig] = useState<any>(null);
   const [grupos, setGrupos] = useState<any[]>([]);
   const [aulas, setAulas] = useState<any[]>([]);
@@ -32,6 +35,12 @@ export default function HorariosClient({ escuela }: Props) {
       const res = await fetch(`/api/horarios/configuracion?escuelaId=${escuela.id}`);
       const data = await res.json();
 
+      if (data.escuela) {
+        setEscuelaState(data.escuela);
+        if (data.escuela.mapaCurricularCompletado === false) {
+          setMapaModalAbierto(true);
+        }
+      }
       if (data.config) setConfig(data.config);
       if (data.grupos) setGrupos(data.grupos);
       if (data.aulas) setAulas(data.aulas);
@@ -153,12 +162,30 @@ export default function HorariosClient({ escuela }: Props) {
             <span className="badge" style={{ background: "var(--primary-bg)", color: "var(--primary)", fontSize: "0.6875rem", fontWeight: 800 }}>
               Módulo Inteligente
             </span>
+            <button
+              onClick={() => setMapaModalAbierto(true)}
+              style={{
+                background: "linear-gradient(135deg, #10b981, #059669)",
+                color: "#ffffff",
+                padding: "0.45rem 0.85rem",
+                borderRadius: "8px",
+                fontWeight: 800,
+                fontSize: "0.78125rem",
+                border: "none",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem"
+              }}
+            >
+              <Sparkles size={14} /> ⚙️ Configurar Mapa Curricular
+            </button>
           </div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
             <Calendar style={{ width: "26px", height: "26px", color: "var(--primary)" }} /> Generador de Horarios con IA
           </h1>
           <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
-            {escuela.nombre} ({escuela.cct}) | Zona Escolar 004
+            {escuelaState?.nombre || escuela.nombre} ({escuelaState?.cct || escuela.cct}) | Zona Escolar 004
           </p>
         </div>
 
@@ -217,6 +244,16 @@ export default function HorariosClient({ escuela }: Props) {
           onVolverAWizard={() => setModo("WIZARD")}
         />
       )}
+
+      {/* Modal de Configuración de Mapa Curricular */}
+      <ModalConfiguracionMapaCurricular
+        escuela={escuelaState || escuela}
+        gruposIniciales={grupos}
+        isOpen={mapaModalAbierto}
+        onClose={() => setMapaModalAbierto(false)}
+        onSaved={cargarDatos}
+        forceObligatorio={escuelaState?.mapaCurricularCompletado === false}
+      />
     </div>
   );
 }

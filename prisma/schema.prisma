@@ -60,6 +60,7 @@ model Escuela {
   gruposPrimerAno  Int  @default(1) // 1er Año (Semestres 1º y 2º)
   gruposSegundoAno Int  @default(1) // 2º Año (Semestres 3º y 4º)
   gruposTercerAno  Int  @default(1) // 3er Año (Semestres 5º y 6º)
+  mapaCurricularCompletado Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

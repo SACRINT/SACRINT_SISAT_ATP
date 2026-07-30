@@ -16,6 +16,7 @@ import {
     GrupoDefinicion,
     EscuelaEstructuraGrupos
 } from "@/lib/escuela-grupos";
+import ModalConfiguracionMapaCurricular from "@/components/ModalConfiguracionMapaCurricular";
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ interface Props {
         gruposPrimerAno?: number;
         gruposSegundoAno?: number;
         gruposTercerAno?: number;
+        mapaCurricularCompletado?: boolean;
     };
     readOnly?: boolean;
 }
@@ -207,9 +209,10 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
     });
     const [subiendo, setSubiendo] = useState(false);
 
-    // Modal Detalle
+    // Modal Detalle & Modal Mapa Curricular
     const [modalDetalle, setModalDetalle] = useState<Planeacion | null>(null);
     const [asignandoMap, setAsignandoMap] = useState<Record<string, boolean>>({});
+    const [mapaModalAbierto, setMapaModalAbierto] = useState(false);
 
     // Cargar datos al montar
     const cargarDatos = async () => {
@@ -219,7 +222,12 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
             if (!res.ok) throw new Error("Error al consultar datos");
             const data = await res.json();
             
-            if (data.escuela) setEscuelaData(data.escuela);
+            if (data.escuela) {
+                setEscuelaData(data.escuela);
+                if (data.escuela.mapaCurricularCompletado === false) {
+                    setMapaModalAbierto(true);
+                }
+            }
             setRequisitos(data.requisitos || { puedeUsar: true, tieneApiKey: true, tienePaecPec: true, motivoBloqueo: null });
             setPlaneaciones(data.planeaciones || []);
             setPersonalList(data.personal || []);
@@ -436,9 +444,19 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
             <div className="card" style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", color: "white", padding: "1.75rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
                     <div>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase", background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", padding: "0.25rem 0.65rem", borderRadius: "20px" }}>
-                            MCCEMS 2025-2026
-                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase", background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", padding: "0.25rem 0.65rem", borderRadius: "20px" }}>
+                                MCCEMS 2025-2026
+                            </span>
+                            <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={() => setMapaModalAbierto(true)}
+                                style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "1px solid rgba(255,255,255,0.25)", fontWeight: 700, fontSize: "0.75rem", borderRadius: "20px", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                            >
+                                <Sparkles size={14} color="#60a5fa" /> ⚙️ Configurar Mapa Curricular
+                            </button>
+                        </div>
                         <h2 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.5rem", fontWeight: 800 }}>
                             Revisión y Control de Planeaciones Didácticas IA
                         </h2>
@@ -1030,6 +1048,16 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                     </div>
                 </div>
             )}
+
+            {/* Modal de Configuración de Mapa Curricular */}
+            <ModalConfiguracionMapaCurricular
+                escuela={escuelaData}
+                gruposIniciales={gruposDB}
+                isOpen={mapaModalAbierto}
+                onClose={() => setMapaModalAbierto(false)}
+                onSaved={cargarDatos}
+                forceObligatorio={escuelaData.mapaCurricularCompletado === false}
+            />
 
         </div>
     );

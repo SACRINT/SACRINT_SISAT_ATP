@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin, FileDigit, Settings2, Calendar, Sparkles, Check, Ban } from "lucide-react";
+import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash2, MapPin, FileDigit, Settings2, Calendar, Sparkles, Check, Ban, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 import { SECCIONES_PERMISOS, DEFAULT_PERMISOS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
 import { FORMACIONES_LABORALES, FFE_OPTATIVAS_CATALOGO, generarGruposPorEstructura } from "@/lib/escuela-grupos";
+import ModalConfiguracionMapaCurricular from "@/components/ModalConfiguracionMapaCurricular";
 
 type Escuela = {
     id: string;
@@ -23,6 +24,7 @@ type Escuela = {
     gruposPrimerAno?: number;
     gruposSegundoAno?: number;
     gruposTercerAno?: number;
+    mapaCurricularCompletado?: boolean;
     directorExpediente?: {
         rfc?: string | null;
         curp?: string | null;
@@ -223,10 +225,10 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
 
     const selectedEscuela = escuelas.find((e) => e.id === selectedId);
 
-    // Custom configuration state
     const [configuraciones, setConfiguraciones] = useState<Record<string, number>>({});
     const [loadingConfig, setLoadingConfig] = useState(false);
     const [gruposConfigList, setGruposConfigList] = useState<any[]>([]);
+    const [mapaModalAbierto, setMapaModalAbierto] = useState(false);
 
     const handleGuardarCapacitacionEscuela = async (grupoNombre: string, semestre: number, capacitacionNombre: string, ffeOptativas?: string[]) => {
         if (!selectedId) return;
@@ -249,6 +251,21 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
             });
         } catch (err: any) {
             toast.error("Error al actualizar la configuración del grupo");
+        }
+    };
+
+    const handleReiniciarMapaEscuela = async () => {
+        if (!selectedId) return;
+        if (!confirm(`¿Estás SEGURO de reiniciar y borrar el Mapa Curricular de ${selectedEscuela?.nombre}? La escuela volverá a estado PENDIENTE.`)) return;
+
+        try {
+            const res = await fetch(`/api/escuelas/${selectedId}/mapa-curricular`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Error al reiniciar");
+            toast.success("Mapa curricular reiniciado exitosamente");
+            setGruposConfigList([]);
+            router.refresh();
+        } catch (err: any) {
+            toast.error("Error al reiniciar el mapa curricular");
         }
     };
 
@@ -1250,17 +1267,52 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                         Configura la cantidad de grupos activos por año. Se sincroniza con Horarios IA y Planeaciones Didácticas.
                                     </p>
                                 </div>
-                                <span style={{
-                                    fontSize: "0.75rem",
-                                    fontWeight: 700,
-                                    padding: "0.25rem 0.6rem",
-                                    borderRadius: "20px",
-                                    background: "white",
-                                    border: "1px solid var(--border)",
-                                    color: "var(--primary)"
-                                }}>
-                                    Estructura: {(isEditingMode ? formData.gruposPrimerAno : selectedEscuela?.gruposPrimerAno) ?? 1}-{(isEditingMode ? formData.gruposSegundoAno : selectedEscuela?.gruposSegundoAno) ?? 1}-{(isEditingMode ? formData.gruposTercerAno : selectedEscuela?.gruposTercerAno) ?? 1}
-                                </span>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                                     <span style={{
+                                         fontSize: "0.75rem",
+                                         fontWeight: 800,
+                                         padding: "0.25rem 0.6rem",
+                                         borderRadius: "20px",
+                                         background: selectedEscuela?.mapaCurricularCompletado ? "#dcfce7" : "#fef2f2",
+                                         color: selectedEscuela?.mapaCurricularCompletado ? "#15803d" : "#dc2626",
+                                         border: "1px solid var(--border)"
+                                     }}>
+                                         {selectedEscuela?.mapaCurricularCompletado ? "🟢 Mapa Curricular Configurado" : "🔴 Pendiente de Configurar"}
+                                     </span>
+                                     <span style={{
+                                         fontSize: "0.75rem",
+                                         fontWeight: 700,
+                                         padding: "0.25rem 0.6rem",
+                                         borderRadius: "20px",
+                                         background: "white",
+                                         border: "1px solid var(--border)",
+                                         color: "var(--primary)"
+                                     }}>
+                                         Estructura: {(isEditingMode ? formData.gruposPrimerAno : selectedEscuela?.gruposPrimerAno) ?? 1}-{(isEditingMode ? formData.gruposSegundoAno : selectedEscuela?.gruposSegundoAno) ?? 1}-{(isEditingMode ? formData.gruposTercerAno : selectedEscuela?.gruposTercerAno) ?? 1}
+                                     </span>
+
+                                     {selectedEscuela && (
+                                         <>
+                                             <button
+                                                 type="button"
+                                                 className="btn btn-sm btn-primary"
+                                                 onClick={() => setMapaModalAbierto(true)}
+                                                 style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.25rem 0.65rem" }}
+                                             >
+                                                 <Sparkles size={14} /> ⚙️ Editar Mapa Curricular
+                                             </button>
+                                             <button
+                                                 type="button"
+                                                 className="btn btn-sm"
+                                                 onClick={handleReiniciarMapaEscuela}
+                                                 style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.25rem 0.65rem", background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5" }}
+                                                 title="Borra la configuración de la escuela para probar el asistente desde cero"
+                                             >
+                                                 <RefreshCw size={14} /> 🔄 Reiniciar / Borrar Datos
+                                             </button>
+                                         </>
+                                     )}
+                                 </div>
                             </div>
 
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
@@ -1511,6 +1563,20 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Modal de Mapa Curricular para Administrador */}
+            {selectedEscuela && (
+                <ModalConfiguracionMapaCurricular
+                    escuela={selectedEscuela}
+                    gruposIniciales={gruposConfigList}
+                    isOpen={mapaModalAbierto}
+                    onClose={() => setMapaModalAbierto(false)}
+                    onSaved={() => {
+                        setMapaModalAbierto(false);
+                        cargarDatosEscuela(selectedEscuela.id);
+                    }}
+                />
             )}
         </div>
     );

@@ -254,12 +254,22 @@ export function generarGruposPorEstructura(
 }
 
 /**
+ * Catálogo Oficial de Formación Socioemocional (Currículum Ampliado)
+ */
+export const FORMACIONES_SOCIOEMOCIONALES = [
+  "Educación para la Salud (Promoción de la Salud y Estilos de Vida Saludables)",
+  "Educación Financiera y Emprendimiento Social",
+  "Práctica y Colaboración Ciudadana (Proyectos Comunitarios)"
+];
+
+/**
  * Resuelve las Asignaturas/UACs oficiales exactas para un Grupo según su Semestre y Capacitaciones
  */
 export function obtenerAsignaturasParaGrupo(
   semestre: number,
   capacitacionNombre: string = "Administracion",
-  ffeOptativasArr: string[] = []
+  ffeOptativasArr: string[] = [],
+  ffeoSocioemocional?: string
 ): { nombre: string; tipo: "FUNDAMENTAL" | "LABORAL" | "EXTENDIDO" | "SOCIOEMOCIONAL"; horas: number }[] {
 
   if (semestre === 1) {
@@ -293,6 +303,8 @@ export function obtenerAsignaturasParaGrupo(
 
   if (semestre === 3) {
     const labInfo = UACS_LABORALES_MAPA[capacitacionNombre]?.sem3 || UACS_LABORALES_MAPA["Administracion"].sem3;
+    const socioNombre = ffeoSocioemocional || "Educación para la Salud III (2025)";
+
     return [
       { nombre: "Ecosistemas: Interacciones, Energía y Dinámica", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Pensamiento Matemático III", tipo: "FUNDAMENTAL", horas: 4 },
@@ -300,21 +312,25 @@ export function obtenerAsignaturasParaGrupo(
       { nombre: "Taller de Ciencias II", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Lengua y Comunicación III", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Inglés III", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: "Educación para la Salud III (2025)", tipo: "SOCIOEMOCIONAL", horas: 2 },
+      { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
       { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[0].name}`, tipo: "LABORAL", horas: 3 },
       { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[1].name}`, tipo: "LABORAL", horas: 3 },
     ];
   }
 
   if (semestre === 4) {
+    const labInfo = UACS_LABORALES_MAPA[capacitacionNombre]?.sem3 || UACS_LABORALES_MAPA["Administracion"].sem3;
+    const socioNombre = ffeoSocioemocional || "Educación para la Salud IV";
+
     return [
       { nombre: "Reacciones Químicas y Procesos Biológicos", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Pensamiento Matemático IV", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Lengua y Comunicación IV", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Inglés IV", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Ciencias Sociales III", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: "Formación Laboral A (Submódulo 3)", tipo: "LABORAL", horas: 3 },
-      { nombre: "Formación Laboral B (Submódulo 4)", tipo: "LABORAL", horas: 3 },
+      { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
+      { nombre: `Formación Laboral (${capacitacionNombre}): Submódulo 3`, tipo: "LABORAL", horas: 3 },
+      { nombre: `Formación Laboral (${capacitacionNombre}): Submódulo 4`, tipo: "LABORAL", horas: 3 },
     ];
   }
 
@@ -326,12 +342,14 @@ export function obtenerAsignaturasParaGrupo(
     const ffe2 = ffeOptativasArr[1] || "Pensamiento Matemático Aplicado a las Finanzas I";
     const ffe3 = ffeOptativasArr[2] || "Fundamentos de Administración I";
     const ffe4 = ffeOptativasArr[3] || "Lógica y Pensamiento Crítico";
+    const socioNombre = ffeoSocioemocional || "Educación Financiera y Emprendimiento Social";
 
     return [
       { nombre: "La Conciencia Histórica II (Historia de México)", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Lengua y Comunicación V", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Inglés V", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Pensamiento Filosófico I (Humanidades)", tipo: "FUNDAMENTAL", horas: 3 },
+      { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
       { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[0].name}`, tipo: "LABORAL", horas: 3 },
       { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[1].name}`, tipo: "LABORAL", horas: 3 },
       { nombre: `Optativa FFE 1: ${ffe1}`, tipo: "EXTENDIDO", horas: 3 },

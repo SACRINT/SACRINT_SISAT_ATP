@@ -1,0 +1,532 @@
+"use client";
+
+import React, { useState, useEffect, useMemo } from "react";
+import { X, Sparkles, Check, School, Layers, AlertCircle, BookOpen, ChevronRight, RefreshCw, Save } from "lucide-react";
+import toast from "react-hot-toast";
+import {
+  FORMACIONES_LABORALES,
+  FFE_OPTATIVAS_CATALOGO,
+  FORMACIONES_SOCIOEMOCIONALES,
+  generarGruposPorEstructura,
+  obtenerAsignaturasParaGrupo,
+  GrupoDefinicion
+} from "@/lib/escuela-grupos";
+
+interface Props {
+  escuela: {
+    id: string;
+    cct: string;
+    nombre: string;
+    gruposPrimerAno?: number;
+    gruposSegundoAno?: number;
+    gruposTercerAno?: number;
+    mapaCurricularCompletado?: boolean;
+  };
+  gruposIniciales?: any[];
+  isOpen: boolean;
+  onClose?: () => void;
+  onSaved?: () => void;
+  forceObligatorio?: boolean;
+}
+
+export default function ModalConfiguracionMapaCurricular({
+  escuela,
+  gruposIniciales = [],
+  isOpen,
+  onClose,
+  onSaved,
+  forceObligatorio = false,
+}: Props) {
+  const [paso, setPaso] = useState<1 | 2>(1);
+  const [guardando, setGuardando] = useState(false);
+
+  // Paso 1: Estructura de Grupos
+  const [g1, setG1] = useState<number>(escuela.gruposPrimerAno || 1);
+  const [g2, setG2] = useState<number>(escuela.gruposSegundoAno || 1);
+  const [g3, setG3] = useState<number>(escuela.gruposTercerAno || 1);
+
+  // Config por Grupo (nombre -> { capacitacionNombre, ffeOptativas, ffeoSocioemocional })
+  const [mapaConfig, setMapaConfig] = useState<Record<string, { capacitacionNombre: string; ffeOptativas: string[]; ffeoSocioemocional: string }>>({});
+
+  // Reset y sincronización al abrir
+  useEffect(() => {
+    if (isOpen) {
+      setG1(Math.max(1, escuela.gruposPrimerAno || 1));
+      setG2(Math.max(1, escuela.gruposSegundoAno || 1));
+      setG3(Math.max(1, escuela.gruposTercerAno || 1));
+
+      const initialMap: Record<string, { capacitacionNombre: string; ffeOptativas: string[]; ffeoSocioemocional: string }> = {};
+      if (Array.isArray(gruposIniciales)) {
+        gruposIniciales.forEach(g => {
+          initialMap[g.nombre] = {
+            capacitacionNombre: g.capacitacionNombre || "Administracion",
+            ffeOptativas: Array.isArray(g.ffeOptativas) && g.ffeOptativas.length === 4 ? g.ffeOptativas : [
+              "Análisis de Fenómenos y Procesos Biológicos",
+              "Pensamiento Matemático Aplicado a las Finanzas I",
+              "Fundamentos de Administración I",
+              "Lógica y Pensamiento Crítico"
+            ],
+            ffeoSocioemocional: g.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0]
+          };
+        });
+      }
+      setMapaConfig(initialMap);
+      setPaso(1);
+    }
+  }, [isOpen, escuela, gruposIniciales]);
+
+  // Generar lista dinámica de grupos según la estructura actual de los inputs
+  const gruposGenerados = useMemo(() => {
+    return generarGruposPorEstructura({ gruposPrimerAno: g1, gruposSegundoAno: g2, gruposTercerAno: g3 }, "SEMESTRE_A");
+  }, [g1, g2, g3]);
+
+  if (!isOpen) return null;
+
+  const handleUpdateGrupoConfig = (grupoNombre: string, field: string, value: any) => {
+    setMapaConfig(prev => {
+      const actual = prev[grupoNombre] || {
+        capacitacionNombre: "Administracion",
+        ffeOptativas: [
+          "Análisis de Fenómenos y Procesos Biológicos",
+          "Pensamiento Matemático Aplicado a las Finanzas I",
+          "Fundamentos de Administración I",
+          "Lógica y Pensamiento Crítico"
+        ],
+        ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[0]
+      };
+      return {
+        ...prev,
+        [grupoNombre]: {
+          ...actual,
+          [field]: value
+        }
+      };
+    });
+  };
+
+  const handleSave = async () => {
+    setGuardando(true);
+    try {
+      // Construir array de gruposConfig
+      const gruposConfig = gruposGenerados.map(g => {
+        const cfg = mapaConfig[g.nombre] || {
+          capacitacionNombre: "Administracion",
+          ffeOptativas: [
+            "Análisis de Fenómenos y Procesos Biológicos",
+            "Pensamiento Matemático Aplicado a las Finanzas I",
+            "Fundamentos de Administración I",
+            "Lógica y Pensamiento Crítico"
+          ],
+          ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[0]
+        };
+
+        return {
+          grupoNombre: g.nombre,
+          semestre: g.semestre,
+          capacitacionNombre: cfg.capacitacionNombre,
+          ffeOptativas: cfg.ffeOptativas,
+          ffeoSocioemocional: cfg.ffeoSocioemocional,
+        };
+      });
+
+      const res = await fetch(`/api/escuelas/${escuela.id}/mapa-curricular`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gruposPrimerAno: g1,
+          gruposSegundoAno: g2,
+          gruposTercerAno: g3,
+          gruposConfig
+        })
+      });
+
+      if (!res.ok) throw new Error("Error al guardar mapa curricular");
+
+      toast.success("¡Mapa curricular y estructura del plantel guardados exitosamente!");
+      if (onSaved) onSaved();
+      if (onClose) onClose();
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo guardar la configuración");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(15, 23, 42, 0.75)",
+      backdropFilter: "blur(6px)",
+      zIndex: 9999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "1rem"
+    }}>
+      <div style={{
+        background: "var(--card-bg, #ffffff)",
+        borderRadius: "16px",
+        width: "100%",
+        maxWidth: "850px",
+        maxHeight: "90vh",
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+        border: "1px solid var(--border)",
+        overflow: "hidden"
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: "1.25rem 1.5rem",
+          background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+          color: "white",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <div>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, opacity: 0.9, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {escuela.cct} • {escuela.nombre}
+            </div>
+            <h2 style={{ margin: "0.2rem 0 0 0", fontSize: "1.2rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Sparkles size={20} /> Mapa Curricular y Estructura del Plantel (1.º a 6.º Semestre)
+            </h2>
+          </div>
+          {!forceObligatorio && onClose && (
+            <button
+              onClick={onClose}
+              style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "white", borderRadius: "8px", width: "32px", height: "32px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* Stepper Tabs */}
+        <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--bg-secondary)" }}>
+          <button
+            onClick={() => setPaso(1)}
+            style={{
+              flex: 1,
+              padding: "0.85rem",
+              border: "none",
+              background: paso === 1 ? "var(--bg)" : "transparent",
+              color: paso === 1 ? "#2563eb" : "var(--text-muted)",
+              fontWeight: 800,
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+              borderBottom: paso === 1 ? "3px solid #2563eb" : "none"
+            }}
+          >
+            <Layers size={16} /> 1. Estructura de Grupos ({g1 + g2 + g3} grupos)
+          </button>
+          <button
+            onClick={() => setPaso(2)}
+            style={{
+              flex: 1,
+              padding: "0.85rem",
+              border: "none",
+              background: paso === 2 ? "var(--bg)" : "transparent",
+              color: paso === 2 ? "#2563eb" : "var(--text-muted)",
+              fontWeight: 800,
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+              borderBottom: paso === 2 ? "3px solid #2563eb" : "none"
+            }}
+          >
+            <BookOpen size={16} /> 2. Formaciones Laborales & Optativas FFE
+          </button>
+        </div>
+
+        {/* Body scrollable */}
+        <div style={{ padding: "1.5rem", overflowY: "auto", flex: 1 }}>
+
+          {/* PASO 1: Estructura de Grupos por Año */}
+          {paso === 1 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+              <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", padding: "1rem", borderRadius: "12px", display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                <AlertCircle size={24} color="#2563eb" />
+                <div style={{ fontSize: "0.85rem", color: "1e3a8a", lineHeight: 1.4 }}>
+                  <strong>Paso 1: Confirme los grupos activos en su plantel.</strong><br />
+                  Escriba la cantidad de grupos activos por grado/año. Esta información se usará para construir automáticamente las listas en Horarios IA y Planeaciones Didácticas.
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.25rem" }}>
+                <div className="card" style={{ padding: "1.25rem", border: "1px solid var(--border)", textAlign: "center" }}>
+                  <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                    1.er Año (1.º y 2.º Semestre)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={g1}
+                    onChange={(e) => setG1(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{ width: "100%", fontSize: "1.5rem", fontWeight: 800, textAlign: "center", padding: "0.5rem", borderRadius: "8px", border: "2px solid #2563eb" }}
+                  />
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
+                    Genera: 1º A {g1 > 1 ? `hasta 1º ${String.fromCharCode(64 + g1)}` : ""}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: "1.25rem", border: "1px solid var(--border)", textAlign: "center" }}>
+                  <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                    2.º Año (3.er y 4.º Semestre)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={g2}
+                    onChange={(e) => setG2(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{ width: "100%", fontSize: "1.5rem", fontWeight: 800, textAlign: "center", padding: "0.5rem", borderRadius: "8px", border: "2px solid #2563eb" }}
+                  />
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
+                    Genera: 3º A {g2 > 1 ? `hasta 3º ${String.fromCharCode(64 + g2)}` : ""}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: "1.25rem", border: "1px solid var(--border)", textAlign: "center" }}>
+                  <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                    3.er Año (5.º y 6.º Semestre)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={g3}
+                    onChange={(e) => setG3(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{ width: "100%", fontSize: "1.5rem", fontWeight: 800, textAlign: "center", padding: "0.5rem", borderRadius: "8px", border: "2px solid #2563eb" }}
+                  />
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
+                    Genera: 5º A {g3 > 1 ? `hasta 5º ${String.fromCharCode(64 + g3)}` : ""}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setPaso(2)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, padding: "0.6rem 1.25rem" }}
+                >
+                  Continuar al Mapa Curricular por Grupo <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* PASO 2: Asignación por Grupo */}
+          {paso === 2 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              <div style={{ background: "#f8fafc", border: "1px solid var(--border)", padding: "0.85rem 1rem", borderRadius: "10px", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                <strong>Paso 2: Configure la Formación Laboral, Optativas FFE y Socioemocional por Grupo.</strong><br />
+                Para cada grupo de 3.º y 5.º semestre, seleccione las asignaturas correspondientes a su oferta educativa.
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                {gruposGenerados.map(g => {
+                  const cfg = mapaConfig[g.nombre] || {
+                    capacitacionNombre: "Administracion",
+                    ffeOptativas: [
+                      "Análisis de Fenómenos y Procesos Biológicos",
+                      "Pensamiento Matemático Aplicado a las Finanzas I",
+                      "Fundamentos de Administración I",
+                      "Lógica y Pensamiento Crítico"
+                    ],
+                    ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[0]
+                  };
+
+                  return (
+                    <div key={g.id} className="card" style={{ padding: "1.25rem", border: "1px solid var(--border)", background: "var(--bg)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", paddingBottom: "0.5rem", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <span style={{ width: "28px", height: "28px", borderRadius: "6px", background: "#2563eb", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.85rem" }}>
+                            {g.nombre.split(" ")[0]}
+                          </span>
+                          <span style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text)" }}>
+                            Grupo {g.nombre} ({g.semestre}° Semestre)
+                          </span>
+                        </div>
+
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: "12px", background: "#eff6ff", color: "#1d4ed8" }}>
+                          {g.semestre === 1 ? "100% Fundamental Universal" : g.semestre === 3 ? "Laboral (9 UACs)" : "Laboral + FFE (10 UACs)"}
+                        </span>
+                      </div>
+
+                      {/* Grupos de 1º Semestre */}
+                      {g.semestre === 1 && (
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                          ✓ Asignaturas del Currículum Fundamental MCCEMS 100% universales (La Materia y sus Interacciones, Pensamiento Matemático I, Humanidades I, Lenguaje y Comunicación I, etc.).
+                        </div>
+                      )}
+
+                      {/* Grupos de 3º Semestre */}
+                      {g.semestre === 3 && (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+                          <div>
+                            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                              Formación Laboral (Capacitación):
+                            </label>
+                            <select
+                              className="form-control"
+                              value={cfg.capacitacionNombre}
+                              onChange={(e) => handleUpdateGrupoConfig(g.nombre, "capacitacionNombre", e.target.value)}
+                              style={{ fontSize: "0.85rem", fontWeight: 700 }}
+                            >
+                              {FORMACIONES_LABORALES.map(cap => (
+                                <option key={cap} value={cap}>{cap}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                              Formación Socioemocional / Currículum Ampliado (Opción 1):
+                            </label>
+                            <select
+                              className="form-control"
+                              value={cfg.ffeoSocioemocional}
+                              onChange={(e) => handleUpdateGrupoConfig(g.nombre, "ffeoSocioemocional", e.target.value)}
+                              style={{ fontSize: "0.85rem", fontWeight: 700 }}
+                            >
+                              {FORMACIONES_SOCIOEMOCIONALES.map(soc => (
+                                <option key={soc} value={soc}>{soc}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Grupos de 5º Semestre */}
+                      {g.semestre === 5 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+                            <div>
+                              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                                Formación Laboral (Capacitación):
+                              </label>
+                              <select
+                                className="form-control"
+                                value={cfg.capacitacionNombre}
+                                onChange={(e) => handleUpdateGrupoConfig(g.nombre, "capacitacionNombre", e.target.value)}
+                                style={{ fontSize: "0.85rem", fontWeight: 700 }}
+                              >
+                                {FORMACIONES_LABORALES.map(cap => (
+                                  <option key={cap} value={cap}>{cap}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                                Formación Socioemocional (Opción 2 - 5.º Semestre):
+                              </label>
+                              <select
+                                className="form-control"
+                                value={cfg.ffeoSocioemocional}
+                                onChange={(e) => handleUpdateGrupoConfig(g.nombre, "ffeoSocioemocional", e.target.value)}
+                                style={{ fontSize: "0.85rem", fontWeight: 700 }}
+                              >
+                                {FORMACIONES_SOCIOEMOCIONALES.map(soc => (
+                                  <option key={soc} value={soc}>{soc}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.4rem" }}>
+                              4 Optativas FFE del Grupo (5.º Semestre):
+                            </label>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0.5rem" }}>
+                              {[0, 1, 2, 3].map(idx => (
+                                <select
+                                  key={idx}
+                                  className="form-control"
+                                  value={cfg.ffeOptativas[idx] || FFE_OPTATIVAS_CATALOGO[idx]}
+                                  onChange={(e) => {
+                                    const copiaOpts = [...cfg.ffeOptativas];
+                                    copiaOpts[idx] = e.target.value;
+                                    handleUpdateGrupoConfig(g.nombre, "ffeOptativas", copiaOpts);
+                                  }}
+                                  style={{ fontSize: "0.75rem" }}
+                                >
+                                  {FFE_OPTATIVAS_CATALOGO.map(opt => (
+                                    <option key={opt} value={opt}>Optativa {idx + 1}: {opt}</option>
+                                  ))}
+                                </select>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: "1rem 1.5rem",
+          background: "var(--bg-secondary)",
+          borderTop: "1px solid var(--border)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            Total de grupos a registrar: <strong>{g1 + g2 + g3} grupos</strong>
+          </span>
+
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            {paso === 2 && (
+              <button
+                className="btn btn-outline"
+                onClick={() => setPaso(1)}
+                disabled={guardando}
+                style={{ fontSize: "0.85rem", fontWeight: 700 }}
+              >
+                Regresar a Grupos
+              </button>
+            )}
+
+            <button
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={guardando}
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 700, background: "#16a34a", borderColor: "#16a34a" }}
+            >
+              {guardando ? (
+                <>
+                  <RefreshCw size={16} className="spin" /> Guardando...
+                </>
+              ) : (
+                <>
+                  <Save size={16} /> Guardar Mapa Curricular del Plantel
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
