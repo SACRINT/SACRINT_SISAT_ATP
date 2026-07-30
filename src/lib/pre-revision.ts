@@ -156,7 +156,7 @@ function cleanAndParseGeminiJson(raw: string) {
 }
 
 export interface PreRevisionResult {
-    tipo: "DIA_NARANJA" | "ACOSO_ESCOLAR" | "PMC" | "PAEC" | "INFORME_FINAL" | "OTROS";
+    tipo: "DIA_NARANJA" | "ACOSO_ESCOLAR" | "PMC" | "PAEC" | "INFORME_FINAL" | "PIPS" | "OTROS";
     aprobado?: boolean;
     error?: string;
     // Día Naranja fields
@@ -191,7 +191,7 @@ function parsePercentage(scoreStr: string): number {
 }
 
 function obtenerPartesEvaluacion(
-    modulo: "PMC" | "PAEC" | "INFORME_FINAL",
+    modulo: "PMC" | "PAEC" | "INFORME_FINAL" | "PIPS",
     templateContent: string,
     escuelaNombre: string,
     escuelaCct: string,
@@ -201,7 +201,32 @@ function obtenerPartesEvaluacion(
     let partes: { titulo: string; enfoque: string }[] = [];
     let customTemplateContent = templateContent;
 
-    if (modulo === "INFORME_FINAL") {
+    if (modulo === "PIPS") {
+        partes = [
+            {
+                titulo: "Sección I: Antecedentes, Retroalimentación Zonal y Diagnóstico Integrado (PIPS)",
+                enfoque: `Analiza el Plan de Intervención Pedagógica de Supervisión Escolar (PIPS) de la zona o supervisión ${escuelaNombre} (${escuelaCct}) correspondiente a la Fase 1 (Diseño) y Fase 2 (Desarrollo):
+1. Revisa los datos de identificación, CCT de supervisión, municipio, Supervisor Escolar y ATPs. Comprueba si existen marcas de borrador ([PENDIENTE], [CONFIRMAR]).
+2. Evalúa si se menciona la retroalimentación del PIPS del ciclo anterior recibida de la DBEPA (o la aplicación del Anexo 1 para reconstruir línea base).
+3. Evalúa si el diagnóstico zonal integra hallazgos de PMC y PAEC-PEC de los planteles de la zona (identificando evidencias prohibidas en PMC, confusión de nomenclatura en PAEC-PEC y gobernanza de comités).`
+            },
+            {
+                titulo: "Sección II: Estructura, Formato, Extensión Normativa y Referencias (PIPS)",
+                enfoque: `Analiza la estructura formal y formato técnico del PIPS (Fase 3):
+1. Verifica el cumplimiento de extensión según la etapa (Inicial: 8-10 cuartillas en cuerpo principal sin anexos; Avance: sintético; Final: 15-25 cuartillas). Si excede, indica qué tablas reubicar en Anexos.
+2. Evalúa el formato técnico: Arial 12, interlineado sencillo, márgenes 2.54 cm, alineación a la NEM/MCCEMS y citas formales en APA 7ª ed.
+3. Comprueba que cuente con los espacios de firma autógrafa del Supervisor Escolar y del equipo de ATP.`
+            },
+            {
+                titulo: "Sección III: Cronograma Operativo, Batería de Instrumentos y Anexos Operativos (PIPS)",
+                enfoque: `Analiza la implementación, seguimiento y anexos del PIPS (Fases 4 y 5):
+1. Evalúa el Cronograma Operativo (Problemática, Objetivo, Meta SMART, Acción, Responsable, Recursos, calendario mensualizado Agosto-Julio).
+2. Verifica los instrumentos de seguimiento: Bitácora del Supervisor Escolar (instrumento rector), cuestionarios a directivos y guías de observación áulica.
+3. Audita la inclusión de los Anexos A a F (matrícula, cronograma, bitácora, FODA, guías de observación, fichas por plantel). Reporta si falta alguno como ANEXO AUSENTE.`
+            }
+        ];
+    } else if (modulo === "INFORME_FINAL") {
+
         // Rúbrica de evaluación específica para el Informe Final de Cierre,
         // evitando evaluar el documento como si fuera la planeación de metas iniciales.
         customTemplateContent = `LINEAMIENTOS DE EVALUACIÓN DE INFORME FINAL (CERRADO):
@@ -638,12 +663,14 @@ Responde únicamente en formato JSON con la siguiente estructura:
                     };
                 }
             }
-        } else if (programaNombre.includes("PMC") || programaNombre.includes("PAEC") || programaNombre.includes("PEC") || programaNombre.includes("PLAN DE MEJORA CONTINUA")) {
-            // --- PMC / PAEC PRE-REVISION (Fase 3: Rúbricas y Prompts) ---
+        } else if (programaNombre.includes("PMC") || programaNombre.includes("PAEC") || programaNombre.includes("PEC") || programaNombre.includes("PLAN DE MEJORA CONTINUA") || programaNombre.includes("PIPS") || programaNombre.includes("INTERVENCI")) {
+            // --- PMC / PAEC / PIPS PRE-REVISION (Fase 3: Rúbricas y Prompts) ---
             const file = entrega.archivos.find(a => a.tipo === "ENTREGA" && a.driveUrl);
             if (file) {
-                let modulo: "PMC" | "PAEC" | "INFORME_FINAL" = "PMC";
-                if (programaNombre.includes("INFORME FINAL")) {
+                let modulo: "PMC" | "PAEC" | "INFORME_FINAL" | "PIPS" = "PMC";
+                if (programaNombre.includes("PIPS") || programaNombre.includes("INTERVENCI")) {
+                    modulo = "PIPS";
+                } else if (programaNombre.includes("INFORME FINAL")) {
                     modulo = "INFORME_FINAL";
                 } else if (programaNombre.includes("PAEC") || programaNombre.includes("PEC")) {
                     modulo = "PAEC";
@@ -654,11 +681,13 @@ Responde únicamente en formato JSON con la siguiente estructura:
                     where: { modulo, activo: true }
                 });
 
-                const templateContent = template?.contenido || (modulo === "INFORME_FINAL"
-                    ? "Evalúa este Informe Final del PMC y comprueba que se justifiquen las metas no cumplidas y se reporten evidencias de las cumplidas."
-                    : modulo === "PMC"
-                        ? "Evalúa este Plan de Mejora Continua (PMC) y verifica si cuenta con objetivos, metas y responsables."
-                        : "Evalúa este Proyecto Escolar Comunitario (PEC) y verifica que cumpla con los lineamientos del PAEC.");
+                const templateContent = template?.contenido || (modulo === "PIPS"
+                    ? "Evalúa este Plan de Intervención Pedagógica de Supervisión Escolar (PIPS) conforme a sus 5 Fases Normativas y Anexos A-F."
+                    : modulo === "INFORME_FINAL"
+                        ? "Evalúa este Informe Final del PMC y comprueba que se justifiquen las metas no cumplidas y se reporten evidencias de las cumplidas."
+                        : modulo === "PMC"
+                            ? "Evalúa este Plan de Mejora Continua (PMC) y verifica si cuenta con objetivos, metas y responsables."
+                            : "Evalúa este Proyecto Escolar Comunitario (PEC) y verifica que cumpla con los lineamientos del PAEC.");
 
                 try {
                     console.log(`[pre-revision] Starting evaluation of ${modulo} for delivery ${entregaId}...`);
@@ -812,7 +841,15 @@ Responde únicamente en formato JSON con la siguiente estructura:
                         const scoreAvg = Math.round((score1 + score2 + score3) / 3);
                         const puntuacionFinal = `${scoreAvg}%`;
 
-                        const observacionesFinal = `# Informe de Pre-Revisión del ${modulo === "INFORME_FINAL" ? "Informe Final del PMC" : modulo === "PAEC" ? "Proyecto Escolar Comunitario (PEC)" : "Plan de Mejora Continua (PMC)"}
+                        const tituloModulo = modulo === "PIPS"
+                            ? "Plan de Intervención Pedagógica de Supervisión Escolar (PIPS)"
+                            : modulo === "INFORME_FINAL"
+                                ? "Informe Final del PMC"
+                                : modulo === "PAEC"
+                                    ? "Proyecto Escolar Comunitario (PEC)"
+                                    : "Plan de Mejora Continua (PMC)";
+
+                        const observacionesFinal = `# Informe de Pre-Revisión del ${tituloModulo}
 
 Este informe presenta una evaluación exhaustiva y detallada del documento entregado por el plantel, con base en la rúbrica oficial de la supervisión.
 

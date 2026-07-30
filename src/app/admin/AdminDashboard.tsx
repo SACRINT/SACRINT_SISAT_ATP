@@ -1584,7 +1584,7 @@ export default function AdminDashboard({
                                     );
                                 }
 
-                                if (res.tipo === "PMC" || res.tipo === "PAEC" || res.tipo === "INFORME_FINAL") {
+                                if (res.tipo === "PMC" || res.tipo === "PAEC" || res.tipo === "INFORME_FINAL" || res.tipo === "PIPS") {
                                     const hasError = res.explicacion?.includes("Failed to download") || !res.borradorCorreo;
                                     return (
                                         <div style={{

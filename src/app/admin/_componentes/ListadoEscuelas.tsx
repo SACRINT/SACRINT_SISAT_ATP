@@ -442,7 +442,7 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                                                                      (() => {
                                                                          const r = (ent as any).preRevision.resultado;
                                                                          if (!r || !r.tipo) return 'Pendiente';
-                                                                         const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL';
+                                                                         const isAiType = r.tipo === 'PMC' || r.tipo === 'PAEC' || r.tipo === 'INFORME_FINAL' || r.tipo === 'PIPS';
                                                                          if (isAiType && !r.borradorCorreo) return '⚠️ Error (Re-evaluar)';
                                                                          if (r.tieneIncidencias) return '⚠️ Con Incidencias';
                                                                          if (r.aprobado === false) return '⚠️ Firma/Sello Faltante';
