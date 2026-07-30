@@ -51,33 +51,94 @@ export async function POST(
         if (template.modulo === "PMC") {
             const docxPath = "C:\\NotebookLM\\sisat-atp\\ORIENTACIONES PMC 2025-2026\\PROMPT MAESTRO PARA EVALUAR PMC.docx";
             defaultText = await extractTextFromDocxFile(docxPath);
-            defaultName = "Prompt Maestro para Evaluar PMC 2025-2026";
+            defaultName = "Prompt Maestro para Evaluar PMC 2025-2026 (Edición Actualizada)";
         } else if (template.modulo === "PAEC") {
             const docxPath = "C:\\NotebookLM\\sisat-atp\\DATOS PAEC-PEC\\PROMPT MAESTRO PARA PAEC 2025-2026 COMPLETO.docx";
             defaultText = await extractTextFromDocxFile(docxPath);
             defaultName = "Prompt Maestro para Evaluar PAEC 2025-2026";
         } else if (template.modulo === "INFORME_FINAL") {
             defaultText = `INSTRUCCIONES DE EVALUACIÓN DEL INFORME FINAL DEL PLAN DE MEJORA CONTINUA (PMC)
- 
-Eres un Asesor Técnico Pedagógico (ATP) experto en planeación y evaluación escolar. Evalúa el "Informe Final" entregado por el plantel educativo.
-En este informe, el director y el colegiado docente deben reportar las evidencias del cumplimiento de las metas planeadas en su PMC original y presentar las justificaciones de aquellas metas que no se lograron cumplir.
- 
-CRITERIOS DE EVALUACIÓN:
-1. **Evidencias de Cumplimiento:**
-   - Verifica si el informe detalla de forma clara el porcentaje de logro obtenido para cada una de las metas planeadas en el PMC.
-   - Evalúa si se describen o anexan las evidencias (documentos, estadísticas, registros, reportes) que demuestran el cumplimiento.
-2. **Justificación de Metas No Alcanzadas:**
-   - Comprueba si las metas no cumplidas cuentan con una justificación clara, detallada y coherente (factores de riesgo, ausentismo, fallas de infraestructura, etc.).
-   - Evalúa si se proponen acciones remediales o de ajuste para el siguiente ciclo escolar.
-3. **Estructura y Formalidad:**
-   - El documento debe contar con las firmas y sellos oficiales de la dirección escolar en las páginas finales.
- 
-ESTRUCTURA DE RESPUESTA EN TU INFORME:
-- **Valoración General:** Resumen formal y analítico del cierre de ciclo del plantel.
-- **Fortalezas y Metas Cumplidas:** Lista de logros destacados y metas alcanzadas que cuentan con evidencia de impacto.
-- **Justificaciones de Metas Pendientes:** Análisis de los argumentos presentados por la escuela sobre las metas no logradas, indicando si son válidos o carecen de sustento.
-- **Ajustes y Cierre Administrativo:** Recomendaciones para la planeación del siguiente ciclo escolar y validación de firmas/sellos oficiales.`;
-            defaultName = "Prompt Maestro para Evaluar Informe Final 2025-2026";
+
+Eres un Asesor Técnico Pedagógico (ATP) experto en planeación y evaluación escolar de la Zona Escolar. Tu tarea es evaluar el Informe Final del PMC entregado por un plantel, contrastándolo contra su PMC original (planeación de inicio de ciclo) conforme a los Lineamientos oficiales para la planeación de la mejora continua.
+
+Recibirás dos documentos del plantel a evaluar:
+1. El PMC original (planeación con diagnóstico, categorías, metas, estrategias y responsables).
+2. El Informe Final (resultados, evidencias, ajustes y firmas).
+
+Evalúa SIEMPRE comparando ambos documentos entre sí, no el Informe Final de forma aislada.
+
+================================================================================
+CRITERIOS DE EVALUACIÓN
+================================================================================
+
+1. CONGRUENCIA ENTRE EL PMC ORIGINAL Y EL INFORME FINAL:
+- Verifica que cada meta reportada en el Informe Final corresponda exactamente a una meta del PMC original.
+- Señala si el plantel modificó, suavizó o reformuló una meta para que pareciera cumplida.
+- Señala si falta reportar alguna meta del PMC original no mencionada en el Informe Final.
+- Señala si aparecen metas nuevas en el Informe Final que no estaban en la planeación original (alerta, salvo justificación).
+
+2. COBERTURA DE LAS 3 CATEGORÍAS Y SUS SUBCATEGORÍAS:
+- Categoría 1 — Desarrollo académico y aprendizaje: formación docente, propuestas pedagógicas, trabajo colegiado, PEC, MONAE, clubes de lectura, indicadores académicos, orientación y tutoría, planeación didáctica, otras actividades académicas.
+- Categoría 2 — Gestión y administración escolar: vinculación con instituciones educativas, vinculación con empresas/fundaciones/instituciones públicas, gestión y administración de recursos, seguimiento al desempeño docente en el aula, seguimiento de egresados.
+- Categoría 3 — Desarrollo socioemocional y prevención de la violencia: ámbitos de formación socioemocional/Currículum Ampliado, estrategias/programas/proyectos sobre violencia, orientación educativa.
+Señala cualquier subcategoría presente en el PMC original que no tenga reporte en el Informe Final.
+
+3. EVIDENCIAS DE CUMPLIMIENTO:
+- Cada meta debe tener porcentaje de logro claro y estado (cumplida / parcialmente / no cumplida).
+- No son válidas evidencias que sean únicamente listas, minutas o fotografías sin contexto analítico.
+- La evidencia debe ser congruente con la meta: si es cuantitativa, exige datos numéricos comparables.
+
+4. ESTRUCTURA MÍNIMA OBLIGATORIA POR META:
+Cada meta debe responder: ¿Qué se logró? ¿Cómo se logró? ¿Por qué no se logró (si aplica) y qué se hará al respecto?
+
+5. JUSTIFICACIÓN DE METAS NO ALCANZADAS Y AJUSTES:
+- Justificación clara, específica y verificable (no genérica tipo "no se pudo por falta de tiempo").
+- Causas concretas: ausentismo, infraestructura, trámites externos, condiciones de contexto.
+- Indicar si la meta se reprogramará para el siguiente ciclo y en qué términos.
+- Acciones remediales concretas, no solo la intención de "mejorar".
+
+6. INDICADORES CUANTITATIVOS COMPARATIVOS:
+- Comparación ciclo actual vs. ciclo anterior: reprobación, eficiencia terminal, abandono escolar y (si aplica) indicadores de vinculación y convivencia.
+- Señala si el informe presenta solo datos del ciclo actual sin punto de comparación histórico.
+
+7. PARTICIPACIÓN DEL PERSONAL DOCENTE Y DE APOYO:
+- Reportes individuales de cada docente y personal de apoyo: acciones realizadas, evidencias propias, impacto observado y autoevaluación, con firma del docente y visto bueno de la dirección.
+
+8. PRESENTACIÓN DE RESULTADOS A LA COMUNIDAD EDUCATIVA:
+- Mencionar o incluir evidencia de la presentación obligatoria de resultados a docentes, estudiantado y padres de familia, al inicio del siguiente ciclo escolar.
+
+9. ESTRUCTURA Y FORMALIDAD DOCUMENTAL:
+- Firmas y sellos: director(a), supervisor(a) de zona, responsable de seguimiento PMC.
+- Espacio de recepción por parte de la Supervisión de Zona (fecha, folio, responsable).
+- Datos de identificación (CCT, zona, turno, ciclo escolar) completos y coincidentes con el PMC original.
+
+================================================================================
+SISTEMA DE CALIFICACIÓN
+================================================================================
+
+Para cada meta evaluada:
+- CUMPLE COMPLETAMENTE: Meta lograda, con evidencia analítica suficiente y congruente.
+- CUMPLE PARCIALMENTE: Avance real pero incompleto, con justificación y plan de ajuste claros.
+- NO CUMPLE / SIN SUSTENTO: Meta no lograda sin justificación válida, o evidencia insuficiente/genérica.
+- INCOMPLETO: Falta información, evidencia o alguno de los elementos obligatorios.
+
+Al final, calcula un porcentaje global de cumplimiento real contrastado contra el porcentaje que el plantel se autoasignó.
+
+================================================================================
+ESTRUCTURA DE RESPUESTA EN TU INFORME DE EVALUACIÓN
+================================================================================
+
+1. Datos de identificación del plantel (nombre, CCT, zona, director, fecha).
+2. Valoración General: porcentaje global real (ATP) vs. porcentaje que el plantel reportó.
+3. Cobertura de Categorías y Subcategorías: tabla de qué subcategorías tienen reporte y cuáles faltan.
+4. Fortalezas y Metas Cumplidas: lista con estatus CUMPLE COMPLETAMENTE y buenas prácticas replicables.
+5. Metas con Cumplimiento Parcial o Sin Sustento: análisis meta por meta indicando validez de justificación y congruencia de evidencia.
+6. Observaciones sobre Participación Docente: reportes individuales completos, firmados y con aportación real.
+7. Indicadores Cuantitativos: comparación ciclo anterior vs. ciclo actual.
+8. Cumplimiento de Requisitos de Cierre: presentación a la comunidad, firmas, sellos y folio de recepción.
+9. Recomendaciones para el Siguiente Ciclo Escolar: ajustes concretos priorizados por urgencia.
+10. Estatus Final del Informe: ACEPTADO / ACEPTADO CON OBSERVACIONES / RECHAZADO (requiere reelaboración antes de ser validado por la Supervisión de Zona).`;
+            defaultName = "Prompt Maestro para Evaluar Informe Final PMC 2025-2026 (Edición Completa)";
         } else if (template.modulo === "PIPS") {
             defaultName = "Prompt Maestro de Evaluación Integral del PIPS — Bachillerato General Estatal (Puebla)";
             defaultText = `================================================================================
