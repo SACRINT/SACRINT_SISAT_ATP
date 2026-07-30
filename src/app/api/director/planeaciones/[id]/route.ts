@@ -7,6 +7,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+async function obtenerEscuelaId(user: any): Promise<string | null> {
+    if (!user) return null;
+    if (user.escuelaId) return user.escuelaId;
+    if (user.id && (user.role === "director" || !user.role)) return user.id;
+    if (user.cct) {
+        const esc = await prisma.escuela.findUnique({ where: { cct: user.cct }, select: { id: true } });
+        if (esc) return esc.id;
+    }
+    return user.id || null;
+}
+
 export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -15,7 +26,7 @@ export async function GET(
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const user = session.user as any;
-    const escuelaId = user.escuelaId as string;
+    const escuelaId = await obtenerEscuelaId(user);
     if (!escuelaId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
@@ -39,7 +50,7 @@ export async function DELETE(
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const user = session.user as any;
-    const escuelaId = user.escuelaId as string;
+    const escuelaId = await obtenerEscuelaId(user);
     if (!escuelaId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const { id } = await params;

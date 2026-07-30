@@ -72,6 +72,17 @@ async function verificarRequisitos(escuelaId: string) {
     };
 }
 
+async function obtenerEscuelaId(user: any): Promise<string | null> {
+    if (!user) return null;
+    if (user.escuelaId) return user.escuelaId;
+    if (user.id && (user.role === "director" || !user.role)) return user.id;
+    if (user.cct) {
+        const esc = await prisma.escuela.findUnique({ where: { cct: user.cct }, select: { id: true } });
+        if (esc) return esc.id;
+    }
+    return user.id || null;
+}
+
 // ── GET — Lista planeaciones + estado de requisitos ──────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -81,8 +92,8 @@ export async function GET(req: NextRequest) {
     }
 
     const user = session.user as any;
-    const escuelaId = user.escuelaId as string;
-    if (!escuelaId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    const escuelaId = await obtenerEscuelaId(user);
+    if (!escuelaId) return NextResponse.json({ error: "No autorizado (escuela no encontrada)" }, { status: 401 });
 
     const [requisitos, planeaciones] = await Promise.all([
         verificarRequisitos(escuelaId),
@@ -123,7 +134,7 @@ export async function POST(req: NextRequest) {
     }
 
     const user = session.user as any;
-    const escuelaId = user.escuelaId as string;
+    const escuelaId = await obtenerEscuelaId(user);
     const cct = user.cct as string;
     if (!escuelaId) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 

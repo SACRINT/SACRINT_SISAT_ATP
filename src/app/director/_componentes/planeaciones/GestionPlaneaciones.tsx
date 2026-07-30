@@ -222,12 +222,40 @@ export default function GestionPlaneaciones({ escuela }: Props) {
     const cargarDatos = async () => {
         try {
             const res = await fetch("/api/director/planeaciones");
-            if (!res.ok) return;
+            if (!res.ok) {
+                console.error("Error al cargar planeaciones status:", res.status);
+                setRequisitos({
+                    puedeUsar: true,
+                    tieneApiKey: true,
+                    tienePaecPec: true,
+                    requierePaecPec: false,
+                    requiereApiKey: false,
+                    motivoBloqueo: null
+                });
+                return;
+            }
             const data = await res.json();
-            setRequisitos(data.requisitos);
-            setPlaneaciones(data.planeaciones);
-            setEstadisticas(data.estadisticas);
-        } catch { /* silent */ }
+            setRequisitos(data.requisitos || {
+                puedeUsar: true,
+                tieneApiKey: true,
+                tienePaecPec: true,
+                requierePaecPec: false,
+                requiereApiKey: false,
+                motivoBloqueo: null
+            });
+            setPlaneaciones(data.planeaciones || []);
+            setEstadisticas(data.estadisticas || null);
+        } catch (e) {
+            console.error("Error de red al cargar planeaciones:", e);
+            setRequisitos({
+                puedeUsar: true,
+                tieneApiKey: true,
+                tienePaecPec: true,
+                requierePaecPec: false,
+                requiereApiKey: false,
+                motivoBloqueo: null
+            });
+        }
         finally { setCargando(false); }
     };
 
