@@ -16,7 +16,7 @@ export default function GestionPrompts({ readOnly = false }: { readOnly?: boolea
     const [loading, setLoading] = useState(true);
     const [savingId, setSavingId] = useState<string | null>(null);
     const [resettingId, setResettingId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"PMC" | "PAEC" | "INFORME_FINAL">("PMC");
+    const [activeTab, setActiveTab] = useState<"PMC" | "PAEC" | "INFORME_FINAL" | "PIPS">("PMC");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Fetch templates on mount
@@ -99,7 +99,7 @@ export default function GestionPrompts({ readOnly = false }: { readOnly?: boolea
                 <div>
                     <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700 }}>Rúbricas y Prompts de IA</h2>
                     <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-                        Configura las instrucciones de evaluación y rúbricas maestras que utiliza la IA para revisar el PMC y el PAEC-PEC.
+                        Configura las instrucciones de evaluación y rúbricas maestras que utiliza la IA para revisar el PMC, PAEC-PEC, Informe Final y el PIPS.
                     </p>
                 </div>
             </div>
@@ -137,6 +137,12 @@ export default function GestionPrompts({ readOnly = false }: { readOnly?: boolea
                     onClick={() => setActiveTab("INFORME_FINAL")}
                 >
                     Informe Final PMC
+                </button>
+                <button
+                    className={`tab-item ${activeTab === "PIPS" ? "active" : ""}`}
+                    onClick={() => setActiveTab("PIPS")}
+                >
+                    PIPS (Plan de Intervención de Supervisión)
                 </button>
             </div>
 
