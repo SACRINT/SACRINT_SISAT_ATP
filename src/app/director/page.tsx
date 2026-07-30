@@ -133,8 +133,7 @@ export default async function DirectorPage() {
     const isPAECActive = (paecConfig?.activo ?? false) && (sidebarConfig?.showPAEC ?? true);
     const isCapemsActive = (capemsConfig?.activo ?? false) && (sidebarConfig?.showCapems ?? true);
     const isExpedientesActive = (expedientesConfig?.activo ?? false) && (sidebarConfig?.showExpedientes ?? true);
-    // Planeaciones IA: activo si es escuela de prueba, o modoSinRestricciones activo, o (activoGlobal !== false Y no desactivado para esta escuela)
-    const isPlaneacionesActive = escuela.esDePrueba || (planeacionesConfig?.modoSinRestricciones === true)
+    const isPlaneacionesActive = escuela.esDePrueba || (planeacionesConfig ? planeacionesConfig.modoSinRestricciones : true)
         ? true
         : (planeacionesConfig ? planeacionesConfig.activoGlobal : true) && permisosEscuela.planeacionesDesactivado !== true;
 

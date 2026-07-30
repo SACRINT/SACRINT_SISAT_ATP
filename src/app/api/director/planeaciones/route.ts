@@ -28,8 +28,10 @@ async function verificarRequisitos(escuelaId: string) {
         }),
     ]);
 
+    const modoSinRestricciones = config ? config.modoSinRestricciones : true;
+
     // ── Si es escuela de prueba O está en Modo Sin Restricciones ──
-    if (escuela?.esDePrueba || config?.modoSinRestricciones === true) {
+    if (escuela?.esDePrueba || modoSinRestricciones) {
         return {
             moduloHabilitado: true,
             tieneApiKey: true,
