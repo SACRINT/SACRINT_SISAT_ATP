@@ -237,6 +237,14 @@ Implementado en julio 2026. Permite a los directores subir planeaciones didácti
 | `src/app/director/_componentes/planeaciones/GestionPlaneaciones.tsx` | UI del director: subida, listado, dictámenes, descarga Word |
 | `src/app/admin/_componentes/GestionEscuelas.tsx` | Columna "📋 Planeaciones IA" en la Matriz de Módulos |
 
+#### Estructura de Grupos por Escuela y Catálogo MCCEMS 2025-2026 (v3.4)
+- **Estructura de Grupos en `Escuela` (`gruposPrimerAno`, `gruposSegundoAno`, `gruposTercerAno`)**: Define la cantidad de grupos por año lectivo (ej. `3-3-3` = 3 grupos de 1.º/2.º semestre, 3 de 3.er/4.º semestre, 3 de 5.º/6.º semestre).
+- **Semestres A / B**:
+  - **Semestre A**: 1.º, 3.er y 5.º Semestres.
+  - **Semestre B**: 2.º, 4.º y 6.º Semestres.
+- **Formaciones Laborales (15 Capacitaciones BGE Puebla)**: Cada grupo de 3.er y 5.º Semestre tiene asignada su Capacitación Laboral (Administración, Tecnología Informática, Redes y Mantenimiento, Área de la Salud, etc.), resolviendo automáticamente los 2 submódulos oficiales de esa capacitación.
+- **Optativas FFE (5.º y 6.º Semestre)**: Cada grupo en 5.º Semestre lleva 4 Optativas FFE asignadas, sustituyendo nombres obsoletos.
+
 #### Modelos Prisma Nuevos
 ```prisma
 model PlaneacionesConfig {

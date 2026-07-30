@@ -83,7 +83,13 @@ export async function GET(req: NextRequest) {
       }
     });
 
+    const escuela = await prisma.escuela.findUnique({
+      where: { id: escuelaId },
+      select: { id: true, cct: true, nombre: true, gruposPrimerAno: true, gruposSegundoAno: true, gruposTercerAno: true }
+    });
+
     return NextResponse.json({
+      escuela,
       config,
       grupos,
       aulas,

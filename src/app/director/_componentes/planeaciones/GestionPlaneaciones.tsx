@@ -10,7 +10,9 @@ import { Packer, Document, Paragraph, TextRun, Table, TableRow, TableCell, Headi
 import toast from "react-hot-toast";
 import {
     generarGruposPorEstructura,
-    ASIGNATURAS_MCCEMS_POR_SEMESTRE,
+    obtenerAsignaturasParaGrupo,
+    FORMACIONES_LABORALES,
+    FFE_OPTATIVAS_CATALOGO,
     GrupoDefinicion,
     EscuelaEstructuraGrupos
 } from "@/lib/escuela-grupos";
@@ -182,6 +184,7 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
     const [planeaciones, setPlaneaciones] = useState<Planeacion[]>([]);
     const [personalList, setPersonalList] = useState<PersonalDocente[]>([]);
     const [cargasList, setCargasList] = useState<CargaDocente[]>([]);
+    const [gruposDB, setGruposDB] = useState<any[]>([]);
     const [cargando, setCargando] = useState(true);
 
     // Controles de Vista
@@ -221,11 +224,35 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
             setPlaneaciones(data.planeaciones || []);
             setPersonalList(data.personal || []);
             setCargasList(data.cargas || []);
+            setGruposDB(data.grupos || []);
         } catch (err: any) {
             toast.error("No se pudieron cargar las planeaciones de la escuela");
             setRequisitos({ puedeUsar: true, tieneApiKey: true, tienePaecPec: true, motivoBloqueo: null });
         } finally {
             setCargando(false);
+        }
+    };
+
+    const handleGuardarConfigGrupo = async (grupoNombre: string, semestre: number, capacitacionNombre: string, ffeOptativas?: string[]) => {
+        try {
+            const res = await fetch(`/api/escuelas/${escuelaData.id}/grupos-config`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ grupoNombre, semestre, capacitacionNombre, ffeOptativas })
+            });
+            if (!res.ok) throw new Error("Error al guardar");
+            toast.success(`Capacitación ${capacitacionNombre} guardada para ${grupoNombre}`);
+            setGruposDB(prev => {
+                const idx = prev.findIndex((g: any) => g.nombre === grupoNombre);
+                if (idx >= 0) {
+                    const copia = [...prev];
+                    copia[idx] = { ...copia[idx], capacitacionNombre, ffeOptativas };
+                    return copia;
+                }
+                return [...prev, { nombre: grupoNombre, semestre, capacitacionNombre, ffeOptativas }];
+            });
+        } catch (err: any) {
+            toast.error("Error al actualizar la capacitación del grupo");
         }
     };
 
@@ -547,7 +574,11 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                     {gruposGenerados
                         .filter(g => grupoSeleccionadoId === "TODOS" || g.nombre === grupoSeleccionadoId)
                         .map(grupo => {
-                            const asignaturasSemestre = ASIGNATURAS_MCCEMS_POR_SEMESTRE[grupo.semestre] || [];
+                            const hGrupo = gruposDB.find((g: any) => g.nombre === grupo.nombre);
+                            const capNombre = hGrupo?.capacitacionNombre || "Administracion";
+                            const ffeOpts = Array.isArray(hGrupo?.ffeOptativas) ? hGrupo.ffeOptativas : [];
+
+                            const asignaturasSemestre = obtenerAsignaturasParaGrupo(grupo.semestre, capNombre, ffeOpts);
                             
                             // Conteo de planeaciones en este grupo
                             const planeacionesDelGrupo = asignaturasSemestre.filter(uac => {
@@ -569,7 +600,7 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                                         flexWrap: "wrap",
                                         gap: "0.75rem"
                                     }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                                             <div style={{
                                                 width: "38px",
                                                 height: "38px",
@@ -592,6 +623,24 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                                                     {grupo.semestre}° Semestre ({grupo.semestre <= 4 ? "Propósitos Formativos" : "Progresiones de Aprendizaje"})
                                                 </span>
                                             </div>
+
+                                            {/* Selector de Capacitación Laboral para 3º y 5º Semestre */}
+                                            {grupo.semestre >= 3 && (
+                                                <div style={{ marginLeft: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)" }}>Formación Laboral:</span>
+                                                    <select
+                                                        className="form-control"
+                                                        value={capNombre}
+                                                        disabled={readOnly}
+                                                        onChange={(e) => handleGuardarConfigGrupo(grupo.nombre, grupo.semestre, e.target.value, ffeOpts)}
+                                                        style={{ fontSize: "0.8rem", fontWeight: 700, padding: "0.25rem 0.5rem", borderRadius: "6px" }}
+                                                    >
+                                                        {FORMACIONES_LABORALES.map(cap => (
+                                                            <option key={cap} value={cap}>{cap}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>

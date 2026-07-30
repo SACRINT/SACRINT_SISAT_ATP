@@ -6,6 +6,7 @@ import { Edit2, Save, X, Building2, User, Mail, School, Lock, Clock, Plus, Trash
 import toast from "react-hot-toast";
 import { SECCIONES_PERMISOS, DEFAULT_PERMISOS } from "@/lib/constants";
 import { ProgramaAdmin } from "@/types";
+import { FORMACIONES_LABORALES, FFE_OPTATIVAS_CATALOGO, generarGruposPorEstructura } from "@/lib/escuela-grupos";
 
 type Escuela = {
     id: string;
@@ -225,6 +226,31 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     // Custom configuration state
     const [configuraciones, setConfiguraciones] = useState<Record<string, number>>({});
     const [loadingConfig, setLoadingConfig] = useState(false);
+    const [gruposConfigList, setGruposConfigList] = useState<any[]>([]);
+
+    const handleGuardarCapacitacionEscuela = async (grupoNombre: string, semestre: number, capacitacionNombre: string, ffeOptativas?: string[]) => {
+        if (!selectedId) return;
+        try {
+            const res = await fetch(`/api/escuelas/${selectedId}/grupos-config`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ grupoNombre, semestre, capacitacionNombre, ffeOptativas })
+            });
+            if (!res.ok) throw new Error("Error al guardar");
+            toast.success(`Capacitación ${capacitacionNombre} guardada para Grupo ${grupoNombre}`);
+            setGruposConfigList(prev => {
+                const idx = prev.findIndex((g: any) => g.nombre === grupoNombre);
+                if (idx >= 0) {
+                    const copia = [...prev];
+                    copia[idx] = { ...copia[idx], capacitacionNombre, ffeOptativas };
+                    return copia;
+                }
+                return [...prev, { nombre: grupoNombre, semestre, capacitacionNombre, ffeOptativas }];
+            });
+        } catch (err: any) {
+            toast.error("Error al actualizar la configuración del grupo");
+        }
+    };
 
     const cargarDatosEscuela = (id: string) => {
         setSelectedId(id);
@@ -266,7 +292,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     permisos: esc.permisos || { ...DEFAULT_PERMISOS },
                 }));
 
-                // Fetch configuraciones
+                // Fetch configuraciones de programas
                 setLoadingConfig(true);
                 fetch(`/api/escuelas/${id}/configuracion`)
                     .then(res => res.json())
@@ -279,9 +305,20 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     })
                     .catch(e => console.error("Error al obtener configuracion:", e))
                     .finally(() => setLoadingConfig(false));
+
+                // Fetch configuraciones de grupos y capacitaciones
+                fetch(`/api/horarios/configuracion?escuelaId=${id}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (Array.isArray(data.grupos)) {
+                            setGruposConfigList(data.grupos);
+                        }
+                    })
+                    .catch(e => console.error("Error al obtener grupos config:", e));
             }
         } else {
             setConfiguraciones({});
+            setGruposConfigList([]);
         }
     };
 
@@ -1279,6 +1316,61 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                 </div>
                             </div>
                         </div>
+
+                        {/* Configuración de Capacitaciones Laborales por Grupo (3º y 5º Semestre) */}
+                        {selectedEscuela && !selectedEscuela.esSupervision && (
+                            <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                            <Sparkles size={16} color="var(--primary)" /> Capacitaciones Laborales y Optativas FFE por Grupo
+                                        </h4>
+                                        <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                            Asigne qué Formación Laboral y Optativas lleva cada grupo de 3.er y 5.º Semestre. Se sincroniza con Planeaciones IA y Horarios IA.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1rem" }}>
+                                    {generarGruposPorEstructura(selectedEscuela, "SEMESTRE_A")
+                                        .filter(g => g.semestre >= 3)
+                                        .map(g => {
+                                            const cfg = gruposConfigList.find((item: any) => item.nombre === g.nombre);
+                                            const capNombre = cfg?.capacitacionNombre || "Administracion";
+                                            const ffeOpts = Array.isArray(cfg?.ffeOptativas) ? cfg.ffeOptativas : [];
+
+                                            return (
+                                                <div key={g.id} style={{ background: "var(--bg)", padding: "0.85rem 1rem", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                                                        <span style={{ fontWeight: 800, fontSize: "0.875rem", color: "var(--primary)" }}>
+                                                            Grupo {g.nombre} ({g.semestre}° Semestre)
+                                                        </span>
+                                                        <span style={{ fontSize: "0.7rem", fontWeight: 700, padding: "0.15rem 0.45rem", borderRadius: "12px", background: "var(--bg-secondary)", color: "var(--text-muted)" }}>
+                                                            {g.semestre === 3 ? "Laboral (9 UACs)" : "Laboral + FFE (10 UACs)"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div style={{ marginBottom: "0.5rem" }}>
+                                                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                                                            Formación Laboral (Capacitación del Grupo):
+                                                        </label>
+                                                        <select
+                                                            className="form-control"
+                                                            value={capNombre}
+                                                            onChange={(e) => handleGuardarCapacitacionEscuela(g.nombre, g.semestre, e.target.value, ffeOpts)}
+                                                            style={{ fontSize: "0.8rem", fontWeight: 700 }}
+                                                        >
+                                                            {FORMACIONES_LABORALES.map(c => (
+                                                                <option key={c} value={c}>{c}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                 </div>

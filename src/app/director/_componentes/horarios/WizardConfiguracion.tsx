@@ -241,7 +241,7 @@ export default function WizardConfiguracion({
   
   // Número abierto de grupos por grado (1, 2, 3, 4, 5, 10...)
   const [numGruposPorGrado, setNumGruposPorGrado] = useState<number>(
-    gruposIniciales.length > 0 ? Math.max(1, Math.ceil(gruposIniciales.length / 3)) : 1
+    configInicial?.escuela?.gruposPrimerAno ?? (gruposIniciales.length > 0 ? Math.max(1, Math.ceil(gruposIniciales.length / 3)) : 1)
   );
 
   // Modo de Configuración: Semiautomático (SEP General) vs Manual Libre (Tecnológicos)

@@ -81,6 +81,9 @@ export default async function AdminPage() {
             esSupervision: true,
             permisos: true,
             geminiApiKey: true,
+            gruposPrimerAno: true,
+            gruposSegundoAno: true,
+            gruposTercerAno: true,
             // Incluir el personal con cargo RESPONSABLE para cruzar datos del director
             personal: {
                 where: { cargo: "RESPONSABLE" },
