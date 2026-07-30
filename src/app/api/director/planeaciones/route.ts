@@ -95,12 +95,33 @@ export async function GET(req: NextRequest) {
     const escuelaId = await obtenerEscuelaId(user);
     if (!escuelaId) return NextResponse.json({ error: "No autorizado (escuela no encontrada)" }, { status: 401 });
 
-    const [requisitos, planeaciones] = await Promise.all([
+    const [requisitos, planeaciones, escuela, personal, cargas, grupos] = await Promise.all([
         verificarRequisitos(escuelaId),
         prisma.planeacionDidactica.findMany({
             where: { escuelaId },
             orderBy: { fechaSubida: "desc" },
         }),
+        prisma.escuela.findUnique({
+            where: { id: escuelaId },
+            select: { id: true, cct: true, nombre: true, gruposPrimerAno: true, gruposSegundoAno: true, gruposTercerAno: true }
+        }),
+        prisma.personal.findMany({
+            where: { escuelaId },
+            orderBy: [{ apellidoPaterno: "asc" }, { nombre: "asc" }],
+            select: { id: true, nombre: true, apellidoPaterno: true, apellidoMaterno: true, rfc: true, cargo: true }
+        }),
+        prisma.horarioCargaDocente.findMany({
+            where: { escuelaId },
+            include: {
+                personal: true,
+                grupo: true,
+                asignatura: true,
+            }
+        }),
+        prisma.horarioGrupo.findMany({
+            where: { escuelaId },
+            orderBy: { nombre: "asc" }
+        })
     ]);
 
     return NextResponse.json({
@@ -112,7 +133,10 @@ export async function GET(req: NextRequest) {
             requiereApiKey: requisitos.requiereApiKey,
             motivoBloqueo: requisitos.motivoBloqueo,
         },
-
+        escuela,
+        personal,
+        cargas,
+        grupos,
         planeaciones,
         estadisticas: {
             total: planeaciones.length,
@@ -144,11 +168,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: requisitos.motivoBloqueo }, { status: 403 });
     }
 
-    // Parsear el form data
     const formData = await req.formData();
     const archivo = formData.get("archivo") as File | null;
     const docenteNombre = formData.get("docenteNombre") as string;
     const docenteRFC = formData.get("docenteRFC") as string | undefined;
+    const grupoNombre = formData.get("grupoNombre") as string | undefined;
+    const tipoSemestrePeriodo = (formData.get("tipoSemestrePeriodo") as string) || "SEMESTRE_A";
     const asignatura = formData.get("asignatura") as string;
     const semestreStr = formData.get("semestre") as string;
     const bloqueCorte = formData.get("bloqueCorte") as string | undefined;
@@ -191,6 +216,8 @@ export async function POST(req: NextRequest) {
             cct,
             docenteNombre,
             docenteRFC: docenteRFC || null,
+            grupoNombre: grupoNombre || null,
+            tipoSemestrePeriodo,
             asignatura,
             semestre,
             bloqueCorte: bloqueCorte || null,

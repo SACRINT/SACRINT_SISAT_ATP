@@ -48,10 +48,23 @@ const NIVEL_COLOR: Record<string, string> = {
 //  Componente principal
 // ─────────────────────────────────────────────────────────────
 
+import GestionPlaneaciones from "@/app/director/_componentes/planeaciones/GestionPlaneaciones";
+
+interface EscuelaAdminOption {
+    id: string;
+    cct: string;
+    nombre: string;
+    gruposPrimerAno?: number;
+    gruposSegundoAno?: number;
+    gruposTercerAno?: number;
+}
+
 export default function PlaneacionesAdminPanel() {
     const [config, setConfig] = useState<ConfigData | null>(null);
     const [modoSinRestriccionesHorarios, setModoSinRestriccionesHorarios] = useState(false);
     const [planeaciones, setPlaneaciones] = useState<PlaneacionRow[]>([]);
+    const [escuelasList, setEscuelasList] = useState<EscuelaAdminOption[]>([]);
+    const [selectedEscuelaId, setSelectedEscuelaId] = useState<string>("TODAS");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [savingHorarios, setSavingHorarios] = useState(false);
@@ -64,16 +77,24 @@ export default function PlaneacionesAdminPanel() {
     const cargar = useCallback(async () => {
         setLoading(true);
         try {
-            const [cfgRes, listRes, horariosCfgRes] = await Promise.all([
+            const [cfgRes, listRes, horariosCfgRes, escuelasRes] = await Promise.all([
                 fetch("/api/admin/planeaciones-config"),
                 fetch("/api/admin/planeaciones"),
                 fetch("/api/admin/horarios/config"),
+                fetch("/api/admin/escuelas"),
             ]);
             if (cfgRes.ok) setConfig(await cfgRes.json());
-            if (listRes.ok) setPlaneaciones(await listRes.json());
+            if (listRes.ok) {
+                const data = await listRes.json();
+                setPlaneaciones(data.planeaciones || (Array.isArray(data) ? data : []));
+            }
             if (horariosCfgRes.ok) {
                 const hCfg = await horariosCfgRes.json();
                 setModoSinRestriccionesHorarios(hCfg.modoSinRestriccionesHorarios ?? false);
+            }
+            if (escuelasRes.ok) {
+                const escData = await escuelasRes.json();
+                setEscuelasList(Array.isArray(escData) ? escData : []);
             }
         } catch {
             setMsg({ type: "error", text: "Error al cargar datos" });
@@ -177,14 +198,48 @@ export default function PlaneacionesAdminPanel() {
                         Revisión automática de planeaciones y secuencias didácticas con Inteligencia Artificial (Anexo 12 USICAMM)
                     </p>
                 </div>
-                <button
-                    onClick={cargar}
-                    className="btn btn-outline"
-                    style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem" }}
-                >
-                    <RefreshCw size={14} /> Actualizar
-                </button>
+                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                    <select
+                        className="form-control"
+                        value={selectedEscuelaId}
+                        onChange={(e) => setSelectedEscuelaId(e.target.value)}
+                        style={{ padding: "0.5rem 1rem", fontSize: "0.85rem", fontWeight: 700, minWidth: "250px", cursor: "pointer" }}
+                    >
+                        <option value="TODAS">🏫 Ver todas las escuelas de la zona</option>
+                        {escuelasList.map(e => (
+                            <option key={e.id} value={e.id}>
+                                {e.cct} - {e.nombre}
+                            </option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={cargar}
+                        className="btn btn-outline"
+                        style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem" }}
+                    >
+                        <RefreshCw size={14} /> Actualizar
+                    </button>
+                </div>
             </div>
+
+            {/* ── Si hay una escuela seleccionada de la zona, mostrar el módulo completo interactivo de esa escuela ── */}
+            {selectedEscuelaId !== "TODAS" ? (() => {
+                const targetEsc = escuelasList.find(e => e.id === selectedEscuelaId);
+                if (!targetEsc) return null;
+                return (
+                    <div style={{ marginTop: "0.5rem" }}>
+                        <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", padding: "0.75rem 1rem", borderRadius: "10px", marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1d4ed8" }}>
+                                🛠️ Panel de Control de Administración para: {targetEsc.nombre} ({targetEsc.cct})
+                            </span>
+                            <button className="btn btn-outline" onClick={() => setSelectedEscuelaId("TODAS")} style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}>
+                                ✕ Volver a resumen zona
+                            </button>
+                        </div>
+                        <GestionPlaneaciones escuela={targetEsc} />
+                    </div>
+                );
+            })() : null}
 
             {/* ── Mensaje de estado ── */}
             {msg && (

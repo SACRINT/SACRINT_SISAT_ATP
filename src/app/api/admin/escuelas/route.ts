@@ -22,6 +22,9 @@ export async function GET() {
             municipio: true,
             esSupervision: true,
             esDePrueba: true,
+            gruposPrimerAno: true,
+            gruposSegundoAno: true,
+            gruposTercerAno: true,
         },
         orderBy: { nombre: "asc" },
     });

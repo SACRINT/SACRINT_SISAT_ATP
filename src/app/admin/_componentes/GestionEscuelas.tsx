@@ -19,6 +19,9 @@ type Escuela = {
     ultimoIngreso?: Date | string | null;
     esDePrueba?: boolean;
     esSupervision?: boolean;
+    gruposPrimerAno?: number;
+    gruposSegundoAno?: number;
+    gruposTercerAno?: number;
     directorExpediente?: {
         rfc?: string | null;
         curp?: string | null;
@@ -196,7 +199,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
     }, []);
 
     // Form state
-    const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar: string; director: string; email: string; password?: string; rfc?: string; curp?: string; clavePresupuestal?: string; fechaIngreso?: string; esDePrueba?: boolean; esSupervision?: boolean; permisos?: any }>({
+    const [formData, setFormData] = useState<{ cct: string; nombre: string; localidad: string; municipio: string; zonaEscolar: string; director: string; email: string; password?: string; rfc?: string; curp?: string; clavePresupuestal?: string; fechaIngreso?: string; esDePrueba?: boolean; esSupervision?: boolean; permisos?: any; gruposPrimerAno?: number; gruposSegundoAno?: number; gruposTercerAno?: number }>({
         cct: "",
         nombre: "",
         localidad: "",
@@ -211,6 +214,9 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
         fechaIngreso: "",
         esDePrueba: false,
         esSupervision: false,
+        gruposPrimerAno: 1,
+        gruposSegundoAno: 1,
+        gruposTercerAno: 1,
         permisos: { ...DEFAULT_PERMISOS },
     });
 
@@ -230,12 +236,11 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
             const esc = escuelas.find(sc => sc.id === id);
             if (esc) {
                 // Cruzar directorExpediente con el Personal RESPONSABLE.
-                // directorExpediente tiene prioridad; se usa personal[0] para llenar huecos.
                 const responsable = esc.personal?.[0] ?? null;
                 const exp = esc.directorExpediente;
 
                 const getRFC              = exp?.rfc              || responsable?.rfc              || (esc.esSupervision ? autoridades?.supervisorRFC : "") || "";
-                const getCURP             = exp?.curp             || responsable?.curp             || ""; // autoridades doesn't have curp
+                const getCURP             = exp?.curp             || responsable?.curp             || "";
                 const getClavePresup      = exp?.clavePresupuestal|| responsable?.clavePresupuestal|| (esc.esSupervision ? autoridades?.supervisorClave : "") || "";
                 const getFechaIngreso     = exp?.fechaIngreso     || responsable?.fechaIngreso     || (esc.esSupervision ? autoridades?.supervisorFecha : null);
 
@@ -255,6 +260,9 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                     fechaIngreso: getFechaIngreso ? new Date(getFechaIngreso).toISOString().split('T')[0] : "",
                     esDePrueba: esc.esDePrueba ?? false,
                     esSupervision: esc.esSupervision ?? false,
+                    gruposPrimerAno: esc.gruposPrimerAno ?? 1,
+                    gruposSegundoAno: esc.gruposSegundoAno ?? 1,
+                    gruposTercerAno: esc.gruposTercerAno ?? 1,
                     permisos: esc.permisos || { ...DEFAULT_PERMISOS },
                 }));
 
@@ -1186,7 +1194,93 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                                 </p>
                             )}
                         </div>
+
+                        {/* Estructura de Grupos por Grado / Año */}
+                        <div style={{
+                            gridColumn: "1 / -1",
+                            background: "var(--bg-secondary)",
+                            border: "1px solid var(--border)",
+                            borderRadius: "12px",
+                            padding: "1.25rem",
+                            marginTop: "0.5rem"
+                        }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                        <School size={18} style={{ color: "var(--primary)" }} /> Estructura de Grupos por Grado / Año
+                                    </h4>
+                                    <p style={{ margin: "0.2rem 0 0", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                        Configura la cantidad de grupos activos por año. Se sincroniza con Horarios IA y Planeaciones Didácticas.
+                                    </p>
+                                </div>
+                                <span style={{
+                                    fontSize: "0.75rem",
+                                    fontWeight: 700,
+                                    padding: "0.25rem 0.6rem",
+                                    borderRadius: "20px",
+                                    background: "white",
+                                    border: "1px solid var(--border)",
+                                    color: "var(--primary)"
+                                }}>
+                                    Estructura: {(isEditingMode ? formData.gruposPrimerAno : selectedEscuela?.gruposPrimerAno) ?? 1}-{(isEditingMode ? formData.gruposSegundoAno : selectedEscuela?.gruposSegundoAno) ?? 1}-{(isEditingMode ? formData.gruposTercerAno : selectedEscuela?.gruposTercerAno) ?? 1}
+                                </span>
+                            </div>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                                <div>
+                                    <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                                        1.er Año (1.º y 2.º Semestre)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        className="form-control"
+                                        value={isEditingMode ? (formData.gruposPrimerAno ?? 1) : (selectedEscuela?.gruposPrimerAno ?? 1)}
+                                        onChange={(e) => setFormData({ ...formData, gruposPrimerAno: Math.max(1, parseInt(e.target.value) || 1) })}
+                                        disabled={!isEditingMode}
+                                        style={{ fontSize: "0.9rem", fontWeight: 700, textAlign: "center" }}
+                                    />
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Grupos: 1º A, 1º B...</span>
+                                </div>
+
+                                <div>
+                                    <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                                        2.º Año (3.er y 4.º Semestre)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        className="form-control"
+                                        value={isEditingMode ? (formData.gruposSegundoAno ?? 1) : (selectedEscuela?.gruposSegundoAno ?? 1)}
+                                        onChange={(e) => setFormData({ ...formData, gruposSegundoAno: Math.max(1, parseInt(e.target.value) || 1) })}
+                                        disabled={!isEditingMode}
+                                        style={{ fontSize: "0.9rem", fontWeight: 700, textAlign: "center" }}
+                                    />
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Grupos: 3º A, 3º B...</span>
+                                </div>
+
+                                <div>
+                                    <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                                        3.er Año (5.º y 6.º Semestre)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        className="form-control"
+                                        value={isEditingMode ? (formData.gruposTercerAno ?? 1) : (selectedEscuela?.gruposTercerAno ?? 1)}
+                                        onChange={(e) => setFormData({ ...formData, gruposTercerAno: Math.max(1, parseInt(e.target.value) || 1) })}
+                                        disabled={!isEditingMode}
+                                        style={{ fontSize: "0.9rem", fontWeight: 700, textAlign: "center" }}
+                                    />
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Grupos: 5º A, 5º B...</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
             )}
 

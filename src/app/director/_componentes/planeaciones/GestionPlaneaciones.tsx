@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     FileText, Upload, ChevronDown, ChevronUp, AlertTriangle,
     CheckCircle, Clock, XCircle, Download, RefreshCw, Trash2,
-    BookOpen, Star, AlertCircle, Lock
+    BookOpen, Star, AlertCircle, Lock, Users, Layers, Filter, Check, Plus, Edit2, Search, Sparkles
 } from "lucide-react";
-import { Packer, Document, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle } from "docx";
+import { Packer, Document, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType } from "docx";
+import toast from "react-hot-toast";
+import {
+    generarGruposPorEstructura,
+    ASIGNATURAS_MCCEMS_POR_SEMESTRE,
+    GrupoDefinicion,
+    EscuelaEstructuraGrupos
+} from "@/lib/escuela-grupos";
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +41,8 @@ interface CriterioResultado {
 interface Planeacion {
     id: string;
     docenteNombre: string;
+    grupoNombre?: string | null;
+    tipoSemestrePeriodo?: string;
     asignatura: string;
     semestre: number;
     bloqueCorte?: string;
@@ -56,43 +65,34 @@ interface Planeacion {
     fechaRevision?: string;
 }
 
-interface Estadisticas {
-    total: number;
-    revisadas: number;
-    pendientes: number;
-    conError: number;
-    promedioZona: number;
+interface PersonalDocente {
+    id: string;
+    nombre: string;
+    apellidoPaterno: string;
+    apellidoMaterno: string;
+    rfc?: string | null;
+    cargo?: string | null;
+}
+
+interface CargaDocente {
+    id: string;
+    personalId: string;
+    grupo: { nombre: string };
+    asignatura: { uacName: string };
+    personal: PersonalDocente;
 }
 
 interface Props {
-    escuela: { id: string; cct: string; nombre: string };
+    escuela: {
+        id: string;
+        cct: string;
+        nombre: string;
+        gruposPrimerAno?: number;
+        gruposSegundoAno?: number;
+        gruposTercerAno?: number;
+    };
+    readOnly?: boolean;
 }
-
-// ── Colores por nivel ────────────────────────────────────────────────────────
-
-const colorEstado: Record<string, { bg: string; text: string; border: string; label: string; icon: React.ReactNode }> = {
-    PENDIENTE: { bg: "#f8fafc", text: "#64748b", border: "#e2e8f0", label: "Pendiente", icon: <Clock size={14} /> },
-    EN_REVISION: { bg: "#eff6ff", text: "#2563eb", border: "#bfdbfe", label: "Analizando con IA...", icon: <RefreshCw size={14} className="spin" /> },
-    REVISADO: { bg: "#f0fdf4", text: "#16a34a", border: "#bbf7d0", label: "Revisado", icon: <CheckCircle size={14} /> },
-    ERROR: { bg: "#fef2f2", text: "#dc2626", border: "#fecaca", label: "Error", icon: <XCircle size={14} /> },
-};
-
-const colorNivel: Record<string, { bg: string; text: string; label: string }> = {
-    COMPLETO: { bg: "#f0fdf4", text: "#16a34a", label: "Cumple satisfactoriamente" },
-    PARCIAL: { bg: "#fffbeb", text: "#d97706", label: "Cumplimiento parcial" },
-    REQUIERE_CORRECCION: { bg: "#fef2f2", text: "#dc2626", label: "Requiere correcciones" },
-};
-
-// ── Asignaturas disponibles ──────────────────────────────────────────────────
-
-const ASIGNATURAS_POR_SEMESTRE: Record<number, string[]> = {
-    1: ["Pensamiento Matemático I", "Lengua y Comunicación I", "Ciencias Naturales (Invitación a la Ciencia)", "Ciencias Sociales I", "Humanidades I (Pensamiento Filosófico)", "Inglés I", "Educación para la Salud y el Bienestar I", "Actividades Físicas y Deportivas I", "Actividades Artísticas y Culturales I", "Laboratorio de Investigación I", "Cultura Digital I", "Formación Laboral"],
-    2: ["Pensamiento Matemático II", "Lengua y Comunicación II", "Ciencias Naturales II", "Ciencias Sociales II", "Humanidades II", "Inglés II", "Educación para la Salud y el Bienestar II", "Actividades Físicas y Deportivas II", "Actividades Artísticas y Culturales II", "Laboratorio de Investigación II", "Cultura Digital II", "Formación Laboral"],
-    3: ["Pensamiento Matemático III", "Lengua y Comunicación III", "Ciencias Naturales III", "Ciencias Sociales III", "Humanidades III", "Inglés III", "Educación para la Salud y el Bienestar III", "Actividades Físicas y Deportivas III", "Actividades Artísticas y Culturales III", "Laboratorio de Investigación III", "Formación Laboral"],
-    4: ["Pensamiento Matemático IV", "Lengua y Comunicación IV", "Ciencias Naturales IV", "Ciencias Sociales IV", "Inglés IV", "Formación Laboral"],
-    5: ["Cálculo I", "Literatura I", "Física I", "Historia de México", "Filosofía", "Inglés V", "Formación Laboral", "Optativas FFE"],
-    6: ["Cálculo II", "Literatura II", "Física II", "Historia Universal", "Ética", "Inglés VI", "Formación Laboral", "Optativas FFE"],
-};
 
 // ── Generador de Word ────────────────────────────────────────────────────────
 
@@ -109,13 +109,14 @@ async function generarWordRetroalimentacion(planeacion: Planeacion): Promise<voi
                 new Paragraph({ children: [new TextRun({ text: `Fecha: ${fecha}`, size: 22, color: "555555" })] }),
                 new Paragraph({ children: [new TextRun("")] }),
 
-                // Datos del docente
+                // Datos de Identificación
                 new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: "I. DATOS DE IDENTIFICACIÓN", bold: true })] }),
                 new Table({
                     width: { size: 100, type: WidthType.PERCENTAGE },
                     rows: [
                         new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Docente:", bold: true })] })] }), new TableCell({ children: [new Paragraph(planeacion.docenteNombre)] })] }),
-                        new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Asignatura:", bold: true })] })] }), new TableCell({ children: [new Paragraph(planeacion.asignatura)] })] }),
+                        new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Grupo:", bold: true })] })] }), new TableCell({ children: [new Paragraph(planeacion.grupoNombre || "No especificado")] })] }),
+                        new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Asignatura / UAC:", bold: true })] })] }), new TableCell({ children: [new Paragraph(planeacion.asignatura)] })] }),
                         new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Semestre:", bold: true })] })] }), new TableCell({ children: [new Paragraph(`${planeacion.semestre}° Semestre`)] })] }),
                         new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Bloque/Corte:", bold: true })] })] }), new TableCell({ children: [new Paragraph(planeacion.bloqueCorte ?? "No especificado")] })] }),
                         new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Puntaje Obtenido:", bold: true })] })] }), new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${planeacion.puntajeObtenido ?? 0} / ${planeacion.puntajeMaximo ?? 300} pts (${pct}%)`, bold: true, color: pct >= 85 ? "16a34a" : pct >= 60 ? "d97706" : "dc2626" })] })] })] }),
@@ -124,7 +125,7 @@ async function generarWordRetroalimentacion(planeacion: Planeacion): Promise<voi
 
                 new Paragraph({ children: [new TextRun("")] }),
 
-                // Puntos fuertes
+                // Fortalezas
                 ...(obs?.puntosFuertes?.length ? [
                     new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: "II. FORTALEZAS DESTACADAS", bold: true })] }),
                     ...obs.puntosFuertes.map(p => new Paragraph({ bullet: { level: 0 }, children: [new TextRun(p)] })),
@@ -160,511 +161,827 @@ async function generarWordRetroalimentacion(planeacion: Planeacion): Promise<voi
                         })),
                     ],
                 }),
-
-                new Paragraph({ children: [new TextRun("")] }),
-
-                // Alineación PAEC
-                ...(obs?.alineacionPaecPec ? [
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: "V. ALINEACIÓN CON EL PAEC-PEC", bold: true })] }),
-                    new Paragraph({ children: [new TextRun(obs.alineacionPaecPec)] }),
-                    new Paragraph({ children: [new TextRun("")] }),
-                ] : []),
-
-                // Retroalimentación para el docente
-                ...(planeacion.retroalimentacionDocente ? [
-                    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: "VI. RETROALIMENTACIÓN PARA EL DOCENTE", bold: true })] }),
-                    new Paragraph({ children: [new TextRun(planeacion.retroalimentacionDocente)] }),
-                    new Paragraph({ children: [new TextRun("")] }),
-                ] : []),
-
-                // Firmas
-                new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: "VII. FIRMAS", bold: true })] }),
-                new Table({
-                    width: { size: 100, type: WidthType.PERCENTAGE },
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
-                    rows: [
-                        new TableRow({ children: [
-                            new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "\n\n\n______________________________\nDirector(a) del Plantel", size: 20 })] })] }),
-                            new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "\n\n\n______________________________\nAsesor Técnico Pedagógico (ATP)\nZona Escolar 004", size: 20 })] })] }),
-                        ]}),
-                    ],
-                }),
             ],
         }],
     });
 
     const blob = await Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Retroalimentacion_${planeacion.docenteNombre.replace(/\s+/g, "_")}_${planeacion.asignatura.replace(/\s+/g, "_")}_S${planeacion.semestre}.docx`;
+    a.download = `Dictamen_Planeacion_${planeacion.docenteNombre.replace(/\s+/g, "_")}_${planeacion.asignatura.replace(/\s+/g, "_")}.docx`;
     a.click();
-    URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(url);
 }
 
-// ── Componente principal ─────────────────────────────────────────────────────
+// ── Componente Principal ─────────────────────────────────────────────────────
 
-export default function GestionPlaneaciones({ escuela }: Props) {
+export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly = false }: Props) {
+    const [escuelaData, setEscuelaData] = useState(inicialEscuela);
     const [requisitos, setRequisitos] = useState<Requisitos | null>(null);
     const [planeaciones, setPlaneaciones] = useState<Planeacion[]>([]);
-    const [estadisticas, setEstadisticas] = useState<Estadisticas | null>(null);
+    const [personalList, setPersonalList] = useState<PersonalDocente[]>([]);
+    const [cargasList, setCargasList] = useState<CargaDocente[]>([]);
     const [cargando, setCargando] = useState(true);
-    const [expandida, setExpandida] = useState<string | null>(null);
-    const [subiendo, setSubiendo] = useState(false);
-    const [generandoWord, setGenerandoWord] = useState<string | null>(null);
-    const [eliminando, setEliminando] = useState<string | null>(null);
-    const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ docenteNombre: "", asignatura: "", semestre: "1", bloqueCorte: "", tipoAsignatura: "FUNDAMENTAL" });
-    const [archivo, setArchivo] = useState<File | null>(null);
-    const fileRef = useRef<HTMLInputElement>(null);
-    const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Controles de Vista
+    const [periodoSemestral, setPeriodoSemestral] = useState<"SEMESTRE_A" | "SEMESTRE_B">("SEMESTRE_A");
+    const [vistaModo, setVistaModo] = useState<"GRUPOS" | "DOCENTES">("GRUPOS");
+    const [grupoSeleccionadoId, setGrupoSeleccionadoId] = useState<string>("TODOS");
+    const [busquedaDocente, setBusquedaDocente] = useState<string>("");
+
+    // Modal Subida
+    const [modalSubidaAbierto, setModalSubidaAbierto] = useState(false);
+    const [formSubida, setFormSubida] = useState({
+        docenteNombre: "",
+        docenteId: "",
+        grupoNombre: "",
+        semestre: 1,
+        asignatura: "",
+        bloqueCorte: "Corte 1 - Bloque I",
+        tipoAsignatura: "FUNDAMENTAL",
+        archivo: null as File | null,
+    });
+    const [subiendo, setSubiendo] = useState(false);
+
+    // Modal Detalle
+    const [modalDetalle, setModalDetalle] = useState<Planeacion | null>(null);
+    const [asignandoMap, setAsignandoMap] = useState<Record<string, boolean>>({});
+
+    // Cargar datos al montar
     const cargarDatos = async () => {
+        setCargando(true);
         try {
-            const res = await fetch("/api/director/planeaciones");
-            if (!res.ok) {
-                console.error("Error al cargar planeaciones status:", res.status);
-                setRequisitos({
-                    puedeUsar: true,
-                    tieneApiKey: true,
-                    tienePaecPec: true,
-                    requierePaecPec: false,
-                    requiereApiKey: false,
-                    motivoBloqueo: null
-                });
-                return;
-            }
+            const res = await fetch(`/api/director/planeaciones?escuelaId=${escuelaData.id}`);
+            if (!res.ok) throw new Error("Error al consultar datos");
             const data = await res.json();
-            setRequisitos(data.requisitos || {
-                puedeUsar: true,
-                tieneApiKey: true,
-                tienePaecPec: true,
-                requierePaecPec: false,
-                requiereApiKey: false,
-                motivoBloqueo: null
-            });
+            
+            if (data.escuela) setEscuelaData(data.escuela);
+            setRequisitos(data.requisitos || { puedeUsar: true, tieneApiKey: true, tienePaecPec: true, motivoBloqueo: null });
             setPlaneaciones(data.planeaciones || []);
-            setEstadisticas(data.estadisticas || null);
-        } catch (e) {
-            console.error("Error de red al cargar planeaciones:", e);
-            setRequisitos({
-                puedeUsar: true,
-                tieneApiKey: true,
-                tienePaecPec: true,
-                requierePaecPec: false,
-                requiereApiKey: false,
-                motivoBloqueo: null
-            });
+            setPersonalList(data.personal || []);
+            setCargasList(data.cargas || []);
+        } catch (err: any) {
+            toast.error("No se pudieron cargar las planeaciones de la escuela");
+            setRequisitos({ puedeUsar: true, tieneApiKey: true, tienePaecPec: true, motivoBloqueo: null });
+        } finally {
+            setCargando(false);
         }
-        finally { setCargando(false); }
     };
 
     useEffect(() => {
         cargarDatos();
-    }, []);
+    }, [escuelaData.id]);
 
-    // Auto-polling cada 8 segundos si hay alguna en revisión
-    useEffect(() => {
-        const hayEnRevision = planeaciones.some(p => p.estado === "EN_REVISION");
-        if (hayEnRevision) {
-            pollingRef.current = setInterval(cargarDatos, 8000);
-        } else {
-            if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
-        }
-        return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+    // Generar la lista dinámica de grupos según la estructura de la escuela (ej. 2-1-1)
+    const gruposGenerados = useMemo(() => {
+        return generarGruposPorEstructura(escuelaData, periodoSemestral);
+    }, [escuelaData, periodoSemestral]);
+
+    // Mapa de asignación de docentes por grupo y UAC
+    const asignacionesDocentesMap = useMemo(() => {
+        const map: Record<string, { personalId: string; docenteNombre: string }> = {};
+        cargasList.forEach(c => {
+            if (c.grupo?.nombre && c.asignatura?.uacName) {
+                const key = `${c.grupo.nombre}__${c.asignatura.uacName}`;
+                const nombreCompleto = `${c.personal.nombre} ${c.personal.apellidoPaterno} ${c.personal.apellidoMaterno || ""}`.trim();
+                map[key] = { personalId: c.personalId, docenteNombre: nombreCompleto };
+            }
+        });
+        return map;
+    }, [cargasList]);
+
+    // Mapa de planeaciones subidas por grupo y UAC
+    const planeacionesSubidasMap = useMemo(() => {
+        const map: Record<string, Planeacion> = {};
+        planeaciones.forEach(p => {
+            if (p.grupoNombre && p.asignatura) {
+                const key = `${p.grupoNombre}__${p.asignatura}`;
+                // Guardar la más reciente
+                if (!map[key] || new Date(p.fechaSubida) > new Date(map[key].fechaSubida)) {
+                    map[key] = p;
+                }
+            }
+        });
+        return map;
     }, [planeaciones]);
 
-    const handleSubir = async (e: React.FormEvent) => {
+    // Guardar asignación de docente a una UAC de un grupo
+    const handleAsignarDocente = async (grupoNombre: string, semestre: number, asignatura: string, personalId: string) => {
+        const key = `${grupoNombre}__${asignatura}`;
+        setAsignandoMap(prev => ({ ...prev, [key]: true }));
+
+        try {
+            const res = await fetch("/api/director/planeaciones/asignaciones", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    escuelaId: escuelaData.id,
+                    grupoNombre,
+                    semestre,
+                    asignatura,
+                    personalId
+                })
+            });
+
+            if (!res.ok) throw new Error("Error al asignar docente");
+
+            const selectedDoc = personalList.find(p => p.id === personalId);
+            const nombreDoc = selectedDoc ? `${selectedDoc.nombre} ${selectedDoc.apellidoPaterno}` : "";
+
+            setCargasList(prev => {
+                const filtradas = prev.filter(c => !(c.grupo?.nombre === grupoNombre && c.asignatura?.uacName === asignatura));
+                if (selectedDoc) {
+                    filtradas.push({
+                        id: `temp-${Date.now()}`,
+                        personalId,
+                        grupo: { nombre: grupoNombre },
+                        asignatura: { uacName: asignatura },
+                        personal: selectedDoc
+                    });
+                }
+                return filtradas;
+            });
+
+            toast.success(personalId === "SIN_ASIGNAR" ? `Asignación removida para ${asignatura}` : `Asignado a ${nombreDoc}`);
+        } catch (err: any) {
+            toast.error("Error al actualizar docente asignado");
+        } finally {
+            setAsignandoMap(prev => ({ ...prev, [key]: false }));
+        }
+    };
+
+    // Abrir Modal para subir planeación pre-llenada por grupo y materia
+    const abrirModalSubida = (grupoNombre: string, semestre: number, asignatura: string) => {
+        const key = `${grupoNombre}__${asignatura}`;
+        const asignado = asignacionesDocentesMap[key];
+
+        setFormSubida({
+            docenteNombre: asignado ? asignado.docenteNombre : "",
+            docenteId: asignado ? asignado.personalId : "",
+            grupoNombre,
+            semestre,
+            asignatura,
+            bloqueCorte: "Corte 1 - Bloque I",
+            tipoAsignatura: "FUNDAMENTAL",
+            archivo: null
+        });
+        setModalSubidaAbierto(true);
+    };
+
+    // Subir archivo de planeación
+    const handleSubirPlaneacion = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!archivo) { alert("Selecciona el archivo de la planeación"); return; }
+        if (!formSubida.archivo) {
+            toast.error("Debes seleccionar un archivo PDF o DOCX");
+            return;
+        }
+        if (!formSubida.docenteNombre.trim()) {
+            toast.error("Debes ingresar el nombre del docente");
+            return;
+        }
 
         setSubiendo(true);
-        const fd = new FormData();
-        fd.append("archivo", archivo);
-        fd.append("docenteNombre", form.docenteNombre);
-        fd.append("asignatura", form.asignatura || ASIGNATURAS_POR_SEMESTRE[parseInt(form.semestre)][0]);
-        fd.append("semestre", form.semestre);
-        fd.append("bloqueCorte", form.bloqueCorte);
-        fd.append("tipoAsignatura", form.tipoAsignatura);
-
         try {
-            const res = await fetch("/api/director/planeaciones", { method: "POST", body: fd });
-            if (!res.ok) {
-                const err = await res.json();
-                alert(err.error || "Error al subir la planeación");
-                return;
+            const formData = new FormData();
+            formData.append("archivo", formSubida.archivo);
+            formData.append("docenteNombre", formSubida.docenteNombre);
+            formData.append("grupoNombre", formSubida.grupoNombre);
+            formData.append("tipoSemestrePeriodo", periodoSemestral);
+            formData.append("asignatura", formSubida.asignatura);
+            formData.append("semestre", String(formSubida.semestre));
+            formData.append("bloqueCorte", formSubida.bloqueCorte);
+            formData.append("tipoAsignatura", formSubida.tipoAsignatura);
+
+            const res = await fetch("/api/director/planeaciones", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error al subir planeación");
+
+            toast.success("¡Planeación enviada! Iniciando análisis con IA...");
+            setModalSubidaAbierto(false);
+            cargarDatos();
+        } catch (err: any) {
+            toast.error(err.message);
+        } finally {
+            setSubiendo(false);
+        }
+    };
+
+    // Eliminar planeación
+    const handleEliminarPlaneacion = async (id: string) => {
+        if (!confirm("¿Eliminar esta planeación y su evaluación?")) return;
+        try {
+            const res = await fetch(`/api/director/planeaciones/${id}`, { method: "DELETE" });
+            if (res.ok) {
+                toast.success("Planeación eliminada");
+                setPlaneaciones(prev => prev.filter(p => p.id !== id));
+            } else {
+                toast.error("No se pudo eliminar");
             }
-            setShowForm(false);
-            setArchivo(null);
-            setForm({ docenteNombre: "", asignatura: "", semestre: "1", bloqueCorte: "", tipoAsignatura: "FUNDAMENTAL" });
-            await cargarDatos();
-        } catch { alert("Error de conexión"); }
-        finally { setSubiendo(false); }
+        } catch {
+            toast.error("Error al eliminar planeación");
+        }
     };
 
-    const handleEliminar = async (id: string) => {
-        if (!confirm("¿Eliminar esta planeación y su revisión?")) return;
-        setEliminando(id);
-        try {
-            await fetch(`/api/director/planeaciones/${id}`, { method: "DELETE" });
-            setPlaneaciones(prev => prev.filter(p => p.id !== id));
-        } catch { /* silent */ }
-        finally { setEliminando(null); }
-    };
-
-    const handleDescargarWord = async (planeacion: Planeacion) => {
-        setGenerandoWord(planeacion.id);
-        try { await generarWordRetroalimentacion(planeacion); }
-        catch (e) { alert("Error al generar el documento Word"); }
-        finally { setGenerandoWord(null); }
-    };
-
-    // ── Pantalla de carga ─────────────────────────────────────────────────────
-    if (cargando) {
+    // Si está bloqueado por falta de PAEC-PEC o permisos
+    if (requisitos && !requisitos.puedeUsar) {
         return (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "3rem", gap: "1rem" }}>
-                <RefreshCw size={32} style={{ animation: "spin 1s linear infinite", color: "var(--primary)" }} />
-                <p style={{ color: "var(--text-muted)" }}>Cargando módulo de planeaciones...</p>
+            <div className="card" style={{ padding: "2.5rem", textAlign: "center" }}>
+                <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#fee2e2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}>
+                    <Lock size={32} />
+                </div>
+                <h3 style={{ margin: "0 0 0.5rem", color: "var(--text)" }}>Módulo Bloqueado</h3>
+                <p style={{ color: "var(--text-muted)", maxWidth: "500px", margin: "0 auto 1.5rem" }}>
+                    {requisitos.motivoBloqueo || "No tienes acceso a este módulo en este momento."}
+                </p>
             </div>
         );
     }
 
-    // ── Pantalla de bloqueo si no cumple requisitos ───────────────────────────
-    if (!requisitos?.puedeUsar) {
-        const faltaPaec = requisitos ? (!requisitos.tienePaecPec && (requisitos.requierePaecPec ?? true)) : false;
-        const faltaApi = requisitos ? (!requisitos.tieneApiKey && (requisitos.requiereApiKey ?? true)) : false;
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            
+            {/* Header & Controles Superiores */}
+            <div className="card" style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", color: "white", padding: "1.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+                    <div>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase", background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", padding: "0.25rem 0.65rem", borderRadius: "20px" }}>
+                            MCCEMS 2025-2026
+                        </span>
+                        <h2 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.5rem", fontWeight: 800 }}>
+                            Revisión y Control de Planeaciones Didácticas IA
+                        </h2>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: "#94a3b8" }}>
+                            {escuelaData.nombre} • CCT: {escuelaData.cct}
+                        </p>
+                    </div>
 
-        return (
-            <div style={{ maxWidth: "640px", margin: "2rem auto", textAlign: "center" }}>
-                <div style={{ background: faltaPaec ? "#fef2f2" : "#fffbeb", border: `2px solid ${faltaPaec ? "#fecaca" : "#fde68a"}`, borderRadius: "16px", padding: "2.5rem 2rem" }}>
-                    <Lock size={48} style={{ color: faltaPaec ? "#dc2626" : "#d97706", marginBottom: "1rem" }} />
-                    <h2 style={{ fontWeight: 800, fontSize: "1.25rem", color: faltaPaec ? "#991b1b" : "#92400e", marginBottom: "0.75rem" }}>
-                        Módulo Bloqueado
-                    </h2>
-                    <p style={{ color: faltaPaec ? "#7f1d1d" : "#78350f", lineHeight: 1.6, marginBottom: "1.5rem" }}>
-                        {requisitos?.motivoBloqueo ?? "No tienes acceso a este módulo en este momento."}
-                    </p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                        {faltaPaec && (
-                            <div style={{ background: "#fff", border: "1px solid #fecaca", borderRadius: "10px", padding: "1rem", display: "flex", alignItems: "flex-start", gap: "0.75rem", textAlign: "left" }}>
-                                <AlertTriangle size={18} style={{ color: "#dc2626", flexShrink: 0, marginTop: "2px" }} />
-                                <div>
-                                    <p style={{ fontWeight: 700, color: "#991b1b", margin: 0, fontSize: "0.875rem" }}>Requisito: PAEC-PEC</p>
-                                    <p style={{ color: "#7f1d1d", margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
-                                        Ve a <strong>Mis Entregas</strong> y sube tu <strong>PAEC-PEC</strong> antes de poder revisar planeaciones.
-                                    </p>
+                    {/* Selector de Periodo Semestral */}
+                    <div style={{ display: "flex", gap: "0.5rem", background: "rgba(255,255,255,0.08)", padding: "0.35rem", borderRadius: "10px" }}>
+                        <button
+                            type="button"
+                            onClick={() => setPeriodoSemestral("SEMESTRE_A")}
+                            style={{
+                                padding: "0.5rem 1rem",
+                                borderRadius: "8px",
+                                border: "none",
+                                fontSize: "0.8rem",
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                background: periodoSemestral === "SEMESTRE_A" ? "#2563eb" : "transparent",
+                                color: "white",
+                                transition: "all 0.2s"
+                            }}
+                        >
+                            📅 Semestre A (1º, 3º, 5º)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPeriodoSemestral("SEMESTRE_B")}
+                            style={{
+                                padding: "0.5rem 1rem",
+                                borderRadius: "8px",
+                                border: "none",
+                                fontSize: "0.8rem",
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                background: periodoSemestral === "SEMESTRE_B" ? "#2563eb" : "transparent",
+                                color: "white",
+                                transition: "all 0.2s"
+                            }}
+                        >
+                            📅 Semestre B (2º, 4º, 6º)
+                        </button>
+                    </div>
+                </div>
+
+                {/* Badges y Estadísticas de Avance */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                    <div style={{ background: "rgba(255,255,255,0.05)", padding: "1rem", borderRadius: "10px" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Estructura Plantel</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#60a5fa", marginTop: "0.2rem" }}>
+                            {escuelaData.gruposPrimerAno ?? 1}-{escuelaData.gruposSegundoAno ?? 1}-{escuelaData.gruposTercerAno ?? 1} ({gruposGenerados.length} grupos)
+                        </div>
+                    </div>
+
+                    <div style={{ background: "rgba(255,255,255,0.05)", padding: "1rem", borderRadius: "10px" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Planeaciones Subidas</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#38bdf8", marginTop: "0.2rem" }}>
+                            {planeaciones.length} Entregadas
+                        </div>
+                    </div>
+
+                    <div style={{ background: "rgba(255,255,255,0.05)", padding: "1rem", borderRadius: "10px" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Revisadas con IA</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#4ade80", marginTop: "0.2rem" }}>
+                            {planeaciones.filter(p => p.estado === "REVISADO").length} Con Dictamen
+                        </div>
+                    </div>
+
+                    <div style={{ background: "rgba(255,255,255,0.05)", padding: "1rem", borderRadius: "10px" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Promedio de Cumplimiento</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#facc15", marginTop: "0.2rem" }}>
+                            {Math.round(planeaciones.reduce((acc, p) => acc + (p.puntajeObtenido ?? 0), 0) / (planeaciones.filter(p => p.puntajeObtenido !== undefined).length || 1))} / 300 pts
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Barra de Navegación entre Vistas */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button
+                        className={`btn ${vistaModo === "GRUPOS" ? "btn-primary" : "btn-outline"}`}
+                        onClick={() => setVistaModo("GRUPOS")}
+                        style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontWeight: 700 }}
+                    >
+                        <Layers size={16} /> Avance por Grupos del Plantel
+                    </button>
+                    <button
+                        className={`btn ${vistaModo === "DOCENTES" ? "btn-primary" : "btn-outline"}`}
+                        onClick={() => setVistaModo("DOCENTES")}
+                        style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontWeight: 700 }}
+                    >
+                        <Users size={16} /> Vista por Docente
+                    </button>
+                </div>
+
+                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                    {vistaModo === "GRUPOS" && (
+                        <select
+                            className="form-control"
+                            value={grupoSeleccionadoId}
+                            onChange={(e) => setGrupoSeleccionadoId(e.target.value)}
+                            style={{ padding: "0.5rem 0.75rem", fontSize: "0.85rem", fontWeight: 700 }}
+                        >
+                            <option value="TODOS">Ver todos los grupos ({gruposGenerados.length})</option>
+                            {gruposGenerados.map(g => (
+                                <option key={g.id} value={g.nombre}>Grupo {g.nombre}</option>
+                            ))}
+                        </select>
+                    )}
+
+                    {vistaModo === "DOCENTES" && (
+                        <div style={{ position: "relative" }}>
+                            <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Buscar docente..."
+                                value={busquedaDocente}
+                                onChange={(e) => setBusquedaDocente(e.target.value)}
+                                style={{ paddingLeft: "2rem", paddingRight: "0.75rem", fontSize: "0.85rem" }}
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* VISTA 1: AVANCE POR GRUPOS DEL PLANTEL */}
+            {vistaModo === "GRUPOS" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                    {gruposGenerados
+                        .filter(g => grupoSeleccionadoId === "TODOS" || g.nombre === grupoSeleccionadoId)
+                        .map(grupo => {
+                            const asignaturasSemestre = ASIGNATURAS_MCCEMS_POR_SEMESTRE[grupo.semestre] || [];
+                            
+                            // Conteo de planeaciones en este grupo
+                            const planeacionesDelGrupo = asignaturasSemestre.filter(uac => {
+                                const key = `${grupo.nombre}__${uac.nombre}`;
+                                return !!planeacionesSubidasMap[key];
+                            });
+
+                            return (
+                                <div key={grupo.id} className="card fade-in" style={{ padding: "0", overflow: "hidden", border: "1px solid var(--border)" }}>
+                                    
+                                    {/* Encabezado del Grupo */}
+                                    <div style={{
+                                        background: "var(--bg-secondary)",
+                                        padding: "1rem 1.25rem",
+                                        borderBottom: "1px solid var(--border)",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        flexWrap: "wrap",
+                                        gap: "0.75rem"
+                                    }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                            <div style={{
+                                                width: "38px",
+                                                height: "38px",
+                                                borderRadius: "10px",
+                                                background: "#2563eb",
+                                                color: "white",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                fontWeight: 800,
+                                                fontSize: "1rem"
+                                            }}>
+                                                {grupo.nombre.split(" ")[0]}
+                                            </div>
+                                            <div>
+                                                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text)" }}>
+                                                    Grupo {grupo.nombre}
+                                                </h3>
+                                                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 }}>
+                                                    {grupo.semestre}° Semestre ({grupo.semestre <= 4 ? "Propósitos Formativos" : "Progresiones de Aprendizaje"})
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                                            <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)" }}>
+                                                Avance: <span style={{ color: planeacionesDelGrupo.length === asignaturasSemestre.length ? "#16a34a" : "#2563eb" }}>
+                                                    {planeacionesDelGrupo.length} / {asignaturasSemestre.length} subidas
+                                                </span>
+                                            </div>
+
+                                            <span style={{
+                                                padding: "0.25rem 0.65rem",
+                                                borderRadius: "20px",
+                                                fontSize: "0.725rem",
+                                                fontWeight: 800,
+                                                background: planeacionesDelGrupo.length === asignaturasSemestre.length ? "#dcfce7" : "#eff6ff",
+                                                color: planeacionesDelGrupo.length === asignaturasSemestre.length ? "#15803d" : "#1d4ed8"
+                                            }}>
+                                                {Math.round((planeacionesDelGrupo.length / (asignaturasSemestre.length || 1)) * 100)}% Completado
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Tabla de Asignaturas del Grupo */}
+                                    <div style={{ overflowX: "auto" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                                            <thead>
+                                                <tr style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
+                                                    <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "var(--text-secondary)" }}>Asignatura / UAC</th>
+                                                    <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "var(--text-secondary)", width: "30%" }}>Docente Asignado</th>
+                                                    <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "var(--text-secondary)", textAlign: "center", width: "160px" }}>Estado Entrega</th>
+                                                    <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "var(--text-secondary)", textAlign: "right", width: "200px" }}>Acción / Dictamen</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {asignaturasSemestre.map(uac => {
+                                                    const key = `${grupo.nombre}__${uac.nombre}`;
+                                                    const asignado = asignacionesDocentesMap[key];
+                                                    const planeacion = planeacionesSubidasMap[key];
+                                                    const asignando = asignandoMap[key];
+
+                                                    return (
+                                                        <tr key={uac.nombre} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                            
+                                                            {/* Materia */}
+                                                            <td style={{ padding: "0.75rem 1rem" }}>
+                                                                <div style={{ fontWeight: 700, color: "var(--text)" }}>{uac.nombre}</div>
+                                                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                                                    {uac.horas}h semanales • Componente {uac.tipo}
+                                                                </div>
+                                                            </td>
+
+                                                            {/* Selector Docente */}
+                                                            <td style={{ padding: "0.75rem 1rem" }}>
+                                                                <select
+                                                                    className="form-control"
+                                                                    disabled={readOnly || asignando}
+                                                                    value={asignado?.personalId || "SIN_ASIGNAR"}
+                                                                    onChange={(e) => handleAsignarDocente(grupo.nombre, grupo.semestre, uac.nombre, e.target.value)}
+                                                                    style={{
+                                                                        padding: "0.4rem 0.6rem",
+                                                                        fontSize: "0.8rem",
+                                                                        fontWeight: asignado ? 700 : 400,
+                                                                        color: asignado ? "var(--text)" : "var(--text-muted)",
+                                                                        border: asignado ? "1px solid var(--primary)" : "1px solid var(--border)"
+                                                                    }}
+                                                                >
+                                                                    <option value="SIN_ASIGNAR">-- Seleccionar Docente --</option>
+                                                                    {personalList.map(p => (
+                                                                        <option key={p.id} value={p.id}>
+                                                                            {p.nombre} {p.apellidoPaterno} {p.apellidoMaterno}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </td>
+
+                                                            {/* Estado Entrega */}
+                                                            <td style={{ padding: "0.75rem 1rem", textAlign: "center" }}>
+                                                                {planeacion ? (
+                                                                    <span style={{
+                                                                        display: "inline-flex",
+                                                                        alignItems: "center",
+                                                                        gap: "0.35rem",
+                                                                        padding: "0.3rem 0.65rem",
+                                                                        borderRadius: "20px",
+                                                                        fontSize: "0.725rem",
+                                                                        fontWeight: 800,
+                                                                        background: planeacion.estado === "REVISADO" ? "#f0fdf4" : planeacion.estado === "EN_REVISION" ? "#eff6ff" : "#fef2f2",
+                                                                        color: planeacion.estado === "REVISADO" ? "#15803d" : planeacion.estado === "EN_REVISION" ? "#1d4ed8" : "#b91c1c",
+                                                                        border: "1px solid " + (planeacion.estado === "REVISADO" ? "#bbf7d0" : planeacion.estado === "EN_REVISION" ? "#bfdbfe" : "#fecaca")
+                                                                    }}>
+                                                                        {planeacion.estado === "REVISADO" ? "🟢 Revisado IA" : planeacion.estado === "EN_REVISION" ? "⏳ Analizando..." : "🔴 Error"}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{ fontSize: "0.725rem", color: "var(--text-muted)", fontWeight: 600 }}>
+                                                                        ⚪ Sin Subir
+                                                                    </span>
+                                                                )}
+                                                            </td>
+
+                                                            {/* Acciones */}
+                                                            <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}>
+                                                                {planeacion ? (
+                                                                    <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end" }}>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-outline"
+                                                                            onClick={() => setModalDetalle(planeacion)}
+                                                                            style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 700 }}
+                                                                            title="Ver dictamen detallado de IA"
+                                                                        >
+                                                                            <FileText size={14} /> Dictamen
+                                                                        </button>
+
+                                                                        {planeacion.resultadoJson && (
+                                                                            <button
+                                                                                type="button"
+                                                                                className="btn btn-outline"
+                                                                                onClick={() => generarWordRetroalimentacion(planeacion)}
+                                                                                style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 700, color: "#2563eb" }}
+                                                                                title="Descargar dictamen Word (.docx)"
+                                                                            >
+                                                                                <Download size={14} /> Word
+                                                                            </button>
+                                                                        )}
+
+                                                                        {!readOnly && (
+                                                                            <button
+                                                                                type="button"
+                                                                                className="btn btn-outline"
+                                                                                onClick={() => handleEliminarPlaneacion(planeacion.id)}
+                                                                                style={{ padding: "0.3rem 0.5rem", fontSize: "0.75rem", color: "var(--danger)" }}
+                                                                                title="Eliminar esta entrega"
+                                                                            >
+                                                                                <Trash2 size={14} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-primary"
+                                                                        onClick={() => abrirModalSubida(grupo.nombre, grupo.semestre, uac.nombre)}
+                                                                        disabled={readOnly}
+                                                                        style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 800 }}
+                                                                    >
+                                                                        <Upload size={14} /> Subir Planeación
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                </div>
+            )}
+
+            {/* VISTA 2: VISTA POR DOCENTE */}
+            {vistaModo === "DOCENTES" && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.25rem" }}>
+                    {personalList
+                        .filter(p => `${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno}`.toLowerCase().includes(busquedaDocente.toLowerCase()))
+                        .map(docente => {
+                            const nombreDoc = `${docente.nombre} ${docente.apellidoPaterno} ${docente.apellidoMaterno || ""}`.trim();
+                            
+                            // Buscar UACs asignadas a este docente
+                            const cargasDelDocente = cargasList.filter(c => c.personalId === docente.id);
+                            // Planeaciones subidas por este docente
+                            const planeacionesDelDocente = planeaciones.filter(p => p.docenteNombre.toLowerCase().includes(docente.apellidoPaterno.toLowerCase()));
+
+                            return (
+                                <div key={docente.id} className="card fade-in" style={{ padding: "1.25rem" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+                                        <div style={{ width: "42px", height: "42px", borderRadius: "50%", background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
+                                            {docente.nombre[0]}{docente.apellidoPaterno[0]}
+                                        </div>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "var(--text)" }}>
+                                                {nombreDoc}
+                                            </h4>
+                                            <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                                {cargasDelDocente.length} Asignaturas Asignadas
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Lista de Cargas/UACs del Docente */}
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                                        {cargasDelDocente.length > 0 ? (
+                                            cargasDelDocente.map(c => {
+                                                const key = `${c.grupo?.nombre}__${c.asignatura?.uacName}`;
+                                                const plan = planeacionesSubidasMap[key];
+
+                                                return (
+                                                    <div key={c.id} style={{
+                                                        padding: "0.6rem 0.75rem",
+                                                        background: "var(--bg-secondary)",
+                                                        borderRadius: "8px",
+                                                        border: "1px solid var(--border)",
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center"
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text)" }}>
+                                                                {c.asignatura?.uacName}
+                                                            </div>
+                                                            <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                                                Grupo {c.grupo?.nombre}
+                                                            </span>
+                                                        </div>
+
+                                                        {plan ? (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-outline"
+                                                                onClick={() => setModalDetalle(plan)}
+                                                                style={{ padding: "0.25rem 0.5rem", fontSize: "0.7rem", color: "#16a34a", borderColor: "#bbf7d0", background: "#f0fdf4" }}
+                                                            >
+                                                                🟢 {plan.puntajeObtenido ? `${plan.puntajeObtenido} pts` : "Revisado"}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-primary"
+                                                                onClick={() => abrirModalSubida(c.grupo?.nombre, 1, c.asignatura?.uacName)}
+                                                                style={{ padding: "0.25rem 0.5rem", fontSize: "0.7rem" }}
+                                                            >
+                                                                Subir
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic", margin: "0.5rem 0" }}>
+                                                Sin UACs asignadas en la matriz por grupos aún.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                </div>
+            )}
+
+            {/* MODAL DE SUBIDA DE PLANEACIÓN */}
+            {modalSubidaAbierto && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+                    <div className="card fade-in" style={{ maxWidth: "550px", width: "100%", padding: "1.75rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", paddingBottom: "0.75rem", borderBottom: "1px solid var(--border)" }}>
+                            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Upload size={18} style={{ color: "var(--primary)" }} /> Subir Planeación Didáctica
+                            </h3>
+                            <button className="btn btn-outline" onClick={() => setModalSubidaAbierto(false)} style={{ padding: "0.25rem 0.5rem" }}>✕</button>
+                        </div>
+
+                        <form onSubmit={handleSubirPlaneacion} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <div>
+                                <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)" }}>
+                                    Grupo & Semestre
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={`Grupo ${formSubida.grupoNombre} (${formSubida.semestre}° Semestre)`}
+                                    disabled
+                                    style={{ background: "var(--bg)", fontWeight: 700 }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)" }}>
+                                    Asignatura / UAC *
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={formSubida.asignatura}
+                                    onChange={(e) => setFormSubida({ ...formSubida, asignatura: e.target.value })}
+                                    required
+                                    style={{ fontWeight: 700 }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)" }}>
+                                    Nombre del Docente Responsable *
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="Nombre completo del profesor"
+                                    value={formSubida.docenteNombre}
+                                    onChange={(e) => setFormSubida({ ...formSubida, docenteNombre: e.target.value })}
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)" }}>
+                                    Bloque / Corte
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={formSubida.bloqueCorte}
+                                    onChange={(e) => setFormSubida({ ...formSubida, bloqueCorte: e.target.value })}
+                                    placeholder="Ej. Corte 1 - Bloque I"
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)" }}>
+                                    Archivo de Planeación (PDF o DOCX) *
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,.docx"
+                                    className="form-control"
+                                    onChange={(e) => setFormSubida({ ...formSubida, archivo: e.target.files?.[0] || null })}
+                                    required
+                                />
+                            </div>
+
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
+                                <button type="button" className="btn btn-outline" onClick={() => setModalSubidaAbierto(false)}>Cancelar</button>
+                                <button type="submit" className="btn btn-primary" disabled={subiendo}>
+                                    {subiendo ? "Subiendo y Analizando con IA..." : "Enviar a Revisión IA"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL DETALLE DICTAMEN IA */}
+            {modalDetalle && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+                    <div className="card fade-in" style={{ maxWidth: "750px", width: "100%", maxHeight: "90vh", overflowY: "auto", padding: "1.75rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", paddingBottom: "0.75rem", borderBottom: "1px solid var(--border)" }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: "var(--text)" }}>
+                                    Dictamen de Revisión IA
+                                </h3>
+                                <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                                    {modalDetalle.docenteNombre} • {modalDetalle.asignatura} ({modalDetalle.grupoNombre || `${modalDetalle.semestre}° Semestre`})
+                                </p>
+                            </div>
+                            <button className="btn btn-outline" onClick={() => setModalDetalle(null)}>✕</button>
+                        </div>
+
+                        {/* Puntuación */}
+                        <div style={{ background: "var(--bg-secondary)", padding: "1.25rem", borderRadius: "12px", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Resultado de Evaluación</div>
+                                <div style={{ fontSize: "1.5rem", fontWeight: 800, color: (modalDetalle.puntajeObtenido ?? 0) >= 240 ? "#16a34a" : "#d97706" }}>
+                                    {modalDetalle.puntajeObtenido ?? 0} / {modalDetalle.puntajeMaximo ?? 300} pts
                                 </div>
                             </div>
-                        )}
-                        {faltaApi && (
-                            <div style={{ background: "#fff", border: "1px solid #fde68a", borderRadius: "10px", padding: "1rem", display: "flex", alignItems: "flex-start", gap: "0.75rem", textAlign: "left" }}>
-                                <AlertCircle size={18} style={{ color: "#d97706", flexShrink: 0, marginTop: "2px" }} />
-                                <div>
-                                    <p style={{ fontWeight: 700, color: "#92400e", margin: 0, fontSize: "0.875rem" }}>Requisito: API Key</p>
-                                    <p style={{ color: "#78350f", margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
-                                        Ve a <strong>Ajustes de API</strong> y activa tu clave para usar la revisión automática.
-                                    </p>
-                                </div>
+                            {modalDetalle.resultadoJson && (
+                                <button className="btn btn-primary" onClick={() => generarWordRetroalimentacion(modalDetalle)}>
+                                    <Download size={16} /> Descargar Informe Word (.docx)
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Criterios */}
+                        {modalDetalle.resultadoJson?.criterios && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                                <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "var(--text)" }}>Criterios de Evaluación</h4>
+                                {modalDetalle.resultadoJson.criterios.map((c, i) => (
+                                    <div key={i} style={{ padding: "0.75rem 1rem", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg)" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "0.85rem", marginBottom: "0.35rem" }}>
+                                            <span>{c.criterio}</span>
+                                            <span style={{ color: c.cumple === "SI" ? "#16a34a" : "#dc2626" }}>{c.puntajeObtenido} / {c.puntajeMax} pts</span>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-secondary)" }}>{c.observacion}</p>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
-        );
-    }
-
-    // ── Panel principal ───────────────────────────────────────────────────────
-    return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-
-            {/* Estadísticas */}
-            {estadisticas && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.75rem" }}>
-                    {[
-                        { label: "Total Subidas", value: estadisticas.total, color: "var(--primary)", bg: "var(--primary-bg)" },
-                        { label: "Revisadas", value: estadisticas.revisadas, color: "#16a34a", bg: "#f0fdf4" },
-                        { label: "En Proceso", value: estadisticas.pendientes, color: "#2563eb", bg: "#eff6ff" },
-                        { label: "Puntaje Promedio", value: `${Math.round(estadisticas.promedioZona)} / 300`, color: "#d97706", bg: "#fffbeb" },
-                    ].map(stat => (
-                        <div key={stat.label} style={{ background: stat.bg, borderRadius: "12px", padding: "1rem", textAlign: "center" }}>
-                            <div style={{ fontSize: "1.5rem", fontWeight: 800, color: stat.color }}>{stat.value}</div>
-                            <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>{stat.label}</div>
-                        </div>
-                    ))}
-                </div>
             )}
 
-            {/* Botón subir */}
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button
-                    onClick={() => setShowForm(v => !v)}
-                    className="btn btn-primary"
-                    style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-                >
-                    <Upload size={16} />
-                    {showForm ? "Cancelar" : "Subir Planeación para Revisión"}
-                </button>
-            </div>
-
-            {/* Formulario de subida */}
-            {showForm && (
-                <div className="card" style={{ border: "2px solid var(--primary)", borderRadius: "14px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "1rem", color: "var(--primary)" }}>
-                        <Upload size={16} style={{ marginRight: "0.5rem" }} />
-                        Nueva Planeación para Revisión con IA
-                    </h3>
-                    <form onSubmit={handleSubir} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                            <div>
-                                <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.4rem" }}>Docente *</label>
-                                <input
-                                    required
-                                    className="form-control"
-                                    placeholder="Nombre completo del docente"
-                                    value={form.docenteNombre}
-                                    onChange={e => setForm(f => ({ ...f, docenteNombre: e.target.value }))}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.4rem" }}>Semestre *</label>
-                                <select
-                                    required
-                                    className="form-control"
-                                    value={form.semestre}
-                                    onChange={e => setForm(f => ({ ...f, semestre: e.target.value, asignatura: "" }))}
-                                >
-                                    {[1, 2, 3, 4, 5, 6].map(s => (
-                                        <option key={s} value={s}>{s}° Semestre {s >= 5 ? "(Progresiones)" : "(Propósitos Formativos)"}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                            <div>
-                                <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.4rem" }}>Asignatura / UAC *</label>
-                                <select
-                                    required
-                                    className="form-control"
-                                    value={form.asignatura}
-                                    onChange={e => setForm(f => ({ ...f, asignatura: e.target.value, tipoAsignatura: e.target.value === "Formación Laboral" ? "LABORAL" : "FUNDAMENTAL" }))}
-                                >
-                                    <option value="">Seleccionar asignatura...</option>
-                                    {(ASIGNATURAS_POR_SEMESTRE[parseInt(form.semestre)] ?? []).map(a => (
-                                        <option key={a} value={a}>{a}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.4rem" }}>Bloque / Corte</label>
-                                <input
-                                    className="form-control"
-                                    placeholder="Ej. Corte 1, Bloque II..."
-                                    value={form.bloqueCorte}
-                                    onChange={e => setForm(f => ({ ...f, bloqueCorte: e.target.value }))}
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.4rem" }}>Archivo de Planeación (PDF o DOCX) *</label>
-                            <input
-                                ref={fileRef}
-                                type="file"
-                                accept=".pdf,.docx"
-                                required
-                                onChange={e => setArchivo(e.target.files?.[0] ?? null)}
-                                style={{ width: "100%" }}
-                            />
-                            {archivo && (
-                                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.4rem" }}>
-                                    ✓ {archivo.name} ({(archivo.size / 1024).toFixed(1)} KB)
-                                </p>
-                            )}
-                        </div>
-
-                        {parseInt(form.semestre) >= 5 && (
-                            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "0.75rem", fontSize: "0.8rem", color: "#92400e" }}>
-                                ⚠️ <strong>Semestre {form.semestre}:</strong> La IA evaluará esta planeación con el Anexo 12 para <strong>semestres 5-6 (Generación 2023-2026)</strong>, que usa <strong>Progresiones</strong> en lugar de Propósitos Formativos.
-                            </div>
-                        )}
-
-                        <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-                            <button type="button" onClick={() => setShowForm(false)} className="btn btn-outline">Cancelar</button>
-                            <button type="submit" disabled={subiendo} className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                {subiendo ? <><RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> Subiendo y analizando...</> : <><Upload size={14} /> Enviar a Revisión IA</>}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* Lista de planeaciones */}
-            {planeaciones.length === 0 ? (
-                <div className="card" style={{ textAlign: "center", padding: "3rem 2rem", color: "var(--text-muted)" }}>
-                    <FileText size={48} style={{ margin: "0 auto 1rem", opacity: 0.4 }} />
-                    <p style={{ fontWeight: 600 }}>No hay planeaciones subidas aún.</p>
-                    <p style={{ fontSize: "0.875rem" }}>Haz clic en "Subir Planeación para Revisión" para comenzar.</p>
-                </div>
-            ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                    {planeaciones.map(p => {
-                        const est = colorEstado[p.estado] ?? colorEstado.PENDIENTE;
-                        const niv = p.nivelCumplimiento ? colorNivel[p.nivelCumplimiento] : null;
-                        const pct = p.puntajeObtenido != null ? Math.round((p.puntajeObtenido / (p.puntajeMaximo ?? 300)) * 100) : null;
-                        const isExpanded = expandida === p.id;
-
-                        return (
-                            <div key={p.id} className="card" style={{ padding: "1rem 1.25rem", border: `1px solid ${est.border}` }}>
-                                {/* Header */}
-                                <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                                            <span style={{ fontWeight: 700, fontSize: "0.9375rem", color: "var(--text)" }}>{p.asignatura}</span>
-                                            <span style={{ fontSize: "0.7rem", background: "#f1f5f9", color: "var(--text-muted)", padding: "2px 8px", borderRadius: "4px" }}>
-                                                {p.semestre}° Sem. {p.semestre >= 5 ? "· Progresiones" : "· Propósitos Formativos"}
-                                            </span>
-                                        </div>
-                                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
-                                            {p.docenteNombre} {p.bloqueCorte ? `· ${p.bloqueCorte}` : ""}
-                                        </div>
-                                    </div>
-
-                                    {/* Estado y puntaje */}
-                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.375rem" }}>
-                                        <span style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: est.bg, color: est.text, border: `1px solid ${est.border}`, borderRadius: "8px", padding: "3px 10px", fontSize: "0.75rem", fontWeight: 600 }}>
-                                            {est.icon} {est.label}
-                                        </span>
-                                        {pct !== null && niv && (
-                                            <span style={{ background: niv.bg, color: niv.text, borderRadius: "8px", padding: "2px 8px", fontSize: "0.7rem", fontWeight: 700 }}>
-                                                {p.puntajeObtenido} / {p.puntajeMaximo} pts ({pct}%)
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Barra de progreso */}
-                                {pct !== null && (
-                                    <div style={{ marginTop: "0.75rem", height: "6px", background: "#e2e8f0", borderRadius: "99px", overflow: "hidden" }}>
-                                        <div style={{ height: "100%", width: `${pct}%`, background: pct >= 85 ? "#16a34a" : pct >= 60 ? "#d97706" : "#dc2626", borderRadius: "99px", transition: "width 0.6s ease" }} />
-                                    </div>
-                                )}
-
-                                {/* Botones */}
-                                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
-                                    {p.estado === "REVISADO" && (
-                                        <>
-                                            <button
-                                                onClick={() => setExpandida(isExpanded ? null : p.id)}
-                                                style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "4px 12px", fontSize: "0.78rem", cursor: "pointer", fontWeight: 600 }}
-                                            >
-                                                <BookOpen size={13} />
-                                                {isExpanded ? "Ocultar dictamen" : "Ver dictamen completo"}
-                                                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                            </button>
-                                            <button
-                                                onClick={() => handleDescargarWord(p)}
-                                                disabled={generandoWord === p.id}
-                                                style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "4px 12px", fontSize: "0.78rem", cursor: "pointer", fontWeight: 600 }}
-                                            >
-                                                {generandoWord === p.id ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Download size={13} />}
-                                                Retroalimentación (.docx)
-                                            </button>
-                                        </>
-                                    )}
-                                    <button
-                                        onClick={() => handleEliminar(p.id)}
-                                        disabled={eliminando === p.id}
-                                        style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "8px", padding: "4px 10px", fontSize: "0.78rem", cursor: "pointer" }}
-                                    >
-                                        <Trash2 size={13} />
-                                    </button>
-                                    <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                                        {new Date(p.fechaSubida).toLocaleDateString("es-MX")}
-                                    </span>
-                                </div>
-
-                                {/* Dictamen expandido */}
-                                {isExpanded && p.resultadoJson && (
-                                    <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-                                        {/* Puntos fuertes */}
-                                        {(p.observacionesJson?.puntosFuertes?.length ?? 0) > 0 && (
-                                            <div style={{ marginBottom: "1rem" }}>
-                                                <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#16a34a", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                                                    <Star size={14} /> Fortalezas
-                                                </h4>
-                                                <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
-                                                    {p.observacionesJson!.puntosFuertes.map((f, i) => <li key={i} style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>{f}</li>)}
-                                                </ul>
-                                            </div>
-                                        )}
-
-                                        {/* Mejoras urgentes */}
-                                        {(p.observacionesJson?.mejorasUrgentes?.length ?? 0) > 0 && (
-                                            <div style={{ marginBottom: "1rem" }}>
-                                                <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#dc2626", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                                                    <AlertTriangle size={14} /> Mejoras urgentes
-                                                </h4>
-                                                <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
-                                                    {p.observacionesJson!.mejorasUrgentes.map((m, i) => <li key={i} style={{ fontSize: "0.82rem", color: "#7f1d1d", marginBottom: "0.25rem" }}>{m}</li>)}
-                                                </ul>
-                                            </div>
-                                        )}
-
-                                        {/* Tabla de criterios */}
-                                        <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text)", marginBottom: "0.5rem" }}>
-                                            Evaluación por Criterio (Anexo 12 USICAMM)
-                                        </h4>
-                                        <div style={{ overflowX: "auto" }}>
-                                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
-                                                <thead>
-                                                    <tr style={{ background: "#2E5F9A", color: "white" }}>
-                                                        {["Criterio", "Pts Máx", "Pts Obtenidos", "Cumple", "Observación / Recomendación"].map(h => (
-                                                            <th key={h} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 600 }}>{h}</th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {p.resultadoJson.criterios.map((c, i) => (
-                                                        <tr key={c.id} style={{ background: i % 2 === 0 ? "#EFF5FB" : "white" }}>
-                                                            <td style={{ padding: "6px 8px", fontWeight: 500 }}>{c.criterio}</td>
-                                                            <td style={{ padding: "6px 8px", textAlign: "center" }}>{c.puntajeMax}</td>
-                                                            <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: c.cumple === "SI" ? "#16a34a" : c.cumple === "PARCIAL" ? "#d97706" : "#dc2626" }}>
-                                                                {c.puntajeObtenido}
-                                                            </td>
-                                                            <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                                                                <span style={{ background: c.cumple === "SI" ? "#dcfce7" : c.cumple === "PARCIAL" ? "#fef9c3" : "#fee2e2", color: c.cumple === "SI" ? "#16a34a" : c.cumple === "PARCIAL" ? "#d97706" : "#dc2626", borderRadius: "4px", padding: "2px 6px", fontWeight: 600, fontSize: "0.72rem" }}>
-                                                                    {c.cumple === "SI" ? "✓ Sí" : c.cumple === "PARCIAL" ? "⚠ Parcial" : "✗ No"}
-                                                                </span>
-                                                            </td>
-                                                            <td style={{ padding: "6px 8px", color: "var(--text-secondary)" }}>
-                                                                {c.observacion}
-                                                                {c.recomendacion && c.cumple !== "SI" && (
-                                                                    <div style={{ marginTop: "0.25rem", fontSize: "0.72rem", color: "var(--text-muted)", fontStyle: "italic" }}>
-                                                                        → {c.recomendacion}
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        {/* Alineación PAEC-PEC */}
-                                        {p.observacionesJson?.alineacionPaecPec && (
-                                            <div style={{ marginTop: "1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "0.75rem" }}>
-                                                <h4 style={{ fontSize: "0.8rem", fontWeight: 700, color: "#166534", marginBottom: "0.35rem" }}>Alineación con el PAEC-PEC</h4>
-                                                <p style={{ fontSize: "0.8rem", color: "#14532d", margin: 0, lineHeight: 1.5 }}>{p.observacionesJson.alineacionPaecPec}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
         </div>
     );
 }
