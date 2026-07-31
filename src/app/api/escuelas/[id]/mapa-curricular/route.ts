@@ -12,10 +12,23 @@ export async function POST(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const user = session.user as any;
     const params = await context.params;
     const escuelaId = params.id;
+
+    // Verificar si la plataforma está en Modo Mantenimiento
+    const configGlobal = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
+    if (configGlobal?.mantenimiento && user.role !== "admin") {
+      const escCheck = await prisma.escuela.findUnique({ where: { id: escuelaId }, select: { esDePrueba: true } });
+      if (!escCheck?.esDePrueba) {
+        return NextResponse.json({ error: "La plataforma se encuentra en mantenimiento programado." }, { status: 503 });
+      }
+    }
+
     const body = await req.json();
     const { gruposPrimerAno, gruposSegundoAno, gruposTercerAno, gruposConfig } = body;
+
+
 
     if (!escuelaId) {
       return NextResponse.json({ error: "escuelaId es requerido" }, { status: 400 });

@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: "Plataforma de gestión para supervisión escolar EMS",
 };
 
+import MantenimientoListener from "@/components/MantenimientoListener";
+
 export default function RootLayout({
   children,
 }: {
@@ -19,7 +21,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <MantenimientoListener />
+        {children}
+      </body>
     </html>
   );
 }
+

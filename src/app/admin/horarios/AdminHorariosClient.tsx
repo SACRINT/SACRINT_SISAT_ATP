@@ -311,12 +311,14 @@ export default function AdminHorariosClient({ escuelas }: Props) {
           isOpen={mapaModalAbierto}
           onClose={() => setMapaModalAbierto(false)}
           escuela={escuelaActual}
+          gruposIniciales={grupos}
           onSaved={() => {
             setMapaModalAbierto(false);
             cargarDatosEscuela(escuelaActual.id);
           }}
         />
       )}
+
     </div>
   );
 }

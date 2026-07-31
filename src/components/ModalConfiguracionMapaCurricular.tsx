@@ -62,16 +62,29 @@ export default function ModalConfiguracionMapaCurricular({
       const initialMap: Record<string, { capacitacionNombre: string; ffeOptativas: string[]; ffeoSocioemocional: string }> = {};
       if (Array.isArray(gruposIniciales)) {
         gruposIniciales.forEach(g => {
-          initialMap[g.nombre] = {
+          let opts = g.ffeOptativas;
+          if (typeof opts === "string") {
+            try { opts = JSON.parse(opts); } catch { opts = []; }
+          }
+
+          const parsedOpts = Array.isArray(opts) && opts.length === 4 ? opts : [
+            FFE_RECURSOS_SOCIOCOGNITIVOS[0],
+            FFE_RECURSOS_SOCIOCOGNITIVOS[1],
+            FFE_AREAS_CONOCIMIENTO[0],
+            FFE_AREAS_CONOCIMIENTO[1]
+          ];
+
+          const itemData = {
             capacitacionNombre: g.capacitacionNombre || "Administracion",
-            ffeOptativas: Array.isArray(g.ffeOptativas) && g.ffeOptativas.length === 4 ? g.ffeOptativas : [
-              FFE_RECURSOS_SOCIOCOGNITIVOS[0],
-              FFE_RECURSOS_SOCIOCOGNITIVOS[1],
-              FFE_AREAS_CONOCIMIENTO[0],
-              FFE_AREAS_CONOCIMIENTO[1]
-            ],
+            ffeOptativas: parsedOpts,
             ffeoSocioemocional: g.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])
           };
+
+          if (g.nombre) {
+            initialMap[g.nombre] = itemData;
+            initialMap[g.nombre.replace("º", "°")] = itemData;
+            initialMap[g.nombre.replace("°", "º")] = itemData;
+          }
         });
       }
       setMapaConfig(initialMap);
@@ -91,7 +104,7 @@ export default function ModalConfiguracionMapaCurricular({
 
   const handleUpdateGrupoConfig = (grupoNombre: string, field: string, value: any) => {
     setMapaConfig(prev => {
-      const actual = prev[grupoNombre] || {
+      const actual = prev[grupoNombre] || prev[grupoNombre.replace("º", "°")] || prev[grupoNombre.replace("°", "º")] || {
         capacitacionNombre: "Administracion",
         ffeOptativas: [
           FFE_RECURSOS_SOCIOCOGNITIVOS[0],
@@ -113,23 +126,23 @@ export default function ModalConfiguracionMapaCurricular({
       // Auto-swap inteligente bidireccional entre 3.er y 5.º Semestre (evita colisiones)
       if (field === "ffeoSocioemocional") {
         const letra = grupoNombre.split(" ")[1];
-        if (grupoNombre.startsWith("3º")) {
+        if (grupoNombre.startsWith("3º") || grupoNombre.startsWith("3°")) {
           const nombreGrupo5 = `5º ${letra}`;
-          const config5 = prev[nombreGrupo5] || {
+          const nombreGrupo5Alt = `5° ${letra}`;
+          const config5 = prev[nombreGrupo5] || prev[nombreGrupo5Alt] || {
             capacitacionNombre: "Administracion",
             ffeOptativas: [FFE_RECURSOS_SOCIOCOGNITIVOS[0], FFE_RECURSOS_SOCIOCOGNITIVOS[1], FFE_AREAS_CONOCIMIENTO[0], FFE_AREAS_CONOCIMIENTO[1]],
             ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[1]
           };
           if (config5.ffeoSocioemocional === value) {
             const opcionDisponible = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== value) || FORMACIONES_SOCIOEMOCIONALES[1];
-            nuevoMapa[nombreGrupo5] = {
-              ...config5,
-              ffeoSocioemocional: opcionDisponible
-            };
+            nuevoMapa[nombreGrupo5] = { ...config5, ffeoSocioemocional: opcionDisponible };
+            nuevoMapa[nombreGrupo5Alt] = { ...config5, ffeoSocioemocional: opcionDisponible };
           }
-        } else if (grupoNombre.startsWith("5º")) {
+        } else if (grupoNombre.startsWith("5º") || grupoNombre.startsWith("5°")) {
           const nombreGrupo3 = `3º ${letra}`;
-          const config3 = prev[nombreGrupo3] || {
+          const nombreGrupo3Alt = `3° ${letra}`;
+          const config3 = prev[nombreGrupo3] || prev[nombreGrupo3Alt] || {
             capacitacionNombre: "Administracion",
             ffeOptativas: [
               FFE_RECURSOS_SOCIOCOGNITIVOS[0],
@@ -141,10 +154,8 @@ export default function ModalConfiguracionMapaCurricular({
           };
           if (config3.ffeoSocioemocional === value) {
             const opcionDisponible = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== value) || FORMACIONES_SOCIOEMOCIONALES[0];
-            nuevoMapa[nombreGrupo3] = {
-              ...config3,
-              ffeoSocioemocional: opcionDisponible
-            };
+            nuevoMapa[nombreGrupo3] = { ...config3, ffeoSocioemocional: opcionDisponible };
+            nuevoMapa[nombreGrupo3Alt] = { ...config3, ffeoSocioemocional: opcionDisponible };
           }
         }
       }
@@ -159,7 +170,7 @@ export default function ModalConfiguracionMapaCurricular({
     try {
       // Construir array de gruposConfig
       const gruposConfig = gruposGenerados.map(g => {
-        const cfg = mapaConfig[g.nombre] || {
+        const cfg = mapaConfig[g.nombre] || mapaConfig[g.nombre.replace("º", "°")] || mapaConfig[g.nombre.replace("°", "º")] || {
           capacitacionNombre: "Administracion",
           ffeOptativas: [
             "Análisis de Fenómenos y Procesos Biológicos",
@@ -209,25 +220,25 @@ export default function ModalConfiguracionMapaCurricular({
       left: 0,
       right: 0,
       bottom: 0,
+      zIndex: 9999,
       background: "rgba(15, 23, 42, 0.75)",
       backdropFilter: "blur(6px)",
-      zIndex: 9999,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "1rem"
     }}>
       <div style={{
-        background: "var(--card-bg, #ffffff)",
-        borderRadius: "16px",
+        background: "var(--bg)",
         width: "100%",
         maxWidth: "850px",
         maxHeight: "90vh",
+        borderRadius: "16px",
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.35)",
         display: "flex",
         flexDirection: "column",
-        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-        border: "1px solid var(--border)",
-        overflow: "hidden"
+        overflow: "hidden",
+        border: "1px solid var(--border)"
       }}>
         {/* Header */}
         <div style={{
@@ -239,12 +250,12 @@ export default function ModalConfiguracionMapaCurricular({
           alignItems: "center"
         }}>
           <div>
-            <div style={{ fontSize: "0.75rem", fontWeight: 700, opacity: 0.9, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.9 }}>
               {escuela.cct} • {escuela.nombre}
             </div>
-            <h2 style={{ margin: "0.2rem 0 0 0", fontSize: "1.2rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Sparkles size={20} /> Mapa Curricular y Estructura del Plantel (1.º a 6.º Semestre)
-            </h2>
+            <h3 style={{ margin: "0.2rem 0 0", fontSize: "1.15rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Sparkles size={18} /> Mapa Curricular y Estructura del Plantel (1.º a 6.º Semestre)
+            </h3>
           </div>
           {!forceObligatorio && onClose && (
             <button
@@ -312,7 +323,7 @@ export default function ModalConfiguracionMapaCurricular({
             <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
               <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", padding: "1rem", borderRadius: "12px", display: "flex", gap: "0.75rem", alignItems: "center" }}>
                 <AlertCircle size={24} color="#2563eb" />
-                <div style={{ fontSize: "0.85rem", color: "1e3a8a", lineHeight: 1.4 }}>
+                <div style={{ fontSize: "0.85rem", color: "#1e3a8a", lineHeight: 1.4 }}>
                   <strong>Paso 1: Confirme los grupos activos en su plantel.</strong><br />
                   Escriba la cantidad de grupos activos por grado/año. Esta información se usará para construir automáticamente las listas en Horarios IA y Planeaciones Didácticas.
                 </div>
@@ -394,7 +405,7 @@ export default function ModalConfiguracionMapaCurricular({
 
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 {gruposGenerados.map(g => {
-                  const rawCfg = mapaConfig[g.nombre];
+                  const rawCfg = mapaConfig[g.nombre] || mapaConfig[g.nombre.replace("º", "°")] || mapaConfig[g.nombre.replace("°", "º")];
                   const cfg = {
                     capacitacionNombre: rawCfg?.capacitacionNombre || "Administracion",
                     ffeOptativas: Array.isArray(rawCfg?.ffeOptativas) && rawCfg.ffeOptativas.length === 4 ? rawCfg.ffeOptativas : [
@@ -471,7 +482,7 @@ export default function ModalConfiguracionMapaCurricular({
                       {/* Grupos de 5º Semestre */}
                       {g.semestre === 5 && (() => {
                         const letra = g.nombre.split(" ")[1];
-                        const config3 = mapaConfig[`3º ${letra}`];
+                        const config3 = mapaConfig[`3º ${letra}`] || mapaConfig[`3° ${letra}`];
                         const socio3 = config3?.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0];
                         const opcionesSocio5 = FORMACIONES_SOCIOEMOCIONALES.filter(soc => soc !== socio3);
                         const socio5Actual = opcionesSocio5.includes(cfg.ffeoSocioemocional) ? cfg.ffeoSocioemocional : opcionesSocio5[0];
@@ -507,16 +518,16 @@ export default function ModalConfiguracionMapaCurricular({
                                 </label>
                                 <select
                                   className="form-control"
-                                  value={cfg.ffeoSocioemocional}
+                                  value={socio5Actual}
                                   onChange={(e) => handleUpdateGrupoConfig(g.nombre, "ffeoSocioemocional", e.target.value)}
                                   style={{ fontSize: "0.85rem", fontWeight: 700 }}
                                 >
-                                  {FORMACIONES_SOCIOEMOCIONALES.map(soc => (
+                                  {opcionesSocio5.map(soc => (
                                     <option key={soc} value={soc}>{soc}</option>
                                   ))}
                                 </select>
                                 <div style={{ fontSize: "0.725rem", color: "#15803d", marginTop: "0.3rem", fontWeight: 700, background: "#f0fdf4", padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
-                                  ⚡ Intercambio automático si coincide con 3.er semestre<br />
+                                  ⚡ La opción de 3.er semestre (<strong>{socio3}</strong>) ya está apartada.<br />
                                   ℹ️ 4.º y 6.º Semestre llevarán automáticamente: <strong>{socio4y6}</strong>
                                 </div>
                               </div>
