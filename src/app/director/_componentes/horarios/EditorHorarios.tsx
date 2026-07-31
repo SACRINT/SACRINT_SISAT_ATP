@@ -21,7 +21,7 @@ import {
   Trash2
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { exportarHorarioExcel, exportarHorarioPDF, getHashColor } from "@/lib/horarios/exportador";
+import { exportarHorarioExcel, exportarHorarioPDF, exportarHorarioDOCX, exportarSumarioExcel, getHashColor } from "@/lib/horarios/exportador";
 
 interface Props {
   escuela: any;
@@ -31,6 +31,7 @@ interface Props {
   aulas: any[];
   cargas: any[];
   onVolverAWizard: () => void;
+  esAdmin?: boolean; // Si es true, muestra info técnica del modelo de IA
 }
 
 const PALETA_ESTILOS: Record<string, { bg: string; text: string; border: string }> = {
@@ -53,7 +54,8 @@ export default function EditorHorarios({
   docentes,
   aulas,
   cargas,
-  onVolverAWizard
+  onVolverAWizard,
+  esAdmin = false
 }: Props) {
   const [horario, setHorario] = useState<any>(horarioInicial);
   const [vistaTab, setVistaTab] = useState<"GRUPO" | "DOCENTE" | "AULA" | "SUMARIO">("GRUPO");
@@ -73,6 +75,28 @@ export default function EditorHorarios({
   const [enviandoChat, setEnviandoChat] = useState<boolean>(false);
   const [chatHistorial, setChatHistorial] = useState<any[]>(horarioInicial?.mensajesChat || []);
   const [limpiadoChat, setLimpiadoChat] = useState<boolean>(false);
+
+  // Slots libres bloqueados: el director puede fijar horas vacías para que la IA no las ocupe
+  // Formato: Set<"dia_periodo_grupoId">
+  const [slotsLibresBloqueados, setSlotsLibresBloqueados] = useState<Set<string>>(new Set());
+
+  const toggleBloquearSlotLibre = (dia: number, periodo: number, filtroId: string) => {
+    const key = `${dia}_${periodo}_${filtroId}`;
+    setSlotsLibresBloqueados(prev => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(key)) {
+        nuevo.delete(key);
+        toast.success("Hora libre desbloqueada");
+      } else {
+        nuevo.add(key);
+        toast.success("🔒 Hora libre fijada — la IA no colocará clases aquí");
+      }
+      return nuevo;
+    });
+  };
+
+  const esSlotLibreBloqueado = (dia: number, periodo: number, filtroId: string) =>
+    slotsLibresBloqueados.has(`${dia}_${periodo}_${filtroId}`);
 
   // Estado para Drag and Drop
   const [draggedCelda, setDraggedCelda] = useState<any>(null);
@@ -278,9 +302,67 @@ export default function EditorHorarios({
     setDraggedCelda(null);
   };
 
-  // Motor de Exportación Avanzado PDF & Excel
-  const ejecutarExportacion = (opcion: "VISTA_ACTUAL" | "DOCENTE_INDIVIDUAL" | "GRUPO_INDIVIDUAL" | "PAQUETE_DOCENTES" | "PAQUETE_GRUPOS" | "SUMARIO", formato: "PDF" | "EXCEL") => {
+  // Motor de Exportación Avanzado PDF, Excel y DOCX
+  const ejecutarExportacion = async (
+    opcion: "VISTA_ACTUAL" | "PAQUETE_DOCENTES" | "PAQUETE_GRUPOS" | "SUMARIO_MAESTRO" | "SUMARIO_GRUPO",
+    formato: "PDF" | "EXCEL" | "DOCX"
+  ) => {
     setMostrarModalExportar(false);
+
+    // ── Sumario Maestro (todos los docentes, tabla compacta) ──
+    if (opcion === "SUMARIO_MAESTRO") {
+      exportarSumarioExcel(
+        {
+          nombreEscuela: escuela.nombre,
+          cct: escuela.cct || "CCT",
+          dias: diasLectivos,
+          numHorasPorDia,
+          entidades: docentes.map(d => ({
+            id: d.id,
+            etiqueta: `${d.apellidoPaterno || ""} ${d.nombre || ""}`.trim()
+          })),
+          obtenerCelda: (docenteId, dia, periodo) => {
+            const c = horario?.celdas?.find(
+              (cc: any) => cc.diaSemana === dia && cc.periodo === periodo && cc.docenteId === docenteId
+            );
+            if (!c) return null;
+            const grpObj = grupos.find((g: any) => g.id === c.grupoId);
+            const mat = getNombreAsignaturaCelda(c);
+            return { texto: `${mat}${grpObj ? ` [${grpObj.nombre}]` : ""}` };
+          }
+        },
+        "DOCENTE"
+      );
+      toast.success("📊 Sumario Maestro generado en Excel");
+      return;
+    }
+
+    // ── Sumario Grupo (todos los grupos, tabla compacta) ──
+    if (opcion === "SUMARIO_GRUPO") {
+      exportarSumarioExcel(
+        {
+          nombreEscuela: escuela.nombre,
+          cct: escuela.cct || "CCT",
+          dias: diasLectivos,
+          numHorasPorDia,
+          entidades: grupos.map(g => ({ id: g.id, etiqueta: `Grupo ${g.nombre}` })),
+          obtenerCelda: (grupoId, dia, periodo) => {
+            const c = horario?.celdas?.find(
+              (cc: any) => cc.diaSemana === dia && cc.periodo === periodo && cc.grupoId === grupoId
+            );
+            if (!c) return null;
+            const mat = getNombreAsignaturaCelda(c);
+            const doc = getNombreDocenteCelda(c);
+            return { texto: `${mat}${doc ? ` [${doc}]` : ""}` };
+          }
+        },
+        "GRUPO"
+      );
+      toast.success("📊 Sumario por Grupo generado en Excel");
+      return;
+    }
+
+    // ── Exportaciones por filas (PDF / Excel / DOCX) ──
     const filasExport: any[] = [];
     let tipoVistaPDF: any = "GRUPO";
     let tituloTabla = "";
@@ -290,16 +372,11 @@ export default function EditorHorarios({
         const g = grupos.find(item => item.id === grupoSeleccionadoId);
         tituloTabla = `HORARIO POR GRUPO: ${g?.nombre || "GRUPO"}`;
         const celdasMapa: any = {};
-
         for (let d = 1; d <= 5; d++) {
           for (let p = 1; p <= numHorasPorDia; p++) {
             const celda = getCeldaInfo(d, p);
             if (celda) {
-              celdasMapa[`${d}_${p}`] = {
-                materia: getNombreAsignaturaCelda(celda),
-                docente: getNombreDocenteCelda(celda),
-                grupo: g?.nombre
-              };
+              celdasMapa[`${d}_${p}`] = { materia: getNombreAsignaturaCelda(celda), docente: getNombreDocenteCelda(celda), grupo: g?.nombre };
             }
           }
         }
@@ -309,17 +386,12 @@ export default function EditorHorarios({
         const nomDoc = dObj ? `${dObj.nombre} ${dObj.apellidoPaterno || ""}`.trim() : "DOCENTE";
         tituloTabla = `HORARIO PERSONAL DEL DOCENTE: ${nomDoc}`;
         const celdasMapa: any = {};
-
         for (let d = 1; d <= 5; d++) {
           for (let p = 1; p <= numHorasPorDia; p++) {
             const celda = getCeldaInfo(d, p);
             if (celda) {
               const grpObj = grupos.find(g => g.id === celda.grupoId);
-              celdasMapa[`${d}_${p}`] = {
-                materia: getNombreAsignaturaCelda(celda),
-                docente: nomDoc,
-                grupo: grpObj?.nombre || celda.grupoId
-              };
+              celdasMapa[`${d}_${p}`] = { materia: getNombreAsignaturaCelda(celda), docente: nomDoc, grupo: grpObj?.nombre || celda.grupoId };
             }
           }
         }
@@ -332,23 +404,15 @@ export default function EditorHorarios({
     } else if (opcion === "PAQUETE_DOCENTES") {
       tituloTabla = "PAQUETE OFICIAL DE HORARIOS INDIVIDUALES POR DOCENTE";
       tipoVistaPDF = "PAQUETE_DOCENTES";
-
       for (const docObj of docentes) {
         const nomDoc = `${docObj.nombre} ${docObj.apellidoPaterno || ""}`.trim();
         const celdasMapa: any = {};
-
         for (let d = 1; d <= 5; d++) {
           for (let p = 1; p <= numHorasPorDia; p++) {
-            const celda = horario?.celdas?.find(
-              (c: any) => c.diaSemana === d && c.periodo === p && c.docenteId === docObj.id
-            );
+            const celda = horario?.celdas?.find((c: any) => c.diaSemana === d && c.periodo === p && c.docenteId === docObj.id);
             if (celda) {
               const grpObj = grupos.find(g => g.id === celda.grupoId);
-              celdasMapa[`${d}_${p}`] = {
-                materia: getNombreAsignaturaCelda(celda),
-                docente: nomDoc,
-                grupo: grpObj?.nombre || celda.grupoId
-              };
+              celdasMapa[`${d}_${p}`] = { materia: getNombreAsignaturaCelda(celda), docente: nomDoc, grupo: grpObj?.nombre || celda.grupoId };
             }
           }
         }
@@ -357,20 +421,13 @@ export default function EditorHorarios({
     } else if (opcion === "PAQUETE_GRUPOS") {
       tituloTabla = "PAQUETE OFICIAL DE HORARIOS POR GRUPO";
       tipoVistaPDF = "PAQUETE_GRUPOS";
-
       for (const g of grupos) {
         const celdasMapa: any = {};
         for (let d = 1; d <= 5; d++) {
           for (let p = 1; p <= numHorasPorDia; p++) {
-            const celda = horario?.celdas?.find(
-              (c: any) => c.diaSemana === d && c.periodo === p && c.grupoId === g.id
-            );
+            const celda = horario?.celdas?.find((c: any) => c.diaSemana === d && c.periodo === p && c.grupoId === g.id);
             if (celda) {
-              celdasMapa[`${d}_${p}`] = {
-                materia: getNombreAsignaturaCelda(celda),
-                docente: getNombreDocenteCelda(celda),
-                grupo: g.nombre
-              };
+              celdasMapa[`${d}_${p}`] = { materia: getNombreAsignaturaCelda(celda), docente: getNombreDocenteCelda(celda), grupo: g.nombre };
             }
           }
         }
@@ -391,11 +448,15 @@ export default function EditorHorarios({
     if (formato === "EXCEL") {
       exportarHorarioExcel(payload);
       toast.success("Excel generado correctamente");
+    } else if (formato === "DOCX") {
+      await exportarHorarioDOCX(payload);
+      toast.success("📝 Word (.docx) generado correctamente");
     } else {
       exportarHorarioPDF(payload);
       toast.success("PDF generado exitosamente");
     }
   };
+
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", width: "100%" }}>
@@ -584,11 +645,38 @@ export default function EditorHorarios({
                               )}
                             </div>
                           </div>
-                        ) : (
-                          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", color: "#94a3b8", fontStyle: "italic" }}>
-                            Libre
-                          </div>
-                        )}
+                        ) : (() => {
+                          // Determinar filtroId según la vista activa
+                          const filtroId =
+                            vistaTab === "GRUPO" ? grupoSeleccionadoId :
+                            vistaTab === "DOCENTE" ? docenteSeleccionadoId :
+                            vistaTab === "AULA" ? aulaSeleccionadaId :
+                            grupoSeleccionadoId;
+                          const estaBloqueado = esSlotLibreBloqueado(dia, p, filtroId);
+                          return (
+                            <div
+                              className="horario-celda-libre"
+                              style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontStyle: "italic", position: "relative",
+                                color: estaBloqueado ? "#d97706" : "#94a3b8",
+                                background: estaBloqueado ? "#fffbeb" : "transparent",
+                                border: estaBloqueado ? "1px dashed #d97706" : "none",
+                                borderRadius: estaBloqueado ? "6px" : "0",
+                                cursor: "pointer"
+                              }}
+                              onClick={() => toggleBloquearSlotLibre(dia, p, filtroId)}
+                              title={estaBloqueado ? "Hora libre bloqueada \u2014 clic para desbloquear" : "Clic para bloquear esta hora libre (la IA no colocará clases aquí)"}
+                            >
+                              {estaBloqueado ? (
+                                <>
+                                  <Lock style={{ width: "13px", height: "13px", marginRight: "4px", color: "#d97706" }} />
+                                  <span>Bloqueado</span>
+                                </>
+                              ) : (
+                                <span>Libre</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                     );
                   })}
@@ -606,7 +694,9 @@ export default function EditorHorarios({
                 <Sparkles style={{ width: "20px", height: "20px", color: "#60a5fa" }} />
                 <div>
                   <h3 style={{ fontSize: "0.9375rem", fontWeight: 800, color: "white", margin: 0 }}>Asistente IA de Horarios</h3>
-                  <p style={{ fontSize: "0.65rem", color: "#94a3b8", margin: 0 }}>Gemini 3.5 Flash Lite | SISAT-ATP Pool</p>
+                  {esAdmin && (
+                    <p style={{ fontSize: "0.65rem", color: "#94a3b8", margin: 0 }}>Gemini 3.5 Flash Lite | SISAT-ATP Pool</p>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -723,10 +813,10 @@ export default function EditorHorarios({
         )}
       </div>
 
-      {/* MODAL DE EXPORTACIÓN AVANZADA (PDF & EXCEL) */}
+      {/* MODAL DE EXPORTACIÓN AVANZADA */}
       {mostrarModalExportar && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
-          <div style={{ background: "white", borderRadius: "16px", padding: "1.75rem", maxWidth: "560px", width: "100%", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", border: "1px solid #cbd5e1" }}>
+          <div style={{ background: "white", borderRadius: "16px", padding: "1.75rem", maxWidth: "620px", width: "100%", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", border: "1px solid #cbd5e1", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "1rem", marginBottom: "1.25rem" }}>
               <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
                 <FileText style={{ width: "22px", height: "22px", color: "#2563eb" }} /> Opciones de Exportación Oficial
@@ -737,7 +827,7 @@ export default function EditorHorarios({
             </div>
 
             <p style={{ fontSize: "0.8125rem", color: "#64748b", marginBottom: "1.25rem" }}>
-              Seleccione el formato y alcance de los horarios oficiales a exportar para alumnos o plantilla docente:
+              Seleccione el formato y alcance. Los botones <b>Word</b> generan archivos editables (.docx).
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
@@ -747,13 +837,10 @@ export default function EditorHorarios({
                   <div style={{ fontSize: "0.875rem", fontWeight: 800, color: "#1e293b" }}>📄 Vista Actual en Pantalla</div>
                   <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Exporta exactamente el filtro visible ({vistaTab})</div>
                 </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={() => ejecutarExportacion("VISTA_ACTUAL", "PDF")} style={{ background: "#2563eb", color: "white", border: "none", padding: "0.4rem 0.75rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
-                    PDF
-                  </button>
-                  <button onClick={() => ejecutarExportacion("VISTA_ACTUAL", "EXCEL")} style={{ background: "#10b981", color: "white", border: "none", padding: "0.4rem 0.75rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
-                    Excel
-                  </button>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button onClick={() => ejecutarExportacion("VISTA_ACTUAL", "PDF")} style={{ background: "#2563eb", color: "white", border: "none", padding: "0.4rem 0.65rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>PDF</button>
+                  <button onClick={() => ejecutarExportacion("VISTA_ACTUAL", "EXCEL")} style={{ background: "#10b981", color: "white", border: "none", padding: "0.4rem 0.65rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Excel</button>
+                  <button onClick={() => ejecutarExportacion("VISTA_ACTUAL", "DOCX")} style={{ background: "#7c3aed", color: "white", border: "none", padding: "0.4rem 0.65rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Word</button>
                 </div>
               </div>
 
@@ -761,14 +848,13 @@ export default function EditorHorarios({
               <div style={{ border: "1px solid #cbd5e1", borderRadius: "10px", padding: "0.85rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f8fafc" }}>
                 <div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                    <Package style={{ width: "16px", height: "16px", color: "#d97706" }} /> Paquete Completo por Docente (Multi-página)
+                    <Package style={{ width: "16px", height: "16px", color: "#d97706" }} /> Paquete por Docente (Multi-página)
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Genera 1 hoja formal individual por cada maestro del plantel</div>
+                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>1 hoja individual por cada maestro del plantel</div>
                 </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={() => ejecutarExportacion("PAQUETE_DOCENTES", "PDF")} style={{ background: "#2563eb", color: "white", border: "none", padding: "0.4rem 0.75rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
-                    PDF Paquete
-                  </button>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button onClick={() => ejecutarExportacion("PAQUETE_DOCENTES", "PDF")} style={{ background: "#2563eb", color: "white", border: "none", padding: "0.4rem 0.65rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>PDF</button>
+                  <button onClick={() => ejecutarExportacion("PAQUETE_DOCENTES", "DOCX")} style={{ background: "#7c3aed", color: "white", border: "none", padding: "0.4rem 0.65rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Word</button>
                 </div>
               </div>
 
@@ -776,13 +862,39 @@ export default function EditorHorarios({
               <div style={{ border: "1px solid #cbd5e1", borderRadius: "10px", padding: "0.85rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f8fafc" }}>
                 <div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                    <Package style={{ width: "16px", height: "16px", color: "#d97706" }} /> Paquete Completo por Grupo (Multi-página)
+                    <Package style={{ width: "16px", height: "16px", color: "#d97706" }} /> Paquete por Grupo (Multi-página)
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Genera 1 hoja formal individual por cada grupo para alumnos</div>
+                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>1 hoja individual por cada grupo para alumnos</div>
                 </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={() => ejecutarExportacion("PAQUETE_GRUPOS", "PDF")} style={{ background: "#2563eb", color: "white", border: "none", padding: "0.4rem 0.75rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
-                    PDF Paquete
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button onClick={() => ejecutarExportacion("PAQUETE_GRUPOS", "PDF")} style={{ background: "#2563eb", color: "white", border: "none", padding: "0.4rem 0.65rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>PDF</button>
+                  <button onClick={() => ejecutarExportacion("PAQUETE_GRUPOS", "DOCX")} style={{ background: "#7c3aed", color: "white", border: "none", padding: "0.4rem 0.65rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Word</button>
+                </div>
+              </div>
+
+              {/* Separador */}
+              <div style={{ borderTop: "1px dashed #cbd5e1", paddingTop: "0.85rem" }}>
+                <div style={{ fontSize: "0.8rem", fontWeight: 800, color: "#475569", marginBottom: "0.6rem" }}>📊 Exportaciones Compactas (una sola tabla)</div>
+
+                {/* Sumario Maestro */}
+                <div style={{ border: "1px solid #a5b4fc", borderRadius: "10px", padding: "0.85rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#eef2ff", marginBottom: "0.6rem" }}>
+                  <div>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 800, color: "#3730a3" }}>👨‍🏫 Sumario Maestro</div>
+                    <div style={{ fontSize: "0.72rem", color: "#4f46e5" }}>Todos los docentes en filas · Lun/H1 … Vie/H6 en columnas</div>
+                  </div>
+                  <button onClick={() => ejecutarExportacion("SUMARIO_MAESTRO", "EXCEL")} style={{ background: "#4338ca", color: "white", border: "none", padding: "0.4rem 0.85rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>
+                    Excel
+                  </button>
+                </div>
+
+                {/* Sumario Grupo */}
+                <div style={{ border: "1px solid #6ee7b7", borderRadius: "10px", padding: "0.85rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#ecfdf5" }}>
+                  <div>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 800, color: "#065f46" }}>🏫 Sumario por Grupo</div>
+                    <div style={{ fontSize: "0.72rem", color: "#059669" }}>Todos los grupos en filas · Lun/H1 … Vie/H6 en columnas</div>
+                  </div>
+                  <button onClick={() => ejecutarExportacion("SUMARIO_GRUPO", "EXCEL")} style={{ background: "#059669", color: "white", border: "none", padding: "0.4rem 0.85rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>
+                    Excel
                   </button>
                 </div>
               </div>

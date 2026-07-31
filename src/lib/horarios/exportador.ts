@@ -1,6 +1,20 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  Table,
+  TableRow,
+  TableCell,
+  TextRun,
+  WidthType,
+  AlignmentType,
+  ShadingType,
+  HeadingLevel,
+  BorderStyle
+} from "docx";
 
 export interface FilaExportacion {
   encabezado: string;
@@ -232,4 +246,179 @@ export function exportarHorarioPDF(datos: DatosExportacionHorario) {
   // Descargar PDF
   const fileName = `Horario_Oficial_${datos.cct}_${datos.tipoVista}.pdf`;
   doc.save(fileName);
+}
+
+// =========================================================================
+// EXPORTACIÓN A WORD (.DOCX) — Formato editable
+// =========================================================================
+export async function exportarHorarioDOCX(datos: DatosExportacionHorario) {
+  const sections: any[] = [];
+
+  for (const fila of datos.filas) {
+    // Encabezado de sección
+    sections.push(
+      new Paragraph({
+        text: "GOBIERNO DEL ESTADO DE PUEBLA",
+        heading: HeadingLevel.HEADING_2,
+        alignment: AlignmentType.CENTER
+      }),
+      new Paragraph({
+        text: "SECRETARÍA DE EDUCACIÓN PÚBLICA — ZONA ESCOLAR 004",
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "SECRETARÍA DE EDUCACIÓN PÚBLICA — ZONA ESCOLAR 004", bold: false, size: 20 })]
+      }),
+      new Paragraph({
+        text: `ESCUELA: ${datos.nombreEscuela.toUpperCase()} (CCT: ${datos.cct})`,
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: `ESCUELA: ${datos.nombreEscuela.toUpperCase()} (CCT: ${datos.cct})`, bold: true, size: 22 })]
+      }),
+      new Paragraph({
+        text: fila.encabezado.toUpperCase(),
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: fila.encabezado.toUpperCase(), bold: true, size: 24, color: "1e3a8a" })]
+      }),
+      new Paragraph({ text: "" })
+    );
+
+    // Cabecera de la tabla: Periodo | Lunes | Martes | ... | Viernes
+    const headerCells = ["Periodo", ...datos.dias].map(
+      (d) =>
+        new TableCell({
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: d, bold: true, size: 18, color: "FFFFFF" })] })],
+          shading: { type: ShadingType.SOLID, color: "1e3a8a", fill: "1e3a8a" },
+          width: { size: d === "Periodo" ? 1500 : 2000, type: WidthType.DXA }
+        })
+    );
+    const headerRow = new TableRow({ children: headerCells, tableHeader: true });
+
+    // Filas de datos
+    const bodyRows: TableRow[] = [];
+    for (let p = 0; p < datos.periodos.length; p++) {
+      const cells: TableCell[] = [
+        new TableCell({
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `Hora ${p + 1}`, bold: true, size: 18 })] })],
+          shading: { type: ShadingType.SOLID, color: "f1f5f9", fill: "f1f5f9" },
+          width: { size: 1500, type: WidthType.DXA }
+        })
+      ];
+
+      for (let d = 1; d <= datos.dias.length; d++) {
+        const key = `${d}_${p + 1}`;
+        const val = fila.celdas[key];
+        let textoLineas: string[] = [];
+
+        if (!val) {
+          textoLineas = ["Libre"];
+        } else if (typeof val === "string") {
+          textoLineas = [val];
+        } else {
+          if (val.materia) textoLineas.push(val.materia);
+          if (val.docente) textoLineas.push(`Prof. ${val.docente}`);
+          if (val.grupo) textoLineas.push(`Grupo ${val.grupo}`);
+        }
+
+        const esLibre = textoLineas[0] === "Libre";
+        cells.push(
+          new TableCell({
+            children: textoLineas.map(
+              (l) => new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: l, size: 16, color: esLibre ? "94a3b8" : "0f172a" })] })
+            ),
+            shading: esLibre ? undefined : { type: ShadingType.SOLID, color: "eff6ff", fill: "eff6ff" },
+            width: { size: 2000, type: WidthType.DXA }
+          })
+        );
+      }
+      bodyRows.push(new TableRow({ children: cells }));
+    }
+
+    const tabla = new Table({
+      rows: [headerRow, ...bodyRows],
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: {
+        top: { style: BorderStyle.SINGLE, size: 4, color: "cbd5e1" },
+        bottom: { style: BorderStyle.SINGLE, size: 4, color: "cbd5e1" },
+        left: { style: BorderStyle.SINGLE, size: 4, color: "cbd5e1" },
+        right: { style: BorderStyle.SINGLE, size: 4, color: "cbd5e1" }
+      }
+    });
+    sections.push(tabla, new Paragraph({ text: "" }));
+  }
+
+  const doc = new Document({
+    sections: [{ children: sections }]
+  });
+
+  const buffer = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(buffer);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Horario_Oficial_${datos.cct}_${datos.tipoVista}.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// =========================================================================
+// SUMARIO MAESTRO — Excel con todos los docentes en filas, horas en columnas
+// Formato: Docente | Lun/H1 | Lun/H2 | ... | Vie/H6
+// =========================================================================
+export interface DatosSumario {
+  nombreEscuela: string;
+  cct: string;
+  dias: string[];
+  numHorasPorDia: number;
+  entidades: {
+    id: string;
+    etiqueta: string; // Nombre del docente o grupo
+  }[];
+  obtenerCelda: (entidadId: string, dia: number, periodo: number) => { texto: string } | null;
+}
+
+export function exportarSumarioExcel(datos: DatosSumario, tipo: "DOCENTE" | "GRUPO") {
+  const wb = XLSX.utils.book_new();
+  const { dias, numHorasPorDia } = datos;
+
+  // Construir encabezados: Docente/Grupo + una columna por cada hora de cada día
+  const headerRow: string[] = [tipo === "DOCENTE" ? "Docente" : "Grupo"];
+  for (let d = 0; d < dias.length; d++) {
+    for (let h = 1; h <= numHorasPorDia; h++) {
+      headerRow.push(`${dias[d].substring(0, 3)}/H${h}`);
+    }
+  }
+
+  const rowsData: string[][] = [
+    [`SECRETARÍA DE EDUCACIÓN PÚBLICA — ZONA ESCOLAR 004`],
+    [`ESCUELA: ${datos.nombreEscuela.toUpperCase()} (CCT: ${datos.cct})`],
+    [`SUMARIO ${tipo === "DOCENTE" ? "MAESTRO" : "POR GRUPO"} — HORARIO SEMANAL COMPLETO`],
+    [],
+    headerRow
+  ];
+
+  for (const entidad of datos.entidades) {
+    const fila: string[] = [entidad.etiqueta];
+    for (let d = 1; d <= dias.length; d++) {
+      for (let h = 1; h <= numHorasPorDia; h++) {
+        const celda = datos.obtenerCelda(entidad.id, d, h);
+        fila.push(celda ? celda.texto : "—");
+      }
+    }
+    rowsData.push(fila);
+  }
+
+  rowsData.push([]);
+  rowsData.push(["Generado por SISAT-ATP | Sistema Inteligente de Horarios IA"]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rowsData);
+
+  // Ajustar ancho de columnas
+  const wCols = [{ wch: 30 }]; // Primera columna más ancha
+  for (let i = 0; i < dias.length * numHorasPorDia; i++) {
+    wCols.push({ wch: 22 });
+  }
+  ws["!cols"] = wCols;
+
+  const sheetName = tipo === "DOCENTE" ? "Sumario Maestros" : "Sumario Grupos";
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  const fileName = `Sumario_${tipo === "DOCENTE" ? "Maestro" : "Grupos"}_${datos.cct}.xlsx`;
+  XLSX.writeFile(wb, fileName);
 }

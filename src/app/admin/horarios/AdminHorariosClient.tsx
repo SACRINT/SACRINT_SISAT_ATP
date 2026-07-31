@@ -301,6 +301,7 @@ export default function AdminHorariosClient({ escuelas }: Props) {
             aulas={aulas}
             cargas={cargas}
             onVolverAWizard={() => setModo("WIZARD")}
+            esAdmin={true}
           />
         )
       ) : null}
