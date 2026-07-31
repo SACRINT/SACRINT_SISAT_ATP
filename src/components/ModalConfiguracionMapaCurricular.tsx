@@ -250,7 +250,8 @@ export default function ModalConfiguracionMapaCurricular({
         {/* Stepper Tabs */}
         <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--bg-secondary)" }}>
           <button
-            onClick={() => setPaso(1)}
+            type="button"
+            onClick={(e) => { e.preventDefault(); setPaso(1); }}
             style={{
               flex: 1,
               padding: "0.85rem",
@@ -270,7 +271,8 @@ export default function ModalConfiguracionMapaCurricular({
             <Layers size={16} /> 1. Estructura de Grupos ({g1 + g2 + g3} grupos)
           </button>
           <button
-            onClick={() => setPaso(2)}
+            type="button"
+            onClick={(e) => { e.preventDefault(); setPaso(2); }}
             style={{
               flex: 1,
               padding: "0.85rem",
@@ -360,8 +362,9 @@ export default function ModalConfiguracionMapaCurricular({
 
               <div style={{ textAlign: "right" }}>
                 <button
+                  type="button"
                   className="btn btn-primary"
-                  onClick={() => setPaso(2)}
+                  onClick={(e) => { e.preventDefault(); setPaso(2); }}
                   style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, padding: "0.6rem 1.25rem" }}
                 >
                   Continuar al Mapa Curricular por Grupo <ChevronRight size={18} />
@@ -380,16 +383,18 @@ export default function ModalConfiguracionMapaCurricular({
 
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 {gruposGenerados.map(g => {
-                  const cfg = mapaConfig[g.nombre] || {
-                    capacitacionNombre: "Administracion",
-                    ffeOptativas: [
-                      "Análisis de Fenómenos y Procesos Biológicos",
-                      "Pensamiento Matemático Aplicado a las Finanzas I",
-                      "Fundamentos de Administración I",
-                      "Lógica y Pensamiento Crítico"
+                  const rawCfg = mapaConfig[g.nombre];
+                  const cfg = {
+                    capacitacionNombre: rawCfg?.capacitacionNombre || "Administracion",
+                    ffeOptativas: Array.isArray(rawCfg?.ffeOptativas) && rawCfg.ffeOptativas.length === 4 ? rawCfg.ffeOptativas : [
+                      FFE_RECURSOS_SOCIOCOGNITIVOS[0],
+                      FFE_RECURSOS_SOCIOCOGNITIVOS[1],
+                      FFE_AREAS_CONOCIMIENTO[0],
+                      FFE_AREAS_CONOCIMIENTO[1]
                     ],
-                    ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[0]
+                    ffeoSocioemocional: rawCfg?.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])
                   };
+
 
                   return (
                     <div key={g.id} className="card" style={{ padding: "1.25rem", border: "1px solid var(--border)", background: "var(--bg)" }}>
