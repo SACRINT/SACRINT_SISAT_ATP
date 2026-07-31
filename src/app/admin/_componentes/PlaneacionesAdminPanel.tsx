@@ -236,7 +236,8 @@ export default function PlaneacionesAdminPanel() {
                                 ✕ Volver a resumen zona
                             </button>
                         </div>
-                        <GestionPlaneaciones escuela={targetEsc} />
+                        <GestionPlaneaciones escuela={targetEsc} readOnly={true} />
+
                     </div>
                 );
             })() : null}
