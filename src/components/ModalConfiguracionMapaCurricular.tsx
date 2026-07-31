@@ -50,12 +50,14 @@ export default function ModalConfiguracionMapaCurricular({
   // Config por Grupo (nombre -> { capacitacionNombre, ffeOptativas, ffeoSocioemocional })
   const [mapaConfig, setMapaConfig] = useState<Record<string, { capacitacionNombre: string; ffeOptativas: string[]; ffeoSocioemocional: string }>>({});
 
-  // Reset y sincronización al abrir
+  const [initialized, setInitialized] = useState(false);
+
+  // Reset y sincronización al abrir el modal (solo una vez por apertura)
   useEffect(() => {
-    if (isOpen) {
-      setG1(Math.max(1, escuela.gruposPrimerAno || 1));
-      setG2(Math.max(1, escuela.gruposSegundoAno || 1));
-      setG3(Math.max(1, escuela.gruposTercerAno || 1));
+    if (isOpen && !initialized) {
+      setG1(Math.max(1, escuela?.gruposPrimerAno || 1));
+      setG2(Math.max(1, escuela?.gruposSegundoAno || 1));
+      setG3(Math.max(1, escuela?.gruposTercerAno || 1));
 
       const initialMap: Record<string, { capacitacionNombre: string; ffeOptativas: string[]; ffeoSocioemocional: string }> = {};
       if (Array.isArray(gruposIniciales)) {
@@ -63,10 +65,10 @@ export default function ModalConfiguracionMapaCurricular({
           initialMap[g.nombre] = {
             capacitacionNombre: g.capacitacionNombre || "Administracion",
             ffeOptativas: Array.isArray(g.ffeOptativas) && g.ffeOptativas.length === 4 ? g.ffeOptativas : [
-              FFE_RECURSOS_SOCIOCOGNITIVOS[0], // Comunicación y Sociedad I
-              FFE_RECURSOS_SOCIOCOGNITIVOS[1], // Raíces Etimológicas del Español I
-              FFE_AREAS_CONOCIMIENTO[0],       // Salud Integral I
-              FFE_AREAS_CONOCIMIENTO[1]        // Análisis de Fenómenos y Procesos Biológicos
+              FFE_RECURSOS_SOCIOCOGNITIVOS[0],
+              FFE_RECURSOS_SOCIOCOGNITIVOS[1],
+              FFE_AREAS_CONOCIMIENTO[0],
+              FFE_AREAS_CONOCIMIENTO[1]
             ],
             ffeoSocioemocional: g.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])
           };
@@ -74,8 +76,11 @@ export default function ModalConfiguracionMapaCurricular({
       }
       setMapaConfig(initialMap);
       setPaso(1);
+      setInitialized(true);
+    } else if (!isOpen && initialized) {
+      setInitialized(false);
     }
-  }, [isOpen, escuela, gruposIniciales]);
+  }, [isOpen, initialized, escuela, gruposIniciales]);
 
   // Generar lista dinámica de grupos según la estructura actual de los inputs
   const gruposGenerados = useMemo(() => {
@@ -126,7 +131,12 @@ export default function ModalConfiguracionMapaCurricular({
           const nombreGrupo3 = `3º ${letra}`;
           const config3 = prev[nombreGrupo3] || {
             capacitacionNombre: "Administracion",
-            ffeOptativas: [],
+            ffeOptativas: [
+              FFE_RECURSOS_SOCIOCOGNITIVOS[0],
+              FFE_RECURSOS_SOCIOCOGNITIVOS[1],
+              FFE_AREAS_CONOCIMIENTO[0],
+              FFE_AREAS_CONOCIMIENTO[1]
+            ],
             ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[0]
           };
           if (config3.ffeoSocioemocional === value) {
@@ -142,6 +152,7 @@ export default function ModalConfiguracionMapaCurricular({
       return nuevoMapa;
     });
   };
+
 
   const handleSave = async () => {
     setGuardando(true);
