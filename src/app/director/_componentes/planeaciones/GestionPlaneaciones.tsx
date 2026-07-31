@@ -97,6 +97,7 @@ interface Props {
         mapaCurricularCompletado?: boolean;
     };
     readOnly?: boolean;
+    isAdmin?: boolean;
 }
 
 // ── Generador de Word ────────────────────────────────────────────────────────
@@ -181,7 +182,8 @@ async function generarWordRetroalimentacion(planeacion: Planeacion): Promise<voi
 
 // ── Componente Principal ─────────────────────────────────────────────────────
 
-export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly = false }: Props) {
+export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly = false, isAdmin = false }: Props) {
+
     const [escuelaData, setEscuelaData] = useState(inicialEscuela);
     const [requisitos, setRequisitos] = useState<Requisitos | null>(null);
     const [planeaciones, setPlaneaciones] = useState<Planeacion[]>([]);
@@ -500,17 +502,16 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                             >
                                 <Sparkles size={14} color="#60a5fa" /> ⚙️ Configurar Mapa Curricular
                             </button>
-                            {!readOnly && (
-                                <button
-                                    type="button"
-                                    className="btn btn-sm"
-                                    onClick={handleReiniciarMapaCurricular}
-                                    style={{ background: "rgba(239,68,68,0.25)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.4)", fontWeight: 700, fontSize: "0.75rem", borderRadius: "20px", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
-                                    title="Reinicia la configuración del mapa curricular del plantel"
-                                >
-                                    <RefreshCw size={13} /> 🔄 Reiniciar Configuración
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={handleReiniciarMapaCurricular}
+                                style={{ background: "rgba(239,68,68,0.25)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.4)", fontWeight: 700, fontSize: "0.75rem", borderRadius: "20px", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                                title="Reinicia la configuración del mapa curricular del plantel"
+                            >
+                                <RefreshCw size={13} /> 🔄 Reiniciar Configuración
+                            </button>
+
 
                         </div>
                         <h2 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.5rem", fontWeight: 800 }}>
@@ -713,7 +714,6 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                                                     <select
                                                         className="form-control"
                                                         value={capNombre}
-                                                        disabled={readOnly}
                                                         onChange={(e) => handleGuardarConfigGrupo(grupo.nombre, grupo.semestre, e.target.value, ffeOpts)}
                                                         style={{ fontSize: "0.8rem", fontWeight: 700, padding: "0.25rem 0.5rem", borderRadius: "6px" }}
                                                     >
@@ -778,7 +778,7 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                                                             <td style={{ padding: "0.75rem 1rem" }}>
                                                                 <select
                                                                     className="form-control"
-                                                                    disabled={readOnly || asignando}
+                                                                    disabled={asignando}
                                                                     value={asignado?.personalId || "SIN_ASIGNAR"}
                                                                     onChange={(e) => handleAsignarDocente(grupo.nombre, grupo.semestre, uac.nombre, e.target.value)}
                                                                     style={{
@@ -848,24 +848,21 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                                                                             </button>
                                                                         )}
 
-                                                                        {!readOnly && (
-                                                                            <button
-                                                                                type="button"
-                                                                                className="btn btn-outline"
-                                                                                onClick={() => handleEliminarPlaneacion(planeacion.id)}
-                                                                                style={{ padding: "0.3rem 0.5rem", fontSize: "0.75rem", color: "var(--danger)" }}
-                                                                                title="Eliminar esta entrega"
-                                                                            >
-                                                                                <Trash2 size={14} />
-                                                                            </button>
-                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-outline"
+                                                                            onClick={() => handleEliminarPlaneacion(planeacion.id)}
+                                                                            style={{ padding: "0.3rem 0.5rem", fontSize: "0.75rem", color: "var(--danger)" }}
+                                                                            title="Eliminar esta entrega"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
                                                                     </div>
                                                                 ) : (
                                                                     <button
                                                                         type="button"
                                                                         className="btn btn-primary"
                                                                         onClick={() => abrirModalSubida(grupo.nombre, grupo.semestre, uac.nombre)}
-                                                                        disabled={readOnly}
                                                                         style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", fontWeight: 800 }}
                                                                     >
                                                                         <Upload size={14} /> Subir Planeación
@@ -1120,7 +1117,8 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                 isOpen={mapaModalAbierto}
                 onClose={() => setMapaModalAbierto(false)}
                 onSaved={cargarDatos}
-                forceObligatorio={!readOnly && escuelaData.mapaCurricularCompletado === false}
+                forceObligatorio={!isAdmin && escuelaData.mapaCurricularCompletado === false}
+
 
             />
 
