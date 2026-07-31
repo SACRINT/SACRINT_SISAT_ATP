@@ -625,3 +625,54 @@ Basado en la Estructura Curricular Oficial del Bachillerato Tecnológico (Subsec
 *Este manual debe ser consultado y actualizado cada vez que se realicen modificaciones a la arquitectura profunda o se añadan nuevos modelos Prisma.*
 
 *Última actualización: Julio 2026 — v3.5 — Mapa Curricular MCCEMS BGE, Categorías FFE, Socioemocional y Bachilleratos Tecnológicos integrados.*
+
+---
+
+## 9. Módulos Nuevos y Correcciones Críticas (v3.6 — Julio 2026)
+
+### 9.1 Sistema de Guardia de Sesiones en Modo Mantenimiento (`MantenimientoListener`)
+
+**Problema resuelto**: Si el Administrador activaba el Modo Mantenimiento, los usuarios ya autenticados podían seguir navegando sin enterarse.
+
+**Implementación**:
+- **Componente**: `src/components/MantenimientoListener.tsx` — Componente cliente montado en `RootLayout` (global para toda la aplicación).
+- **API**: `GET /api/mantenimiento-status` — Retorna `{ mantenimiento: boolean, bloquear: boolean }`. Los Administradores y Escuelas de Prueba tienen `bloquear: false` incluso en mantenimiento.
+- **Comportamiento**: El componente sondea el endpoint cada 15 segundos. Si `bloquear === true`, muestra un overlay de pantalla completa no cerrable y redirige a `/mantenimiento` en 2.5 segundos.
+- **Protección a nivel API**: `POST /api/escuelas/[id]/mapa-curricular` retorna HTTP 503 durante mantenimiento para usuarios no exentos.
+
+### 9.2 Reorganización de Sidebar — Sección "🤖 Herramientas IA"
+
+**Portal del Director** (`src/app/director/DirectorPortal.tsx`):
+- Se creó la sección **"🤖 Herramientas IA"** en el sidebar lateral, que agrupa:
+  - 📅 **Generador de Horarios IA** (enlace a `/director/horarios`, visible solo si `isHorariosActive`)
+  - 📋 **Revisión de Planeaciones IA** (tab interna, visible solo si `isPlaneacionesActive`)
+  - 🔑 **Ajustes de API IA** (tab interna, movida desde "Ajustes")
+- **Detección automática de configuración pendiente**: Al cargar el portal, se verifica si el director tiene API Key y Mapa Curricular configurados. Si falta alguno, aparece una alerta naranja en la sección de Herramientas IA con mensaje específico de lo que falta.
+- Si ninguna herramienta IA está activa (`isHorariosActive === false` y `isPlaneacionesActive === false`), el botón de Ajustes de API se mueve a una sección "Ajustes" clásica para no perder la funcionalidad.
+
+### 9.3 Corrección Crítica: WizardConfiguracion no Cargaba Datos del Mapa Curricular (BD)
+
+**Causa Raíz**: El `useEffect` `generarGruposSegunEstructura(g1, g2, g3)` se ejecutaba en cada render y sobreescribía los grupos con valores predeterminados, ignorando los `gruposIniciales` recibidos desde la BD. Además, el match de nombres de grupo fallaba porque la DB usa `º` (ordinal masculino Unicode U+00BA) pero el código generaba `°` (símbolo de grado Unicode U+00B0).
+
+**Correcciones en `WizardConfiguracion.tsx`**:
+1. **Prioridad BD**: Se agregó `useEffect` con `inicializadoDesdeBD` flag. Si llegan `gruposIniciales` con datos reales, se cargan directamente en el estado sin pasar por la función de generación automática.
+2. **Flag de cambio manual** (`usuarioCambioGrupos`): La función `generarGruposSegunEstructura` solo se invoca cuando el usuario cambia explícitamente el número de grupos desde los inputs del formulario, **no** durante la inicialización.
+3. **Normalización de símbolo** (`normalizarNombreGrupo`): Al buscar grupos existentes, se normalizan ambos caracteres (`º` → `°`) para garantizar coincidencias exactas.
+4. **Parseo de `ffeOptativas`**: Si el campo llega como string JSON de Prisma, se parsea automáticamente.
+
+> ⚠️ **REGLA ESTRICTA DE CONSISTENCIA**: Los nombres de grupos en la BD se almacenan con `°` (U+00B0, símbolo de grado). La función `generarGruposSegunEstructura` genera nombres con `°`. Al leer de la BD, siempre normalizar con `replace(/º/g, '°')` antes de comparar.
+
+### 9.4 Corrección: `AdminHorariosClient.tsx` — Prop `gruposIniciales` Faltante
+
+En `src/app/admin/horarios/AdminHorariosClient.tsx`, el componente `<ModalConfiguracionMapaCurricular>` no recibía la prop `gruposIniciales`. Sin ella, el modal siempre abría con valores predeterminados ignorando la configuración guardada. **Corrección**: se pasó `gruposIniciales={grupos}` correctamente.
+
+### 9.5 Persistencia de Mapa Curricular — Parseo Robusto en Modal
+
+En `src/components/ModalConfiguracionMapaCurricular.tsx`:
+- `ffeOptativas` puede llegar de Prisma como `string[]` (arreglo JS) o `string` (JSON stringificado). Se agregó parseo automático con `JSON.parse` + fallback.
+- Las claves del `initialMap` se normalizan con doble entrada (`g.nombre` y `g.nombre.replace("º", "°")`) para garantizar recuperación correcta.
+- El `useEffect` de inicialización usa un guard `initialized` para evitar sobreescritura en re-renders.
+
+---
+
+*Versión actualizada: Julio 2026 — v3.6*
