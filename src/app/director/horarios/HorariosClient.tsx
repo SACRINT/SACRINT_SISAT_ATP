@@ -124,6 +124,29 @@ export default function HorariosClient({ escuela }: Props) {
     }
   };
 
+  const handleReiniciarMapaCurricular = async () => {
+    if (!confirm("¿Estás SEGURO de reiniciar completamente el Mapa Curricular de tu plantel? Se borrará la estructura de grupos previa para poder rellenarla desde cero.")) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/escuelas/${escuela.id}/mapa-curricular`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success("Configuración del mapa curricular reiniciada correctamente.");
+        setMapaModalAbierto(true);
+        cargarDatos();
+      } else {
+        toast.error(data.error || "Error al reiniciar la configuración.");
+      }
+    } catch (e) {
+      toast.error("Error al conectar con el servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
@@ -140,7 +163,7 @@ export default function HorariosClient({ escuela }: Props) {
       {/* Header General */}
       <div className="horario-header">
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
             <Link
               href="/director"
               style={{
@@ -178,7 +201,25 @@ export default function HorariosClient({ escuela }: Props) {
                 gap: "0.35rem"
               }}
             >
-              <Sparkles size={14} /> ⚙️ Configurar Mapa Curricular
+              ⚙️ Configurar Mapa Curricular
+            </button>
+            <button
+              onClick={handleReiniciarMapaCurricular}
+              style={{
+                background: "#fef2f2",
+                color: "#dc2626",
+                border: "1px solid #fca5a5",
+                padding: "0.45rem 0.85rem",
+                borderRadius: "8px",
+                fontWeight: 800,
+                fontSize: "0.78125rem",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem"
+              }}
+            >
+              🔄 Reiniciar Configuración
             </button>
           </div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>

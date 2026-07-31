@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import WizardConfiguracion from "@/app/director/_componentes/horarios/WizardConfiguracion";
 import EditorHorarios from "@/app/director/_componentes/horarios/EditorHorarios";
-import { Sparkles, Calendar, Building2, ArrowLeft } from "lucide-react";
+import ModalConfiguracionMapaCurricular from "@/components/ModalConfiguracionMapaCurricular";
+import { Sparkles, Calendar, Building2, ArrowLeft, Settings, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 
@@ -15,6 +16,8 @@ export default function AdminHorariosClient({ escuelas }: Props) {
   const [escuelaSeleccionadaId, setEscuelaSeleccionadaId] = useState<string>(escuelas[0]?.id || "");
   const [loading, setLoading] = useState<boolean>(true);
   const [modo, setModo] = useState<"WIZARD" | "EDITOR">("WIZARD");
+  const [mapaModalAbierto, setMapaModalAbierto] = useState<boolean>(false);
+  const [escuelaState, setEscuelaState] = useState<any>(escuelas[0] || null);
 
   const [config, setConfig] = useState<any>(null);
   const [grupos, setGrupos] = useState<any[]>([]);
@@ -35,6 +38,12 @@ export default function AdminHorariosClient({ escuelas }: Props) {
       const res = await fetch(`/api/horarios/configuracion?escuelaId=${eId}`);
       const data = await res.json();
 
+      if (data.escuela) {
+        setEscuelaState(data.escuela);
+        if (!data.escuela.mapaCurricularCompletado) {
+          setMapaModalAbierto(true);
+        }
+      }
       if (data.config) setConfig(data.config);
       if (data.grupos) setGrupos(data.grupos);
       if (data.aulas) setAulas(data.aulas);
@@ -55,7 +64,31 @@ export default function AdminHorariosClient({ escuelas }: Props) {
     }
   };
 
-  const escuelaActual = escuelas.find((e) => e.id === escuelaSeleccionadaId);
+  const escuelaActual = escuelaState || escuelas.find((e) => e.id === escuelaSeleccionadaId);
+
+  const handleReiniciarMapaCurricular = async () => {
+    if (!escuelaActual) return;
+    if (!confirm(`¿Estás SEGURO de reiniciar completamente el Mapa Curricular del plantel ${escuelaActual.nombre}? Se eliminará la configuración de grupos previa para que la escuela pueda volver a llenar el formulario desde cero.`)) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/escuelas/${escuelaActual.id}/mapa-curricular`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success("Mapa curricular reiniciado correctamente.");
+        setMapaModalAbierto(true);
+        cargarDatosEscuela(escuelaActual.id);
+      } else {
+        toast.error(data.error || "Error al reiniciar el mapa curricular.");
+      }
+    } catch (e) {
+      toast.error("Error al conectar con el servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGenerarHorarioIA = async () => {
     if (!escuelaActual) return;
@@ -145,23 +178,65 @@ export default function AdminHorariosClient({ escuelas }: Props) {
           </p>
         </div>
 
-        {/* Selector de Escuela */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-            <Building2 style={{ width: "16px", height: "16px", color: "#7e22ce" }} /> Plantel:
-          </label>
-          <select
-            value={escuelaSeleccionadaId}
-            onChange={(e) => setEscuelaSeleccionadaId(e.target.value)}
-            className="input"
-            style={{ padding: "0.4rem 0.75rem", fontSize: "0.8125rem", fontWeight: 700, minHeight: "auto" }}
+        {/* Selector de Escuela y Botones de Configuración */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <label style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <Building2 style={{ width: "16px", height: "16px", color: "#7e22ce" }} /> Plantel:
+            </label>
+            <select
+              value={escuelaSeleccionadaId}
+              onChange={(e) => setEscuelaSeleccionadaId(e.target.value)}
+              className="input"
+              style={{ padding: "0.4rem 0.75rem", fontSize: "0.8125rem", fontWeight: 700, minHeight: "auto" }}
+            >
+              {escuelas.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.cct} - {e.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMapaModalAbierto(true)}
+            style={{
+              background: "#10b981",
+              color: "#ffffff",
+              border: "none",
+              padding: "0.45rem 0.85rem",
+              borderRadius: "8px",
+              fontWeight: 800,
+              fontSize: "0.78125rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem"
+            }}
           >
-            {escuelas.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.cct} - {e.nombre}
-              </option>
-            ))}
-          </select>
+            ⚙️ Configurar Mapa Curricular
+          </button>
+
+          <button
+            type="button"
+            onClick={handleReiniciarMapaCurricular}
+            style={{
+              background: "#fef2f2",
+              color: "#dc2626",
+              border: "1px solid #fca5a5",
+              padding: "0.45rem 0.85rem",
+              borderRadius: "8px",
+              fontWeight: 800,
+              fontSize: "0.78125rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem"
+            }}
+          >
+            🔄 Reiniciar Mapa Curricular
+          </button>
         </div>
       </div>
 
@@ -210,7 +285,7 @@ export default function AdminHorariosClient({ escuelas }: Props) {
         modo === "WIZARD" ? (
           <WizardConfiguracion
             escuelaId={escuelaActual.id}
-            configInicial={config}
+            configInicial={{ escuela: escuelaActual, config }}
             gruposIniciales={grupos}
             aulasIniciales={aulas}
             docentesIniciales={docentes}
@@ -229,6 +304,20 @@ export default function AdminHorariosClient({ escuelas }: Props) {
           />
         )
       ) : null}
+
+      {/* Modal de Configuración Abierta de Mapa Curricular */}
+      {escuelaActual && (
+        <ModalConfiguracionMapaCurricular
+          isOpen={mapaModalAbierto}
+          onClose={() => setMapaModalAbierto(false)}
+          escuela={escuelaActual}
+          onSaved={() => {
+            setMapaModalAbierto(false);
+            cargarDatosEscuela(escuelaActual.id);
+          }}
+        />
+      )}
     </div>
   );
 }
+

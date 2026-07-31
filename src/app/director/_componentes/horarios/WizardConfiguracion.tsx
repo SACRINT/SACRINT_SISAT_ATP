@@ -195,10 +195,25 @@ export default function WizardConfiguracion({
   const [numPeriodos, setNumPeriodos] = useState<number>(6);
   const [horaInicio, setHoraInicio] = useState<string>("08:00");
   
-  // Número abierto de grupos por grado (1, 2, 3, 4, 5, 10...)
-  const [numGruposPorGrado, setNumGruposPorGrado] = useState<number>(
+  // Número de grupos por grado independiente (1º, 3º, 5º)
+  const [g1, setG1] = useState<number>(
     configInicial?.escuela?.gruposPrimerAno ?? (gruposIniciales.length > 0 ? Math.max(1, Math.ceil(gruposIniciales.length / 3)) : 1)
   );
+  const [g2, setG2] = useState<number>(
+    configInicial?.escuela?.gruposSegundoAno ?? (gruposIniciales.length > 0 ? Math.max(1, Math.ceil(gruposIniciales.length / 3)) : 1)
+  );
+  const [g3, setG3] = useState<number>(
+    configInicial?.escuela?.gruposTercerAno ?? (gruposIniciales.length > 0 ? Math.max(1, Math.ceil(gruposIniciales.length / 3)) : 1)
+  );
+
+  // Sincronizar g1, g2, g3 cuando cambia configInicial o escuelaId
+  useEffect(() => {
+    if (configInicial?.escuela) {
+      if (configInicial.escuela.gruposPrimerAno) setG1(configInicial.escuela.gruposPrimerAno);
+      if (configInicial.escuela.gruposSegundoAno) setG2(configInicial.escuela.gruposSegundoAno);
+      if (configInicial.escuela.gruposTercerAno) setG3(configInicial.escuela.gruposTercerAno);
+    }
+  }, [configInicial, escuelaId]);
 
   // Modo de Configuración: Semiautomático (SEP General) vs Manual Libre (Tecnológicos)
   const [modoConfiguracion, setModoConfiguracion] = useState<"SEMIAUTOMATICO" | "MANUAL_TECNOLOGICO">("SEMIAUTOMATICO");
@@ -207,7 +222,6 @@ export default function WizardConfiguracion({
   const [grupoActivoManual, setGrupoActivoManual] = useState<string>("A");
 
   // Currículo manual por grupo: clave = "semestre_letra" (ej: "1_A", "3_B", "5_C")
-  // Cada grupo puede tener asignaturas distintas según su carrera/especialidad
   const [curriculoManualPorGrupo, setCurriculoManualPorGrupo] = useState<Record<string, any[]>>({});
 
   // Estado de Grupos
@@ -216,6 +230,20 @@ export default function WizardConfiguracion({
   // Docentes activos en la plantilla del horario
   const [docentes, setDocentes] = useState<any[]>(docentesIniciales || []);
   const [horasDocentes, setHorasDocentes] = useState<Record<string, number>>({});
+
+  // Filtrado de personal apto para dar clases (excluir Apoyo / Asistencia)
+  const docentesAptosParaHorario = React.useMemo(() => {
+    return docentes.filter((d) => {
+      if (!d.cargo) return true;
+      const cargoUpper = String(d.cargo).toUpperCase();
+      return (
+        !cargoUpper.includes("ASISTENCIA") &&
+        !cargoUpper.includes("APOYO") &&
+        cargoUpper !== "PERSONAL_DE_ASISTENCIA" &&
+        cargoUpper !== "APOYO_ADMINISTRATIVO"
+      );
+    });
+  }, [docentes]);
 
   // Cargas Docente-Materia-Grupo (Paso 3)
   const [cargas, setCargas] = useState<any[]>(cargasIniciales || []);
@@ -232,21 +260,20 @@ export default function WizardConfiguracion({
   const [nuevoDocenteHoras, setNuevoDocenteHoras] = useState<number>(20);
 
   // Cargar estado guardado previamente desde localStorage
-  // Las cargas se inicializan siempre en [] y el director las asigna explícitamente en la sesión
   useEffect(() => {
     try {
       const guardado = localStorage.getItem(STORAGE_KEY);
       if (guardado) {
         const parsed = JSON.parse(guardado);
         if (parsed.paso) setPaso(parsed.paso);
-        if (parsed.numGruposPorGrado) setNumGruposPorGrado(parsed.numGruposPorGrado);
+        if (parsed.g1) setG1(parsed.g1);
+        if (parsed.g2) setG2(parsed.g2);
+        if (parsed.g3) setG3(parsed.g3);
         if (parsed.numPeriodos) setNumPeriodos(parsed.numPeriodos);
         if (parsed.grupos && parsed.grupos.length > 0) setGrupos(parsed.grupos);
         if (parsed.horasDocentes) setHorasDocentes(parsed.horasDocentes);
         if (parsed.curriculoManualPorGrupo) setCurriculoManualPorGrupo(parsed.curriculoManualPorGrupo);
         if (parsed.grupoActivoManual) setGrupoActivoManual(parsed.grupoActivoManual);
-        // cargas NO se restauran desde localStorage para evitar datos fantasma.
-        // Los cargasIniciales vienen de la DB y se usan para pre-cargar el estado
       }
     } catch (e) {
       console.warn("No se pudo cargar estado local previo", e);
@@ -254,21 +281,20 @@ export default function WizardConfiguracion({
   }, [escuelaId]);
 
   // Autoguardado continuo en localStorage
-  // NOTA: Las cargas NO se guardan en localStorage para evitar datos fantasma entre sesiones.
-  // Sólo se persisten la estructura (grupos, jornada) y el paso actual.
   const guardarProgresoLocal = () => {
     try {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
           paso,
-          numGruposPorGrado,
+          g1,
+          g2,
+          g3,
           numPeriodos,
           grupos,
           horasDocentes,
           curriculoManualPorGrupo,
           grupoActivoManual
-          // cargas EXCLUIDAS para evitar datos fantasma
         })
       );
     } catch (e) {
@@ -278,7 +304,7 @@ export default function WizardConfiguracion({
 
   useEffect(() => {
     guardarProgresoLocal();
-  }, [paso, numGruposPorGrado, numPeriodos, grupos, horasDocentes, cargas, curriculoManualPorGrupo, grupoActivoManual]);
+  }, [paso, g1, g2, g3, numPeriodos, grupos, horasDocentes, cargas, curriculoManualPorGrupo, grupoActivoManual]);
 
   useEffect(() => {
     cargarPersonalCompleto();
@@ -290,9 +316,59 @@ export default function WizardConfiguracion({
     }
   }, [docentesIniciales]);
 
+  const generarGruposSegunEstructura = (n1: number, n2: number, n3: number) => {
+    const letras = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+    const nuevosGrupos: any[] = [];
+    const counts: Record<number, number> = { 1: n1, 3: n2, 5: n3 };
+
+    for (let sem of [1, 3, 5]) {
+      const countSem = counts[sem] || 1;
+      for (let i = 0; i < countSem; i++) {
+        const letra = letras[i] || `G${i + 1}`;
+        const nombreGrupo = `${sem}° ${letra}`;
+
+        const grupoExistente = grupos.find((g) => g.nombre === nombreGrupo);
+
+        nuevosGrupos.push({
+          id: grupoExistente?.id || `temp_${sem}_${letra}`,
+          nombre: nombreGrupo,
+          semestre: sem,
+          capacitacionNombre: grupoExistente?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length],
+          ffeoSocioemocional: grupoExistente?.ffeoSocioemocional || (sem === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1]),
+          ffeOptativas: grupoExistente?.ffeOptativas || [
+            FFE_RECURSO_SOCIOCOGNITIVO[0],
+            FFE_RECURSO_SOCIOCOGNITIVO[1],
+            FFE_AREA_CONOCIMIENTO[0],
+            FFE_AREA_CONOCIMIENTO[1]
+          ]
+        });
+      }
+    }
+    setGrupos(nuevosGrupos);
+
+    setCurriculoManualPorGrupo(prev => {
+      const nuevoMapa = { ...prev };
+      for (const sem of [1, 3, 5]) {
+        const countSem = counts[sem] || 1;
+        for (let i = 0; i < countSem; i++) {
+          const letra = letras[i] || `G${i + 1}`;
+          const key = `${sem}_${letra}`;
+          if (!nuevoMapa[key]) {
+            nuevoMapa[key] = getDefaultMateriasSem(sem, letra);
+          }
+        }
+      }
+      return nuevoMapa;
+    });
+
+    const maxGrupos = Math.max(n1, n2, n3);
+    const letrasActivas = letras.slice(0, maxGrupos);
+    setGrupoActivoManual(prev => letrasActivas.includes(prev) ? prev : "A");
+  };
+
   useEffect(() => {
-    generarGruposSegunEstructura(numGruposPorGrado);
-  }, [numGruposPorGrado]);
+    generarGruposSegunEstructura(g1, g2, g3);
+  }, [g1, g2, g3]);
 
   // Asignaturas predeterminadas por semestre y letra de grupo (se clonan individualmente por grupo)
   const getDefaultMateriasSem = (sem: number, letra: string): any[] => {
@@ -375,54 +451,7 @@ export default function WizardConfiguracion({
     }
   };
 
-  const generarGruposSegunEstructura = (nGrupos: number) => {
-    const letras = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
-    const nuevosGrupos: any[] = [];
 
-    for (let sem of [1, 3, 5]) {
-      for (let i = 0; i < nGrupos; i++) {
-        const letra = letras[i] || `G${i + 1}`;
-        const nombreGrupo = `${sem}° ${letra}`;
-
-        const grupoExistente = grupos.find((g) => g.nombre === nombreGrupo);
-
-        nuevosGrupos.push({
-          id: grupoExistente?.id || `temp_${sem}_${letra}`,
-          nombre: nombreGrupo,
-          semestre: sem,
-          capacitacionNombre: grupoExistente?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length],
-          ffeoSocioemocional: grupoExistente?.ffeoSocioemocional || (sem === 3 ? CURRICULUM_AMPLIADO_FFEO[0] : CURRICULUM_AMPLIADO_FFEO[1]),
-          ffeOptativas: grupoExistente?.ffeOptativas || [
-            FFE_RECURSO_SOCIOCOGNITIVO[0],
-            FFE_RECURSO_SOCIOCOGNITIVO[1],
-            FFE_AREA_CONOCIMIENTO[0],
-            FFE_AREA_CONOCIMIENTO[1]
-          ]
-        });
-      }
-    }
-    setGrupos(nuevosGrupos);
-
-    // Inicializar currículo manual para cada grupo-semestre que no tenga datos previos
-    // Se conservan datos existentes (merge, no reemplazo)
-    setCurriculoManualPorGrupo(prev => {
-      const nuevoMapa = { ...prev };
-      for (const sem of [1, 3, 5]) {
-        for (let i = 0; i < nGrupos; i++) {
-          const letra = letras[i] || `G${i + 1}`;
-          const key = `${sem}_${letra}`;
-          if (!nuevoMapa[key]) {
-            nuevoMapa[key] = getDefaultMateriasSem(sem, letra);
-          }
-        }
-      }
-      return nuevoMapa;
-    });
-
-    // Si el grupo activo ya no existe en el nuevo conjunto, volver al Grupo A
-    const letrasActivas = letras.slice(0, nGrupos);
-    setGrupoActivoManual(prev => letrasActivas.includes(prev) ? prev : "A");
-  };
 
   const handleActualizarConfigGrupo = (index: number, field: string, value: any) => {
     const copia = [...grupos];
@@ -782,9 +811,20 @@ export default function WizardConfiguracion({
     return total;
   })();
 
-  // Filtrar personal que AÚN NO ha sido agregado a la plantilla del paso 2
-  const personalNoAgregado = personalPlataforma.filter((p) => !docentes.some((d) => d.id === p.id));
-  
+  // Filtrar personal que AÚN NO ha sido agregado a la plantilla del paso 2 (excluyendo Apoyo / Asistencia)
+  const personalNoAgregado = personalPlataforma
+    .filter((p) => {
+      if (!p.cargo) return true;
+      const cargoUpper = String(p.cargo).toUpperCase();
+      return (
+        !cargoUpper.includes("ASISTENCIA") &&
+        !cargoUpper.includes("APOYO") &&
+        cargoUpper !== "PERSONAL_DE_ASISTENCIA" &&
+        cargoUpper !== "APOYO_ADMINISTRATIVO"
+      );
+    })
+    .filter((p) => !docentes.some((d) => d.id === p.id));
+
   const personalDisponibleModal = personalNoAgregado.filter((p) => {
     return busquedaPersonal === "" || `${p.nombre} ${p.apellidoPaterno} ${p.cargo}`.toLowerCase().includes(busquedaPersonal.toLowerCase());
   });
@@ -904,44 +944,81 @@ export default function WizardConfiguracion({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.25rem" }}>
-            <div style={{ background: "#eff6ff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.5rem" }}>
-                <Users style={{ width: "16px", height: "16px", color: "#2563eb", display: "inline", marginRight: "6px" }} />
-                Número de Grupos por Grado / Año
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+            <div style={{ background: "#eff6ff", padding: "1rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
+              <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.4rem" }}>
+                <Users style={{ width: "15px", height: "15px", color: "#2563eb", display: "inline", marginRight: "5px" }} />
+                1.er Año (1.º y 2.º Semestre)
               </label>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <input
                   type="number"
                   min={1}
                   max={20}
-                  value={numGruposPorGrado}
-                  onChange={(e) => setNumGruposPorGrado(Math.max(1, Number(e.target.value)))}
-                  style={{ width: "90px", padding: "0.625rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
+                  value={g1}
+                  onChange={(e) => setG1(Math.max(1, Number(e.target.value)))}
+                  style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
                 />
-                <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#1d4ed8" }}>
-                  = {numGruposPorGrado * 3} Grupos Totales ({numGruposPorGrado} de 1°, {numGruposPorGrado} de 3°, {numGruposPorGrado} de 5°)
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
+                  Genera 1º A a 1º {String.fromCharCode(64 + Math.min(g1, 26))}
                 </span>
               </div>
-              <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.35rem", margin: 0 }}>
-                Escriba el número de grupos por grado (1, 2, 3, 4, 5, 10...). Se autogenera la letra oficial.
-              </p>
             </div>
 
-            <div style={{ background: "#f0fdf4", padding: "1.25rem", borderRadius: "12px", border: "1px solid #bbf7d0" }}>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.5rem" }}>
-                <Clock style={{ width: "16px", height: "16px", color: "#16a34a", display: "inline", marginRight: "6px" }} />
-                Jornada Escolar (Predeterminada BGE: 6 Hrs Diarias)
+            <div style={{ background: "#eff6ff", padding: "1rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
+              <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.4rem" }}>
+                <Users style={{ width: "15px", height: "15px", color: "#2563eb", display: "inline", marginRight: "5px" }} />
+                2.º Año (3.er y 4.º Semestre)
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={g2}
+                  onChange={(e) => setG2(Math.max(1, Number(e.target.value)))}
+                  style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
+                />
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
+                  Genera 3º A a 3º {String.fromCharCode(64 + Math.min(g2, 26))}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ background: "#eff6ff", padding: "1rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
+              <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.4rem" }}>
+                <Users style={{ width: "15px", height: "15px", color: "#2563eb", display: "inline", marginRight: "5px" }} />
+                3.er Año (5.º y 6.º Semestre)
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={g3}
+                  onChange={(e) => setG3(Math.max(1, Number(e.target.value)))}
+                  style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
+                />
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
+                  Genera 5º A a 5º {String.fromCharCode(64 + Math.min(g3, 26))}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ background: "#f0fdf4", padding: "1rem", borderRadius: "12px", border: "1px solid #bbf7d0" }}>
+              <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.4rem" }}>
+                <Clock style={{ width: "15px", height: "15px", color: "#16a34a", display: "inline", marginRight: "5px" }} />
+                Jornada Escolar (BGE)
               </label>
               <select
                 value={numPeriodos}
                 onChange={(e) => setNumPeriodos(Number(e.target.value))}
-                style={{ width: "100%", padding: "0.625rem", borderRadius: "8px", border: "2px solid #22c55e", background: "#ffffff", fontWeight: 800, fontSize: "0.9375rem", color: "#1e293b" }}
+                style={{ width: "100%", padding: "0.45rem", borderRadius: "8px", border: "2px solid #22c55e", background: "#ffffff", fontWeight: 800, fontSize: "0.8125rem", color: "#1e293b" }}
               >
-                <option value={6}>6 Horas diarias (30 hrs semanales - Estándar BGE Predeterminado)</option>
-                <option value={5}>5 Horas diarias (25 hrs semanales)</option>
-                <option value={7}>7 Horas diarias (35 hrs semanales)</option>
-                <option value={8}>8 Horas diarias (40 hrs semanales)</option>
+                <option value={6}>6 Horas diarias (30 hrs/sem)</option>
+                <option value={5}>5 Horas diarias (25 hrs/sem)</option>
+                <option value={7}>7 Horas diarias (35 hrs/sem)</option>
+                <option value={8}>8 Horas diarias (40 hrs/sem)</option>
               </select>
             </div>
           </div>
@@ -955,11 +1032,11 @@ export default function WizardConfiguracion({
                 Configure las asignaturas de <strong>cada grupo de manera independiente</strong>. Si hay 2 o más grupos por grado, cada uno puede tener una carrera diferente con distintas asignaturas.
               </p>
 
-              {/* Selector de Grupo (tabs) — visible cuando hay 2 o más grupos por grado */}
-              {numGruposPorGrado > 1 && (
+              {/* Selector de Grupo (tabs) */}
+              {Math.max(g1, g2, g3) > 1 && (
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.25rem", padding: "0.75rem 1rem", background: "#fef3c7", borderRadius: "10px", border: "1px solid #fcd34d", alignItems: "center" }}>
                   <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#92400e", marginRight: "0.25rem" }}>Configurar Grupo:</span>
-                  {["A","B","C","D","E","F","G","H","I","J"].slice(0, numGruposPorGrado).map(letra => (
+                  {["A","B","C","D","E","F","G","H","I","J"].slice(0, Math.max(g1, g2, g3)).map(letra => (
                     <button
                       key={letra}
                       type="button"
@@ -997,7 +1074,7 @@ export default function WizardConfiguracion({
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #fef3c7", paddingBottom: "0.5rem", marginBottom: "0.75rem" }}>
                         <span style={{ fontSize: "0.875rem", fontWeight: 800, color: "#b45309", display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
                           {label}
-                          {numGruposPorGrado > 1 && (
+                          {Math.max(g1, g2, g3) > 1 && (
                             <span style={{ fontSize: "0.7rem", fontWeight: 700, background: "#d97706", color: "#fff", padding: "0.15rem 0.5rem", borderRadius: "20px" }}>
                               Grupo {grupoActivoManual}
                             </span>
@@ -1044,155 +1121,167 @@ export default function WizardConfiguracion({
                         onClick={() => handleAgregarMateriaManual(sem, grupoActivoManual)}
                         style={{ marginTop: "0.85rem", width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px dashed #d97706", background: "#fffbeb", color: "#b45309", fontSize: "0.75rem", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
                       >
-                        <Plus style={{ width: "14px", height: "14px" }} /> + Agregar Asignatura a {sem}° Semestre{numGruposPorGrado > 1 ? ` – Grupo ${grupoActivoManual}` : ""}
+                        <Plus style={{ width: "14px", height: "14px" }} /> + Agregar Asignatura a {sem}° Semestre{Math.max(g1, g2, g3) > 1 ? ` – Grupo ${grupoActivoManual}` : ""}
                       </button>
                     </div>
                   );
                 })}
               </div>
-
-              {numGruposPorGrado > 1 && (
-                <p style={{ fontSize: "0.75rem", color: "#92400e", marginTop: "1rem", background: "#fef3c7", padding: "0.6rem 0.85rem", borderRadius: "6px", margin: "1rem 0 0" }}>
-                  💡 <strong>Tip:</strong> Use las pestañas de arriba para navegar entre grupos (A, B, C...) y configure las asignaturas que impartirá cada carrera de manera independiente.
-                </p>
-              )}
             </div>
           ) : (
             <div style={{ border: "1px solid #e2e8f0", borderRadius: "12px", padding: "1.25rem", background: "#f8fafc" }}>
-            <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <ShieldCheck style={{ width: "18px", height: "18px", color: "#2563eb" }} /> Configuración Curricular Individual por Grupo
-            </h3>
+              <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <ShieldCheck style={{ width: "18px", height: "18px", color: "#2563eb" }} /> Configuración Curricular Individual por Grupo
+              </h3>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "1.25rem" }}>
-              {grupos.map((g, idx) => {
-                const letraGrupo = g.nombre.split(" ")[1];
-                const grupo3Correspondiente = grupos.find((g3) => g3.semestre === 3 && g3.nombre.endsWith(letraGrupo));
-                const ffeoSocio3erSem = grupo3Correspondiente?.ffeoSocioemocional || "";
+              {/* Renderizado por Filas de Letras (Fila 1: 1ºA, 3ºA, 5ºA | Fila 2: 1ºB, 3ºB, 5ºB...) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                {Array.from({ length: Math.max(g1, g2, g3) }, (_, i) => String.fromCharCode(65 + i)).map((letra) => {
+                  const g1Letra = grupos.find((g) => g.semestre === 1 && g.nombre.endsWith(letra));
+                  const g3Letra = grupos.find((g) => g.semestre === 3 && g.nombre.endsWith(letra));
+                  const g5Letra = grupos.find((g) => g.semestre === 5 && g.nombre.endsWith(letra));
+                  const gruposTrack = [g1Letra, g3Letra, g5Letra].filter(Boolean);
 
-                return (
-                  <div key={idx} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 6px rgba(0,0,0,0.03)" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem", marginBottom: "0.75rem" }}>
-                      <span style={{ fontSize: "0.9375rem", fontWeight: 800, color: "#1d4ed8" }}>
-                        Grupo {g.nombre} ({g.semestre}° Semestre)
-                      </span>
-                      <span style={{ fontSize: "0.6875rem", fontWeight: 700, background: "#eff6ff", color: "#2563eb", padding: "0.25rem 0.5rem", borderRadius: "6px" }}>
-                        {g.semestre === 1 ? "Universal (10 UACs)" : g.semestre === 3 ? "Laboral (9 UACs)" : "Laboral + FFE (10 UACs)"}
-                      </span>
+                  if (gruposTrack.length === 0) return null;
+
+                  return (
+                    <div key={letra} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 6px rgba(0,0,0,0.03)" }}>
+                      <h4 style={{ fontSize: "0.875rem", fontWeight: 900, color: "#1d4ed8", margin: "0 0 0.85rem", borderBottom: "2px solid #eff6ff", paddingBottom: "0.4rem" }}>
+                        📌 Track de Grupos Letra "{letra}" ({gruposTrack.map(g => g.nombre).join(" | ")})
+                      </h4>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1rem" }}>
+                        {gruposTrack.map((g) => {
+                          const idx = grupos.findIndex((grp) => grp.nombre === g.nombre && grp.semestre === g.semestre);
+
+                          return (
+                            <div key={g.nombre} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "0.85rem" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.4rem", marginBottom: "0.6rem" }}>
+                                <span style={{ fontSize: "0.875rem", fontWeight: 800, color: "#1d4ed8" }}>
+                                  Grupo {g.nombre} ({g.semestre}° Semestre)
+                                </span>
+                                <span style={{ fontSize: "0.6875rem", fontWeight: 700, background: "#eff6ff", color: "#2563eb", padding: "0.2rem 0.4rem", borderRadius: "6px" }}>
+                                  {g.semestre === 1 ? "Universal (10 UACs)" : g.semestre === 3 ? "Laboral (9 UACs)" : "Laboral + FFE (10 UACs)"}
+                                </span>
+                              </div>
+
+                              {g.semestre >= 3 && (
+                                <div style={{ marginBottom: "0.65rem" }}>
+                                  <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "0.2rem" }}>
+                                    Formación Laboral (Capacitación del Grupo)
+                                  </label>
+                                  <select
+                                    value={g.capacitacionNombre || FORMACIONES_LABORALES[0]}
+                                    onChange={(e) => handleActualizarConfigGrupo(idx, "capacitacionNombre", e.target.value)}
+                                    style={{ width: "100%", padding: "0.4rem 0.5rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.78125rem", fontWeight: 700, color: "#0f172a" }}
+                                  >
+                                    {FORMACIONES_LABORALES.map((cap) => (
+                                      <option key={cap} value={cap}>
+                                        {cap}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              {g.semestre >= 3 && (
+                                <div style={{ marginBottom: "0.65rem" }}>
+                                  <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "0.2rem" }}>
+                                    Currículum Ampliado / Formación Socioemocional (FFEO)
+                                  </label>
+                                  <select
+                                    value={g.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])}
+                                    onChange={(e) => handleActualizarConfigGrupo(idx, "ffeoSocioemocional", e.target.value)}
+                                    style={{ width: "100%", padding: "0.4rem 0.5rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.72rem", fontWeight: 700, color: "#0f172a" }}
+                                  >
+                                    {FORMACIONES_SOCIOEMOCIONALES.map((ffeo) => (
+                                      <option key={ffeo} value={ffeo}>
+                                        {ffeo}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              {g.semestre === 5 && (
+                                <div>
+                                  <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "0.3rem" }}>
+                                    Optativas FFE (2 Recurso Sociocognitivo + 2 Área de Conocimiento)
+                                  </label>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
+                                    <div>
+                                      <span style={{ fontSize: "0.625rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 1 (Recurso)</span>
+                                      <select
+                                        value={g.ffeOptativas?.[0] || FFE_RECURSO_SOCIOCOGNITIVO[0]}
+                                        onChange={(e) => handleActualizarOptativaGrupo(idx, 0, e.target.value)}
+                                        style={{ width: "100%", padding: "0.3rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.6875rem", fontWeight: 700 }}
+                                      >
+                                        {FFE_RECURSO_SOCIOCOGNITIVO.map((rec) => (
+                                          <option key={rec} value={rec}>{rec}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    <div>
+                                      <span style={{ fontSize: "0.625rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 2 (Recurso sin repetir)</span>
+                                      <select
+                                        value={g.ffeOptativas?.[1] || FFE_RECURSO_SOCIOCOGNITIVO[1]}
+                                        onChange={(e) => handleActualizarOptativaGrupo(idx, 1, e.target.value)}
+                                        style={{ width: "100%", padding: "0.3rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.6875rem", fontWeight: 700 }}
+                                      >
+                                        {FFE_RECURSO_SOCIOCOGNITIVO
+                                          .filter((rec) => rec !== g.ffeOptativas?.[0])
+                                          .map((rec) => (
+                                            <option key={rec} value={rec}>{rec}</option>
+                                          ))}
+                                      </select>
+                                    </div>
+
+                                    <div>
+                                      <span style={{ fontSize: "0.625rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 3 (Área)</span>
+                                      <select
+                                        value={g.ffeOptativas?.[2] || FFE_AREA_CONOCIMIENTO[0]}
+                                        onChange={(e) => handleActualizarOptativaGrupo(idx, 2, e.target.value)}
+                                        style={{ width: "100%", padding: "0.3rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.6875rem", fontWeight: 700 }}
+                                      >
+                                        {FFE_AREA_CONOCIMIENTO.map((area) => (
+                                          <option key={area} value={area}>{area}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    <div>
+                                      <span style={{ fontSize: "0.625rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 4 (Área sin repetir)</span>
+                                      <select
+                                        value={g.ffeOptativas?.[3] || FFE_AREA_CONOCIMIENTO[1]}
+                                        onChange={(e) => handleActualizarOptativaGrupo(idx, 3, e.target.value)}
+                                        style={{ width: "100%", padding: "0.3rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.6875rem", fontWeight: 700 }}
+                                      >
+                                        {FFE_AREA_CONOCIMIENTO
+                                          .filter((area) => area !== g.ffeOptativas?.[2])
+                                          .map((area) => (
+                                            <option key={area} value={area}>{area}</option>
+                                          ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {g.semestre === 1 && (
+                                <p style={{ fontSize: "0.72rem", color: "#64748b", margin: 0, fontStyle: "italic" }}>
+                                  1er Semestre lleva el Currículum Fundamental 100% universal para todos los Bachilleratos de Puebla.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-
-                    {g.semestre >= 3 && (
-                      <div style={{ marginBottom: "0.75rem" }}>
-                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
-                          Formación Laboral (Capacitación del Grupo)
-                        </label>
-                        <select
-                          value={g.capacitacionNombre || FORMACIONES_LABORALES[0]}
-                          onChange={(e) => handleActualizarConfigGrupo(idx, "capacitacionNombre", e.target.value)}
-                          style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.8125rem", fontWeight: 700, color: "#0f172a" }}
-                        >
-                          {FORMACIONES_LABORALES.map((cap) => (
-                            <option key={cap} value={cap}>
-                              {cap}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {g.semestre >= 3 && (
-                      <div style={{ marginBottom: "0.75rem" }}>
-                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.25rem" }}>
-                          Currículum Ampliado / Formación Socioemocional (FFEO)
-                        </label>
-                        <select
-                          value={g.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])}
-                          onChange={(e) => handleActualizarConfigGrupo(idx, "ffeoSocioemocional", e.target.value)}
-                          style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.75rem", fontWeight: 700, color: "#0f172a" }}
-                        >
-                          {FORMACIONES_SOCIOEMOCIONALES.map((ffeo) => (
-                            <option key={ffeo} value={ffeo}>
-                              {ffeo}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {g.semestre === 5 && (
-                      <div>
-                        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#334155", marginBottom: "0.35rem" }}>
-                          Optativas FFE (2 Recurso Sociocognitivo + 2 Área de Conocimiento)
-                        </label>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
-                          <div>
-                            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 1 (Recurso)</span>
-                            <select
-                              value={g.ffeOptativas?.[0] || FFE_RECURSO_SOCIOCOGNITIVO[0]}
-                              onChange={(e) => handleActualizarOptativaGrupo(idx, 0, e.target.value)}
-                              style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
-                            >
-                              {FFE_RECURSO_SOCIOCOGNITIVO.map((rec) => (
-                                <option key={rec} value={rec}>{rec}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 2 (Recurso sin repetir)</span>
-                            <select
-                              value={g.ffeOptativas?.[1] || FFE_RECURSO_SOCIOCOGNITIVO[1]}
-                              onChange={(e) => handleActualizarOptativaGrupo(idx, 1, e.target.value)}
-                              style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
-                            >
-                              {FFE_RECURSO_SOCIOCOGNITIVO
-                                .filter((rec) => rec !== g.ffeOptativas?.[0])
-                                .map((rec) => (
-                                  <option key={rec} value={rec}>{rec}</option>
-                                ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 3 (Área)</span>
-                            <select
-                              value={g.ffeOptativas?.[2] || FFE_AREA_CONOCIMIENTO[0]}
-                              onChange={(e) => handleActualizarOptativaGrupo(idx, 2, e.target.value)}
-                              style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
-                            >
-                              {FFE_AREA_CONOCIMIENTO.map((area) => (
-                                <option key={area} value={area}>{area}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", display: "block" }}>Cuadro 4 (Área sin repetir)</span>
-                            <select
-                              value={g.ffeOptativas?.[3] || FFE_AREA_CONOCIMIENTO[1]}
-                              onChange={(e) => handleActualizarOptativaGrupo(idx, 3, e.target.value)}
-                              style={{ width: "100%", padding: "0.35rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.7rem", fontWeight: 700 }}
-                            >
-                              {FFE_AREA_CONOCIMIENTO
-                                .filter((area) => area !== g.ffeOptativas?.[2])
-                                .map((area) => (
-                                  <option key={area} value={area}>{area}</option>
-                                ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {g.semestre === 1 && (
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0, fontStyle: "italic" }}>
-                        1er Semestre lleva el Currículum Fundamental 100% universal para todos los Bachilleratos de Puebla.
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
           )}
 
           <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: "1rem" }}>
@@ -1252,7 +1341,7 @@ export default function WizardConfiguracion({
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "0.85rem" }}>
-              {docentes.map((d) => {
+              {docentesAptosParaHorario.map((d) => {
                 const hrsAsignadasMatriz = getHorasConsumidasDocente(d.id);
                 const hrsContratadas = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0);
                 const esExcedido = hrsAsignadasMatriz > hrsContratadas;
@@ -1482,7 +1571,7 @@ export default function WizardConfiguracion({
                                       }}
                                     >
                                       <option value="">-- Sin Asignar --</option>
-                                      {docentes.map((d) => {
+                                      {docentesAptosParaHorario.map((d) => {
                                         const hrsMax = horasDocentes[d.id] !== undefined ? horasDocentes[d.id] : (d.cargo === "DOCENTE" ? 20 : 0);
                                         const hrsConsumidasSinEstaCelda = getHorasConsumidasDocente(d.id, g.id, uac.id);
                                         const hrsTrasAsignar = hrsConsumidasSinEstaCelda + (uac.horasSemanales || 3);
