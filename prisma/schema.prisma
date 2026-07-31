@@ -61,6 +61,8 @@ model Escuela {
   gruposSegundoAno Int  @default(1) // 2º Año (Semestres 3º y 4º)
   gruposTercerAno  Int  @default(1) // 3er Año (Semestres 5º y 6º)
   mapaCurricularCompletado Boolean @default(false)
+  tipoBachillerato String @default("BACHILLERATO_GENERAL") // "BACHILLERATO_GENERAL" | "BACHILLERATO_TECNOLOGICO"
+  trayectoTecnologico String? // "FISICO_MATEMATICAS" | "ECONOMICO_ADMINISTRATIVA" | "QUIMICO_BIOLOGICA" | "HUMANIDADES_Y_CIENCIAS_SOCIALES"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -653,15 +655,29 @@ model HorarioGrupo {
   nombre       String   // Ej. "1° A", "2° A", "3° A"
   semestre             Int      // 1 a 6
   turno                String   @default("MATUTINO")
-  capacitacionNombre   String?  // Capacitación elegida para este grupo (3° a 6°)
-  ffeOptativas         Json?    // Array de 4 optativas FFE para este grupo (5° y 6°)
+  capacitacionNombre   String?  // Capacitación elegida para este grupo (3° a 6° BGE)
+  ffeOptativas         Json?    // Array de 4 optativas FFE para este grupo (5° y 6° BGE)
   ffeoSocioemocional   String?  // Asignatura de Formación Socioemocional elegida para este grupo
+  carreraTecnicaNombre String?  // Carrera Técnica elegida (BT: CBTIS, DGETI, CBTa)
+  trayectoTecnologico  String?  // Trayecto Fundamental Extendido (BT)
 
   escuela      Escuela  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
   asignaciones HorarioCargaDocente[]
   celdas       HorarioCelda[]
 
   @@unique([escuelaId, nombre])
+}
+
+model CarreraTecnica {
+  id        String   @id @default(cuid())
+  nombre    String   @unique // Ej. "Programación", "Mantenimiento Automotriz"
+  clave     String?  // Ej. "BT-PROG"
+  modulo1   String?  // Módulo I (Semestre 2, 17 hrs)
+  modulo2   String?  // Módulo II (Semestre 3, 17 hrs)
+  modulo3   String?  // Módulo III (Semestre 4, 17 hrs)
+  modulo4   String?  // Módulo IV (Semestre 5, 12 hrs)
+  modulo5   String?  // Módulo V (Semestre 6, 12 hrs)
+  createdAt DateTime @default(now())
 }
 
 model HorarioCargaDocente {

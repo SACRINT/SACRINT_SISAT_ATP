@@ -6,6 +6,8 @@ import toast from "react-hot-toast";
 import {
   FORMACIONES_LABORALES,
   FFE_OPTATIVAS_CATALOGO,
+  FFE_RECURSOS_SOCIOCOGNITIVOS,
+  FFE_AREAS_CONOCIMIENTO,
   FORMACIONES_SOCIOEMOCIONALES,
   generarGruposPorEstructura,
   obtenerAsignaturasParaGrupo,
@@ -61,12 +63,12 @@ export default function ModalConfiguracionMapaCurricular({
           initialMap[g.nombre] = {
             capacitacionNombre: g.capacitacionNombre || "Administracion",
             ffeOptativas: Array.isArray(g.ffeOptativas) && g.ffeOptativas.length === 4 ? g.ffeOptativas : [
-              "Análisis de Fenómenos y Procesos Biológicos",
-              "Pensamiento Matemático Aplicado a las Finanzas I",
-              "Fundamentos de Administración I",
-              "Lógica y Pensamiento Crítico"
+              FFE_RECURSOS_SOCIOCOGNITIVOS[0], // Comunicación y Sociedad I
+              FFE_RECURSOS_SOCIOCOGNITIVOS[1], // Raíces Etimológicas del Español I
+              FFE_AREAS_CONOCIMIENTO[0],       // Salud Integral I
+              FFE_AREAS_CONOCIMIENTO[1]        // Análisis de Fenómenos y Procesos Biológicos
             ],
-            ffeoSocioemocional: g.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0]
+            ffeoSocioemocional: g.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])
           };
         });
       }
@@ -87,20 +89,39 @@ export default function ModalConfiguracionMapaCurricular({
       const actual = prev[grupoNombre] || {
         capacitacionNombre: "Administracion",
         ffeOptativas: [
-          "Análisis de Fenómenos y Procesos Biológicos",
-          "Pensamiento Matemático Aplicado a las Finanzas I",
-          "Fundamentos de Administración I",
-          "Lógica y Pensamiento Crítico"
+          FFE_RECURSOS_SOCIOCOGNITIVOS[0],
+          FFE_RECURSOS_SOCIOCOGNITIVOS[1],
+          FFE_AREAS_CONOCIMIENTO[0],
+          FFE_AREAS_CONOCIMIENTO[1]
         ],
         ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[0]
       };
-      return {
+
+      const nuevoMapa = {
         ...prev,
         [grupoNombre]: {
           ...actual,
           [field]: value
         }
       };
+
+      // Si se cambia la Formación Socioemocional en 3.er Semestre (ej. 3º A), asegurar que 5º A no tenga la misma
+      if (field === "ffeoSocioemocional" && grupoNombre.startsWith("3º")) {
+        const letra = grupoNombre.split(" ")[1];
+        const nombreGrupo5 = `5º ${letra}`;
+        const config5 = prev[nombreGrupo5];
+        if (config5 && config5.ffeoSocioemocional === value) {
+          const opcionDisponible = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== value);
+          if (opcionDisponible) {
+            nuevoMapa[nombreGrupo5] = {
+              ...config5,
+              ffeoSocioemocional: opcionDisponible
+            };
+          }
+        }
+      }
+
+      return nuevoMapa;
     });
   };
 
@@ -412,68 +433,145 @@ export default function ModalConfiguracionMapaCurricular({
                       )}
 
                       {/* Grupos de 5º Semestre */}
-                      {g.semestre === 5 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-                            <div>
-                              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
-                                Formación Laboral (Capacitación):
-                              </label>
-                              <select
-                                className="form-control"
-                                value={cfg.capacitacionNombre}
-                                onChange={(e) => handleUpdateGrupoConfig(g.nombre, "capacitacionNombre", e.target.value)}
-                                style={{ fontSize: "0.85rem", fontWeight: 700 }}
-                              >
-                                {FORMACIONES_LABORALES.map(cap => (
-                                  <option key={cap} value={cap}>{cap}</option>
-                                ))}
-                              </select>
-                            </div>
+                      {g.semestre === 5 && (() => {
+                        const letra = g.nombre.split(" ")[1];
+                        const config3 = mapaConfig[`3º ${letra}`];
+                        const socio3 = config3?.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0];
+                        // Opciones de socioemocional excluyendo la elegida en 3º
+                        const opcionesSocio5 = FORMACIONES_SOCIOEMOCIONALES.filter(soc => soc !== socio3);
+                        const socio5Actual = opcionesSocio5.includes(cfg.ffeoSocioemocional) ? cfg.ffeoSocioemocional : opcionesSocio5[0];
 
-                            <div>
-                              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
-                                Formación Socioemocional (Opción 2 - 5.º Semestre):
-                              </label>
-                              <select
-                                className="form-control"
-                                value={cfg.ffeoSocioemocional}
-                                onChange={(e) => handleUpdateGrupoConfig(g.nombre, "ffeoSocioemocional", e.target.value)}
-                                style={{ fontSize: "0.85rem", fontWeight: 700 }}
-                              >
-                                {FORMACIONES_SOCIOEMOCIONALES.map(soc => (
-                                  <option key={soc} value={soc}>{soc}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
+                        const optRecurso1 = cfg.ffeOptativas[0] || FFE_RECURSOS_SOCIOCOGNITIVOS[0];
+                        const optRecurso2 = cfg.ffeOptativas[1] || FFE_RECURSOS_SOCIOCOGNITIVOS[1];
+                        const optArea3 = cfg.ffeOptativas[2] || FFE_AREAS_CONOCIMIENTO[0];
+                        const optArea4 = cfg.ffeOptativas[3] || FFE_AREAS_CONOCIMIENTO[1];
 
-                          <div>
-                            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.4rem" }}>
-                              4 Optativas FFE del Grupo (5.º Semestre):
-                            </label>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0.5rem" }}>
-                              {[0, 1, 2, 3].map(idx => (
+                        return (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+                              <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                                  Formación Laboral (Capacitación):
+                                </label>
                                 <select
-                                  key={idx}
                                   className="form-control"
-                                  value={cfg.ffeOptativas[idx] || FFE_OPTATIVAS_CATALOGO[idx]}
-                                  onChange={(e) => {
-                                    const copiaOpts = [...cfg.ffeOptativas];
-                                    copiaOpts[idx] = e.target.value;
-                                    handleUpdateGrupoConfig(g.nombre, "ffeOptativas", copiaOpts);
-                                  }}
-                                  style={{ fontSize: "0.75rem" }}
+                                  value={cfg.capacitacionNombre}
+                                  onChange={(e) => handleUpdateGrupoConfig(g.nombre, "capacitacionNombre", e.target.value)}
+                                  style={{ fontSize: "0.85rem", fontWeight: 700 }}
                                 >
-                                  {FFE_OPTATIVAS_CATALOGO.map(opt => (
-                                    <option key={opt} value={opt}>Optativa {idx + 1}: {opt}</option>
+                                  {FORMACIONES_LABORALES.map(cap => (
+                                    <option key={cap} value={cap}>{cap}</option>
                                   ))}
                                 </select>
-                              ))}
+                              </div>
+
+                              <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                                  Formación Socioemocional (Opción 2 - 5.º Semestre):
+                                </label>
+                                <select
+                                  className="form-control"
+                                  value={socio5Actual}
+                                  onChange={(e) => handleUpdateGrupoConfig(g.nombre, "ffeoSocioemocional", e.target.value)}
+                                  style={{ fontSize: "0.85rem", fontWeight: 700 }}
+                                >
+                                  {opcionesSocio5.map(soc => (
+                                    <option key={soc} value={soc}>{soc}</option>
+                                  ))}
+                                </select>
+                                <div style={{ fontSize: "0.7rem", color: "#16a34a", marginTop: "0.2rem", fontWeight: 600 }}>
+                                  ✓ Excluye '{socio3}' (elegida en 3.er semestre)
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Optativas FFE Divididas por Categoría */}
+                            <div style={{ background: "var(--bg-secondary)", padding: "1rem", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 800, color: "var(--primary)", marginBottom: "0.75rem" }}>
+                                Optativas FFE (2 Recurso Sociocognitivo + 2 Área de Conocimiento):
+                              </label>
+
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+                                {/* Bloque 1: Recursos Sociocognitivos */}
+                                <div style={{ background: "var(--card-bg, #fff)", padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                                    Recursos Sociocognitivos (Optativas 1 y 2):
+                                  </div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                                    <select
+                                      className="form-control"
+                                      value={optRecurso1}
+                                      onChange={(e) => {
+                                        const copia = [...cfg.ffeOptativas];
+                                        copia[0] = e.target.value;
+                                        handleUpdateGrupoConfig(g.nombre, "ffeOptativas", copia);
+                                      }}
+                                      style={{ fontSize: "0.75rem" }}
+                                    >
+                                      {FFE_RECURSOS_SOCIOCOGNITIVOS.map(opt => (
+                                        <option key={opt} value={opt}>Optativa 1 (Recurso): {opt}</option>
+                                      ))}
+                                    </select>
+
+                                    <select
+                                      className="form-control"
+                                      value={optRecurso2}
+                                      onChange={(e) => {
+                                        const copia = [...cfg.ffeOptativas];
+                                        copia[1] = e.target.value;
+                                        handleUpdateGrupoConfig(g.nombre, "ffeOptativas", copia);
+                                      }}
+                                      style={{ fontSize: "0.75rem" }}
+                                    >
+                                      {FFE_RECURSOS_SOCIOCOGNITIVOS.filter(o => o !== optRecurso1).map(opt => (
+                                        <option key={opt} value={opt}>Optativa 2 (Recurso): {opt}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+
+                                {/* Bloque 2: Áreas de Conocimiento */}
+                                <div style={{ background: "var(--card-bg, #fff)", padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                                    Áreas de Conocimiento (Optativas 3 y 4):
+                                  </div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                                    <select
+                                      className="form-control"
+                                      value={optArea3}
+                                      onChange={(e) => {
+                                        const copia = [...cfg.ffeOptativas];
+                                        copia[2] = e.target.value;
+                                        handleUpdateGrupoConfig(g.nombre, "ffeOptativas", copia);
+                                      }}
+                                      style={{ fontSize: "0.75rem" }}
+                                    >
+                                      {FFE_AREAS_CONOCIMIENTO.map(opt => (
+                                        <option key={opt} value={opt}>Optativa 3 (Área): {opt}</option>
+                                      ))}
+                                    </select>
+
+                                    <select
+                                      className="form-control"
+                                      value={optArea4}
+                                      onChange={(e) => {
+                                        const copia = [...cfg.ffeOptativas];
+                                        copia[3] = e.target.value;
+                                        handleUpdateGrupoConfig(g.nombre, "ffeOptativas", copia);
+                                      }}
+                                      style={{ fontSize: "0.75rem" }}
+                                    >
+                                      {FFE_AREAS_CONOCIMIENTO.filter(o => o !== optArea3).map(opt => (
+                                        <option key={opt} value={opt}>Optativa 4 (Área): {opt}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })}

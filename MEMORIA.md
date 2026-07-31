@@ -551,6 +551,65 @@ model HorarioGrupo {
 
 ---
 
+## 8. Asistente de Mapa Curricular, Formación Socioemocional y Bachilleratos Tecnológicos (v3.5)
+
+### 8.1 Catálogo Oficial de Formación Socioemocional (Currículum Ampliado / FFEO)
+Nombres exactos oficiales según el marco MCCEMS BGE Puebla:
+1. `Educación para la Salud`
+2. `Educación Integral en Sexualidad y Género`
+3. `Práctica y Colaboración Ciudadana`
+
+#### Regla de Asignación y No Repetición por Grupo:
+Para cada grupo a lo largo de su trayectoria (3.er -> 4.º -> 5.º -> 6.º semestre):
+*   **3.er Semestre (Semestre A)**: El director selecciona 1 de las 3 opciones (ej: *Educación para la Salud*).
+*   **4.º Semestre (Semestre B)**: Continúa automáticamente con la materia de 3.er semestre.
+*   **5.º Semestre (Semestre A)**: El director selecciona 1 de las 2 opciones restantes que NO fueron elegidas en 3.er semestre (ej: *Educación Integral en Sexualidad y Género*). El sistema filtra automáticamente las opciones para evitar repeticiones.
+*   **6.º Semestre (Semestre B)**: Continúa automáticamente con la materia de 5.º semestre.
+
+### 8.2 Optativas FFE Categorizadas por Cuadros (5.º Semestre BGE)
+Las Optativas de Formación Formativa Extendida (FFE) están divididas en 2 bloques independientes:
+
+#### Bloque 1: Recursos Sociocognitivos (Optativas 1 y 2)
+1. `Comunicación y Sociedad I`
+2. `Raíces Etimológicas del Español I`
+3. `Inglés V (Avanzado)`
+4. `Taller de Pensamiento Variacional I`
+5. `Dibujo Técnico I`
+6. `Pensamiento Matemático Aplicado a las Finanzas I`
+7. `Taller de Probabilidad y Estadística I`
+
+#### Bloque 2: Áreas de Conocimiento (Optativas 3 y 4)
+1. `Salud Integral I`
+2. `Análisis de Fenómenos y Procesos Biológicos`
+3. `Análisis de Fenómenos Físicos I`
+4. `Organización del Flujo de Materia y Energía en los Organismos I`
+5. `Fundamentos de Administración I`
+6. `Procesos Contables I`
+7. `Derecho y Sociedad I`
+8. `Economía I. La Función de los Agentes Económicos en la Sociedad`
+9. `Temas Selectos de Ciencias Sociales I`
+10. `Psicología I`
+11. `Arte y Cultura I`
+12. `Lógica y Pensamiento Crítico`
+13. `Pensamiento Filosófico I`
+
+### 8.3 Estructura de Datos para Bachilleratos Tecnológicos (CBTIS / DGETI / CBTa / CECYTE)
+Basado en la Estructura Curricular Oficial del Bachillerato Tecnológico (Subsecretaría de Educación Media Superior):
+*   **`Escuela.tipoBachillerato`**: `BACHILLERATO_GENERAL` vs `BACHILLERATO_TECNOLOGICO`.
+*   **`Escuela.trayectoTecnologico`** / **`HorarioGrupo.trayectoTecnologico`**:
+    - `FISICO_MATEMATICAS` (Temas de Física, Dibujo Técnico, Matemáticas Aplicadas).
+    - `ECONOMICO_ADMINISTRATIVA` (Temas de Administración, Introducción a la Economía, Introducción al Derecho).
+    - `QUIMICO_BIOLOGICA` (Introducción a la Bioquímica, Temas de Biología Contemporánea, Temas de Ciencias de la Salud).
+    - `HUMANIDADES_Y_CIENCIAS_SOCIALES` (Temas de Ciencias Sociales, Literatura, Historia, Otras).
+*   **`CarreraTecnica` (Modelo Prisma)**:
+    - `modulo1`: Módulo I (Semestre 2, 17 hrs).
+    - `modulo2`: Módulo II (Semestre 3, 17 hrs).
+    - `modulo3`: Módulo III (Semestre 4, 17 hrs).
+    - `modulo4`: Módulo IV (Semestre 5, 12 hrs).
+    - `modulo5`: Módulo V (Semestre 6, 12 hrs).
+
+---
+
 *Este manual debe ser consultado y actualizado cada vez que se realicen modificaciones a la arquitectura profunda o se añadan nuevos modelos Prisma.*
 
-*Última actualización: Julio 2026 — v3.3 — Módulo Revisión de Planeaciones con IA integrado*
+*Última actualización: Julio 2026 — v3.5 — Mapa Curricular MCCEMS BGE, Categorías FFE, Socioemocional y Bachilleratos Tecnológicos integrados.*

@@ -14,58 +14,13 @@ interface Props {
   onGenerarClick: () => void;
 }
 
-// 15 Capacitaciones Laborales Oficiales BGE 2023 (Nombres Exactos)
-const FORMACIONES_LABORALES = [
-  "Administracion",
-  "Agricultura Sostenible de Traspatio",
-  "Area de la Salud",
-  "Comunicacion Grafica",
-  "Contabilidad",
-  "Domotica",
-  "Instalaciones Residenciales",
-  "Mecanica Dental",
-  "Preparacion de Alimentos Artesanales",
-  "Procesos Culinarios y Reposteria",
-  "Redes y Mantenimiento",
-  "Servicios Ecosistemicos",
-  "Sistemas Electricos",
-  "Tecnologia Informatica",
-  "Turismo"
-];
+import {
+  FORMACIONES_LABORALES,
+  FORMACIONES_SOCIOEMOCIONALES as CURRICULUM_AMPLIADO_FFEO,
+  FFE_RECURSOS_SOCIOCOGNITIVOS as FFE_RECURSO_SOCIOCOGNITIVO,
+  FFE_AREAS_CONOCIMIENTO as FFE_AREA_CONOCIMIENTO
+} from "@/lib/escuela-grupos";
 
-// Asignaturas de Currículum Ampliado / Formación Socioemocional (FFEO) para 3º a 6º Semestre
-const CURRICULUM_AMPLIADO_FFEO = [
-  "Educación para la Salud III (2025)",
-  "Educación Integral en Sexualidad y Género III (2025)",
-  "Práctica y Colaboración Ciudadana III (2025)"
-];
-
-// Opciones FFE Optativas MCCEMS 2025-2026 (Puebla)
-const FFE_RECURSO_SOCIOCOGNITIVO = [
-  "Comunicación y Sociedad I",
-  "Raíces Etimológicas del Español I",
-  "Inglés V",
-  "Taller de Pensamiento Variacional I",
-  "Dibujo Técnico I",
-  "Pensamiento Matemático Aplicado a las Finanzas I",
-  "Taller de Probabilidad y Estadística I"
-];
-
-const FFE_AREA_CONOCIMIENTO = [
-  "Salud Integral I",
-  "Análisis de Fenómenos y Procesos Biológicos",
-  "Análisis de Fenómenos Físicos I",
-  "Organización del Flujo de Materia y Energía en los Organismos I",
-  "Fundamentos de Administración I",
-  "Procesos Contables I",
-  "Derecho y Sociedad I",
-  "Economía I. La Función de los Agentes Económicos en la Sociedad",
-  "Temas Selectos de Ciencias Sociales I",
-  "Psicología I",
-  "Arte y Cultura I",
-  "Lógica y Pensamiento Crítico",
-  "Pensamiento Filosófico I"
-];
 
 // Mapeo exhaustivo de las 15 Capacitaciones Laborales a sus 2 UACs de 3º semestre y 2 UACs de 5º semestre con Abreviaturas
 const UACS_LABORALES_MAPA: Record<string, { sem3: { name: string; abrev: string }[]; sem5: { name: string; abrev: string }[] }> = {

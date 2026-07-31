@@ -196,16 +196,19 @@ export const UACS_LABORALES_MAPA: Record<string, { sem3: { name: string; abrev: 
 };
 
 /**
- * Catálogo Oficial de Optativas FFE MCCEMS 2025-2026
+ * Optativas FFE Categorizadas por Cuadros (MCCEMS 2025-2026 Puebla)
  */
-export const FFE_OPTATIVAS_CATALOGO = [
+export const FFE_RECURSOS_SOCIOCOGNITIVOS = [
   "Comunicación y Sociedad I",
   "Raíces Etimológicas del Español I",
   "Inglés V (Avanzado)",
   "Taller de Pensamiento Variacional I",
   "Dibujo Técnico I",
   "Pensamiento Matemático Aplicado a las Finanzas I",
-  "Taller de Probabilidad y Estadística I",
+  "Taller de Probabilidad y Estadística I"
+];
+
+export const FFE_AREAS_CONOCIMIENTO = [
   "Salud Integral I",
   "Análisis de Fenómenos y Procesos Biológicos",
   "Análisis de Fenómenos Físicos I",
@@ -219,6 +222,14 @@ export const FFE_OPTATIVAS_CATALOGO = [
   "Arte y Cultura I",
   "Lógica y Pensamiento Crítico",
   "Pensamiento Filosófico I"
+];
+
+/**
+ * Catálogo Oficial Completo de Optativas FFE MCCEMS 2025-2026
+ */
+export const FFE_OPTATIVAS_CATALOGO = [
+  ...FFE_RECURSOS_SOCIOCOGNITIVOS,
+  ...FFE_AREAS_CONOCIMIENTO
 ];
 
 /**
@@ -254,12 +265,16 @@ export function generarGruposPorEstructura(
 }
 
 /**
- * Catálogo Oficial de Formación Socioemocional (Currículum Ampliado)
+ * Catálogo Oficial Nombres Exactos de Formación Socioemocional (Currículum Ampliado / FFEO)
+ * Nombres oficiales según MCCEMS BGE Puebla:
+ * 1. Educación para la Salud
+ * 2. Educación Integral en Sexualidad y Género
+ * 3. Práctica y Colaboración Ciudadana
  */
 export const FORMACIONES_SOCIOEMOCIONALES = [
-  "Educación para la Salud (Promoción de la Salud y Estilos de Vida Saludables)",
-  "Educación Financiera y Emprendimiento Social",
-  "Práctica y Colaboración Ciudadana (Proyectos Comunitarios)"
+  "Educación para la Salud",
+  "Educación Integral en Sexualidad y Género",
+  "Práctica y Colaboración Ciudadana"
 ];
 
 /**
