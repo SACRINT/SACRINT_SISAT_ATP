@@ -92,7 +92,9 @@ export async function GET(req: NextRequest) {
     }
 
     const user = session.user as any;
-    const escuelaId = await obtenerEscuelaId(user);
+    const searchParams = req.nextUrl.searchParams;
+    const escuelaIdQuery = searchParams.get("escuelaId");
+    const escuelaId = escuelaIdQuery || await obtenerEscuelaId(user);
     if (!escuelaId) return NextResponse.json({ error: "No autorizado (escuela no encontrada)" }, { status: 401 });
 
     const [requisitos, planeaciones, escuela, personal, cargas, grupos] = await Promise.all([
@@ -103,7 +105,7 @@ export async function GET(req: NextRequest) {
         }),
         prisma.escuela.findUnique({
             where: { id: escuelaId },
-            select: { id: true, cct: true, nombre: true, gruposPrimerAno: true, gruposSegundoAno: true, gruposTercerAno: true }
+            select: { id: true, cct: true, nombre: true, gruposPrimerAno: true, gruposSegundoAno: true, gruposTercerAno: true, mapaCurricularCompletado: true }
         }),
         prisma.personal.findMany({
             where: { escuelaId },

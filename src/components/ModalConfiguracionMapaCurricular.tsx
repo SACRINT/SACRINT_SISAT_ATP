@@ -105,16 +105,34 @@ export default function ModalConfiguracionMapaCurricular({
         }
       };
 
-      // Si se cambia la Formación Socioemocional en 3.er Semestre (ej. 3º A), asegurar que 5º A no tenga la misma
-      if (field === "ffeoSocioemocional" && grupoNombre.startsWith("3º")) {
+      // Auto-swap inteligente bidireccional entre 3.er y 5.º Semestre (evita colisiones)
+      if (field === "ffeoSocioemocional") {
         const letra = grupoNombre.split(" ")[1];
-        const nombreGrupo5 = `5º ${letra}`;
-        const config5 = prev[nombreGrupo5];
-        if (config5 && config5.ffeoSocioemocional === value) {
-          const opcionDisponible = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== value);
-          if (opcionDisponible) {
+        if (grupoNombre.startsWith("3º")) {
+          const nombreGrupo5 = `5º ${letra}`;
+          const config5 = prev[nombreGrupo5] || {
+            capacitacionNombre: "Administracion",
+            ffeOptativas: [FFE_RECURSOS_SOCIOCOGNITIVOS[0], FFE_RECURSOS_SOCIOCOGNITIVOS[1], FFE_AREAS_CONOCIMIENTO[0], FFE_AREAS_CONOCIMIENTO[1]],
+            ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[1]
+          };
+          if (config5.ffeoSocioemocional === value) {
+            const opcionDisponible = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== value) || FORMACIONES_SOCIOEMOCIONALES[1];
             nuevoMapa[nombreGrupo5] = {
               ...config5,
+              ffeoSocioemocional: opcionDisponible
+            };
+          }
+        } else if (grupoNombre.startsWith("5º")) {
+          const nombreGrupo3 = `3º ${letra}`;
+          const config3 = prev[nombreGrupo3] || {
+            capacitacionNombre: "Administracion",
+            ffeOptativas: [],
+            ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[0]
+          };
+          if (config3.ffeoSocioemocional === value) {
+            const opcionDisponible = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== value) || FORMACIONES_SOCIOEMOCIONALES[0];
+            nuevoMapa[nombreGrupo3] = {
+              ...config3,
               ffeoSocioemocional: opcionDisponible
             };
           }
@@ -471,16 +489,16 @@ export default function ModalConfiguracionMapaCurricular({
                                 </label>
                                 <select
                                   className="form-control"
-                                  value={socio5Actual}
+                                  value={cfg.ffeoSocioemocional}
                                   onChange={(e) => handleUpdateGrupoConfig(g.nombre, "ffeoSocioemocional", e.target.value)}
                                   style={{ fontSize: "0.85rem", fontWeight: 700 }}
                                 >
-                                  {opcionesSocio5.map(soc => (
+                                  {FORMACIONES_SOCIOEMOCIONALES.map(soc => (
                                     <option key={soc} value={soc}>{soc}</option>
                                   ))}
                                 </select>
                                 <div style={{ fontSize: "0.725rem", color: "#15803d", marginTop: "0.3rem", fontWeight: 700, background: "#f0fdf4", padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
-                                  ✓ Excluye '{socio3}' (elegida en 3.er semestre)<br />
+                                  ⚡ Intercambio automático si coincide con 3.er semestre<br />
                                   ℹ️ 4.º y 6.º Semestre llevarán automáticamente: <strong>{socio4y6}</strong>
                                 </div>
                               </div>

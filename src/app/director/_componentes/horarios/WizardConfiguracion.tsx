@@ -16,6 +16,7 @@ interface Props {
 
 import {
   FORMACIONES_LABORALES,
+  FORMACIONES_SOCIOEMOCIONALES,
   FORMACIONES_SOCIOEMOCIONALES as CURRICULUM_AMPLIADO_FFEO,
   FFE_RECURSOS_SOCIOCOGNITIVOS as FFE_RECURSO_SOCIOCOGNITIVO,
   FFE_AREAS_CONOCIMIENTO as FFE_AREA_CONOCIMIENTO
@@ -427,12 +428,22 @@ export default function WizardConfiguracion({
     const copia = [...grupos];
     copia[index][field] = value;
 
-    if (field === "ffeoSocioemocional" && copia[index].semestre === 3) {
+    if (field === "ffeoSocioemocional") {
+      const sem = copia[index].semestre;
       const letraGrupo = copia[index].nombre.split(" ")[1];
-      const grupo5 = copia.find((g) => g.semestre === 5 && g.nombre.endsWith(letraGrupo));
-      if (grupo5 && grupo5.ffeoSocioemocional === value) {
-        const disponible = CURRICULUM_AMPLIADO_FFEO.find((item) => item !== value);
-        if (disponible) grupo5.ffeoSocioemocional = disponible;
+
+      if (sem === 3) {
+        const grupo5 = copia.find((g) => g.semestre === 5 && g.nombre.endsWith(letraGrupo));
+        if (grupo5 && grupo5.ffeoSocioemocional === value) {
+          const disponible = FORMACIONES_SOCIOEMOCIONALES.find((item) => item !== value);
+          if (disponible) grupo5.ffeoSocioemocional = disponible;
+        }
+      } else if (sem === 5) {
+        const grupo3 = copia.find((g) => g.semestre === 3 && g.nombre.endsWith(letraGrupo));
+        if (grupo3 && grupo3.ffeoSocioemocional === value) {
+          const disponible = FORMACIONES_SOCIOEMOCIONALES.find((item) => item !== value);
+          if (disponible) grupo3.ffeoSocioemocional = disponible;
+        }
       }
     }
 
@@ -1094,18 +1105,15 @@ export default function WizardConfiguracion({
                           Currículum Ampliado / Formación Socioemocional (FFEO)
                         </label>
                         <select
-                          value={g.ffeoSocioemocional || (g.semestre === 3 ? CURRICULUM_AMPLIADO_FFEO[0] : CURRICULUM_AMPLIADO_FFEO[1])}
+                          value={g.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])}
                           onChange={(e) => handleActualizarConfigGrupo(idx, "ffeoSocioemocional", e.target.value)}
                           style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.75rem", fontWeight: 700, color: "#0f172a" }}
                         >
-                          {CURRICULUM_AMPLIADO_FFEO.map((ffeo) => {
-                            const esRepetida5to = g.semestre === 5 && ffeo === ffeoSocio3erSem;
-                            return (
-                              <option key={ffeo} value={ffeo} disabled={esRepetida5to}>
-                                {ffeo} {esRepetida5to ? "[Elegida en 3° Semestre]" : ""}
-                              </option>
-                            );
-                          })}
+                          {FORMACIONES_SOCIOEMOCIONALES.map((ffeo) => (
+                            <option key={ffeo} value={ffeo}>
+                              {ffeo}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     )}

@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 import {
     generarGruposPorEstructura,
     obtenerAsignaturasParaGrupo,
+    resolverSocioemocionalGrupo,
     FORMACIONES_LABORALES,
     FFE_OPTATIVAS_CATALOGO,
     GrupoDefinicion,
@@ -272,6 +273,21 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
     const gruposGenerados = useMemo(() => {
         return generarGruposPorEstructura(escuelaData, periodoSemestral);
     }, [escuelaData, periodoSemestral]);
+
+    // Personal filtrado que sí puede impartir clases (Docentes, Directores, Responsables de Plantel, ATPs, Administrativos)
+    // Excluir exclusivamente Personal de Asistencia / Apoyo Administrativo
+    const personalFiltradoParaClases = useMemo(() => {
+        return personalList.filter(p => {
+            if (!p.cargo) return true;
+            const cargoUpper = p.cargo.toUpperCase();
+            return (
+                !cargoUpper.includes("ASISTENCIA") &&
+                !cargoUpper.includes("APOYO") &&
+                cargoUpper !== "PERSONAL_DE_ASISTENCIA" &&
+                cargoUpper !== "APOYO_ADMINISTRATIVO"
+            );
+        });
+    }, [personalList]);
 
     // Mapa de asignación de docentes por grupo y UAC
     const asignacionesDocentesMap = useMemo(() => {
@@ -594,9 +610,17 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                         .map(grupo => {
                             const hGrupo = gruposDB.find((g: any) => g.nombre === grupo.nombre);
                             const capNombre = hGrupo?.capacitacionNombre || "Administracion";
-                            const ffeOpts = Array.isArray(hGrupo?.ffeOptativas) ? hGrupo.ffeOptativas : [];
+                            const ffeOpts = Array.isArray(hGrupo?.ffeOptativas) && hGrupo.ffeOptativas.length === 4 ? hGrupo.ffeOptativas : [];
 
-                            const asignaturasSemestre = obtenerAsignaturasParaGrupo(grupo.semestre, capNombre, ffeOpts);
+                            const letraGrupo = grupo.nombre.split(" ")[1];
+                            const hGrupo3 = gruposDB.find((g: any) => g.nombre === `3º ${letraGrupo}`);
+                            const hGrupo5 = gruposDB.find((g: any) => g.nombre === `5º ${letraGrupo}`);
+                            const socio3 = hGrupo3?.ffeoSocioemocional;
+                            const socio5 = hGrupo5?.ffeoSocioemocional;
+                            const socioObj = resolverSocioemocionalGrupo(socio3, socio5);
+                            const socioNombreGrupo = grupo.semestre === 3 ? socioObj.sem3 : grupo.semestre === 4 ? socioObj.sem4 : grupo.semestre === 5 ? socioObj.sem5 : socioObj.sem6;
+
+                            const asignaturasSemestre = obtenerAsignaturasParaGrupo(grupo.semestre, capNombre, ffeOpts, socioNombreGrupo);
                             
                             // Conteo de planeaciones en este grupo
                             const planeacionesDelGrupo = asignaturasSemestre.filter(uac => {
@@ -726,9 +750,9 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                                                                     }}
                                                                 >
                                                                     <option value="SIN_ASIGNAR">-- Seleccionar Docente --</option>
-                                                                    {personalList.map(p => (
+                                                                    {personalFiltradoParaClases.map(p => (
                                                                         <option key={p.id} value={p.id}>
-                                                                            {p.nombre} {p.apellidoPaterno} {p.apellidoMaterno}
+                                                                            {p.nombre} {p.apellidoPaterno} {p.apellidoMaterno} ({p.cargo || "Docente"})
                                                                         </option>
                                                                     ))}
                                                                 </select>
