@@ -235,7 +235,7 @@ export default function ModalConfiguracionMapaCurricular({
               <Sparkles size={20} /> Mapa Curricular y Estructura del Plantel (1.º a 6.º Semestre)
             </h2>
           </div>
-          {onClose && (
+          {!forceObligatorio && onClose && (
             <button
               onClick={onClose}
               style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "white", borderRadius: "8px", width: "32px", height: "32px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -243,6 +243,7 @@ export default function ModalConfiguracionMapaCurricular({
               <X size={18} />
             </button>
           )}
+
 
         </div>
 

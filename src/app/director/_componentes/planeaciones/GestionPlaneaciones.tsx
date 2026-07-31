@@ -1120,7 +1120,8 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                 isOpen={mapaModalAbierto}
                 onClose={() => setMapaModalAbierto(false)}
                 onSaved={cargarDatos}
-                forceObligatorio={escuelaData.mapaCurricularCompletado === false}
+                forceObligatorio={!readOnly && escuelaData.mapaCurricularCompletado === false}
+
             />
 
         </div>
