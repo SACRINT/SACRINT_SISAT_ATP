@@ -278,6 +278,34 @@ export const FORMACIONES_SOCIOEMOCIONALES = [
 ];
 
 /**
+ * Calcula la Formación Socioemocional exacta para cada semestre de un grupo (3º, 4º, 5º, 6º)
+ * Reglas Estrictas:
+ * - 3.er Semestre: Selección del Director (Opción 1). NUNCA se repite en 4.º, 5.º ni 6.º.
+ * - 5.º Semestre: Selección del Director entre las 2 restantes (Opción 2). NUNCA se repite en 3.er, 4.º ni 6.º.
+ * - 4.º y 6.º Semestre: Asignación automática de la 3.ª opción restante (Opción 3). 4.º y 6.º llevan EXACTAMENTE la misma asignatura.
+ */
+export function resolverSocioemocionalGrupo(
+  socioemocionalSem3?: string,
+  socioemocionalSem5?: string
+): { sem3: string; sem4: string; sem5: string; sem6: string } {
+  const s3 = socioemocionalSem3 || FORMACIONES_SOCIOEMOCIONALES[0];
+
+  const restantesParaSem5 = FORMACIONES_SOCIOEMOCIONALES.filter(s => s !== s3);
+  const s5 = socioemocionalSem5 && restantesParaSem5.includes(socioemocionalSem5)
+    ? socioemocionalSem5
+    : restantesParaSem5[0];
+
+  const restanteParaSem4y6 = FORMACIONES_SOCIOEMOCIONALES.find(s => s !== s3 && s !== s5) || FORMACIONES_SOCIOEMOCIONALES[1];
+
+  return {
+    sem3: s3,
+    sem4: restanteParaSem4y6,
+    sem5: s5,
+    sem6: restanteParaSem4y6
+  };
+}
+
+/**
  * Resuelve las Asignaturas/UACs oficiales exactas para un Grupo según su Semestre y Capacitaciones
  */
 export function obtenerAsignaturasParaGrupo(
@@ -318,7 +346,7 @@ export function obtenerAsignaturasParaGrupo(
 
   if (semestre === 3) {
     const labInfo = UACS_LABORALES_MAPA[capacitacionNombre]?.sem3 || UACS_LABORALES_MAPA["Administracion"].sem3;
-    const socioNombre = ffeoSocioemocional || "Educación para la Salud III (2025)";
+    const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0];
 
     return [
       { nombre: "Ecosistemas: Interacciones, Energía y Dinámica", tipo: "FUNDAMENTAL", horas: 4 },
@@ -335,7 +363,7 @@ export function obtenerAsignaturasParaGrupo(
 
   if (semestre === 4) {
     const labInfo = UACS_LABORALES_MAPA[capacitacionNombre]?.sem3 || UACS_LABORALES_MAPA["Administracion"].sem3;
-    const socioNombre = ffeoSocioemocional || "Educación para la Salud IV";
+    const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1];
 
     return [
       { nombre: "Reacciones Químicas y Procesos Biológicos", tipo: "FUNDAMENTAL", horas: 4 },
@@ -353,11 +381,11 @@ export function obtenerAsignaturasParaGrupo(
     const labInfo = UACS_LABORALES_MAPA[capacitacionNombre]?.sem5 || UACS_LABORALES_MAPA["Administracion"].sem5;
     
     // 4 Optativas FFE predeterminadas si no vienen definidas
-    const ffe1 = ffeOptativasArr[0] || "Análisis de Fenómenos y Procesos Biológicos";
-    const ffe2 = ffeOptativasArr[1] || "Pensamiento Matemático Aplicado a las Finanzas I";
-    const ffe3 = ffeOptativasArr[2] || "Fundamentos de Administración I";
-    const ffe4 = ffeOptativasArr[3] || "Lógica y Pensamiento Crítico";
-    const socioNombre = ffeoSocioemocional || "Educación Financiera y Emprendimiento Social";
+    const ffe1 = ffeOptativasArr[0] || FFE_RECURSOS_SOCIOCOGNITIVOS[0];
+    const ffe2 = ffeOptativasArr[1] || FFE_RECURSOS_SOCIOCOGNITIVOS[1];
+    const ffe3 = ffeOptativasArr[2] || FFE_AREAS_CONOCIMIENTO[0];
+    const ffe4 = ffeOptativasArr[3] || FFE_AREAS_CONOCIMIENTO[1];
+    const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[2];
 
     return [
       { nombre: "La Conciencia Histórica II (Historia de México)", tipo: "FUNDAMENTAL", horas: 3 },
@@ -375,18 +403,20 @@ export function obtenerAsignaturasParaGrupo(
   }
 
   // Semestre 6
-  const ffe1 = ffeOptativasArr[0] || "Análisis de Fenómenos Físicos I";
-  const ffe2 = ffeOptativasArr[1] || "Taller de Probabilidad y Estadística I";
-  const ffe3 = ffeOptativasArr[2] || "Derecho y Sociedad I";
-  const ffe4 = ffeOptativasArr[3] || "Psicología I";
+  const ffe1 = ffeOptativasArr[0] || FFE_RECURSOS_SOCIOCOGNITIVOS[0];
+  const ffe2 = ffeOptativasArr[1] || FFE_RECURSOS_SOCIOCOGNITIVOS[1];
+  const ffe3 = ffeOptativasArr[2] || FFE_AREAS_CONOCIMIENTO[0];
+  const ffe4 = ffeOptativasArr[3] || FFE_AREAS_CONOCIMIENTO[1];
+  const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1];
 
   return [
     { nombre: "La Conciencia Histórica III (Historia Universal)", tipo: "FUNDAMENTAL", horas: 3 },
     { nombre: "Lengua y Comunicación VI", tipo: "FUNDAMENTAL", horas: 3 },
     { nombre: "Inglés VI", tipo: "FUNDAMENTAL", horas: 3 },
     { nombre: "Ética y Sociedad", tipo: "FUNDAMENTAL", horas: 3 },
-    { nombre: "Formación Laboral Submódulo 3", tipo: "LABORAL", horas: 3 },
-    { nombre: "Formación Laboral Submódulo 4", tipo: "LABORAL", horas: 3 },
+    { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
+    { nombre: `Formación Laboral (${capacitacionNombre}): Submódulo 3`, tipo: "LABORAL", horas: 3 },
+    { nombre: `Formación Laboral (${capacitacionNombre}): Submódulo 4`, tipo: "LABORAL", horas: 3 },
     { nombre: `Optativa FFE 1: ${ffe1}`, tipo: "EXTENDIDO", horas: 3 },
     { nombre: `Optativa FFE 2: ${ffe2}`, tipo: "EXTENDIDO", horas: 3 },
     { nombre: `Optativa FFE 3: ${ffe3}`, tipo: "EXTENDIDO", horas: 3 },

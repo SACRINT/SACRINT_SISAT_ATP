@@ -437,9 +437,9 @@ export default function ModalConfiguracionMapaCurricular({
                         const letra = g.nombre.split(" ")[1];
                         const config3 = mapaConfig[`3º ${letra}`];
                         const socio3 = config3?.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0];
-                        // Opciones de socioemocional excluyendo la elegida en 3º
                         const opcionesSocio5 = FORMACIONES_SOCIOEMOCIONALES.filter(soc => soc !== socio3);
                         const socio5Actual = opcionesSocio5.includes(cfg.ffeoSocioemocional) ? cfg.ffeoSocioemocional : opcionesSocio5[0];
+                        const socio4y6 = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== socio3 && soc !== socio5Actual) || FORMACIONES_SOCIOEMOCIONALES[1];
 
                         const optRecurso1 = cfg.ffeOptativas[0] || FFE_RECURSOS_SOCIOCOGNITIVOS[0];
                         const optRecurso2 = cfg.ffeOptativas[1] || FFE_RECURSOS_SOCIOCOGNITIVOS[1];
@@ -479,8 +479,9 @@ export default function ModalConfiguracionMapaCurricular({
                                     <option key={soc} value={soc}>{soc}</option>
                                   ))}
                                 </select>
-                                <div style={{ fontSize: "0.7rem", color: "#16a34a", marginTop: "0.2rem", fontWeight: 600 }}>
-                                  ✓ Excluye '{socio3}' (elegida en 3.er semestre)
+                                <div style={{ fontSize: "0.725rem", color: "#15803d", marginTop: "0.3rem", fontWeight: 700, background: "#f0fdf4", padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
+                                  ✓ Excluye '{socio3}' (elegida en 3.er semestre)<br />
+                                  ℹ️ 4.º y 6.º Semestre llevarán automáticamente: <strong>{socio4y6}</strong>
                                 </div>
                               </div>
                             </div>

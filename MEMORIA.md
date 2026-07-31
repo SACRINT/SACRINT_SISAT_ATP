@@ -559,12 +559,24 @@ Nombres exactos oficiales según el marco MCCEMS BGE Puebla:
 2. `Educación Integral en Sexualidad y Género`
 3. `Práctica y Colaboración Ciudadana`
 
-#### Regla de Asignación y No Repetición por Grupo:
-Para cada grupo a lo largo de su trayectoria (3.er -> 4.º -> 5.º -> 6.º semestre):
-*   **3.er Semestre (Semestre A)**: El director selecciona 1 de las 3 opciones (ej: *Educación para la Salud*).
-*   **4.º Semestre (Semestre B)**: Continúa automáticamente con la materia de 3.er semestre.
-*   **5.º Semestre (Semestre A)**: El director selecciona 1 de las 2 opciones restantes que NO fueron elegidas en 3.er semestre (ej: *Educación Integral en Sexualidad y Género*). El sistema filtra automáticamente las opciones para evitar repeticiones.
-*   **6.º Semestre (Semestre B)**: Continúa automáticamente con la materia de 5.º semestre.
+#### Regla de Asignación Estricta y No Repetición por Grupo (3.º a 6.º Semestre):
+Para cada grupo (ej: Grupo A) a lo largo de los semestres 3.º, 4.º, 5.º y 6.º:
+*   **3.er Semestre**: El Director elige **1 de las 3 asignaturas** (ej: *Educación para la Salud*).
+    - **Bloqueo Total**: La asignatura elegida en 3.er semestre **NUNCA se puede seleccionar en 4.º, 5.º ni 6.º semestre**.
+*   **5.º Semestre**: El Director elige **1 de las 2 asignaturas restantes** (ej: *Práctica y Colaboración Ciudadana*).
+    - **Bloqueo Total**: La asignatura elegida en 5.º semestre **NUNCA se puede seleccionar en 3.er, 4.º ni 6.º semestre**.
+*   **4.º y 6.º Semestre**: Se asigna automáticamente la **3.ª asignatura restante** (la que no fue seleccionada ni en 3.er ni en 5.º semestre).
+    - **Coincidencia Exacta**: La asignatura asignada a 4.º semestre es **EXACTAMENTE LA MISMA** que se asigna a 6.º semestre.
+
+#### Ejemplo de Distribución por Semestre para un Grupo:
+Dadas las 3 asignaturas: `S1: Educación para la Salud`, `S2: Educación Integral en Sexualidad y Género`, `S3: Práctica y Colaboración Ciudadana`.
+1. **3.er Semestre**: Director selecciona `S1: Educación para la Salud`.
+2. **5.º Semestre**: Director selecciona `S3: Práctica y Colaboración Ciudadana`.
+3. **4.º Semestre**: Sistema asigna automáticamente `S2: Educación Integral en Sexualidad y Género`.
+4. **6.º Semestre**: Sistema asigna automáticamente `S2: Educación Integral en Sexualidad y Género` (misma que en 4.º semestre).
+
+#### Función Helpers de Resolución:
+*   **Frontend / Helpers**: `resolverSocioemocionalGrupo(socioemocionalSem3, socioemocionalSem5)` en `src/lib/escuela-grupos.ts`.
 
 ### 8.2 Optativas FFE Categorizadas por Cuadros (5.º Semestre BGE)
 Las Optativas de Formación Formativa Extendida (FFE) están divididas en 2 bloques independientes:
