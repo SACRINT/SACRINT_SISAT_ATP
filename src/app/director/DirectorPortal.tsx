@@ -86,6 +86,35 @@ export default function DirectorPortal({
     const [searchOpen, setSearchOpen] = useState(false);
     const [expedientesHighlightId, setExpedientesHighlightId] = useState<string>("");
 
+    // Estado de configuración IA para el portal de Herramientas IA
+    const [iaConfigChecked, setIaConfigChecked] = useState(false);
+    const [tieneApiKey, setTieneApiKey] = useState(false);
+    const [tieneMapaCurricular, setTieneMapaCurricular] = useState(false);
+
+    // Verificar si tiene API Key y Mapa Curricular configurados cuando entra a Herramientas IA
+    useEffect(() => {
+        if ((tab === "configuracion" || tab === "planeaciones" || isHorariosActive) && !iaConfigChecked) {
+            const verificarConfigIA = async () => {
+                try {
+                    // Verificar API Key
+                    const resApi = await fetch("/api/director/configuracion-api");
+                    if (resApi.ok) {
+                        const dataApi = await resApi.json();
+                        setTieneApiKey(!!dataApi.hasKey);
+                    }
+                    // Verificar Mapa Curricular
+                    const resHorarios = await fetch(`/api/horarios/configuracion?escuelaId=${escuela.id}`);
+                    if (resHorarios.ok) {
+                        const dataHorarios = await resHorarios.json();
+                        setTieneMapaCurricular(!!dataHorarios.escuela?.mapaCurricularCompletado);
+                    }
+                } catch { /* silencioso */ }
+                setIaConfigChecked(true);
+            };
+            verificarConfigIA();
+        }
+    }, [tab, escuela.id, iaConfigChecked, isHorariosActive]);
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key?.toLowerCase() === "k") {
@@ -311,24 +340,6 @@ export default function DirectorPortal({
                             <BookOpen size={17} />
                             <span>Recursos y Formatos</span>
                         </button>
-                        {isHorariosActive && (
-                            <a href="/director/horarios" className="sidebar-link" style={{ textDecoration: 'none' }}>
-                                <Calendar size={17} />
-                                <span>Generador Horarios IA</span>
-                                <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "white", fontSize: "0.6rem" }}>
-                                    NUEVO
-                                </span>
-                            </a>
-                        )}
-                        {isPlaneacionesActive && (
-                            <button className={`sidebar-link ${tab === "planeaciones" ? "active" : ""}`} onClick={() => navigate("planeaciones")}>
-                                <ClipboardList size={17} />
-                                <span>Revisión Planeaciones IA</span>
-                                <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #7c3aed, #ec4899)", color: "white", fontSize: "0.6rem" }}>
-                                    IA
-                                </span>
-                            </button>
-                        )}
                     </div>
 
                     {/* Special modules - conditional */}
@@ -349,17 +360,62 @@ export default function DirectorPortal({
                             ))}
                         </div>
                     )}
-                    
-                    {/* Settings section */}
-                    <div style={{ marginTop: "1rem" }}>
-                        <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem" }}>
-                            Ajustes
+
+                    {/* HERRAMIENTAS IA — Sección dedicada */}
+                    {(isHorariosActive || isPlaneacionesActive) && (
+
+                        <div style={{ marginTop: "1rem" }}>
+                            <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                                <span>🤖</span> Herramientas IA
+                            </div>
+
+                            {/* Alerta si falta configuración */}
+                            {iaConfigChecked && (!tieneApiKey || !tieneMapaCurricular) && (
+                                <div style={{ margin: "0 0.5rem 0.5rem", padding: "0.5rem 0.6rem", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "8px", fontSize: "0.65rem", color: "#c2410c", fontWeight: 600, lineHeight: 1.4 }}>
+                                    ⚠️ {!tieneApiKey && !tieneMapaCurricular ? "Faltan: API Key y Mapa Curricular" : !tieneApiKey ? "Falta configurar tu API Key" : "Falta configurar el Mapa Curricular"}
+                                </div>
+                            )}
+
+                            {isHorariosActive && (
+                                <a href="/director/horarios" className="sidebar-link" style={{ textDecoration: 'none' }}>
+                                    <Calendar size={17} />
+                                    <span>Generador Horarios IA</span>
+                                    <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "white", fontSize: "0.6rem" }}>
+                                        IA
+                                    </span>
+                                </a>
+                            )}
+                            {isPlaneacionesActive && (
+                                <button className={`sidebar-link ${tab === "planeaciones" ? "active" : ""}`} onClick={() => navigate("planeaciones")}>
+                                    <ClipboardList size={17} />
+                                    <span>Revisión Planeaciones IA</span>
+                                    <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #7c3aed, #ec4899)", color: "white", fontSize: "0.6rem" }}>
+                                        IA
+                                    </span>
+                                </button>
+                            )}
+                            <button className={`sidebar-link ${tab === "configuracion" ? "active" : ""}`} onClick={() => navigate("configuracion")}>
+                                <Key size={17} />
+                                <span>Ajustes de API IA</span>
+                                {!tieneApiKey && iaConfigChecked && (
+                                    <span className="sidebar-badge" style={{ marginLeft: "auto", background: "#ef4444", color: "white", fontSize: "0.6rem" }}>!</span>
+                                )}
+                            </button>
                         </div>
-                        <button className={`sidebar-link ${tab === "configuracion" ? "active" : ""}`} onClick={() => navigate("configuracion")}>
-                            <Key size={17} />
-                            <span>Ajustes de API</span>
-                        </button>
-                    </div>
+                    )}
+
+                    {/* Si ninguna herramienta IA está activa, mostrar solo Ajustes de API en sección Ajustes */}
+                    {!isHorariosActive && !isPlaneacionesActive && (
+                        <div style={{ marginTop: "1rem" }}>
+                            <div style={{ fontSize: "0.675rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 0.5rem", marginBottom: "0.375rem" }}>
+                                Ajustes
+                            </div>
+                            <button className={`sidebar-link ${tab === "configuracion" ? "active" : ""}`} onClick={() => navigate("configuracion")}>
+                                <Key size={17} />
+                                <span>Ajustes de API</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}

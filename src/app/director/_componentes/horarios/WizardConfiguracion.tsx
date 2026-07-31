@@ -194,7 +194,12 @@ export default function WizardConfiguracion({
   // Jornada Escolar predeterminada estrictamente a 6 Horas Diarias (30 hrs semanales)
   const [numPeriodos, setNumPeriodos] = useState<number>(6);
   const [horaInicio, setHoraInicio] = useState<string>("08:00");
-  
+
+  // Flag: true = ya se cargaron grupos desde BD, NO regenerar automáticamente
+  const [inicializadoDesdeBD, setInicializadoDesdeBD] = useState<boolean>(false);
+  // Flag: true = el usuario cambió manualmente el número de grupos, SÍ regenerar
+  const [usuarioCambioGrupos, setUsuarioCambioGrupos] = useState<boolean>(false);
+
   // Número de grupos por grado independiente (1º, 3º, 5º)
   const [g1, setG1] = useState<number>(
     configInicial?.escuela?.gruposPrimerAno ?? (gruposIniciales.length > 0 ? Math.max(1, Math.ceil(gruposIniciales.length / 3)) : 1)
@@ -214,6 +219,22 @@ export default function WizardConfiguracion({
       if (configInicial.escuela.gruposTercerAno) setG3(configInicial.escuela.gruposTercerAno);
     }
   }, [configInicial, escuelaId]);
+
+  // ─── PRIORIDAD BD: Si vienen grupos desde la BD con configuración real, usarlos directamente ───
+  useEffect(() => {
+    if (gruposIniciales && gruposIniciales.length > 0 && !inicializadoDesdeBD) {
+      // Normalizar datos de la BD (ffeOptativas puede venir como string JSON)
+      const gruposNormalizados = gruposIniciales.map((g: any) => {
+        let ffeOptativas = g.ffeOptativas;
+        if (typeof ffeOptativas === "string") {
+          try { ffeOptativas = JSON.parse(ffeOptativas); } catch { ffeOptativas = []; }
+        }
+        return { ...g, ffeOptativas: Array.isArray(ffeOptativas) ? ffeOptativas : [] };
+      });
+      setGrupos(gruposNormalizados);
+      setInicializadoDesdeBD(true);
+    }
+  }, [gruposIniciales, escuelaId]);
 
   // Modo de Configuración: Semiautomático (SEP General) vs Manual Libre (Tecnológicos)
   const [modoConfiguracion, setModoConfiguracion] = useState<"SEMIAUTOMATICO" | "MANUAL_TECNOLOGICO">("SEMIAUTOMATICO");
@@ -316,10 +337,17 @@ export default function WizardConfiguracion({
     }
   }, [docentesIniciales]);
 
+  // Normaliza nombre de grupo: convierte tanto "3º A" como "3° A" a "3° A" (símbolo grado)
+  const normalizarNombreGrupo = (nombre: string) =>
+    nombre.replace(/º/g, "°");
+
   const generarGruposSegunEstructura = (n1: number, n2: number, n3: number) => {
     const letras = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
     const nuevosGrupos: any[] = [];
     const counts: Record<number, number> = { 1: n1, 3: n2, 5: n3 };
+
+    // Snapshot actual de grupos para búsqueda con normalización de símbolo º/°
+    const gruposActuales = grupos;
 
     for (let sem of [1, 3, 5]) {
       const countSem = counts[sem] || 1;
@@ -327,7 +355,15 @@ export default function WizardConfiguracion({
         const letra = letras[i] || `G${i + 1}`;
         const nombreGrupo = `${sem}° ${letra}`;
 
-        const grupoExistente = grupos.find((g) => g.nombre === nombreGrupo);
+        // Buscar con normalización: tanto `3° A` (°) como `3º A` (º) deben coincidir
+        const grupoExistente = gruposActuales.find(
+          (g) => normalizarNombreGrupo(g.nombre) === nombreGrupo
+        );
+
+        let ffeOpts = grupoExistente?.ffeOptativas;
+        if (typeof ffeOpts === "string") {
+          try { ffeOpts = JSON.parse(ffeOpts); } catch { ffeOpts = null; }
+        }
 
         nuevosGrupos.push({
           id: grupoExistente?.id || `temp_${sem}_${letra}`,
@@ -335,7 +371,7 @@ export default function WizardConfiguracion({
           semestre: sem,
           capacitacionNombre: grupoExistente?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length],
           ffeoSocioemocional: grupoExistente?.ffeoSocioemocional || (sem === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1]),
-          ffeOptativas: grupoExistente?.ffeOptativas || [
+          ffeOptativas: (Array.isArray(ffeOpts) && ffeOpts.length > 0) ? ffeOpts : [
             FFE_RECURSO_SOCIOCOGNITIVO[0],
             FFE_RECURSO_SOCIOCOGNITIVO[1],
             FFE_AREA_CONOCIMIENTO[0],
@@ -366,9 +402,14 @@ export default function WizardConfiguracion({
     setGrupoActivoManual(prev => letrasActivas.includes(prev) ? prev : "A");
   };
 
+  // Solo regenerar grupos cuando el USUARIO cambia manualmente el número de grupos,
+  // NO en la carga inicial (los datos de BD tienen prioridad via gruposIniciales)
   useEffect(() => {
-    generarGruposSegunEstructura(g1, g2, g3);
-  }, [g1, g2, g3]);
+    if (usuarioCambioGrupos) {
+      generarGruposSegunEstructura(g1, g2, g3);
+      setUsuarioCambioGrupos(false);
+    }
+  }, [g1, g2, g3, usuarioCambioGrupos]);
 
   // Asignaturas predeterminadas por semestre y letra de grupo (se clonan individualmente por grupo)
   const getDefaultMateriasSem = (sem: number, letra: string): any[] => {
@@ -956,7 +997,7 @@ export default function WizardConfiguracion({
                   min={1}
                   max={20}
                   value={g1}
-                  onChange={(e) => setG1(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => { setG1(Math.max(1, Number(e.target.value))); setUsuarioCambioGrupos(true); }}
                   style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
                 />
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
@@ -976,7 +1017,7 @@ export default function WizardConfiguracion({
                   min={1}
                   max={20}
                   value={g2}
-                  onChange={(e) => setG2(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => { setG2(Math.max(1, Number(e.target.value))); setUsuarioCambioGrupos(true); }}
                   style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
                 />
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
@@ -996,7 +1037,7 @@ export default function WizardConfiguracion({
                   min={1}
                   max={20}
                   value={g3}
-                  onChange={(e) => setG3(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => { setG3(Math.max(1, Number(e.target.value))); setUsuarioCambioGrupos(true); }}
                   style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
                 />
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
