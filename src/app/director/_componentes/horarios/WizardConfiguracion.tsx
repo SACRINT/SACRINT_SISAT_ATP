@@ -267,7 +267,18 @@ export default function WizardConfiguracion({
   }, [docentes]);
 
   // Cargas Docente-Materia-Grupo (Paso 3)
-  const [cargas, setCargas] = useState<any[]>(cargasIniciales || []);
+  // Se normalizan al inicializar para eliminar duplicados BD+wizard (mismo grupoId+uacName con distinto asignaturaId).
+  // Solo se conserva la última entrada por clave grupoId+uacName (la más reciente = la real).
+  const normalizarCargas = (cargasRaw: any[]) => {
+    if (!cargasRaw || cargasRaw.length === 0) return [];
+    const mapa = new Map<string, any>();
+    for (const c of cargasRaw) {
+      const key = `${c.grupoId}__${c.uacName || c.asignaturaId}`;
+      mapa.set(key, c); // sobrescribe si existe, dejando la más reciente
+    }
+    return Array.from(mapa.values());
+  };
+  const [cargas, setCargas] = useState<any[]>(() => normalizarCargas(cargasIniciales || []));
 
   // Modal para agregar nuevo docente
   const [mostrarModalDocente, setMostrarModalDocente] = useState<boolean>(false);
@@ -592,7 +603,9 @@ export default function WizardConfiguracion({
     const asignaturaId = uacObj.id;
     const horasSemanales = uacObj.horasSemanales || 3;
 
-    // Eliminar cualquier carga previa de este grupo y esta UAC (por nombre o ID)
+    // Eliminar TODAS las cargas de este grupo+UAC (por nombre Y por ID)
+    // Esto limpia tanto cargas de la BD (con asignaturaId real) como del wizard (con ID estático)
+    // para evitar duplicados que inflaban el conteo de horas.
     const cargasLimpias = cargas.filter(
       (c) => !(c.grupoId === grupoId && (c.uacName === uacName || c.asignaturaId === asignaturaId))
     );
@@ -602,6 +615,7 @@ export default function WizardConfiguracion({
       return;
     }
 
+    // Registrar con el ID estático del wizard para coherencia interna
     setCargas([
       ...cargasLimpias,
       {
@@ -616,25 +630,31 @@ export default function WizardConfiguracion({
   };
 
   const getDocenteAsignado = (grupoId: string, uacObj: any) => {
-    // Primero buscar por grupoId + nombre exacto de UAC (comparación más robusta)
-    const asignacionPorNombre = cargas.find(
+    // Buscar la carga más reciente para este grupo + UAC (puede haber duplicados BD vs wizard).
+    // Usar la última entrada (más reciente) ya que handleAsignarDocenteMatriz siempre
+    // limpia las anteriores antes de insertar, garantizando que la última es la correcta.
+    const matches = cargas.filter(
       (c) => c.grupoId === grupoId && (c.uacName === uacObj.uacName || c.asignaturaId === uacObj.id)
     );
-    return asignacionPorNombre?.personalId || "";
+    // Si hay más de un match (duplicado BD+wizard), usar el último (más reciente)
+    const asignacion = matches.length > 0 ? matches[matches.length - 1] : undefined;
+    return asignacion?.personalId || "";
   };
 
   // Cálculo Dinámico y Exacto de Horas Asignadas Realmente a cada Docente escaneando las UACs activas de cada grupo
+  // Se basa en la MATRIZ VISIBLE (getUACsIndividualesGrupo) para evitar contar cargas fantasma o duplicadas.
   const getHorasConsumidasDocente = (docenteId: string, excludeGrupoId?: string, excludeUacId?: string) => {
     let total = 0;
 
     grupos.forEach((g) => {
       const uacs = getUACsIndividualesGrupo(g);
       uacs.forEach((uac) => {
-        // Excluir la celda actual si se especifica (para validar disponibilidad antes de seleccionar)
+        // Excluir la celda actual si se especifica (para calcular horas SIN esta celda)
         if (excludeGrupoId && excludeUacId && g.id === excludeGrupoId && (uac.id === excludeUacId || uac.uacName === excludeUacId)) {
           return;
         }
 
+        // getDocenteAsignado ya devuelve el personalId correcto (el más reciente, sin duplicados)
         const asignadoId = getDocenteAsignado(g.id, uac);
         if (asignadoId === docenteId) {
           total += (uac.horasSemanales || 3);
@@ -754,7 +774,8 @@ export default function WizardConfiguracion({
   const totalHorasPlantillaDocente = Object.entries(horasDocentes).reduce((sum, [id, h]) => {
     const docente = docentes.find(d => d.id === id);
     const cargoUpper = String(docente?.cargo || "").toUpperCase();
-    if (cargoUpper.includes("ASISTENCIA") || cargoUpper.includes("APOYO") || cargoUpper.includes("ADMINISTRATIVO") || cargoUpper === "RESPONSABLE") {
+    // Solo excluir APOYO puro. Administrativos y Responsables SÍ cuentan en la plantilla.
+    if (cargoUpper === "APOYO" || cargoUpper === "PERSONAL_DE_ASISTENCIA" || cargoUpper === "ASISTENCIA") {
       return sum;
     }
     return sum + Number(h || 0);
@@ -1547,9 +1568,12 @@ export default function WizardConfiguracion({
                             {uacsEspecificas.map((uac, uacIdx) => {
                               const docenteActualId = getDocenteAsignado(g.id, uac);
                               const docenteActualObj = docentes.find((d) => d.id === docenteActualId);
-                              const hrsConsumidasDocenteActual = docenteActualId ? getHorasConsumidasDocente(docenteActualId) : 0;
+                              // Excluir la celda actual al calcular horas del docente asignado para no mostrar falso exceso
+                              const hrsConsumidasDocenteActual = docenteActualId ? getHorasConsumidasDocente(docenteActualId, g.id, uac.id) : 0;
                               const hrsMaxDocenteActual = docenteActualId ? (horasDocentes[docenteActualId] !== undefined ? horasDocentes[docenteActualId] : (docenteActualObj?.cargo === "DOCENTE" ? 20 : 0)) : 0;
-                              const esDocenteExcedido = docenteActualId && hrsConsumidasDocenteActual > hrsMaxDocenteActual;
+                              // El docente excede si sus horas incluyendo esta celda superan el máximo
+                              const hrsConDocenteConEsta = hrsConsumidasDocenteActual + (uac.horasSemanales || 3);
+                              const esDocenteExcedido = docenteActualId && hrsConDocenteConEsta > hrsMaxDocenteActual;
 
                               return (
                                 <tr key={uac.id || uacIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
