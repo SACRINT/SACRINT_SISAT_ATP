@@ -61,6 +61,17 @@ export async function POST(req: NextRequest) {
       };
     });
 
+    const mensajesAnteriores = await prisma.horarioChatMensaje.findMany({
+      where: { horarioId },
+      orderBy: { createdAt: "desc" },
+      take: 10
+    });
+    // Voltear para que estén en orden cronológico
+    const historialConversacion = mensajesAnteriores.reverse().map(m => ({
+      role: m.role,
+      content: m.content
+    }));
+
     // 2. Procesar comando con Gemini AI Assistant (incluyendo validación matemática de factibilidad)
     const respuestaIA = await procesarComandoIA(
       mensaje,
@@ -71,7 +82,8 @@ export async function POST(req: NextRequest) {
         grupos: grupos.map(g => ({ id: g.id, nombre: g.nombre })),
         docentes: docentesConHoras,
         materias: materias.map(m => ({ id: m.id, nombre: m.uacName })),
-        celdasActuales: horario.celdas
+        celdasActuales: horario.celdas,
+        historialConversacion
       },
       escuelaId
     );
@@ -140,7 +152,7 @@ export async function POST(req: NextRequest) {
 
     if (respuestaIA.acciones && respuestaIA.acciones.length > 0) {
       for (const accion of respuestaIA.acciones) {
-        if (accion.tipo === "REGENERAR_CON_RESTRICCIONES" && accion.bloqueosDocentes) {
+        if (accion.tipo === "REGENERAR_CON_RESTRICCIONES") {
           const celdasFijasExistentes = horario.celdas
             .filter((c) => c.esBloqueado)
             .map((c) => ({
@@ -152,9 +164,12 @@ export async function POST(req: NextRequest) {
               aulaId: c.aulaId || undefined
             }));
 
+          const restriccionMaxHrsDia = accion.restriccionDistribucion === "MAX_1_HR_DIA" ? 1 : 2;
+
           const resultadoSolver = resolverHorario({
             diasLectivos: config?.diasLectivos || 5,
             horasPorDia: config?.horasPorDia || 6,
+            restriccionMaxHrsDia,
             grupos: grupos.map(g => ({ id: g.id, nombre: g.nombre, semestre: g.semestre })),
             docentes: docentes.map(d => ({ id: d.id, nombreCompleto: `${d.nombre} ${d.apellidoPaterno}`.trim() })),
             aulas: [],
@@ -167,7 +182,7 @@ export async function POST(req: NextRequest) {
               requiereAulaEspecial: c.requiereAulaEspecial
             })),
             celdasFijas: celdasFijasExistentes,
-            restriccionesDocentes: accion.bloqueosDocentes
+            restriccionesDocentes: accion.bloqueosDocentes || []
           });
 
           if (resultadoSolver.celdas && resultadoSolver.celdas.length > 0) {

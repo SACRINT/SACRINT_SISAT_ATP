@@ -751,7 +751,14 @@ export default function WizardConfiguracion({
   // Métricas simples del Plantel (no dependen de getUACsIndividualesGrupo)
   const totalGrupos = grupos.length;
   const horasRequeridasPlantel = totalGrupos * 30; // 30 hrs por grupo
-  const totalHorasPlantillaDocente = Object.values(horasDocentes).reduce((sum, h) => sum + Number(h || 0), 0);
+  const totalHorasPlantillaDocente = Object.entries(horasDocentes).reduce((sum, [id, h]) => {
+    const docente = docentes.find(d => d.id === id);
+    const cargoUpper = String(docente?.cargo || "").toUpperCase();
+    if (cargoUpper.includes("ASISTENCIA") || cargoUpper.includes("APOYO") || cargoUpper.includes("ADMINISTRATIVO") || cargoUpper === "RESPONSABLE") {
+      return sum;
+    }
+    return sum + Number(h || 0);
+  }, 0);
   // totalHorasAsignadasMatriz se calcula más abajo, después de definir getUACsIndividualesGrupo
 
   // Obtener UACs individuales para cada grupo con Abreviaturas destacadas

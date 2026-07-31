@@ -3,6 +3,7 @@ import { callGemini } from "@/lib/gemini";
 export interface AccionHorario {
   tipo: "REGENERAR_CON_RESTRICCIONES" | "MOVER_CELDA" | "FIJAR_CELDA";
   bloqueosDocentes?: { docenteId: string; diasIndisponibles?: number[] }[];
+  restriccionDistribucion?: "MAX_1_HR_DIA";
   grupoId?: string;
   docenteId?: string;
   diaOrigen?: number;
@@ -28,11 +29,16 @@ export async function procesarComandoIA(
     docentes: { id: string; nombreCompleto: string; horasAsignadas: number }[];
     materias: { id: string; nombre: string }[];
     celdasActuales: any[];
+    historialConversacion?: { role: string; content: string }[];
   },
   escuelaId?: string
 ): Promise<RespuestaIAHorario> {
   const systemInstruction = `Eres el Asistente Inteligente de Horarios Escolares para SISAT-ATP (SEP Puebla).
 Tu tarea es analizar en lenguaje natural los comandos de directores, VALIDAR LA FACTIBILIDAD MATEMÁTICA de sus peticiones y ejecutar la reorganización óptima mediante el Solver de Restricciones.
+
+IMPORTANTE SOBRE LA MEMORIA CONVERSACIONAL:
+- Si el usuario te da una nueva instrucción, DEBES acumularla con las instrucciones anteriores del historial.
+- Si te pidió darle el lunes libre a un docente en el mensaje 1, y en el mensaje 2 te pide el martes libre a otro docente, en tu respuesta DEBES INCLUIR LAS RESTRICCIONES DE AMBOS. Si no lo haces, destruirás el trabajo previo.
 
 REGLA DE VALIDACIÓN MATEMÁTICA DE DÍAS LIBRES (CRÍTICO):
 1. Si un director pide otorgar un día libre a un docente (ej: "darle el miércoles libre a X"):
@@ -40,19 +46,20 @@ REGLA DE VALIDACIÓN MATEMÁTICA DE DÍAS LIBRES (CRÍTICO):
    - Capacidad máxima de horas en 4 días = 4 × horasPorDia (ej: 4 × 6 = 24 horas).
    - Compara las 'horasAsignadas' del docente con la capacidad máxima:
      * Si horasAsignadas > capacidadMáxima (ej: 25 hrs > 24 hrs): ES MATEMÁTICAMENTE IMPOSIBLE otorgar el día entero libre.
-     * En este caso DEBES responder con "factible": false, "acciones": [] y explicar claramente al director: "Estimado Director, no es matemáticamente posible otorgarle el día libre completo al docente X porque cuenta con 25 horas asignadas y en 4 días de trabajo (a 6 hrs por día) solo se pueden cubrir máximo 24 horas. El docente debe asistir al menos 1 hora el 5º día."
+     * En este caso DEBES responder con "factible": false, "acciones": [] y explicar claramente al director.
 
-2. Si la petición ES FACTIBLE (ej: docente con 20 hrs solicita día libre, y 20 hrs <= 24 hrs):
-   - Genera la acción "REGENERAR_CON_RESTRICCIONES" incluyendo el 'docenteId' y los 'diasIndisponibles' (1: Lunes, 2: Martes, 3: Miércoles, 4: Jueves, 5: Viernes).
+2. Si piden distribuir asignaturas "equitativamente" o "1 hora por día":
+   - Agrega a la acción la propiedad "restriccionDistribucion": "MAX_1_HR_DIA".
 
 FORMATO DE RESPUESTA OBLIGATORIO (JSON ESTRICTO):
 {
-  "explicacion": "Explicación amable y profesional sobre la factibilidad y las acciones aplicadas",
+  "explicacion": "Explicación amable y profesional sobre la factibilidad y las acciones aplicadas, mencionando que conservas los cambios previos",
   "factible": true | false,
   "advertencia": "Advertencia en caso de colisión o nulo",
   "acciones": [
     {
       "tipo": "REGENERAR_CON_RESTRICCIONES",
+      "restriccionDistribucion": "MAX_1_HR_DIA",
       "bloqueosDocentes": [
         {
           "docenteId": "ID_DEL_DOCENTE",
@@ -63,17 +70,21 @@ FORMATO DE RESPUESTA OBLIGATORIO (JSON ESTRICTO):
   ]
 }`;
 
+  const historialPrompt = contextoHorario.historialConversacion && contextoHorario.historialConversacion.length > 0 
+    ? `\nHISTORIAL DE LA CONVERSACIÓN (¡Conserva y acumula estas peticiones si son restricciones!):\n${contextoHorario.historialConversacion.map(m => `${m.role === 'user' ? 'DIRECTOR' : 'ASISTENTE'}: ${m.content}`).join('\n')}`
+    : "";
+
   const prompt = `
 CONTEXTO DE LA ESCUELA:
 Escuela: ${contextoHorario.nombreEscuela}
 Jornada: ${contextoHorario.horasPorDia} Horas/Día × ${contextoHorario.diasLectivos} Días = ${contextoHorario.horasPorDia * contextoHorario.diasLectivos} hrs semanales máximas por grupo.
 Grupos: ${JSON.stringify(contextoHorario.grupos)}
-Docentes con Horas Asignadas: ${JSON.stringify(contextoHorario.docentes)}
+Docentes con Horas Asignadas: ${JSON.stringify(contextoHorario.docentes)}${historialPrompt}
 
-INSTRUCCIÓN DEL DIRECTOR:
+NUEVA INSTRUCCIÓN DEL DIRECTOR:
 "${mensajeUsuario}"
 
-Analiza la factibilidad matemática y responde exclusivamente en JSON.`;
+Analiza la factibilidad matemática, ACUMULA las peticiones previas con la nueva y responde exclusivamente en JSON.`;
 
   try {
     const rawResponse = await callGemini(

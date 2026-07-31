@@ -50,6 +50,7 @@ export interface RestriccionDocenteInput {
 export interface SolverParams {
   diasLectivos: number;   // Def 5
   horasPorDia: number;    // Def 6 o 7
+  restriccionMaxHrsDia?: number; // Def 2 (o 1 si se pide distribución equitativa estricta)
   grupos: GrupoInput[];
   docentes: DocenteInput[];
   aulas: AulaInput[];
@@ -206,8 +207,9 @@ export function resolverHorario(params: SolverParams): SolverResult {
       const keyMat = `${unidad.grupoId}_${unidad.asignaturaId}_${dia}`;
       const cuantasHoy = conteoMateriaDia.get(keyMat) || 0;
       
-      // Regla suave de Pasada 1: Máximo 2 horas de la misma materia por día
-      if (cuantasHoy >= 2) continue;
+      // Regla suave de Pasada 1: Máximo 2 horas de la misma materia por día (o lo configurado)
+      const limitePasada1 = params.restriccionMaxHrsDia ?? 2;
+      if (cuantasHoy >= limitePasada1) continue;
 
       for (let periodo = 1; periodo <= horasPorDia; periodo++) {
         const keyDoc = `${dia}_${periodo}_${unidad.docenteId}`;
@@ -260,6 +262,9 @@ export function resolverHorario(params: SolverParams): SolverResult {
 
       const keyMat = `${unidad.grupoId}_${unidad.asignaturaId}_${dia}`;
       const cuantasHoy = conteoMateriaDia.get(keyMat) || 0;
+
+      // Si se exige explícitamente 1hr/día, NO relajar en Pasada 2. De lo contrario, permitir relajación.
+      if (params.restriccionMaxHrsDia === 1 && cuantasHoy >= 1) continue;
 
       for (let periodo = 1; periodo <= horasPorDia; periodo++) {
         const keyDoc = `${dia}_${periodo}_${unidad.docenteId}`;

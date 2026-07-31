@@ -668,11 +668,25 @@ export default function EditorHorarios({
 
             {/* Input del Chat */}
             <form onSubmit={handleEnviarMensajeIA} style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
-              <input
-                type="text"
+              <textarea
+                rows={1}
                 placeholder="Escribe una instrucción para la IA..."
                 value={mensajeChat}
-                onChange={(e) => setMensajeChat(e.target.value)}
+                onChange={(e) => {
+                  setMensajeChat(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (mensajeChat.trim() !== '') {
+                      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                      handleEnviarMensajeIA(fakeEvent);
+                      e.currentTarget.style.height = 'auto';
+                    }
+                  }
+                }}
                 style={{
                   flex: 1,
                   background: "#1e293b",
@@ -680,7 +694,11 @@ export default function EditorHorarios({
                   borderRadius: "8px",
                   padding: "0.5rem 0.75rem",
                   color: "white",
-                  fontSize: "0.8125rem"
+                  fontSize: "0.8125rem",
+                  resize: "none",
+                  overflowY: "auto",
+                  minHeight: "36px",
+                  maxHeight: "150px"
                 }}
               />
               <button
