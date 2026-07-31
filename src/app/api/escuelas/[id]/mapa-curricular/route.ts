@@ -75,8 +75,8 @@ export async function DELETE(
   try {
     const session = await auth();
     const user = session?.user as any;
-    if (!session?.user || user?.role !== "admin") {
-      return NextResponse.json({ error: "No autorizado (Solo Administradores)" }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const params = await context.params;
@@ -86,7 +86,20 @@ export async function DELETE(
       return NextResponse.json({ error: "escuelaId es requerido" }, { status: 400 });
     }
 
-    // Reiniciar bandera y limpiar grupos
+    if (user.role === "director") {
+      // Verificar pertenencia del director
+      const esc = await prisma.escuela.findUnique({
+        where: { id: escuelaId },
+        select: { id: true, cct: true }
+      });
+      if (!esc || (esc.cct !== user.cct && esc.id !== user.escuelaId)) {
+        return NextResponse.json({ error: "No autorizado para reiniciar esta escuela" }, { status: 403 });
+      }
+    } else if (user.role !== "admin") {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    // Reiniciar bandera y limpiar grupos y cargas docentes
     await prisma.escuela.update({
       where: { id: escuelaId },
       data: {
@@ -98,9 +111,14 @@ export async function DELETE(
       where: { escuelaId },
     });
 
+    await prisma.horarioCargaDocente.deleteMany({
+      where: { escuelaId },
+    });
+
     return NextResponse.json({ success: true, message: "Mapa curricular reiniciado correctamente" });
   } catch (err: any) {
     console.error("Error al reiniciar mapa curricular:", err);
     return NextResponse.json({ error: "Error al reiniciar el mapa curricular" }, { status: 500 });
   }
 }
+

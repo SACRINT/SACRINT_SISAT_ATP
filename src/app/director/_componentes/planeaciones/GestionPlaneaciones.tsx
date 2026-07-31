@@ -265,9 +265,37 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
         }
     };
 
+    const handleReiniciarMapaCurricular = async () => {
+        if (!confirm(`¿Estás SEGURO de reiniciar completamente el Mapa Curricular del plantel ${escuelaData.nombre}? Se eliminarán los grupos y configuraciones previas para poder llenar el formulario desde cero.`)) return;
+
+        setCargando(true);
+        try {
+            const res = await fetch(`/api/escuelas/${escuelaData.id}/mapa-curricular`, {
+                method: "DELETE"
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast.success("Mapa curricular reiniciado exitosamente.");
+                try {
+                    localStorage.removeItem(`horarios_wizard_v4_${escuelaData.id}`);
+                } catch (e) {}
+                setEscuelaData(prev => ({ ...prev, mapaCurricularCompletado: false }));
+                setMapaModalAbierto(true);
+                cargarDatos();
+            } else {
+                toast.error(data.error || "Error al reiniciar el mapa curricular.");
+            }
+        } catch (err: any) {
+            toast.error("Error de conexión al servidor.");
+        } finally {
+            setCargando(false);
+        }
+    };
+
     useEffect(() => {
         cargarDatos();
     }, [escuelaData.id]);
+
 
     // Generar la lista dinámica de grupos según la estructura de la escuela (ej. 2-1-1)
     const gruposGenerados = useMemo(() => {
@@ -472,6 +500,18 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                             >
                                 <Sparkles size={14} color="#60a5fa" /> ⚙️ Configurar Mapa Curricular
                             </button>
+                            {!readOnly && (
+                                <button
+                                    type="button"
+                                    className="btn btn-sm"
+                                    onClick={handleReiniciarMapaCurricular}
+                                    style={{ background: "rgba(239,68,68,0.25)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.4)", fontWeight: 700, fontSize: "0.75rem", borderRadius: "20px", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                                    title="Reinicia la configuración del mapa curricular del plantel"
+                                >
+                                    <RefreshCw size={13} /> 🔄 Reiniciar Configuración
+                                </button>
+                            )}
+
                         </div>
                         <h2 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.5rem", fontWeight: 800 }}>
                             Revisión y Control de Planeaciones Didácticas IA

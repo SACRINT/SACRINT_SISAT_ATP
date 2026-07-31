@@ -129,12 +129,16 @@ export default function HorariosClient({ escuela }: Props) {
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/escuelas/${escuela.id}/mapa-curricular`, {
+      const res = await fetch(`/api/escuelas/${escuelaState?.id || escuela.id}/mapa-curricular`, {
         method: "DELETE"
       });
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success("Configuración del mapa curricular reiniciada correctamente.");
+        try {
+          localStorage.removeItem(`horarios_wizard_v4_${escuelaState?.id || escuela.id}`);
+        } catch (err) {}
+        setEscuelaState((prev: any) => ({ ...prev, mapaCurricularCompletado: false }));
         setMapaModalAbierto(true);
         cargarDatos();
       } else {
