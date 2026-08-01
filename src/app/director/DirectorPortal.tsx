@@ -91,18 +91,18 @@ export default function DirectorPortal({
     const [tieneApiKey, setTieneApiKey] = useState(false);
     const [tieneMapaCurricular, setTieneMapaCurricular] = useState(false);
 
-    // Verificar si tiene API Key y Mapa Curricular configurados cuando entra a Herramientas IA
+    // Verificar API Key y Mapa Curricular al montar si hay módulos IA activos
     useEffect(() => {
-        if ((tab === "configuracion" || tab === "planeaciones" || isHorariosActive) && !iaConfigChecked) {
+        if (!iaConfigChecked && (isHorariosActive || isPlaneacionesActive)) {
             const verificarConfigIA = async () => {
                 try {
-                    // Verificar API Key
+                    // Verificar API Key real (hasKey = tiene clave guardada en BD)
                     const resApi = await fetch("/api/director/configuracion-api");
                     if (resApi.ok) {
                         const dataApi = await resApi.json();
                         setTieneApiKey(!!dataApi.hasKey);
                     }
-                    // Verificar Mapa Curricular
+                    // Verificar Mapa Curricular completado
                     const resHorarios = await fetch(`/api/horarios/configuracion?escuelaId=${escuela.id}`);
                     if (resHorarios.ok) {
                         const dataHorarios = await resHorarios.json();
@@ -113,7 +113,8 @@ export default function DirectorPortal({
             };
             verificarConfigIA();
         }
-    }, [tab, escuela.id, iaConfigChecked, isHorariosActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isHorariosActive, isPlaneacionesActive]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -369,15 +370,27 @@ export default function DirectorPortal({
                                 <span>🤖</span> Herramientas IA
                             </div>
 
-                            {/* Alerta si falta configuración */}
-                            {iaConfigChecked && (!tieneApiKey || !tieneMapaCurricular) && (
-                                <div style={{ margin: "0 0.5rem 0.5rem", padding: "0.5rem 0.6rem", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "8px", fontSize: "0.65rem", color: "#c2410c", fontWeight: 600, lineHeight: 1.4 }}>
-                                    ⚠️ {!tieneApiKey && !tieneMapaCurricular ? "Faltan: API Key y Mapa Curricular" : !tieneApiKey ? "Falta configurar tu API Key" : "Falta configurar el Mapa Curricular"}
+                            {/* Alerta si falta configuración — con enlace directo a Ajustes */}
+                            {iaConfigChecked && !tieneApiKey && (
+                                <button
+                                    onClick={() => navigate("configuracion")}
+                                    style={{ margin: "0 0.5rem 0.5rem", padding: "0.5rem 0.6rem", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "8px", fontSize: "0.65rem", color: "#c2410c", fontWeight: 600, lineHeight: 1.4, cursor: "pointer", width: "calc(100% - 1rem)", textAlign: "left" }}
+                                >
+                                    ⚠️ Falta configurar tu API Key — Haz clic aquí para configurarla
+                                </button>
+                            )}
+                            {iaConfigChecked && tieneApiKey && !tieneMapaCurricular && (
+                                <div style={{ margin: "0 0.5rem 0.5rem", padding: "0.5rem 0.6rem", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "0.65rem", color: "#1d4ed8", fontWeight: 600, lineHeight: 1.4 }}>
+                                    ℹ️ Falta configurar el Mapa Curricular del plantel
                                 </div>
                             )}
 
                             {isHorariosActive && (
-                                <a href="/director/horarios" className="sidebar-link" style={{ textDecoration: 'none' }}>
+                                <a
+                                    href="/director/horarios"
+                                    className="sidebar-link"
+                                    style={{ textDecoration: "none", opacity: 1 }}
+                                >
                                     <Calendar size={17} />
                                     <span>Generador Horarios IA</span>
                                     <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "white", fontSize: "0.6rem" }}>
@@ -386,7 +399,10 @@ export default function DirectorPortal({
                                 </a>
                             )}
                             {isPlaneacionesActive && (
-                                <button className={`sidebar-link ${tab === "planeaciones" ? "active" : ""}`} onClick={() => navigate("planeaciones")}>
+                                <button
+                                    className={`sidebar-link ${tab === "planeaciones" ? "active" : ""}`}
+                                    onClick={() => navigate("planeaciones")}
+                                >
                                     <ClipboardList size={17} />
                                     <span>Revisión Planeaciones IA</span>
                                     <span className="sidebar-badge" style={{ marginLeft: "auto", background: "linear-gradient(135deg, #7c3aed, #ec4899)", color: "white", fontSize: "0.6rem" }}>
@@ -403,6 +419,7 @@ export default function DirectorPortal({
                             </button>
                         </div>
                     )}
+
 
                     {/* Si ninguna herramienta IA está activa, mostrar solo Ajustes de API en sección Ajustes */}
                     {!isHorariosActive && !isPlaneacionesActive && (

@@ -11,65 +11,14 @@ import { evaluarPlaneacion, determinarTipoEvaluacion } from "@/lib/planeaciones-
 
 export const maxDuration = 60;
 
-// ── Verificación de requisitos previos ───────────────────────────────────────
+import { verificarRequisitosPlaneaciones } from "@/lib/ia-requisitos";
 
+/**
+ * Alias para compatibilidad interna con el resto del archivo.
+ * Usa la función centralizada que corrige el bug de tieneApiKey = true siempre.
+ */
 async function verificarRequisitos(escuelaId: string) {
-    const [config, escuela, entregaPaec] = await Promise.all([
-        prisma.planeacionesConfig.findUnique({ where: { id: "singleton" } }),
-        prisma.escuela.findUnique({ where: { id: escuelaId }, select: { geminiApiKey: true, permisos: true, esDePrueba: true } }),
-        // Buscar si la escuela tiene PAEC-PEC aprobado o entregado en cualquier ciclo
-        prisma.entrega.findFirst({
-            where: {
-                escuelaId,
-                estado: { in: ["APROBADO", "EN_REVISION", "REQUIERE_CORRECCION", "ENTREGADO_FISICO"] },
-                periodoEntrega: { programa: { nombre: { contains: "PAEC", mode: "insensitive" } } },
-            },
-            select: { id: true, estado: true, periodoEntrega: { select: { programa: { select: { nombre: true } } } } },
-        }),
-    ]);
-
-    const modoSinRestricciones = config ? config.modoSinRestricciones : true;
-
-    // ── Si es escuela de prueba O está en Modo Sin Restricciones ──
-    if (escuela?.esDePrueba || modoSinRestricciones) {
-        return {
-            moduloHabilitado: true,
-            tieneApiKey: true,
-            tienePaecPec: true,
-            requierePaecPec: false,
-            requiereApiKey: false,
-            puedeUsar: true,
-            motivoBloqueo: null,
-            entregaPaecPec: entregaPaec,
-            modoSinRestricciones: true,
-        };
-    }
-
-    const moduloHabilitado = (escuela?.permisos as any)?.planeacionesDesactivado !== true;
-    const globalActivo = config ? config.activoGlobal : true;
-    const requierePaecPec = config ? config.requierePaecPec : true;
-    const requiereApiKey = config ? config.requiereApiKey : true;
-
-    const tieneApiKey = !!(escuela?.geminiApiKey) || true; // también usa el pool del sistema
-    const tienePaecPec = !!entregaPaec;
-
-    return {
-        moduloHabilitado: moduloHabilitado && globalActivo,
-        tieneApiKey,
-        tienePaecPec,
-        requierePaecPec,
-        requiereApiKey,
-        puedeUsar: moduloHabilitado && globalActivo && (!requiereApiKey || tieneApiKey) && (!requierePaecPec || tienePaecPec),
-        motivoBloqueo: !moduloHabilitado || !globalActivo
-            ? "El módulo de Revisión de Planeaciones no está habilitado actualmente por la supervisión."
-            : requierePaecPec && !tienePaecPec
-                ? "Para usar la Revisión de Planeaciones Didácticas es obligatorio haber subido el PAEC-PEC de tu escuela. Dirígete al apartado de entregas y sube tu PAEC-PEC primero."
-                : requiereApiKey && !tieneApiKey
-                    ? "Se requiere una API Key activa de Gemini para usar este módulo. Configúrala en la sección de ajustes de tu perfil."
-                    : null,
-        entregaPaecPec: entregaPaec,
-        modoSinRestricciones: false,
-    };
+  return verificarRequisitosPlaneaciones(escuelaId);
 }
 
 async function obtenerEscuelaId(user: any): Promise<string | null> {
