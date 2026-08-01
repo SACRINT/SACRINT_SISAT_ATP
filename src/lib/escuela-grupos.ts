@@ -355,9 +355,9 @@ export function obtenerAsignaturasParaGrupo(
       { nombre: "Taller de Ciencias II", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Lengua y Comunicación III", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Inglés III", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
-      { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[0].name}`, tipo: "LABORAL", horas: 3 },
-      { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[1].name}`, tipo: "LABORAL", horas: 3 },
+      { nombre: socioNombre, tipo: "SOCIOEMOCIONAL", horas: 2 },
+      { nombre: labInfo[0].name, tipo: "LABORAL", horas: 3 },
+      { nombre: labInfo[1].name, tipo: "LABORAL", horas: 3 },
     ];
   }
 
@@ -371,9 +371,9 @@ export function obtenerAsignaturasParaGrupo(
       { nombre: "Lengua y Comunicación IV", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Inglés IV", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Ciencias Sociales III", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
-      { nombre: `Formación Laboral (${capacitacionNombre}): Submódulo 3`, tipo: "LABORAL", horas: 3 },
-      { nombre: `Formación Laboral (${capacitacionNombre}): Submódulo 4`, tipo: "LABORAL", horas: 3 },
+      { nombre: socioNombre, tipo: "SOCIOEMOCIONAL", horas: 2 },
+      { nombre: "Submódulo 3", tipo: "LABORAL", horas: 3 },
+      { nombre: "Submódulo 4", tipo: "LABORAL", horas: 3 },
     ];
   }
 
@@ -392,13 +392,13 @@ export function obtenerAsignaturasParaGrupo(
       { nombre: "La Energía en los Procesos de la Vida Diaria", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Conciencia Histórica II. México Durante el Expansionismo Capitalista", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Taller de Habilidades del Pensamiento", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
-      { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[0].name}`, tipo: "LABORAL", horas: 3 },
-      { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[1].name}`, tipo: "LABORAL", horas: 3 },
-      { nombre: `Optativa FFE 1: ${ffe1}`, tipo: "EXTENDIDO", horas: 3 },
-      { nombre: `Optativa FFE 2: ${ffe2}`, tipo: "EXTENDIDO", horas: 3 },
-      { nombre: `Optativa FFE 3: ${ffe3}`, tipo: "EXTENDIDO", horas: 3 },
-      { nombre: `Optativa FFE 4: ${ffe4}`, tipo: "EXTENDIDO", horas: 3 },
+      { nombre: socioNombre, tipo: "SOCIOEMOCIONAL", horas: 2 },
+      { nombre: labInfo[0].name, tipo: "LABORAL", horas: 3 },
+      { nombre: labInfo[1].name, tipo: "LABORAL", horas: 3 },
+      { nombre: ffe1, tipo: "EXTENDIDO", horas: 3 },
+      { nombre: ffe2, tipo: "EXTENDIDO", horas: 3 },
+      { nombre: ffe3, tipo: "EXTENDIDO", horas: 3 },
+      { nombre: ffe4, tipo: "EXTENDIDO", horas: 3 },
     ];
   }
 
@@ -414,12 +414,12 @@ export function obtenerAsignaturasParaGrupo(
     { nombre: "Lengua y Comunicación VI", tipo: "FUNDAMENTAL", horas: 3 },
     { nombre: "Inglés VI", tipo: "FUNDAMENTAL", horas: 3 },
     { nombre: "Ética y Sociedad", tipo: "FUNDAMENTAL", horas: 3 },
-    { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
-    { nombre: `Formación Laboral (${capacitacionNombre}): Submódulo 3`, tipo: "LABORAL", horas: 3 },
-    { nombre: `Formación Laboral (${capacitacionNombre}): Submódulo 4`, tipo: "LABORAL", horas: 3 },
-    { nombre: `Optativa FFE 1: ${ffe1}`, tipo: "EXTENDIDO", horas: 3 },
-    { nombre: `Optativa FFE 2: ${ffe2}`, tipo: "EXTENDIDO", horas: 3 },
-    { nombre: `Optativa FFE 3: ${ffe3}`, tipo: "EXTENDIDO", horas: 3 },
-    { nombre: `Optativa FFE 4: ${ffe4}`, tipo: "EXTENDIDO", horas: 4 },
+    { nombre: socioNombre, tipo: "SOCIOEMOCIONAL", horas: 2 },
+    { nombre: "Submódulo 3", tipo: "LABORAL", horas: 3 },
+    { nombre: "Submódulo 4", tipo: "LABORAL", horas: 3 },
+    { nombre: ffe1, tipo: "EXTENDIDO", horas: 3 },
+    { nombre: ffe2, tipo: "EXTENDIDO", horas: 3 },
+    { nombre: ffe3, tipo: "EXTENDIDO", horas: 3 },
+    { nombre: ffe4, tipo: "EXTENDIDO", horas: 4 },
   ];
 }
