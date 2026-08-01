@@ -57,6 +57,7 @@ export interface SolverParams {
   cargas: CargaInput[];
   celdasFijas?: CeldaFijaInput[];
   restriccionesDocentes?: RestriccionDocenteInput[];
+  slotsLibresBloqueados?: string[] | Set<string>;
 }
 
 export interface CeldaResultado {
@@ -91,7 +92,8 @@ export function resolverHorario(params: SolverParams): SolverResult {
     aulas,
     cargas,
     celdasFijas = [],
-    restriccionesDocentes = []
+    restriccionesDocentes = [],
+    slotsLibresBloqueados
   } = params;
 
   const celdasResultado: CeldaResultado[] = [];
@@ -105,7 +107,44 @@ export function resolverHorario(params: SolverParams): SolverResult {
   // Key: `${dia}_${periodo}_${aulaId}` -> boolean
   const ocupacionAula = new Set<string>();
 
-  // 0. Bloquear días o periodos indisponibles para docentes por restricciones
+  // ID sets para clasificación rápida de slotsLibresBloqueados
+  const docIds = new Set(docentes.map(d => d.id));
+  const grpIds = new Set(grupos.map(g => g.id));
+  const aulaIds = new Set(aulas.map(a => a.id));
+
+  // 0. Bloquear slots libres bloqueados explícitamente fijados por el director (por docente, grupo o aula)
+  if (slotsLibresBloqueados) {
+    const slotsArr = Array.isArray(slotsLibresBloqueados)
+      ? slotsLibresBloqueados
+      : Array.from(slotsLibresBloqueados);
+
+    for (const key of slotsArr) {
+      const parts = key.split("_");
+      if (parts.length >= 3) {
+        const dia = parts[0];
+        const periodo = parts[1];
+        const filtroId = parts.slice(2).join("_");
+
+        const slotKey = `${dia}_${periodo}_${filtroId}`;
+        if (docIds.has(filtroId)) {
+          ocupacionDocente.add(slotKey);
+        }
+        if (grpIds.has(filtroId)) {
+          ocupacionGrupo.add(slotKey);
+        }
+        if (aulaIds.has(filtroId)) {
+          ocupacionAula.add(slotKey);
+        }
+        // Si no coincide con ninguno explícito, registrarlo en docente y grupo por seguridad
+        if (!docIds.has(filtroId) && !grpIds.has(filtroId) && !aulaIds.has(filtroId)) {
+          ocupacionDocente.add(slotKey);
+          ocupacionGrupo.add(slotKey);
+        }
+      }
+    }
+  }
+
+  // 0.1. Bloquear días o periodos indisponibles para docentes por restricciones del chat IA
   for (const restr of restriccionesDocentes) {
     if (restr.diasIndisponibles) {
       for (const dia of restr.diasIndisponibles) {

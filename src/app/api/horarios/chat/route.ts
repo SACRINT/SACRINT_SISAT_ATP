@@ -40,6 +40,12 @@ export async function POST(req: NextRequest) {
 
     const escuelaId = horario.escuelaId;
 
+    // Extraer slotsLibresBloqueados desde scoreMetricas del horario
+    const scoreMetricas = (horario.scoreMetricas as any) || {};
+    const slotsLibresBloqueados: string[] = Array.isArray(scoreMetricas.slotsLibresBloqueados)
+      ? scoreMetricas.slotsLibresBloqueados
+      : [];
+
     // Cargar datos de la escuela y cargas actuales
     const config = await prisma.horarioConfiguracion.findUnique({ where: { escuelaId } });
     const grupos = await prisma.horarioGrupo.findMany({ where: { escuelaId } });
@@ -83,6 +89,7 @@ export async function POST(req: NextRequest) {
         docentes: docentesConHoras,
         materias: materias.map(m => ({ id: m.id, nombre: m.uacName })),
         celdasActuales: horario.celdas,
+        slotsLibresBloqueados,
         historialConversacion
       },
       escuelaId
@@ -182,7 +189,8 @@ export async function POST(req: NextRequest) {
               requiereAulaEspecial: c.requiereAulaEspecial
             })),
             celdasFijas: celdasFijasExistentes,
-            restriccionesDocentes: accion.bloqueosDocentes || []
+            restriccionesDocentes: accion.bloqueosDocentes || [],
+            slotsLibresBloqueados
           });
 
           if (resultadoSolver.celdas && resultadoSolver.celdas.length > 0) {

@@ -29,12 +29,18 @@ export async function procesarComandoIA(
     docentes: { id: string; nombreCompleto: string; horasAsignadas: number }[];
     materias: { id: string; nombre: string }[];
     celdasActuales: any[];
+    slotsLibresBloqueados?: string[];
     historialConversacion?: { role: string; content: string }[];
   },
   escuelaId?: string
 ): Promise<RespuestaIAHorario> {
   const systemInstruction = `Eres el Asistente Inteligente de Horarios Escolares para SISAT-ATP (SEP Puebla).
 Tu tarea es analizar en lenguaje natural los comandos de directores, VALIDAR LA FACTIBILIDAD MATEMÁTICA de sus peticiones y ejecutar la reorganización óptima mediante el Solver de Restricciones.
+
+REGLAS DE BLOQUEO DE HORAS LIBRES (ESTRICTO E INVIOLABLE):
+- El director ha fijado previamente horas libres y bloqueos con candado (🔒).
+- Las horas libres bloqueadas NUNCA deben asignarse a ninguna materia.
+- Si el usuario dice "respeta las horas libres bloqueadas", debes confirmarle que el Solver las mantendrá estrictamente protegidas como intocables.
 
 IMPORTANTE SOBRE LA MEMORIA CONVERSACIONAL:
 - Si el usuario te da una nueva instrucción, DEBES acumularla con las instrucciones anteriores del historial.
@@ -53,7 +59,7 @@ REGLA DE VALIDACIÓN MATEMÁTICA DE DÍAS LIBRES (CRÍTICO):
 
 FORMATO DE RESPUESTA OBLIGATORIO (JSON ESTRICTO):
 {
-  "explicacion": "Explicación amable y profesional sobre la factibilidad y las acciones aplicadas, mencionando que conservas los cambios previos",
+  "explicacion": "Explicación amable y profesional sobre la factibilidad y las acciones aplicadas, mencionando que conservas los cambios previos y los bloqueos de horas libres",
   "factible": true | false,
   "advertencia": "Advertencia en caso de colisión o nulo",
   "acciones": [
@@ -74,12 +80,16 @@ FORMATO DE RESPUESTA OBLIGATORIO (JSON ESTRICTO):
     ? `\nHISTORIAL DE LA CONVERSACIÓN (¡Conserva y acumula estas peticiones si son restricciones!):\n${contextoHorario.historialConversacion.map(m => `${m.role === 'user' ? 'DIRECTOR' : 'ASISTENTE'}: ${m.content}`).join('\n')}`
     : "";
 
+  const slotsLibresInfo = contextoHorario.slotsLibresBloqueados && contextoHorario.slotsLibresBloqueados.length > 0
+    ? `\nSLOTS LIBRES BLOQUEADOS POR EL DIRECTOR (INTOCABLES): ${JSON.stringify(contextoHorario.slotsLibresBloqueados)}`
+    : "";
+
   const prompt = `
 CONTEXTO DE LA ESCUELA:
 Escuela: ${contextoHorario.nombreEscuela}
 Jornada: ${contextoHorario.horasPorDia} Horas/Día × ${contextoHorario.diasLectivos} Días = ${contextoHorario.horasPorDia * contextoHorario.diasLectivos} hrs semanales máximas por grupo.
 Grupos: ${JSON.stringify(contextoHorario.grupos)}
-Docentes con Horas Asignadas: ${JSON.stringify(contextoHorario.docentes)}${historialPrompt}
+Docentes con Horas Asignadas: ${JSON.stringify(contextoHorario.docentes)}${slotsLibresInfo}${historialPrompt}
 
 NUEVA INSTRUCCIÓN DEL DIRECTOR:
 "${mensajeUsuario}"

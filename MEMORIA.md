@@ -814,7 +814,23 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 ---
 
-*Versión actualizada: Agosto 2026 — v4.5*
+### 9.14 Integración de Horas Libres Bloqueadas en Chat IA y Desbloqueo de Drag-and-Drop (v4.6)
+
+**Regla de Integración del Chat IA con Restricciones Físicas**:
+
+1. **Paso Directo de `slotsLibresBloqueados` al Solver de Restricciones**:
+   - El endpoint `/api/horarios/chat` (`src/app/api/horarios/chat/route.ts`) extrae `slotsLibresBloqueados` desde `horario.scoreMetricas` y lo envía tanto a `procesarComandoIA` en `ai-assistant.ts` como al motor `resolverHorario` en `solver.ts`.
+   - `resolverHorario` bloquea automáticamente en `ocupacionDocente`, `ocupacionGrupo` y `ocupacionAula` las coordenadas `(día, periodo, id)` pertenecientes a `slotsLibresBloqueados`.
+   - **Garantía Total**: Al solicitar al Chat IA redistribuciones ("distribuir equitativamente", "1 hora al día", etc.), la IA **NUNCA** programará clases en las horas libres que el director bloqueó (ej. lunes de Samuel, viernes de Imelda, martes de Víctor).
+
+2. **Desbloqueo de Movimiento Manual (Drag-and-Drop)**:
+   - Dado que el Solver ya no coloca materias dentro de franjas bloqueadas como horas libres, el motor de reordenamiento inteligente (`ripple-solver.ts`) no detectará choques entre la posición inicial de las clases y `slotsLibresBloqueados`.
+   - El usuario recupera el control manual 100% interactivo mediante Drag-and-Drop sin bloqueos espurios.
+
+---
+
+*Versión actualizada: Agosto 2026 — v4.6*
+
 
 
 

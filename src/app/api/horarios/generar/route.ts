@@ -61,6 +61,16 @@ export async function POST(req: NextRequest) {
     });
     // ================================
 
+    // Obtener horaro previo para conservar slotsLibresBloqueados si existían
+    const horarioExistente = await prisma.horarioGenerado.findFirst({
+      where: { escuelaId },
+      orderBy: { createdAt: "desc" }
+    });
+    const existingScore = (horarioExistente?.scoreMetricas as any) || {};
+    const slotsLibresBloqueados: string[] = Array.isArray(existingScore.slotsLibresBloqueados)
+      ? existingScore.slotsLibresBloqueados
+      : [];
+
     // 3. Ejecutar Solver Estricto
     const resultadoSolver = resolverHorario({
       diasLectivos: config?.diasLectivos || 5,
@@ -76,7 +86,8 @@ export async function POST(req: NextRequest) {
         horasSemanales: c.horasSemanales,
         requiereAulaEspecial: c.requiereAulaEspecial,
         aulaEspecialId: c.aulaEspecialId || undefined
-      }))
+      })),
+      slotsLibresBloqueados
     });
 
     console.log(`[generar] Solver generó: ${resultadoSolver.celdas.length} celdas. Conflictos: ${resultadoSolver.conflictos.length}`);
@@ -88,7 +99,10 @@ export async function POST(req: NextRequest) {
         cicloEscolarId: cicloActivo.id,
         nombreVersion: nombreVersion || `Borrador ${new Date().toLocaleDateString("es-MX")}`,
         estado: "BORRADOR",
-        scoreMetricas: resultadoSolver.metricas,
+        scoreMetricas: {
+          ...resultadoSolver.metricas,
+          slotsLibresBloqueados
+        },
         celdas: {
           create: resultadoSolver.celdas.map(c => ({
             diaSemana: c.diaSemana,
