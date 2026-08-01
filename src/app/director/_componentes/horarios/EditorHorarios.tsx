@@ -65,6 +65,51 @@ export default function EditorHorarios({
   const [docenteSeleccionadoId, setDocenteSeleccionadoId] = useState<string>(docentes[0]?.id || "");
   const [aulaSeleccionadaId, setAulaSeleccionadaId] = useState<string>(aulas[0]?.id || "");
 
+  // Grupos filtrados según periodo semestral (A = 1°,3°,5° | B = 2°,4°,6°)
+  const gruposVisibles = React.useMemo(() => {
+    const semestresDeseados = periodoFiltro === "A" ? [1, 3, 5] : [2, 4, 6];
+    const filtrados = grupos.filter((g) => semestresDeseados.includes(g.semestre));
+    if (filtrados.length > 0) return filtrados;
+
+    // Si la DB solo guardó los grupos del semestre A, derivamos los grupos del semestre B (2°, 4°, 6°)
+    if (periodoFiltro === "B") {
+      const impares = grupos.filter((g) => [1, 3, 5].includes(g.semestre));
+      if (impares.length > 0) {
+        return impares.map((g) => {
+          const semB = g.semestre === 1 ? 2 : g.semestre === 3 ? 4 : 6;
+          const letra = g.nombre.split(" ")[1] || "A";
+          return {
+            ...g,
+            id: `virtual_${semB}_${letra}`,
+            semestre: semB,
+            nombre: `${semB}° ${letra}`
+          };
+        });
+      }
+    }
+
+    return grupos;
+  }, [grupos, periodoFiltro]);
+
+  // Sincronizar grupoSeleccionadoId cuando cambian los gruposVisibles
+  React.useEffect(() => {
+    if (gruposVisibles.length > 0) {
+      const yaExiste = gruposVisibles.some((g) => g.id === grupoSeleccionadoId);
+      if (!yaExiste) {
+        setGrupoSeleccionadoId(gruposVisibles[0].id);
+      }
+    }
+  }, [gruposVisibles]);
+
+  // Verificar si hay horario generado para la vista/grupo seleccionado
+  const tieneHorarioGeneradoParaGrupo = React.useMemo(() => {
+    if (!horario?.celdas || horario.celdas.length === 0) return false;
+    if (vistaTab === "GRUPO") {
+      return horario.celdas.some((c: any) => c.grupoId === grupoSeleccionadoId || c.grupo?.id === grupoSeleccionadoId);
+    }
+    return true;
+  }, [horario, vistaTab, grupoSeleccionadoId]);
+
   // Modal de Exportación Avanzada
   const [mostrarModalExportar, setMostrarModalExportar] = useState<boolean>(false);
 
@@ -561,7 +606,16 @@ export default function EditorHorarios({
                 onClick={() => {
                   setPeriodoFiltro("B");
                   const gB = grupos.find((g) => [2, 4, 6].includes(g.semestre));
-                  if (gB) setGrupoSeleccionadoId(gB.id);
+                  if (gB) {
+                    setGrupoSeleccionadoId(gB.id);
+                  } else {
+                    const impares = grupos.filter((g) => [1, 3, 5].includes(g.semestre));
+                    if (impares.length > 0) {
+                      const primerSemB = impares[0].semestre === 1 ? 2 : impares[0].semestre === 3 ? 4 : 6;
+                      const letra = impares[0].nombre.split(" ")[1] || "A";
+                      setGrupoSeleccionadoId(`virtual_${primerSemB}_${letra}`);
+                    }
+                  }
                 }}
                 style={{
                   padding: "0.3rem 0.65rem",
@@ -583,10 +637,7 @@ export default function EditorHorarios({
               onChange={(e) => setGrupoSeleccionadoId(e.target.value)}
               style={{ padding: "0.4rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", background: "white", fontSize: "0.875rem", fontWeight: 700, color: "var(--text)" }}
             >
-              {(grupos.filter((g) => (periodoFiltro === "A" ? [1, 3, 5].includes(g.semestre) : [2, 4, 6].includes(g.semestre))).length > 0
-                ? grupos.filter((g) => (periodoFiltro === "A" ? [1, 3, 5].includes(g.semestre) : [2, 4, 6].includes(g.semestre)))
-                : grupos
-              ).map((g) => (
+              {gruposVisibles.map((g) => (
                 <option key={g.id} value={g.id}>Grupo {g.nombre}</option>
               ))}
             </select>
@@ -622,117 +673,136 @@ export default function EditorHorarios({
       <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start", width: "100%" }}>
         {/* PANEL IZQUIERDO: Cuadrícula interactiva completa */}
         <div style={{ flex: 1, minWidth: 0, background: "white", borderRadius: "16px", border: "1px solid var(--border)", padding: "1.25rem", boxShadow: "var(--shadow)" }}>
-          <table className="horario-grid-table" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-            <thead>
-              <tr>
-                <th style={{ width: "12%", padding: "0.6rem 0.5rem" }}>Periodo</th>
-                {diasLectivos.map((d, i) => (
-                  <th key={i} style={{ width: "17.6%", padding: "0.6rem 0.5rem" }}>{d}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {periodos.map((p) => (
-                <tr key={p}>
-                  <td style={{ background: "var(--bg)", textAlign: "center", fontWeight: 800, fontSize: "0.8125rem", color: "var(--text)", border: "1px solid #cbd5e1" }}>
-                    Hora {p}
-                  </td>
-                  {[1, 2, 3, 4, 5].map((dia) => {
-                    const celda = getCeldaInfo(dia, p);
-                    const uacNombre = getNombreAsignaturaCelda(celda);
-                    const estiloColor = getEstiloAsignatura(uacNombre);
-
-                    return (
-                      <td
-                        key={dia}
-                        onDragOver={handleDragOver}
-                        onDrop={() => handleDropOnSlot(dia, p)}
-                        style={{ border: "1px solid #cbd5e1", height: "75px", padding: "0.3rem", verticalAlign: "top", background: celda ? "transparent" : "#fafafa" }}
-                      >
-                        {celda ? (
-                          <div
-                            draggable={!celda.esBloqueado}
-                            onDragStart={(e) => handleDragStart(e, celda)}
-                            className="horario-celda-box"
-                            style={{
-                              height: "100%",
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "space-between",
-                              background: estiloColor.bg,
-                              border: `1px solid ${celda.esBloqueado ? "#d97706" : estiloColor.border}`,
-                              padding: "0.35rem",
-                              borderRadius: "6px",
-                              cursor: celda.esBloqueado ? "not-allowed" : "grab",
-                              boxShadow: celda.esBloqueado ? "0 0 0 1px #d97706" : "none"
-                            }}
-                          >
-                            <div>
-                              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.2rem" }}>
-                                <p style={{ fontSize: "0.75rem", fontWeight: 900, color: estiloColor.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }} title={uacNombre}>
-                                  {uacNombre}
-                                </p>
-                                <button
-                                  onClick={(e) => toggleBloquearCelda(celda, e)}
-                                  title={celda.esBloqueado ? "Celda bloqueada (Haga clic para desbloquear)" : "Fijar celda para que la IA no la mueva"}
-                                  style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
-                                >
-                                  {celda.esBloqueado ? (
-                                    <Lock style={{ width: "13px", height: "13px", color: "#d97706" }} />
-                                  ) : (
-                                    <Unlock style={{ width: "13px", height: "13px", color: "#94a3b8" }} />
-                                  )}
-                                </button>
-                              </div>
-                              <p style={{ fontSize: "0.7rem", fontWeight: 800, color: "#1e293b", margin: "0.15rem 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {vistaTab === "DOCENTE" ? `Grupo ${celda.grupo?.nombre || ""}` : getNombreDocenteCelda(celda)}
-                              </p>
-                              {vistaTab === "SUMARIO" && (
-                                <p style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", margin: 0 }}>
-                                  Grupo {celda.grupo?.nombre}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ) : (() => {
-                          // Determinar filtroId según la vista activa
-                          const filtroId =
-                            vistaTab === "GRUPO" ? grupoSeleccionadoId :
-                            vistaTab === "DOCENTE" ? docenteSeleccionadoId :
-                            vistaTab === "AULA" ? aulaSeleccionadaId :
-                            grupoSeleccionadoId;
-                          const estaBloqueado = esSlotLibreBloqueado(dia, p, filtroId);
-                          return (
-                            <div
-                              className="horario-celda-libre"
-                              style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontStyle: "italic", position: "relative",
-                                color: estaBloqueado ? "#d97706" : "#94a3b8",
-                                background: estaBloqueado ? "#fffbeb" : "transparent",
-                                border: estaBloqueado ? "1px dashed #d97706" : "none",
-                                borderRadius: estaBloqueado ? "6px" : "0",
-                                cursor: "pointer"
-                              }}
-                              onClick={() => toggleBloquearSlotLibre(dia, p, filtroId)}
-                              title={estaBloqueado ? "Hora libre bloqueada \u2014 clic para desbloquear" : "Clic para bloquear esta hora libre (la IA no colocará clases aquí)"}
-                            >
-                              {estaBloqueado ? (
-                                <>
-                                  <Lock style={{ width: "13px", height: "13px", marginRight: "4px", color: "#d97706" }} />
-                                  <span>Bloqueado</span>
-                                </>
-                              ) : (
-                                <span>Libre</span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </td>
-                    );
-                  })}
+          {!tieneHorarioGeneradoParaGrupo && vistaTab === "GRUPO" ? (
+            <div style={{ padding: "3.5rem 2rem", textAlign: "center", background: "#f8fafc", borderRadius: "16px", border: "2px dashed #cbd5e1", margin: "1rem 0" }}>
+              <Grid style={{ width: "48px", height: "48px", color: "#94a3b8", margin: "0 auto 1rem" }} />
+              <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.5rem" }}>
+                Horario del Semestre {periodoFiltro} ({periodoFiltro === "A" ? "1.º, 3.º, 5.º" : "2.º, 4.º, 6.º"}) aún no generado
+              </h3>
+              <p style={{ fontSize: "0.875rem", color: "#64748b", maxWidth: "520px", margin: "0 auto 1.5rem", lineHeight: 1.5 }}>
+                El horario que visualizas en la plataforma fue generado para el <strong>Semestre {periodoFiltro === "A" ? "B" : "A"}</strong>. Para generar el horario oficial de los grupos del Semestre {periodoFiltro}, diríjase al Asistente de Configuración.
+              </p>
+              <button
+                type="button"
+                onClick={onVolverAWizard}
+                style={{ background: "#2563eb", color: "#ffffff", padding: "0.75rem 1.5rem", borderRadius: "10px", fontWeight: 700, fontSize: "0.875rem", border: "none", cursor: "pointer" }}
+              >
+                ⚙️ Ir al Wizard de Configuración (Semestre {periodoFiltro})
+              </button>
+            </div>
+          ) : (
+            <table className="horario-grid-table" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+              <thead>
+                <tr>
+                  <th style={{ width: "12%", padding: "0.6rem 0.5rem" }}>Periodo</th>
+                  {diasLectivos.map((d, i) => (
+                    <th key={i} style={{ width: "17.6%", padding: "0.6rem 0.5rem" }}>{d}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {periodos.map((p) => (
+                  <tr key={p}>
+                    <td style={{ background: "var(--bg)", textAlign: "center", fontWeight: 800, fontSize: "0.8125rem", color: "var(--text)", border: "1px solid #cbd5e1" }}>
+                      Hora {p}
+                    </td>
+                    {[1, 2, 3, 4, 5].map((dia) => {
+                      const celda = getCeldaInfo(dia, p);
+                      const uacNombre = getNombreAsignaturaCelda(celda);
+                      const estiloColor = getEstiloAsignatura(uacNombre);
+
+                      return (
+                        <td
+                          key={dia}
+                          onDragOver={handleDragOver}
+                          onDrop={() => handleDropOnSlot(dia, p)}
+                          style={{ border: "1px solid #cbd5e1", height: "75px", padding: "0.3rem", verticalAlign: "top", background: celda ? "transparent" : "#fafafa" }}
+                        >
+                          {celda ? (
+                            <div
+                              draggable={!celda.esBloqueado}
+                              onDragStart={(e) => handleDragStart(e, celda)}
+                              className="horario-celda-box"
+                              style={{
+                                height: "100%",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "space-between",
+                                background: estiloColor.bg,
+                                border: `1px solid ${celda.esBloqueado ? "#d97706" : estiloColor.border}`,
+                                padding: "0.35rem",
+                                borderRadius: "6px",
+                                cursor: celda.esBloqueado ? "not-allowed" : "grab",
+                                boxShadow: celda.esBloqueado ? "0 0 0 1px #d97706" : "none"
+                              }}
+                            >
+                              <div>
+                                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.2rem" }}>
+                                  <p style={{ fontSize: "0.75rem", fontWeight: 900, color: estiloColor.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }} title={uacNombre}>
+                                    {uacNombre}
+                                  </p>
+                                  <button
+                                    onClick={(e) => toggleBloquearCelda(celda, e)}
+                                    title={celda.esBloqueado ? "Celda bloqueada (Haga clic para desbloquear)" : "Fijar celda para que la IA no la mueva"}
+                                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px" }}
+                                  >
+                                    {celda.esBloqueado ? (
+                                      <Lock style={{ width: "13px", height: "13px", color: "#d97706" }} />
+                                    ) : (
+                                      <Unlock style={{ width: "13px", height: "13px", color: "#94a3b8" }} />
+                                    )}
+                                  </button>
+                                </div>
+                                <p style={{ fontSize: "0.7rem", fontWeight: 800, color: "#1e293b", margin: "0.15rem 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {vistaTab === "DOCENTE" ? `Grupo ${celda.grupo?.nombre || ""}` : getNombreDocenteCelda(celda)}
+                                </p>
+                                {vistaTab === "SUMARIO" && (
+                                  <p style={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", margin: 0 }}>
+                                    Grupo {celda.grupo?.nombre}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (() => {
+                            // Determinar filtroId según la vista activa
+                            const filtroId =
+                              vistaTab === "GRUPO" ? grupoSeleccionadoId :
+                              vistaTab === "DOCENTE" ? docenteSeleccionadoId :
+                              vistaTab === "AULA" ? aulaSeleccionadaId :
+                              grupoSeleccionadoId;
+                            const estaBloqueado = esSlotLibreBloqueado(dia, p, filtroId);
+                            return (
+                              <div
+                                className="horario-celda-libre"
+                                style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontStyle: "italic", position: "relative",
+                                  color: estaBloqueado ? "#d97706" : "#94a3b8",
+                                  background: estaBloqueado ? "#fffbeb" : "transparent",
+                                  border: estaBloqueado ? "1px dashed #d97706" : "none",
+                                  borderRadius: estaBloqueado ? "6px" : "0",
+                                  cursor: "pointer"
+                                }}
+                                onClick={() => toggleBloquearSlotLibre(dia, p, filtroId)}
+                                title={estaBloqueado ? "Hora libre bloqueada \u2014 clic para desbloquear" : "Clic para bloquear esta hora libre (la IA no colocará clases aquí)"}
+                              >
+                                {estaBloqueado ? (
+                                  <>
+                                    <Lock style={{ width: "13px", height: "13px", marginRight: "4px", color: "#d97706" }} />
+                                    <span>Bloqueado</span>
+                                  </>
+                                ) : (
+                                  <span>Libre</span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* PANEL DERECHO: Chat IA Asistente Deslizable */}

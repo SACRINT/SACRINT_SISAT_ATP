@@ -863,9 +863,11 @@ export default function WizardConfiguracion({
     }
   };
 
-  // Métricas simples del Plantel (no dependen de getUACsIndividualesGrupo)
-  const totalGrupos = grupos.length;
-  const horasRequeridasPlantel = totalGrupos * 30; // 30 hrs por grupo
+  // Métricas del Plantel para el Período Semestral Activo (A = 1°,3°,5° | B = 2°,4°,6°)
+  const semestresActivosPeriodo = periodoActivo === "A" ? [1, 3, 5] : [2, 4, 6];
+  const gruposDelPeriodo = grupos.filter((g) => semestresActivosPeriodo.includes(g.semestre));
+  const totalGrupos = gruposDelPeriodo.length;
+  const horasRequeridasPlantel = totalGrupos * 30; // 30 hrs por grupo del periodo activo (ej: 90 hrs para 3 grupos)
   const totalHorasPlantillaDocente = Object.entries(horasDocentes).reduce((sum, [id, h]) => {
     const docente = docentes.find(d => d.id === id);
     const cargoUpper = String(docente?.cargo || "").toUpperCase();
@@ -1027,7 +1029,7 @@ export default function WizardConfiguracion({
   // NO usar cargas.reduce() porque puede haber datos fantasma de sesiones previas en el estado
   const totalHorasAsignadasMatriz = (() => {
     let total = 0;
-    grupos.forEach((g) => {
+    gruposDelPeriodo.forEach((g) => {
       const uacs = getUACsIndividualesGrupo(g);
       uacs.forEach((uac) => {
         const docenteId = getDocenteAsignado(g.id, uac);
