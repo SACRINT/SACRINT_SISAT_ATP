@@ -9,61 +9,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const user = session.user as any;
     const body = await req.json();
-    const { horarioId, celdas } = body;
+    const { horarioId, celdas, escuelaId: reqEscuelaId } = body;
+    const escuelaId = reqEscuelaId || user.escuelaId || user.id;
 
     if (!horarioId || !Array.isArray(celdas)) {
-      return NextResponse.json(
-        { error: "horarioId y arreglo de celdas son requeridos" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "horarioId y celdas son requeridos." }, { status: 400 });
     }
 
-    // 1. Verificar existencia del horario
+    // Verificar que el horario existe y pertenece a la escuela
     const horarioExistente = await prisma.horarioGenerado.findUnique({
       where: { id: horarioId }
     });
 
     if (!horarioExistente) {
-      return NextResponse.json({ error: "Horario no encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "No se encontró el horario especificado." }, { status: 404 });
     }
 
-    // 2. Transacción en base de datos: eliminar celdas previas y re-insertar actualizadas
+    // Actualizar celdas en la base de datos dentro de una transacción
     await prisma.$transaction(async (tx) => {
-      // Eliminar celdas anteriores
-      await tx.horarioCelda.deleteMany({
-        where: { horarioId }
-      });
-
-      // Insertar celdas actualizadas (sanitizando campos nulos/undefined)
-      if (celdas.length > 0) {
-        await tx.horarioCelda.createMany({
-          data: celdas.map((c: any) => ({
-            horarioId,
-            diaSemana: Number(c.diaSemana),
-            periodo: Number(c.periodo),
-            grupoId: String(c.grupoId),
-            docenteId: String(c.docenteId),
-            asignaturaId: String(c.asignaturaId),
-            aulaId: c.aulaId || null,
-            cargaId: c.cargaId || null,
-            esBloqueado: Boolean(c.esBloqueado)
-          }))
-        });
+      for (const celda of celdas) {
+        if (celda.id && !celda.id.startsWith("temp_")) {
+          await tx.horarioCelda.update({
+            where: { id: celda.id },
+            data: {
+              diaSemana: Number(celda.diaSemana),
+              periodo: Number(celda.periodo),
+              esBloqueado: Boolean(celda.esBloqueado)
+            }
+          });
+        }
       }
 
-      // Actualizar fecha de modificación del horario generado
+      // Marcar el horario como actualizado
       await tx.horarioGenerado.update({
         where: { id: horarioId },
         data: { updatedAt: new Date() }
       });
     });
 
-    // 3. Cargar el horario completo con relaciones actualizadas
+    // Retornar el horario completo actualizado con sus relaciones
     const horarioActualizado = await prisma.horarioGenerado.findUnique({
       where: { id: horarioId },
       include: {
-        escuela: true,
         celdas: {
           include: {
             grupo: true,
@@ -80,13 +69,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      horario: horarioActualizado,
-      message: "Horario guardado correctamente en la base de datos"
+      message: "Horario guardado permanentemente en la base de datos",
+      horario: horarioActualizado
     });
   } catch (error: any) {
-    console.error("Error al guardar horario manual:", error);
+    console.error("[api/horarios/guardar] Error en POST:", error);
     return NextResponse.json(
-      { error: error?.message || "Error interno al guardar los cambios del horario" },
+      { error: "Error al guardar los cambios del horario en la base de datos." },
       { status: 500 }
     );
   }

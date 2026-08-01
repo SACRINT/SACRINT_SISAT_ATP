@@ -775,19 +775,26 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 ---
 
-### 9.12 Prevención Estricta de Colisiones en Horarios y Persistencia Manual en BD (v4.4)
+*Versión actualizada: Agosto 2026 — v4.3*
 
-**Principios y Soluciones de Edición de Horarios**:
+---
 
-1. **Detección Estricta de Colisiones (Prohibición de Desaparición de Clases)**:
-   - **Causa Raíz previa**: Al arrastrar/intercambiar clases en `EditorHorarios.tsx`, el sistema permitía intercambios sin validar si el docente de destino o la materia del grupo tenían colisiones en el otro extremo del intercambio. Si dos clases compartían la misma celda `(diaSemana, periodo, grupoId)` o `(diaSemana, periodo, docenteId)`, `horario.celdas.find(...)` retornaba únicamente la primera clase y la segunda quedaba oculta, haciendo parecer que las clases "desaparecían" del horario personal del docente.
-   - **Solución Implementada**: Se reprogramó `handleDropOnSlot` en [EditorHorarios.tsx](file:///c:/NotebookLM/sisat-atp/src/app/director/_componentes/horarios/EditorHorarios.tsx) con validación bidireccional estricta de colisiones (docente y grupo para ambas casillas involucradas). Si se detecta cualquier empalme, el movimiento se **Cancela Inmediatamente** mostrando un mensaje explicativo `⚠️ MOVIMIENTO CANCELADO: El docente X ya tiene clase en el Grupo Y`. Ninguna materia se borra ni desaparece.
+### 9.12 Motor de Reordenamiento Inteligente (Ripple Solver) y Persistencia de Cambios en Horarios (v4.4)
 
-2. **Persistencia Manual en Base de Datos y Botón "💾 Guardar Cambios"**:
-   - **Causa Raíz previa**: Los movimientos por arrastrar y soltar modificaban únicamente el estado de React en memoria (`useState`). Al cambiar de paso en el Stepper (ej. del Paso 4 al Paso 3) o refrescar la página, los cambios se perdían.
-   - **Solución Implementada**:
-     - Se creó el endpoint `POST /api/horarios/guardar` en [route.ts](file:///c:/NotebookLM/sisat-atp/src/app/api/horarios/guardar/route.ts) que ejecuta una transacción en PostgreSQL para sobrescribir las celdas actualizadas del horario generado.
-     - Se integró el botón **"💾 Guardar Cambios"** en la barra superior de acciones de [EditorHorarios.tsx](file:///c:/NotebookLM/sisat-atp/src/app/director/_componentes/horarios/EditorHorarios.tsx). Cuando hay modificaciones sin guardar, el botón resalta en color verde con un indicador de cambios pendientes y deshabilita el botón con indicador visual de carga durante el guardado.
+**Principios y Reglas de Edición de Horarios**:
+
+1. **Garantía Anti-Desaparición y Reacomodo Inteligente en Cascada (Ripple Solver)**:
+   - **Regla Estricta**: **NINGUNA CLASE O ASIGNATURA DEBE DESAPARECER O PERDERSE JAMÁS AL MOVERLA EN LA MATRIZ DE HORARIOS**. El número total de celdas en el horario es un invariante estricto.
+   - **Motor Ripple Solver (`src/lib/horarios/ripple-solver.ts`)**: Al arrastrar una clase a una nueva casilla, el sistema ejecuta un algoritmo de reordenamiento inteligente por backtracking con heurística MRV.
+   - Si la casilla destino está libre y sin empalmes, la reubica de forma directa.
+   - Si la casilla destino o el horario del docente genera colisiones, el motor busca un reacomodo en cascada (ripple) de las demás asignaturas no fijadas del grupo y de otros grupos.
+   - Si el movimiento es imposible de resolver sin colisiones ni violar celdas bloqueadas (🔒), el sistema **RECHAZA** el movimiento, mantiene el horario 100% intacto y notifica al usuario: *"⚠️ No es posible realizar este movimiento porque generaría una colisión de horarios imposible de resolver sin afectar clases fijadas."*
+
+2. **Persistencia de Edición de Horarios ("💾 Guardar Cambios")**:
+   - **Endpoint de Persistencia**: `POST /api/horarios/guardar` (`src/app/api/horarios/guardar/route.ts`).
+   - Se agregó el botón **"💾 Guardar Cambios"** en la barra superior del visor de horarios (`EditorHorarios.tsx`). Al realizar cualquier ajuste manual o bloqueo con candado 🔒, el botón se activa (`(*) Cambios sin guardar`).
+   - Al hacer clic en el botón, el sistema guarda permanentemente las nuevas posiciones `(diaSemana, periodo, esBloqueado)` de las celdas en la base de datos PostgreSQL en una transacción atómica.
+   - Al recargar la página, cambiar entre el paso 3 y paso 4 o alternar de pestaña, los ajustes manuales del usuario se mantienen intactos y persistentes.
 
 ---
 

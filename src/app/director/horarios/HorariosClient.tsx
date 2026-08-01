@@ -396,7 +396,7 @@ export default function HorariosClient({ escuela }: Props) {
           aulas={aulas}
           cargas={cargas}
           onVolverAWizard={handleVolverAWizard}
-          onHorarioActualizado={(nuevoH) => setHorario(nuevoH)}
+          onGuardarHorario={(h) => setHorario(h)}
         />
       )}
 

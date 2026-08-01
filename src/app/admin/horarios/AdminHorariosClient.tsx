@@ -413,7 +413,7 @@ export default function AdminHorariosClient({ escuelas }: Props) {
           aulas={aulas}
           cargas={cargas}
           onVolverAWizard={handleVolverAWizard}
-          onHorarioActualizado={(nuevoH) => setHorario(nuevoH)}
+          onGuardarHorario={(h) => setHorario(h)}
           esAdmin={true}
         />
       )}

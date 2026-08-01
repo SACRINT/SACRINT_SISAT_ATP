@@ -19,10 +19,12 @@ import {
   Download,
   Check,
   Trash2,
-  Save
+  Save,
+  RefreshCw
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { exportarHorarioExcel, exportarHorarioPDF, exportarHorarioDOCX, exportarSumarioExcel, getHashColor } from "@/lib/horarios/exportador";
+import { reacomodarHorarioConRipple } from "@/lib/horarios/ripple-solver";
 
 interface Props {
   escuela: any;
@@ -32,7 +34,7 @@ interface Props {
   aulas: any[];
   cargas: any[];
   onVolverAWizard: () => void;
-  onHorarioActualizado?: (nuevoHorario: any) => void;
+  onGuardarHorario?: (horarioGuardado: any) => void;
   esAdmin?: boolean; // Si es true, muestra info técnica del modelo de IA
 }
 
@@ -57,54 +59,12 @@ export default function EditorHorarios({
   aulas,
   cargas,
   onVolverAWizard,
-  onHorarioActualizado,
+  onGuardarHorario,
   esAdmin = false
 }: Props) {
   const [horario, setHorario] = useState<any>(horarioInicial);
-  const [guardando, setGuardando] = useState<boolean>(false);
   const [hayCambiosSinGuardar, setHayCambiosSinGuardar] = useState<boolean>(false);
-
-  // Sincronizar estado si horarioInicial cambia desde la API
-  React.useEffect(() => {
-    if (horarioInicial) {
-      setHorario(horarioInicial);
-      setHayCambiosSinGuardar(false);
-    }
-  }, [horarioInicial]);
-
-  // Guardar cambios manuales en la base de datos PostgreSQL
-  const handleGuardarHorario = async () => {
-    if (!horario?.id || !horario?.celdas) return;
-
-    setGuardando(true);
-    const toastId = toast.loading("💾 Guardando cambios de horario en la base de datos...");
-    try {
-      const res = await fetch("/api/horarios/guardar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          horarioId: horario.id,
-          celdas: horario.celdas
-        })
-      });
-
-      const data = await res.json();
-      if (data.success && data.horario) {
-        setHorario(data.horario);
-        setHayCambiosSinGuardar(false);
-        if (onHorarioActualizado) {
-          onHorarioActualizado(data.horario);
-        }
-        toast.success("✅ ¡Horario guardado exitosamente en la base de datos!", { id: toastId });
-      } else {
-        toast.error(data.error || "No se pudieron guardar los cambios", { id: toastId });
-      }
-    } catch (e) {
-      toast.error("Error de conexión al guardar el horario", { id: toastId });
-    } finally {
-      setGuardando(false);
-    }
-  };
+  const [guardandoCambios, setGuardandoCambios] = useState<boolean>(false);
   const [vistaTab, setVistaTab] = useState<"GRUPO" | "DOCENTE" | "AULA" | "SUMARIO">("GRUPO");
   const [periodoFiltro, setPeriodoFiltro] = useState<"A" | "B">("A");
   
@@ -264,7 +224,42 @@ export default function EditorHorarios({
     });
 
     setHorario({ ...horario, celdas: celdasActualizadas });
+    setHayCambiosSinGuardar(true);
     toast.success(estadoNuevo ? "🔒 Celda fijada (la IA no la moverá)" : "Celda desbloqueada para la IA");
+  };
+
+  // Guardar Cambios del Horario en la Base de Datos
+  const handleGuardarHorarioDB = async () => {
+    if (!horario?.id || guardandoCambios) return;
+    setGuardandoCambios(true);
+
+    try {
+      const res = await fetch("/api/horarios/guardar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          horarioId: horario.id,
+          celdas: horario.celdas,
+          escuelaId: escuela?.id
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setHorario(data.horario);
+        setHayCambiosSinGuardar(false);
+        if (onGuardarHorario) {
+          onGuardarHorario(data.horario);
+        }
+        toast.success("💾 ¡Horario guardado permanentemente en la base de datos!");
+      } else {
+        toast.error(data.error || "Error al guardar el horario");
+      }
+    } catch (err) {
+      toast.error("Error de conexión al guardar el horario");
+    } finally {
+      setGuardandoCambios(false);
+    }
   };
 
   // Chat IA — Enviar mensaje
@@ -293,6 +288,7 @@ export default function EditorHorarios({
       if (data.success) {
         setHorario(data.horario);
         setChatHistorial(data.horario.mensajesChat || []);
+        setHayCambiosSinGuardar(false);
         toast.success("Ajuste procesado por el Asistente IA");
       } else {
         toast.error(data.error || "Error al procesar mensaje");
@@ -329,7 +325,7 @@ export default function EditorHorarios({
     }
   };
 
-  // Lógica Drag and Drop con Detección de Empalmes
+  // Lógica Drag and Drop Inteligente con Reacomodo Ripple en Cascada
   const handleDragStart = (e: React.DragEvent, celda: any) => {
     if (celda.esBloqueado) {
       e.preventDefault();
@@ -347,131 +343,39 @@ export default function EditorHorarios({
   const handleDropOnSlot = (targetDia: number, targetPeriodo: number) => {
     if (!draggedCelda) return;
 
-    const origDia = draggedCelda.diaSemana;
-    const origPeriodo = draggedCelda.periodo;
-
-    // Si se soltó en la misma posición, cancelar
-    if (origDia === targetDia && origPeriodo === targetPeriodo) {
+    if (draggedCelda.diaSemana === targetDia && draggedCelda.periodo === targetPeriodo) {
       setDraggedCelda(null);
       return;
     }
 
-    // 1. Verificar si la celda arrastrada está bloqueada
-    if (draggedCelda.esBloqueado) {
-      toast.error("🔒 Esta casilla está fijada. Desbloquéela antes de moverla.");
+    // Ejecutar el motor de Reordenamiento Inteligente (Ripple Solver)
+    const resultado = reacomodarHorarioConRipple(
+      horario.celdas,
+      draggedCelda,
+      targetDia,
+      targetPeriodo,
+      numHorasPorDia,
+      slotsLibresBloqueados
+    );
+
+    if (!resultado.success) {
+      toast.error(resultado.error || "No se pudo realizar el movimiento.");
       setDraggedCelda(null);
       return;
     }
 
-    // 2. Determinar la celda que ocupa la casilla de destino (targetCelda) según la vista activa
-    let targetCelda: any = null;
-    if (vistaTab === "GRUPO") {
-      targetCelda = horario.celdas.find(
-        (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.grupoId === grupoSeleccionadoId
-      );
-    } else if (vistaTab === "DOCENTE") {
-      targetCelda = horario.celdas.find(
-        (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.docenteId === docenteSeleccionadoId
-      );
-    } else if (vistaTab === "AULA") {
-      targetCelda = horario.celdas.find(
-        (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.aulaId === aulaSeleccionadaId
+    setHorario({ ...horario, celdas: resultado.celdasActualizadas });
+    setHayCambiosSinGuardar(true);
+
+    if (resultado.numMovidas && resultado.numMovidas > 1) {
+      toast.success(
+        `✅ Materia reubicada exitosamente. Se reacomodaron ${resultado.numMovidas - 1} clase(s) automáticamente sin empalmes.`,
+        { duration: 4000 }
       );
     } else {
-      targetCelda = horario.celdas.find(
-        (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.grupoId === draggedCelda.grupoId
-      );
+      toast.success(`Materia reubicada a ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo}`);
     }
 
-    // 3. Impedir movimiento si la casilla de destino contiene una clase fijada con candado
-    if (targetCelda?.esBloqueado) {
-      toast.error("🔒 La casilla de destino tiene una clase fijada con candado.");
-      setDraggedCelda(null);
-      return;
-    }
-
-    // 4. DETECCIÓN DE COLISIONES ESTRICTA (Impide la desaparición de clases)
-    // a) Verificar colisión del docente de draggedCelda en el horario destino (targetDia, targetPeriodo)
-    const empalmeDocenteDragged = horario.celdas.find(
-      (c: any) => c.diaSemana === targetDia &&
-                  c.periodo === targetPeriodo &&
-                  c.docenteId === draggedCelda.docenteId &&
-                  c.id !== draggedCelda.id &&
-                  c.id !== targetCelda?.id
-    );
-
-    if (empalmeDocenteDragged) {
-      const docNom = getNombreDocenteCelda(draggedCelda);
-      const grpEmp = grupos.find(g => g.id === empalmeDocenteDragged.grupoId)?.nombre || empalmeDocenteDragged.grupoId;
-      toast.error(`⚠️ MOVIMIENTO CANCELADO: El docente ${docNom} ya tiene clase el ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo} en el Grupo ${grpEmp}.`);
-      setDraggedCelda(null);
-      return;
-    }
-
-    // b) Verificar colisión del grupo de draggedCelda en el horario destino (targetDia, targetPeriodo)
-    const empalmeGrupoDragged = horario.celdas.find(
-      (c: any) => c.diaSemana === targetDia &&
-                  c.periodo === targetPeriodo &&
-                  c.grupoId === draggedCelda.grupoId &&
-                  c.id !== draggedCelda.id &&
-                  c.id !== targetCelda?.id
-    );
-
-    if (empalmeGrupoDragged) {
-      const grpNom = grupos.find(g => g.id === draggedCelda.grupoId)?.nombre || draggedCelda.grupoId;
-      toast.error(`⚠️ MOVIMIENTO CANCELADO: El Grupo ${grpNom} ya tiene otra clase asignada el ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo}.`);
-      setDraggedCelda(null);
-      return;
-    }
-
-    // c) Si hay una clase en destino (intercambio), verificar colisiones de targetCelda en la casilla origen (origDia, origPeriodo)
-    if (targetCelda) {
-      const empalmeDocenteTarget = horario.celdas.find(
-        (c: any) => c.diaSemana === origDia &&
-                    c.periodo === origPeriodo &&
-                    c.docenteId === targetCelda.docenteId &&
-                    c.id !== targetCelda.id &&
-                    c.id !== draggedCelda.id
-      );
-
-      if (empalmeDocenteTarget) {
-        const docNom = getNombreDocenteCelda(targetCelda);
-        const grpEmp = grupos.find(g => g.id === empalmeDocenteTarget.grupoId)?.nombre || empalmeDocenteTarget.grupoId;
-        toast.error(`⚠️ MOVIMIENTO CANCELADO: Al intercambiar, el docente ${docNom} tendría un empalme el ${diasLectivos[origDia - 1]} Hora ${origPeriodo} en el Grupo ${grpEmp}.`);
-        setDraggedCelda(null);
-        return;
-      }
-
-      const empalmeGrupoTarget = horario.celdas.find(
-        (c: any) => c.diaSemana === origDia &&
-                    c.periodo === origPeriodo &&
-                    c.grupoId === targetCelda.grupoId &&
-                    c.id !== targetCelda.id &&
-                    c.id !== draggedCelda.id
-      );
-
-      if (empalmeGrupoTarget) {
-        const grpNom = grupos.find(g => g.id === targetCelda.grupoId)?.nombre || targetCelda.grupoId;
-        toast.error(`⚠️ MOVIMIENTO CANCELADO: El Grupo ${grpNom} tendría un empalme el ${diasLectivos[origDia - 1]} Hora ${origPeriodo}.`);
-        setDraggedCelda(null);
-        return;
-      }
-    }
-
-    // 5. APLICAR REUBICACIÓN O INTERCAMBIO LIMPIO POR ID ÚNICO
-    const celdasActualizadas = horario.celdas.map((c: any) => {
-      if (c.id === draggedCelda.id) {
-        return { ...c, diaSemana: targetDia, periodo: targetPeriodo };
-      }
-      if (targetCelda && c.id === targetCelda.id) {
-        return { ...c, diaSemana: origDia, periodo: origPeriodo };
-      }
-      return c;
-    });
-
-    setHorario({ ...horario, celdas: celdasActualizadas });
-    setHayCambiosSinGuardar(true);
-    toast.success(`✨ Asignatura reubicada a ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo}. Presione "💾 Guardar Cambios" para confirmar.`);
     setDraggedCelda(null);
   };
 
@@ -663,35 +567,8 @@ export default function EditorHorarios({
           </button>
         </div>
 
-        {/* Acciones de Guardado, Exportación & Configuración */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-          {/* BOTÓN DEFINITIVO: Guardar Cambios Manuales en la Base de Datos */}
-          <button
-            onClick={handleGuardarHorario}
-            disabled={guardando}
-            style={{
-              background: hayCambiosSinGuardar
-                ? "linear-gradient(135deg, #16a34a, #15803d)"
-                : "#f8fafc",
-              color: hayCambiosSinGuardar ? "#ffffff" : "#475569",
-              border: hayCambiosSinGuardar ? "1px solid #15803d" : "1px solid #cbd5e1",
-              padding: "0.45rem 0.95rem",
-              borderRadius: "8px",
-              fontWeight: 800,
-              fontSize: "0.8125rem",
-              cursor: guardando ? "wait" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              boxShadow: hayCambiosSinGuardar ? "0 2px 8px rgba(22, 163, 74, 0.3)" : "none",
-              transition: "all 0.2s"
-            }}
-            title={hayCambiosSinGuardar ? "Tiene cambios manuales sin guardar. Haga clic para guardar en la BD." : "Guardar horario actual"}
-          >
-            <Save style={{ width: "16px", height: "16px", animation: guardando ? "spin 1s linear infinite" : "none" }} />
-            {guardando ? "Guardando en BD..." : hayCambiosSinGuardar ? "💾 Guardar Cambios (Pendientes)" : "💾 Guardar Horario"}
-          </button>
-
+        {/* Acciones de Exportación & Configuración */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <button
             onClick={() => setMostrarChat(!mostrarChat)}
             style={{
@@ -717,6 +594,38 @@ export default function EditorHorarios({
             style={{ background: "var(--bg)", color: "var(--text)", padding: "0.4rem 0.85rem", fontSize: "0.8125rem", minHeight: "auto" }}
           >
             <Sliders style={{ width: "15px", height: "15px" }} /> Reconfigurar
+          </button>
+
+          {/* Botón Guardar Cambios en Base de Datos */}
+          <button
+            onClick={handleGuardarHorarioDB}
+            disabled={guardandoCambios || !hayCambiosSinGuardar}
+            style={{
+              background: hayCambiosSinGuardar ? "#16a34a" : "#f1f5f9",
+              color: hayCambiosSinGuardar ? "#ffffff" : "#94a3b8",
+              border: hayCambiosSinGuardar ? "1px solid #15803d" : "1px solid #cbd5e1",
+              padding: "0.5rem 1rem",
+              borderRadius: "8px",
+              fontWeight: 800,
+              fontSize: "0.8125rem",
+              cursor: guardandoCambios || !hayCambiosSinGuardar ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              boxShadow: hayCambiosSinGuardar ? "0 2px 8px rgba(22, 163, 74, 0.3)" : "none",
+              transition: "all 0.2s ease"
+            }}
+            title={hayCambiosSinGuardar ? "Haga clic para guardar los cambios permanentemente en la base de datos" : "Sin cambios pendientes por guardar"}
+          >
+            {guardandoCambios ? (
+              <>
+                <RefreshCw style={{ width: "15px", height: "15px", animation: "spin 1s linear infinite" }} /> Guardando...
+              </>
+            ) : (
+              <>
+                <Save style={{ width: "15px", height: "15px" }} /> Guardar Cambios {hayCambiosSinGuardar ? "(*)" : ""}
+              </>
+            )}
           </button>
 
           <button
