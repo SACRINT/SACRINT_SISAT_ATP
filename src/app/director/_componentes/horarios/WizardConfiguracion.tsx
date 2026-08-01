@@ -443,19 +443,31 @@ export default function WizardConfiguracion({
           try { ffeOpts = JSON.parse(ffeOpts); } catch { ffeOpts = null; }
         }
 
-        // Determinar Socioemocional automático mediante resolverSocioemocionalGrupo
-        const g3Socio = gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional
-          || (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional;
-        const g5Socio = gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional
-          || (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional;
+        // Determinar Socioemocional: Respetar selección guardada en BD/usuario primero si existe
+        const socioDbGuardado = grupoExistente?.ffeoSocioemocional || (gruposIniciales || []).find(
+          (g: any) => normalizarNombreGrupo(g.nombre) === nombreGrupo
+        )?.ffeoSocioemocional;
+
+        const g3Socio = (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional
+          || gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional;
+        const g5Socio = (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional
+          || gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional;
         const resolvedSocio = resolverSocioemocionalGrupo(g3Socio, g5Socio);
 
         let socioCalculado: string;
-        if (sem === 3) socioCalculado = resolvedSocio.sem3;
-        else if (sem === 4) socioCalculado = resolvedSocio.sem4;
-        else if (sem === 5) socioCalculado = resolvedSocio.sem5;
-        else if (sem === 6) socioCalculado = resolvedSocio.sem6;
-        else socioCalculado = FORMACIONES_SOCIOEMOCIONALES[0];
+        if (socioDbGuardado) {
+          socioCalculado = socioDbGuardado;
+        } else if (sem === 3) {
+          socioCalculado = resolvedSocio.sem3;
+        } else if (sem === 4) {
+          socioCalculado = resolvedSocio.sem4;
+        } else if (sem === 5) {
+          socioCalculado = resolvedSocio.sem5;
+        } else if (sem === 6) {
+          socioCalculado = resolvedSocio.sem6;
+        } else {
+          socioCalculado = FORMACIONES_SOCIOEMOCIONALES[0];
+        }
 
         const tieneLaboral = sem >= 3;
         const capFinal = grupoExistente?.capacitacionNombre || grupoBaseTrack?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length];
@@ -1071,65 +1083,6 @@ export default function WizardConfiguracion({
 
   return (
     <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "16px", padding: "1.5rem", boxShadow: "0 4px 20px rgba(0,0,0,0.05)", maxWidth: "1250px", margin: "0 auto" }}>
-      {/* Encabezado del Wizard */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: "1.25rem", marginBottom: "1.5rem" }}>
-        <div>
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
-            <Sparkles style={{ width: "22px", height: "22px", color: "#2563eb" }} /> Asistente de Configuración de Horario (SEP Puebla)
-          </h2>
-          <p style={{ fontSize: "0.8125rem", color: "#64748b", marginTop: "0.25rem", margin: 0 }}>
-            Defina la estructura libre de grupos, cargas laborales/optativas y asigne docentes por grupo
-          </p>
-        </div>
-
-        {/* Indicador de Pasos */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          {[
-            { num: 1, label: "1. Estructura & Currícu" },
-            { num: 2, label: "2. Plantilla Docente" },
-            { num: 3, label: "3. Matriz por Semestre" }
-          ].map((step) => (
-            <div
-              key={step.num}
-              onClick={() => setPaso(step.num)}
-              style={{
-                padding: "0.5rem 0.85rem",
-                borderRadius: "10px",
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                background: paso === step.num ? "#2563eb" : paso > step.num ? "#16a34a" : "#f1f5f9",
-                color: paso >= step.num ? "#ffffff" : "#64748b",
-                border: "1px solid " + (paso === step.num ? "#1d4ed8" : "#cbd5e1")
-              }}
-            >
-              {step.label}
-            </div>
-          ))}
-
-          {/* Botón para limpiar datos fantasma de la DB */}
-          <button
-            onClick={handleLimpiarDatosHorario}
-            disabled={loading}
-            title="Eliminar todas las cargas docentes y horarios generados para empezar de cero"
-            style={{
-              padding: "0.5rem 0.85rem",
-              borderRadius: "10px",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
-              background: "#fef2f2",
-              color: "#dc2626",
-              border: "1px solid #fca5a5",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem"
-            }}
-          >
-            🗑️ Limpiar Datos
-          </button>
-        </div>
-      </div>
 
       {/* =========================================================================
          PASO 1: Estructura Abierta de Grupos y Selección Curricular por Grupo

@@ -229,6 +229,45 @@ export default function AdminHorariosClient({ escuelas }: Props) {
             >
               🔄 Reiniciar Configuración
             </button>
+            <button
+              onClick={async () => {
+                if (!escuelaActual) return;
+                if (!confirm(`⚠️ ¿Está seguro? Esto eliminará TODAS las cargas docentes y horarios generados para ${escuelaActual.nombre}.`)) return;
+                setLoading(true);
+                try {
+                  const res = await fetch(`/api/horarios/configuracion?escuelaId=${escuelaActual.id}`, { method: "DELETE" });
+                  const data = await res.json();
+                  if (data.success) {
+                    toast.success("✅ Cargas docentes limpiadas correctamente.");
+                    await cargarDatosEscuela(escuelaActual.id);
+                    setModo("WIZARD");
+                    setPasoActual(1);
+                  } else {
+                    toast.error(data.error || "Error al limpiar datos");
+                  }
+                } catch (e) {
+                  toast.error("Error de conexión al limpiar datos");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              style={{
+                background: "#fff7ed",
+                color: "#c2410c",
+                border: "1px solid #ffedd5",
+                padding: "0.45rem 0.85rem",
+                borderRadius: "8px",
+                fontWeight: 800,
+                fontSize: "0.78125rem",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem"
+              }}
+              title="Eliminar cargas docentes y horarios generados para empezar de cero"
+            >
+              🗑️ Limpiar Datos
+            </button>
           </div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
             <Building2 style={{ width: "26px", height: "26px", color: "var(--primary)" }} /> Gestión Central de Horarios

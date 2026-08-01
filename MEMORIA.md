@@ -741,5 +741,18 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 ---
 
-*Versión actualizada: Agosto 2026 — v4.1*
+### 9.10 Respeto a Selección BD de Formación Socioemocional y Limpieza de Encabezado Duplicado (v4.2)
+
+**Descripción de la Causa Raíz y Solución**:
+1. **Fix a la Sobrescritura de Formación Socioemocional (`WizardConfiguracion.tsx`)**:
+   - **Causa Raíz**: En `generarGruposSegunEstructura`, al construir los grupos de Paso 1, `socioCalculado` se calculaba utilizando `resolverSocioemocionalGrupo` e insertaba directamente `ffeoSocioemocional: socioCalculado`, ignorando por completo la propiedad `grupoExistente?.ffeoSocioemocional` que contenía el valor guardado previamente en base de datos. Si `g5Socio` aún no estaba en el estado local, `resolverSocioemocionalGrupo` caía al valor por defecto (`Educación para la Salud`), destruyendo la selección hecha por el usuario en `ModalConfiguracionMapaCurricular` (`Educación Integral en Sexualidad y Género`).
+   - **Solución Implementada**: Se definió `socioDbGuardado = grupoExistente?.ffeoSocioemocional || gruposIniciales.find(...)?.ffeoSocioemocional`. Si `socioDbGuardado` está presente, `socioCalculado` toma ese valor **prioritariamente**, asegurando que los datos guardados en la BD nunca sean suplantados por cálculos automáticos.
+
+2. **Remoción de Encabezado Duplicado e Integración de "🗑️ Limpiar Datos" en Barra Superior (`HorariosClient.tsx`, `AdminHorariosClient.tsx` & `WizardConfiguracion.tsx`)**:
+   - Se eliminó el bloque de tarjeta interna `Asistente de Configuración de Horario (SEP Puebla)` de `WizardConfiguracion.tsx` que duplicaba la barra de pasos (`1. Estructura & Currícu`, `2. Plantilla Docente`, `3. Matriz por Semestre`).
+   - Se trasladó el botón `🗑️ Limpiar Datos` a la barra superior principal de acciones (junto a `🔄 Reiniciar Configuración`), manteniendo la interfaz limpia, minimalista y libre de redundancias.
+
+---
+
+*Versión actualizada: Agosto 2026 — v4.2*
 
