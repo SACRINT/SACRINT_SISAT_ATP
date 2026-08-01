@@ -288,14 +288,26 @@ export function resolverSocioemocionalGrupo(
   socioemocionalSem3?: string,
   socioemocionalSem5?: string
 ): { sem3: string; sem4: string; sem5: string; sem6: string } {
-  const s3 = socioemocionalSem3 || FORMACIONES_SOCIOEMOCIONALES[0];
+  let s3: string;
+  let s5: string;
 
-  const restantesParaSem5 = FORMACIONES_SOCIOEMOCIONALES.filter(s => s !== s3);
-  const s5 = socioemocionalSem5 && restantesParaSem5.includes(socioemocionalSem5)
-    ? socioemocionalSem5
-    : restantesParaSem5[0];
+  if (socioemocionalSem3 && socioemocionalSem5) {
+    s3 = socioemocionalSem3;
+    s5 = socioemocionalSem5 === socioemocionalSem3
+      ? (FORMACIONES_SOCIOEMOCIONALES.find(s => s !== socioemocionalSem3) || FORMACIONES_SOCIOEMOCIONALES[1])
+      : socioemocionalSem5;
+  } else if (socioemocionalSem3 && !socioemocionalSem5) {
+    s3 = socioemocionalSem3;
+    s5 = FORMACIONES_SOCIOEMOCIONALES.find(s => s !== socioemocionalSem3) || FORMACIONES_SOCIOEMOCIONALES[1];
+  } else if (!socioemocionalSem3 && socioemocionalSem5) {
+    s5 = socioemocionalSem5;
+    s3 = FORMACIONES_SOCIOEMOCIONALES.find(s => s !== socioemocionalSem5) || FORMACIONES_SOCIOEMOCIONALES[0];
+  } else {
+    s3 = FORMACIONES_SOCIOEMOCIONALES[0];
+    s5 = FORMACIONES_SOCIOEMOCIONALES[1];
+  }
 
-  const restanteParaSem4y6 = FORMACIONES_SOCIOEMOCIONALES.find(s => s !== s3 && s !== s5) || FORMACIONES_SOCIOEMOCIONALES[1];
+  const restanteParaSem4y6 = FORMACIONES_SOCIOEMOCIONALES.find(s => s !== s3 && s !== s5) || FORMACIONES_SOCIOEMOCIONALES[2];
 
   return {
     sem3: s3,

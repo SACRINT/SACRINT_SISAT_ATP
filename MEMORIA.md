@@ -673,6 +673,18 @@ En `src/components/ModalConfiguracionMapaCurricular.tsx`:
 - Las claves del `initialMap` se normalizan con doble entrada (`g.nombre` y `g.nombre.replace("º", "°")`) para garantizar recuperación correcta.
 - El `useEffect` de inicialización usa un guard `initialized` para evitar sobreescritura en re-renders.
 
+### 9.6 Corrección Crítica: Resolución de Asignaturas Socioemocionales en 5.º Semestre (`resolverSocioemocionalGrupo`)
+
+**Problema resuelto**: En la sección de Planeaciones Didácticas (`GestionPlaneaciones.tsx`), las asignaturas socioemocionales del 5.º semestre (ej. *Educación para la Salud*) no cargaban el docente asignado desde el generador de horarios, mostrando `-- Seleccionar Docente --`.
+
+**Causa Raíz**: 
+La función `resolverSocioemocionalGrupo(socio3, socio5)` en `src/lib/escuela-grupos.ts` asumía por defecto que si `socio3` (3.er semestre) no estaba definido en la DB, tomaba la primera opción de la lista (`Educación para la Salud`). Cuando el 5.º semestre tenía asignado explícitamente `Educación para la Salud` en el generador de horarios, la función filtraba esa asignatura creyendo que ya había sido tomada en 3.er semestre, sobrescribiendo el 5.º semestre a `Educación Integral en Sexualidad y Género`. Al no coincidir el nombre de la materia devuelto por `obtenerAsignaturasParaGrupo` con el registrado en `HorarioCargaDocente`, la interfaz no mostraba el docente asignado.
+
+**Solución Implementada**:
+1. **Refactor de `resolverSocioemocionalGrupo`**: Prioriza elecciones explícitas. Si `socioemocionalSem5` está definido explícitamente y `socioemocionalSem3` no lo está, la función respeta la elección de 5.º semestre y ajusta 3.er semestre con una de las opciones restantes.
+2. **Match flexible de ordinales**: En `GestionPlaneaciones.tsx`, la búsqueda de `hGrupo3` y `hGrupo5` en `gruposDB` ahora contempla tanto `°` (U+00B0) como `º` (U+00BA) y hace fallback a `hGrupo.ffeoSocioemocional`.
+
 ---
 
-*Versión actualizada: Julio 2026 — v3.6*
+*Versión actualizada: Agosto 2026 — v3.7*
+
