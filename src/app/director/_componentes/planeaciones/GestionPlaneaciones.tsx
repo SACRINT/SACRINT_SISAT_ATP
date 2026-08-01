@@ -654,8 +654,8 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                             const ffeOpts = Array.isArray(hGrupo?.ffeOptativas) && hGrupo.ffeOptativas.length === 4 ? hGrupo.ffeOptativas : [];
 
                             const letraGrupo = grupo.nombre.split(" ")[1];
-                            const hGrupo3 = gruposDB.find((g: any) => g.nombre === `3º ${letraGrupo}`);
-                            const hGrupo5 = gruposDB.find((g: any) => g.nombre === `5º ${letraGrupo}`);
+                            const hGrupo3 = gruposDB.find((g: any) => g.nombre === `3° ${letraGrupo}`);
+                            const hGrupo5 = gruposDB.find((g: any) => g.nombre === `5° ${letraGrupo}`);
                             const socio3 = hGrupo3?.ffeoSocioemocional;
                             const socio5 = hGrupo5?.ffeoSocioemocional;
                             const socioObj = resolverSocioemocionalGrupo(socio3, socio5);

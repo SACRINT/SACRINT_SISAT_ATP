@@ -1,0 +1,1 @@
+﻿const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const asignaturas = await prisma.horarioAsignaturaCatalogo.findMany(); console.log(asignaturas.filter(a => a.tipo === 'AMPLIADO' || a.tipo === 'SOCIOEMOCIONAL').map(a => a.uacName)); } main().finally(() => prisma.$disconnect());
