@@ -19,7 +19,8 @@ import {
   FORMACIONES_SOCIOEMOCIONALES,
   FORMACIONES_SOCIOEMOCIONALES as CURRICULUM_AMPLIADO_FFEO,
   FFE_RECURSOS_SOCIOCOGNITIVOS as FFE_RECURSO_SOCIOCOGNITIVO,
-  FFE_AREAS_CONOCIMIENTO as FFE_AREA_CONOCIMIENTO
+  FFE_AREAS_CONOCIMIENTO as FFE_AREA_CONOCIMIENTO,
+  resolverSocioemocionalGrupo
 } from "@/lib/escuela-grupos";
 
 
@@ -189,6 +190,8 @@ export default function WizardConfiguracion({
   const STORAGE_KEY = `horarios_wizard_v4_${escuelaId}`;
 
   const [paso, setPaso] = useState<number>(1);
+  // Período Semestral: A = semestres impares (1°,3°,5°), B = semestres pares (2°,4°,6°)
+  const [periodoActivo, setPeriodoActivo] = useState<"A" | "B">("A");
   const [loading, setLoading] = useState<boolean>(false);
 
   // Jornada Escolar predeterminada estrictamente a 6 Horas Diarias (30 hrs semanales)
@@ -315,6 +318,7 @@ export default function WizardConfiguracion({
         if (parsed.curriculoManualPorGrupo) setCurriculoManualPorGrupo(parsed.curriculoManualPorGrupo);
         if (parsed.grupoActivoManual) setGrupoActivoManual(parsed.grupoActivoManual);
         if (parsed.cargas && parsed.cargas.length > 0) setCargas(parsed.cargas);
+        if (parsed.periodoActivo === "A" || parsed.periodoActivo === "B") setPeriodoActivo(parsed.periodoActivo);
       }
     } catch (e) {
       console.warn("No se pudo cargar estado local previo", e);
@@ -336,7 +340,8 @@ export default function WizardConfiguracion({
           horasDocentes,
           curriculoManualPorGrupo,
           grupoActivoManual,
-          cargas
+          cargas,
+          periodoActivo
         })
       );
     } catch (e) {
@@ -346,7 +351,7 @@ export default function WizardConfiguracion({
 
   useEffect(() => {
     guardarProgresoLocal();
-  }, [paso, g1, g2, g3, numPeriodos, grupos, horasDocentes, cargas, curriculoManualPorGrupo, grupoActivoManual]);
+  }, [paso, g1, g2, g3, numPeriodos, grupos, horasDocentes, cargas, curriculoManualPorGrupo, grupoActivoManual, periodoActivo]);
 
   useEffect(() => {
     cargarPersonalCompleto();
@@ -365,33 +370,59 @@ export default function WizardConfiguracion({
   const generarGruposSegunEstructura = (n1: number, n2: number, n3: number) => {
     const letras = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
     const nuevosGrupos: any[] = [];
-    const counts: Record<number, number> = { 1: n1, 3: n2, 5: n3 };
+    // Semestre A: 1°, 3°, 5° | Semestre B: 2°, 4°, 6°
+    const semestresActivos = periodoActivo === "A" ? [1, 3, 5] : [2, 4, 6];
+    const counts: Record<number, number> = periodoActivo === "A"
+      ? { 1: n1, 3: n2, 5: n3 }
+      : { 2: n1, 4: n2, 6: n3 };
 
     // Snapshot actual de grupos para búsqueda con normalización de símbolo º/°
     const gruposActuales = grupos;
 
-    for (let sem of [1, 3, 5]) {
+    for (let sem of semestresActivos) {
       const countSem = counts[sem] || 1;
       for (let i = 0; i < countSem; i++) {
         const letra = letras[i] || `G${i + 1}`;
         const nombreGrupo = `${sem}° ${letra}`;
 
-        // Buscar con normalización: tanto `3° A` (°) como `3º A` (º) deben coincidir
-        const grupoExistente = gruposActuales.find(
+        // Buscar grupo exacto o por herencia de Track (ej. 4° A hereda de 3° A, 6° A hereda de 5° A)
+        let grupoExistente = gruposActuales.find(
           (g) => normalizarNombreGrupo(g.nombre) === nombreGrupo
         );
+
+        if (!grupoExistente && (sem === 4 || sem === 6)) {
+          const semBase = sem === 4 ? 3 : 5;
+          const nombreBase = `${semBase}° ${letra}`;
+          grupoExistente = gruposActuales.find(
+            (g) => normalizarNombreGrupo(g.nombre) === nombreBase
+          );
+        }
 
         let ffeOpts = grupoExistente?.ffeOptativas;
         if (typeof ffeOpts === "string") {
           try { ffeOpts = JSON.parse(ffeOpts); } catch { ffeOpts = null; }
         }
 
+        // Determinar Socioemocional automático mediante resolverSocioemocionalGrupo
+        const g3Socio = gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional;
+        const g5Socio = gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional;
+        const resolvedSocio = resolverSocioemocionalGrupo(g3Socio, g5Socio);
+
+        let socioCalculado: string;
+        if (sem === 3) socioCalculado = resolvedSocio.sem3;
+        else if (sem === 4) socioCalculado = resolvedSocio.sem4;
+        else if (sem === 5) socioCalculado = resolvedSocio.sem5;
+        else if (sem === 6) socioCalculado = resolvedSocio.sem6;
+        else socioCalculado = FORMACIONES_SOCIOEMOCIONALES[0];
+
+        const tieneLaboral = sem >= 3;
+
         nuevosGrupos.push({
           id: grupoExistente?.id || `temp_${sem}_${letra}`,
           nombre: nombreGrupo,
           semestre: sem,
-          capacitacionNombre: grupoExistente?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length],
-          ffeoSocioemocional: grupoExistente?.ffeoSocioemocional || (sem === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1]),
+          capacitacionNombre: tieneLaboral ? (grupoExistente?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length]) : undefined,
+          ffeoSocioemocional: tieneLaboral ? socioCalculado : undefined,
           ffeOptativas: (Array.isArray(ffeOpts) && ffeOpts.length > 0) ? ffeOpts : [
             FFE_RECURSO_SOCIOCOGNITIVO[0],
             FFE_RECURSO_SOCIOCOGNITIVO[1],
@@ -405,8 +436,12 @@ export default function WizardConfiguracion({
 
     setCurriculoManualPorGrupo(prev => {
       const nuevoMapa = { ...prev };
-      for (const sem of [1, 3, 5]) {
-        const countSem = counts[sem] || 1;
+      const semestresActivos2 = periodoActivo === "A" ? [1, 3, 5] : [2, 4, 6];
+      const counts2: Record<number, number> = periodoActivo === "A"
+        ? { 1: n1, 3: n2, 5: n3 }
+        : { 2: n1, 4: n2, 6: n3 };
+      for (const sem of semestresActivos2) {
+        const countSem = counts2[sem] || 1;
         for (let i = 0; i < countSem; i++) {
           const letra = letras[i] || `G${i + 1}`;
           const key = `${sem}_${letra}`;
@@ -441,17 +476,36 @@ export default function WizardConfiguracion({
       { id: `man_1_4_${letra}`, uacName: "Inglés I", horasSemanales: 3 },
       { id: `man_1_5_${letra}`, uacName: "Tecnologías de la Información", horasSemanales: 4 }
     ];
+    if (sem === 2) return [
+      { id: `man_2_1_${letra}`, uacName: "Matemáticas Tecnológicas II", horasSemanales: 5 },
+      { id: `man_2_2_${letra}`, uacName: "Química II", horasSemanales: 4 },
+      { id: `man_2_3_${letra}`, uacName: "Lengua y Comunicación II", horasSemanales: 4 },
+      { id: `man_2_4_${letra}`, uacName: "Inglés II", horasSemanales: 3 },
+      { id: `man_2_5_${letra}`, uacName: "Tecnologías de la Información II", horasSemanales: 4 }
+    ];
     if (sem === 3) return [
       { id: `man_3_1_${letra}`, uacName: "Física I", horasSemanales: 4 },
       { id: `man_3_2_${letra}`, uacName: "Cálculo Diferencial", horasSemanales: 5 },
       { id: `man_3_3_${letra}`, uacName: "Módulo Profesional I (Especialidad)", horasSemanales: 12 },
       { id: `man_3_4_${letra}`, uacName: "Inglés III", horasSemanales: 3 }
     ];
+    if (sem === 4) return [
+      { id: `man_4_1_${letra}`, uacName: "Física II", horasSemanales: 4 },
+      { id: `man_4_2_${letra}`, uacName: "Cálculo Integral", horasSemanales: 5 },
+      { id: `man_4_3_${letra}`, uacName: "Módulo Profesional I B (Especialidad)", horasSemanales: 12 },
+      { id: `man_4_4_${letra}`, uacName: "Inglés IV", horasSemanales: 3 }
+    ];
     if (sem === 5) return [
       { id: `man_5_1_${letra}`, uacName: "Cálculo Integral", horasSemanales: 5 },
       { id: `man_5_2_${letra}`, uacName: "Módulo Profesional II (Especialidad)", horasSemanales: 12 },
       { id: `man_5_3_${letra}`, uacName: "Ciencia, Tecnología y Sociedad", horasSemanales: 4 },
       { id: `man_5_4_${letra}`, uacName: "Inglés V", horasSemanales: 3 }
+    ];
+    if (sem === 6) return [
+      { id: `man_6_1_${letra}`, uacName: "Estadística y Probabilidad", horasSemanales: 4 },
+      { id: `man_6_2_${letra}`, uacName: "Módulo Profesional II B (Especialidad)", horasSemanales: 12 },
+      { id: `man_6_3_${letra}`, uacName: "Ciencia, Tecnología y Sociedad II", horasSemanales: 4 },
+      { id: `man_6_4_${letra}`, uacName: "Inglés VI", horasSemanales: 3 }
     ];
     return [];
   };
@@ -809,6 +863,7 @@ export default function WizardConfiguracion({
       }));
     }
 
+    // ── SEMESTRE A (impares) ──────────────────────────────────────────────────
     if (sem === 1) {
       return [
         { id: `uac_1_1`, uacName: "Ciencias Naturales, Experimentales y Tecnología I", abrev: "CNEyT-I", tipo: "UNIVERSAL", horasSemanales: 4 },
@@ -868,6 +923,69 @@ export default function WizardConfiguracion({
         { id: `uac_5_5`, uacName: grupo.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1], abrev: "CURR-AMP-5", tipo: "AMPLIADO", horasSemanales: 2 },
         { id: `uac_5_lab_a`, uacName: uacsLabInfo[0].name, abrev: uacsLabInfo[0].abrev, capNombre, tipo: "LABORAL_A", horasSemanales: 3 },
         { id: `uac_5_lab_b`, uacName: uacsLabInfo[1].name, abrev: uacsLabInfo[1].abrev, capNombre, tipo: "LABORAL_B", horasSemanales: 3 }
+      ];
+    }
+
+    // ── SEMESTRE B (pares) ────────────────────────────────────────────────────
+    if (sem === 2) {
+      return [
+        { id: `uac_2_1`, uacName: "Ciencias Naturales, Experimentales y Tecnología II", abrev: "CNEyT-II", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_2_2`, uacName: "Pensamiento Matemático II", abrev: "PENS-MAT-II", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_2_3`, uacName: "Humanidades II", abrev: "HUM-II", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_2_4`, uacName: "Lenguaje y Comunicación II", abrev: "LENG-COM-II", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_2_5`, uacName: "Inglés II", abrev: "ING-II", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_2_6`, uacName: "Cultura Digital II", abrev: "CULT-DIG-II", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_2_7`, uacName: "Laboratorio de Investigación II", abrev: "LAB-INV-II", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_2_8`, uacName: "Ciencias Sociales II", abrev: "CS-SOC-II", tipo: "UNIVERSAL", horasSemanales: 2 },
+        { id: `uac_2_9`, uacName: "Actividades Artísticas y Culturales II", abrev: "ART-CULT-II", tipo: "UNIVERSAL", horasSemanales: 2 },
+        { id: `uac_2_10`, uacName: "Actividades Físicas y Deportivas II", abrev: "ACT-FIS-II", tipo: "UNIVERSAL", horasSemanales: 2 }
+      ];
+    }
+
+    if (sem === 4) {
+      const capNombre = grupo.capacitacionNombre || FORMACIONES_LABORALES[0];
+      const uacsLabInfo = UACS_LABORALES_MAPA[capNombre]?.sem3 || [
+        { name: `Asignatura 3 de ${capNombre}`, abrev: "LAB-3" },
+        { name: `Asignatura 4 de ${capNombre}`, abrev: "LAB-4" }
+      ];
+
+      return [
+        { id: `uac_4_1`, uacName: "Ciencias Naturales, Experimentales y Tecnología IV", abrev: "CNEyT-IV", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_4_2`, uacName: "Pensamiento Matemático IV", abrev: "PENS-MAT-IV", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_4_3`, uacName: "Humanidades IV", abrev: "HUM-IV", tipo: "UNIVERSAL", horasSemanales: 5 },
+        { id: `uac_4_4`, uacName: "Taller de Ciencias III", abrev: "TALL-CIEN-III", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_4_5`, uacName: grupo.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0], abrev: "CURR-AMP-4", tipo: "AMPLIADO", horasSemanales: 2 },
+        { id: `uac_4_6`, uacName: "Lengua y Comunicación IV", abrev: "LENG-COM-IV", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_4_7`, uacName: "Inglés IV", abrev: "ING-IV", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_4_lab_a`, uacName: uacsLabInfo[0].name, abrev: uacsLabInfo[0].abrev, capNombre, tipo: "LABORAL_A", horasSemanales: 3 },
+        { id: `uac_4_lab_b`, uacName: uacsLabInfo[1].name, abrev: uacsLabInfo[1].abrev, capNombre, tipo: "LABORAL_B", horasSemanales: 3 }
+      ];
+    }
+
+    if (sem === 6) {
+      const capNombre = grupo.capacitacionNombre || FORMACIONES_LABORALES[0];
+      const uacsLabInfo = UACS_LABORALES_MAPA[capNombre]?.sem5 || [
+        { name: `Asignatura 5 de ${capNombre}`, abrev: "LAB-5" },
+        { name: `Asignatura 6 de ${capNombre}`, abrev: "LAB-6" }
+      ];
+      const opts = grupo.ffeOptativas || [
+        FFE_RECURSO_SOCIOCOGNITIVO[0],
+        FFE_RECURSO_SOCIOCOGNITIVO[1],
+        FFE_AREA_CONOCIMIENTO[0],
+        FFE_AREA_CONOCIMIENTO[1]
+      ];
+
+      return [
+        { id: `uac_6_1`, uacName: "La Energía en los Procesos de la Vida Diaria II", abrev: "ENERG-VIDA-II", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_6_2`, uacName: "Conciencia Histórica III. México en el Siglo XXI", abrev: "CONC-HIST-III", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_6_3`, uacName: "Taller de Habilidades del Pensamiento II", abrev: "TALL-HAB-II", tipo: "UNIVERSAL", horasSemanales: 3 },
+        { id: `uac_6_ffe_1`, uacName: opts[0], abrev: "FFE-REC-A", tipo: "FFE_REC_A", horasSemanales: 3 },
+        { id: `uac_6_ffe_2`, uacName: opts[1], abrev: "FFE-REC-B", tipo: "FFE_REC_B", horasSemanales: 3 },
+        { id: `uac_6_ffe_3`, uacName: opts[2], abrev: "FFE-AREA-A", tipo: "FFE_AREA_A", horasSemanales: 3 },
+        { id: `uac_6_ffe_4`, uacName: opts[3], abrev: "FFE-AREA-B", tipo: "FFE_AREA_B", horasSemanales: 3 },
+        { id: `uac_6_5`, uacName: grupo.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1], abrev: "CURR-AMP-6", tipo: "AMPLIADO", horasSemanales: 2 },
+        { id: `uac_6_lab_a`, uacName: uacsLabInfo[0].name, abrev: uacsLabInfo[0].abrev, capNombre, tipo: "LABORAL_A", horasSemanales: 3 },
+        { id: `uac_6_lab_b`, uacName: uacsLabInfo[1].name, abrev: uacsLabInfo[1].abrev, capNombre, tipo: "LABORAL_B", horasSemanales: 3 }
       ];
     }
 
@@ -974,6 +1092,51 @@ export default function WizardConfiguracion({
          PASO 1: Estructura Abierta de Grupos y Selección Curricular por Grupo
          ========================================================================= */}
       {paso === 1 && (
+        <>
+        {/* ── Selector de Período Semestral ── */}
+        <div style={{ background: "#f0f9ff", border: "2px solid #38bdf8", borderRadius: "14px", padding: "1rem 1.25rem", marginBottom: "0", display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: "0.8125rem", fontWeight: 900, color: "#0369a1", marginBottom: "0.2rem" }}>📅 Período Semestral a Configurar</div>
+            <div style={{ fontSize: "0.72rem", color: "#0c4a6e" }}>Seleccione qué semestre desea configurar. El Semestre A es Agosto-Enero (1°,3°,5°) y el Semestre B es Febrero-Julio (2°,4°,6°).</div>
+          </div>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <button
+              type="button"
+              onClick={() => { setPeriodoActivo("A"); setUsuarioCambioGrupos(true); }}
+              style={{
+                padding: "0.6rem 1.4rem",
+                borderRadius: "10px",
+                fontWeight: 800,
+                fontSize: "0.9rem",
+                border: "2px solid " + (periodoActivo === "A" ? "#0284c7" : "#cbd5e1"),
+                background: periodoActivo === "A" ? "#0284c7" : "#ffffff",
+                color: periodoActivo === "A" ? "#ffffff" : "#64748b",
+                cursor: "pointer"
+              }}
+            >
+              📘 Semestre A (1°, 3°, 5°)
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPeriodoActivo("B"); setUsuarioCambioGrupos(true); }}
+              style={{
+                padding: "0.6rem 1.4rem",
+                borderRadius: "10px",
+                fontWeight: 800,
+                fontSize: "0.9rem",
+                border: "2px solid " + (periodoActivo === "B" ? "#7c3aed" : "#cbd5e1"),
+                background: periodoActivo === "B" ? "#7c3aed" : "#ffffff",
+                color: periodoActivo === "B" ? "#ffffff" : "#64748b",
+                cursor: "pointer"
+              }}
+            >
+              📗 Semestre B (2°, 4°, 6°)
+            </button>
+          </div>
+          <div style={{ background: periodoActivo === "A" ? "#e0f2fe" : "#ede9fe", padding: "0.4rem 0.85rem", borderRadius: "8px", fontSize: "0.75rem", fontWeight: 800, color: periodoActivo === "A" ? "#0369a1" : "#6d28d9" }}>
+            {periodoActivo === "A" ? "⚙️ Configurando: Agosto-Enero" : "⚙️ Configurando: Febrero-Julio"}
+          </div>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           {/* Banner Selector de Modo de Carga (Semiautomático vs Manual Tecnológico) */}
           <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "14px", border: "1px solid #cbd5e1", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
@@ -1027,7 +1190,7 @@ export default function WizardConfiguracion({
             <div style={{ background: "#eff6ff", padding: "1rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
               <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.4rem" }}>
                 <Users style={{ width: "15px", height: "15px", color: "#2563eb", display: "inline", marginRight: "5px" }} />
-                1.er Año (1.º y 2.º Semestre)
+                1.er Año ({periodoActivo === "A" ? "1.º Semestre" : "2.º Semestre"})
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <input
@@ -1039,7 +1202,7 @@ export default function WizardConfiguracion({
                   style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
                 />
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
-                  Genera 1º A a 1º {String.fromCharCode(64 + Math.min(g1, 26))}
+                  Genera {periodoActivo === "A" ? "1°" : "2°"} A a {periodoActivo === "A" ? "1°" : "2°"} {String.fromCharCode(64 + Math.min(g1, 26))}
                 </span>
               </div>
             </div>
@@ -1047,7 +1210,7 @@ export default function WizardConfiguracion({
             <div style={{ background: "#eff6ff", padding: "1rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
               <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.4rem" }}>
                 <Users style={{ width: "15px", height: "15px", color: "#2563eb", display: "inline", marginRight: "5px" }} />
-                2.º Año (3.er y 4.º Semestre)
+                2.º Año ({periodoActivo === "A" ? "3.er Semestre" : "4.º Semestre"})
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <input
@@ -1059,7 +1222,7 @@ export default function WizardConfiguracion({
                   style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
                 />
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
-                  Genera 3º A a 3º {String.fromCharCode(64 + Math.min(g2, 26))}
+                  Genera {periodoActivo === "A" ? "3°" : "4°"} A a {periodoActivo === "A" ? "3°" : "4°"} {String.fromCharCode(64 + Math.min(g2, 26))}
                 </span>
               </div>
             </div>
@@ -1067,7 +1230,7 @@ export default function WizardConfiguracion({
             <div style={{ background: "#eff6ff", padding: "1rem", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
               <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 800, color: "#1e293b", marginBottom: "0.4rem" }}>
                 <Users style={{ width: "15px", height: "15px", color: "#2563eb", display: "inline", marginRight: "5px" }} />
-                3.er Año (5.º y 6.º Semestre)
+                3.er Año ({periodoActivo === "A" ? "5.º Semestre" : "6.º Semestre"})
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <input
@@ -1079,7 +1242,7 @@ export default function WizardConfiguracion({
                   style={{ width: "70px", padding: "0.4rem", borderRadius: "8px", border: "2px solid #2563eb", fontWeight: 800, textAlign: "center", fontSize: "1.125rem", color: "#1e293b" }}
                 />
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1d4ed8" }}>
-                  Genera 5º A a 5º {String.fromCharCode(64 + Math.min(g3, 26))}
+                  Genera {periodoActivo === "A" ? "5°" : "6°"} A a {periodoActivo === "A" ? "5°" : "6°"} {String.fromCharCode(64 + Math.min(g3, 26))}
                 </span>
               </div>
             </div>
@@ -1139,13 +1302,20 @@ export default function WizardConfiguracion({
                 </div>
               )}
 
-              {/* 3 paneles para 1er, 3er y 5to semestre del grupo activo */}
+              {/* 3 paneles para los semestres del período activo */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "1.25rem" }}>
-                {[
-                  { sem: 1, label: "1er Semestre (Asignaturas Base)" },
-                  { sem: 3, label: "3er Semestre (Física / Módulos Especialidad)" },
-                  { sem: 5, label: "5to Semestre (Cálculo / Módulos Especialidad)" }
-                ].map(({ sem, label }) => {
+                {(periodoActivo === "A"
+                  ? [
+                    { sem: 1, label: "1er Semestre (Asignaturas Base)" },
+                    { sem: 3, label: "3er Semestre (Física / Módulos Especialidad)" },
+                    { sem: 5, label: "5to Semestre (Cálculo / Módulos Especialidad)" }
+                  ]
+                  : [
+                    { sem: 2, label: "2do Semestre (Asignaturas Base)" },
+                    { sem: 4, label: "4to Semestre (Física II / Módulos Especialidad)" },
+                    { sem: 6, label: "6to Semestre (Estadística / Módulos Especialidad)" }
+                  ]
+                ).map(({ sem, label }) => {
                   const key = `${sem}_${grupoActivoManual}`;
                   const lista: any[] = curriculoManualPorGrupo[key] || [];
                   return (
@@ -1216,9 +1386,12 @@ export default function WizardConfiguracion({
               {/* Renderizado por Filas de Letras (Fila 1: 1ºA, 3ºA, 5ºA | Fila 2: 1ºB, 3ºB, 5ºB...) */}
               <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                 {Array.from({ length: Math.max(g1, g2, g3) }, (_, i) => String.fromCharCode(65 + i)).map((letra) => {
-                  const g1Letra = grupos.find((g) => g.semestre === 1 && g.nombre.endsWith(letra));
-                  const g3Letra = grupos.find((g) => g.semestre === 3 && g.nombre.endsWith(letra));
-                  const g5Letra = grupos.find((g) => g.semestre === 5 && g.nombre.endsWith(letra));
+                  const s1 = periodoActivo === "A" ? 1 : 2;
+                  const s2 = periodoActivo === "A" ? 3 : 4;
+                  const s3 = periodoActivo === "A" ? 5 : 6;
+                  const g1Letra = grupos.find((g) => g.semestre === s1 && g.nombre.endsWith(letra));
+                  const g3Letra = grupos.find((g) => g.semestre === s2 && g.nombre.endsWith(letra));
+                  const g5Letra = grupos.find((g) => g.semestre === s3 && g.nombre.endsWith(letra));
                   const gruposTrack = [g1Letra, g3Letra, g5Letra].filter(Boolean);
 
                   if (gruposTrack.length === 0) return null;
@@ -1240,7 +1413,7 @@ export default function WizardConfiguracion({
                                   Grupo {g.nombre} ({g.semestre}° Semestre)
                                 </span>
                                 <span style={{ fontSize: "0.6875rem", fontWeight: 700, background: "#eff6ff", color: "#2563eb", padding: "0.2rem 0.4rem", borderRadius: "6px" }}>
-                                  {g.semestre === 1 ? "Universal (10 UACs)" : g.semestre === 3 ? "Laboral (9 UACs)" : "Laboral + FFE (10 UACs)"}
+                                  {(g.semestre === 1 || g.semestre === 2) ? "Universal (10 UACs)" : (g.semestre === 3 || g.semestre === 4) ? "Laboral (9 UACs)" : "Laboral + FFE (10 UACs)"}
                                 </span>
                               </div>
 
@@ -1372,7 +1545,7 @@ export default function WizardConfiguracion({
             </button>
           </div>
         </div>
-      )}
+        </>)}
 
       {/* =========================================================================
          PASO 2: Plantilla Docente & Contador de Horas del Plantel
@@ -1536,14 +1709,23 @@ export default function WizardConfiguracion({
             </div>
           )}
 
-          {[1, 3, 5].map((sem) => {
+          {(periodoActivo === "A" ? [1, 3, 5] : [2, 4, 6]).map((sem) => {
             const gruposSemestre = grupos.filter((g) => g.semestre === sem);
             if (gruposSemestre.length === 0) return null;
+
+            const labelSem: Record<number, string> = {
+              1: "1er Semestre (1er Año - 10 UACs Universales)",
+              2: "2do Semestre (1er Año - 10 UACs Universales)",
+              3: "3er Semestre (2º Año - 9 UACs por Grupo)",
+              4: "4to Semestre (2º Año - 9 UACs por Grupo)",
+              5: "5to Semestre (3er Año - 10 UACs por Grupo)",
+              6: "6to Semestre (3er Año - 10 UACs por Grupo)"
+            };
 
             return (
               <div key={sem} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "1.25rem", boxShadow: "0 2px 10px rgba(0,0,0,0.03)" }}>
                 <div style={{ background: "#1e293b", color: "#ffffff", padding: "0.625rem 1rem", borderRadius: "8px", fontWeight: 800, fontSize: "0.875rem", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span>{sem === 1 ? "1er Semestre (1er Año - 10 UACs Universales)" : sem === 3 ? "3er Semestre (2º Año - 9 UACs por Grupo)" : "5to Semestre (3er Año - 10 UACs por Grupo)"}</span>
+                  <span>{labelSem[sem] || `${sem}° Semestre`}</span>
                   <span style={{ fontSize: "0.75rem", background: "#334155", padding: "0.25rem 0.5rem", borderRadius: "4px" }}>
                     {gruposSemestre.length} Grupo(s) activo(s)
                   </span>

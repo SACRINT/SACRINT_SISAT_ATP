@@ -443,41 +443,61 @@ export default function ModalConfiguracionMapaCurricular({
                       )}
 
                       {/* Grupos de 3º Semestre */}
-                      {g.semestre === 3 && (
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-                          <div>
-                            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
-                              Formación Laboral (Capacitación):
-                            </label>
-                            <select
-                              className="form-control"
-                              value={cfg.capacitacionNombre}
-                              onChange={(e) => handleUpdateGrupoConfig(g.nombre, "capacitacionNombre", e.target.value)}
-                              style={{ fontSize: "0.85rem", fontWeight: 700 }}
-                            >
-                              {FORMACIONES_LABORALES.map(cap => (
-                                <option key={cap} value={cap}>{cap}</option>
-                              ))}
-                            </select>
-                          </div>
+                      {g.semestre === 3 && (() => {
+                        const letra = g.nombre.split(" ")[1];
+                        const config5 = mapaConfig[`5º ${letra}`] || mapaConfig[`5° ${letra}`];
+                        const socio5 = config5?.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1];
+                        const socio4y6 = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== cfg.ffeoSocioemocional && soc !== socio5) || FORMACIONES_SOCIOEMOCIONALES[2];
 
-                          <div>
-                            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
-                              Formación Socioemocional / Currículum Ampliado (Opción 1):
-                            </label>
-                            <select
-                              className="form-control"
-                              value={cfg.ffeoSocioemocional}
-                              onChange={(e) => handleUpdateGrupoConfig(g.nombre, "ffeoSocioemocional", e.target.value)}
-                              style={{ fontSize: "0.85rem", fontWeight: 700 }}
-                            >
-                              {FORMACIONES_SOCIOEMOCIONALES.map(soc => (
-                                <option key={soc} value={soc}>{soc}</option>
-                              ))}
-                            </select>
+                        return (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+                              <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                                  Formación Laboral (Capacitación del Grupo):
+                                </label>
+                                <select
+                                  className="form-control"
+                                  value={cfg.capacitacionNombre}
+                                  onChange={(e) => handleUpdateGrupoConfig(g.nombre, "capacitacionNombre", e.target.value)}
+                                  style={{ fontSize: "0.85rem", fontWeight: 700 }}
+                                >
+                                  {FORMACIONES_LABORALES.map(cap => (
+                                    <option key={cap} value={cap}>{cap}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                                  Formación Socioemocional (Opción 1 - 3.er Semestre):
+                                </label>
+                                <select
+                                  className="form-control"
+                                  value={cfg.ffeoSocioemocional}
+                                  onChange={(e) => handleUpdateGrupoConfig(g.nombre, "ffeoSocioemocional", e.target.value)}
+                                  style={{ fontSize: "0.85rem", fontWeight: 700 }}
+                                >
+                                  {FORMACIONES_SOCIOEMOCIONALES.map(soc => (
+                                    <option key={soc} value={soc}>{soc}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* 📗 Bloque informativo: Semestre B (4.º Semestre automático) */}
+                            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "0.75rem 1rem", borderRadius: "10px" }}>
+                              <div style={{ fontSize: "0.78125rem", fontWeight: 800, color: "#15803d", marginBottom: "0.3rem" }}>
+                                📗 Semestre B Correspondiente (4.º Semestre - Grupo 4° {letra})
+                              </div>
+                              <div style={{ fontSize: "0.725rem", color: "#166534", lineHeight: 1.4 }}>
+                                • <strong>Laboral:</strong> Submódulos 3 y 4 de <em>{cfg.capacitacionNombre}</em> (Automático)<br />
+                                • <strong>Socioemocional:</strong> <em>{socio4y6}</em> (Automático)
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Grupos de 5º Semestre */}
                       {g.semestre === 5 && (() => {
@@ -486,7 +506,7 @@ export default function ModalConfiguracionMapaCurricular({
                         const socio3 = config3?.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0];
                         const opcionesSocio5 = FORMACIONES_SOCIOEMOCIONALES.filter(soc => soc !== socio3);
                         const socio5Actual = opcionesSocio5.includes(cfg.ffeoSocioemocional) ? cfg.ffeoSocioemocional : opcionesSocio5[0];
-                        const socio4y6 = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== socio3 && soc !== socio5Actual) || FORMACIONES_SOCIOEMOCIONALES[1];
+                        const socio4y6 = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== socio3 && soc !== socio5Actual) || FORMACIONES_SOCIOEMOCIONALES[2];
 
                         const optRecurso1 = cfg.ffeOptativas[0] || FFE_RECURSOS_SOCIOCOGNITIVOS[0];
                         const optRecurso2 = cfg.ffeOptativas[1] || FFE_RECURSOS_SOCIOCOGNITIVOS[1];
@@ -527,7 +547,7 @@ export default function ModalConfiguracionMapaCurricular({
                                   ))}
                                 </select>
                                 <div style={{ fontSize: "0.725rem", color: "#15803d", marginTop: "0.3rem", fontWeight: 700, background: "#f0fdf4", padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
-                                  ⚡ La opción de 3.er semestre (<strong>{socio3}</strong>) ya está apartada.<br />
+                                  ⚡ Opción de 3.er semestre: <strong>{socio3}</strong><br />
                                   ℹ️ 4.º y 6.º Semestre llevarán automáticamente: <strong>{socio4y6}</strong>
                                 </div>
                               </div>
@@ -615,6 +635,18 @@ export default function ModalConfiguracionMapaCurricular({
                                     </select>
                                   </div>
                                 </div>
+                              </div>
+                            </div>
+
+                            {/* 📗 Bloque informativo: Semestre B (6.º Semestre automático) */}
+                            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "0.75rem 1rem", borderRadius: "10px" }}>
+                              <div style={{ fontSize: "0.78125rem", fontWeight: 800, color: "#15803d", marginBottom: "0.3rem" }}>
+                                📗 Semestre B Correspondiente (6.º Semestre - Grupo 6° {letra})
+                              </div>
+                              <div style={{ fontSize: "0.725rem", color: "#166534", lineHeight: 1.4 }}>
+                                • <strong>Laboral:</strong> Submódulos 5 y 6 de <em>{cfg.capacitacionNombre}</em> (Automático)<br />
+                                • <strong>Socioemocional:</strong> <em>{socio4y6}</em> (Automático)<br />
+                                • <strong>Optativas FFE:</strong> Mantiene las 4 optativas FFE de 5.º Semestre (Automático)
                               </div>
                             </div>
                           </div>

@@ -684,7 +684,36 @@ La función `resolverSocioemocionalGrupo(socio3, socio5)` en `src/lib/escuela-gr
 1. **Refactor de `resolverSocioemocionalGrupo`**: Prioriza elecciones explícitas. Si `socioemocionalSem5` está definido explícitamente y `socioemocionalSem3` no lo está, la función respeta la elección de 5.º semestre y ajusta 3.er semestre con una de las opciones restantes.
 2. **Match flexible de ordinales**: En `GestionPlaneaciones.tsx`, la búsqueda de `hGrupo3` y `hGrupo5` en `gruposDB` ahora contempla tanto `°` (U+00B0) como `º` (U+00BA) y hace fallback a `hGrupo.ffeoSocioemocional`.
 
+### 9.7 Corrección Crítica: Evaluación IA Incompleta en Vercel Serverless (`revisarPlaneacionEnBackground`)
+
+**Problema resuelto**: Al subir una planeación en Vercel y hacer clic en *Enviar a Revisión IA*, la entrega se quedaba congelada indefinidamente en estado `⏳ Analizando...`.
+
+**Causa Raíz**: 
+En la arquitectura Serverless de Vercel (AWS Lambda), cuando una API Route ejecuta una función asíncrona sin `await` (`revisarPlaneacionEnBackground(...)`) y retorna inmediatamente `NextResponse.json(...)`, Vercel congela/elimina la instancia del contenedor de forma instantánea. Esto cortaba el proceso de llamada a Gemini antes de completar la evaluación y guardar el resultado en BD.
+
+**Solución Implementada**:
+Se agregó `await` a `revisarPlaneacionEnBackground(...)` dentro de `POST /api/director/planeaciones/route.ts`. Dado que la ruta cuenta con `export const maxDuration = 60;`, la ejecución completa de Gemini (~5 a 10 segundos) corre de forma síncrona dentro del margen permitido por Vercel, retornando la respuesta con el estado `REVISADO` y dictamen completo.
+
+### 9.8 Soporte Completo para Semestre B (2.º, 4.º y 6.º Semestre)
+
+**Descripción del Requisito**:
+El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente a configurar los semestres impares (Semestre A: 1.º, 3.º, 5.º). No existía forma de generar u obtener la carga horaria y materias para los semestres pares (Semestre B: 2.º, 4.º, 6.º).
+
+**Solución Implementada**:
+1. **Selector de Período Semestral (`periodoActivo`)**:
+   - En el Paso 1 de `WizardConfiguracion.tsx`, se incluyó un selector con dos modos:
+     - 📘 **Semestre A**: Configura semestres 1.º, 3.º y 5.º (Agosto - Enero).
+     - 📗 **Semestre B**: Configura semestres 2.º, 4.º y 6.º (Febrero - Julio).
+   - El estado `periodoActivo` ("A" | "B") se persiste automáticamente en `localStorage` y en el estado global.
+2. **Generación Adaptativa de Grupos (`generarGruposSegunEstructura`)**:
+   - Al seleccionar Semestre B, los grupos generados corresponden a `2°`, `4°` y `6°` en lugar de `1°`, `3°` y `5°`.
+3. **Currículum por Defecto de Semestre B (`getDefaultMateriasSem` & `getUACsIndividualesGrupo`)**:
+   - Se registraron todas las UACs correspondientes a 2.º semestre (*Ciencias II, Pensamiento Matemático II, Humanidades II, etc.*), 4.º semestre (*Física II, Cálculo Integral, Módulos Profesional I-B, etc.*) y 6.º semestre (*Estadística, Módulos II-B, etc.*).
+4. **Visualización Dinámica de Tracks y Resumen de los 6 Semestres**:
+   - Se ajustó el renderizado por letras/tracks ("A", "B", "C"...) y las tarjetas del formulario de configuración (`ModalConfiguracionMapaCurricular.tsx`) para incluir un bloque **📗 Vista Previa del Semestre B Correspondiente** (4.º y 6.º semestre) en cada tarjeta de grupo.
+   - El director visualiza la trayectoria completa de los **6 semestres** del ciclo escolar: las selecciones activas de 3.er y 5.º semestre junto con la derivación automática de 2.º, 4.º y 6.º semestre (Submódulos laborales 3, 4, 5 y 6, asignatura socioemocional calculada y optativas FFE).
+
 ---
 
-*Versión actualizada: Agosto 2026 — v3.7*
+*Versión actualizada: Agosto 2026 — v4.0*
 

@@ -374,18 +374,23 @@ export function obtenerAsignaturasParaGrupo(
   }
 
   if (semestre === 4) {
-    const labInfo = UACS_LABORALES_MAPA[capacitacionNombre]?.sem3 || UACS_LABORALES_MAPA["Administracion"].sem3;
-    const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1];
+    const labSem3 = UACS_LABORALES_MAPA[capacitacionNombre]?.sem3 || UACS_LABORALES_MAPA["Administracion"].sem3;
+    const labInfo = (UACS_LABORALES_MAPA[capacitacionNombre] as any)?.sem4 || [
+      { name: `Submódulo 3 de ${capacitacionNombre}`, abrev: "LAB-3" },
+      { name: `Submódulo 4 de ${capacitacionNombre}`, abrev: "LAB-4" }
+    ];
+    const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[2];
 
     return [
-      { nombre: "Reacciones Químicas y Procesos Biológicos", tipo: "FUNDAMENTAL", horas: 4 },
+      { nombre: "Ciencias Naturales, Experimentales y Tecnología IV", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Pensamiento Matemático IV", tipo: "FUNDAMENTAL", horas: 4 },
+      { nombre: "Humanidades IV", tipo: "FUNDAMENTAL", horas: 5 },
+      { nombre: "Taller de Ciencias III", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Lengua y Comunicación IV", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: "Inglés IV", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: "Ciencias Sociales III", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: socioNombre, tipo: "SOCIOEMOCIONAL", horas: 2 },
-      { nombre: "Submódulo 3", tipo: "LABORAL", horas: 3 },
-      { nombre: "Submódulo 4", tipo: "LABORAL", horas: 3 },
+      { nombre: labInfo[0].name, tipo: "LABORAL", horas: 3 },
+      { nombre: labInfo[1].name, tipo: "LABORAL", horas: 3 },
     ];
   }
 
@@ -415,23 +420,26 @@ export function obtenerAsignaturasParaGrupo(
   }
 
   // Semestre 6
+  const labInfo6 = (UACS_LABORALES_MAPA[capacitacionNombre] as any)?.sem6 || [
+    { name: `Submódulo 5 de ${capacitacionNombre}`, abrev: "LAB-5" },
+    { name: `Submódulo 6 de ${capacitacionNombre}`, abrev: "LAB-6" }
+  ];
   const ffe1 = ffeOptativasArr[0] || FFE_RECURSOS_SOCIOCOGNITIVOS[0];
   const ffe2 = ffeOptativasArr[1] || FFE_RECURSOS_SOCIOCOGNITIVOS[1];
   const ffe3 = ffeOptativasArr[2] || FFE_AREAS_CONOCIMIENTO[0];
   const ffe4 = ffeOptativasArr[3] || FFE_AREAS_CONOCIMIENTO[1];
-  const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1];
+  const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[2];
 
   return [
-    { nombre: "La Conciencia Histórica III (Historia Universal)", tipo: "FUNDAMENTAL", horas: 3 },
-    { nombre: "Lengua y Comunicación VI", tipo: "FUNDAMENTAL", horas: 3 },
-    { nombre: "Inglés VI", tipo: "FUNDAMENTAL", horas: 3 },
-    { nombre: "Ética y Sociedad", tipo: "FUNDAMENTAL", horas: 3 },
+    { nombre: "La Energía en los Procesos de la Vida Diaria II", tipo: "FUNDAMENTAL", horas: 4 },
+    { nombre: "Conciencia Histórica III. México en el Siglo XXI", tipo: "FUNDAMENTAL", horas: 3 },
+    { nombre: "Taller de Habilidades del Pensamiento II", tipo: "FUNDAMENTAL", horas: 3 },
     { nombre: socioNombre, tipo: "SOCIOEMOCIONAL", horas: 2 },
-    { nombre: "Submódulo 3", tipo: "LABORAL", horas: 3 },
-    { nombre: "Submódulo 4", tipo: "LABORAL", horas: 3 },
+    { nombre: labInfo6[0].name, tipo: "LABORAL", horas: 3 },
+    { nombre: labInfo6[1].name, tipo: "LABORAL", horas: 3 },
     { nombre: ffe1, tipo: "EXTENDIDO", horas: 3 },
     { nombre: ffe2, tipo: "EXTENDIDO", horas: 3 },
     { nombre: ffe3, tipo: "EXTENDIDO", horas: 3 },
-    { nombre: ffe4, tipo: "EXTENDIDO", horas: 4 },
+    { nombre: ffe4, tipo: "EXTENDIDO", horas: 3 },
   ];
 }

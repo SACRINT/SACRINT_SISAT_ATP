@@ -180,8 +180,8 @@ export async function POST(req: NextRequest) {
         },
     });
 
-    // Lanzar revisión IA en background (sin await para respuesta rápida)
-    revisarPlaneacionEnBackground(planeacion.id, {
+    // Ejecutar la revisión IA de forma síncrona dentro del límite de 60s de Vercel
+    await revisarPlaneacionEnBackground(planeacion.id, {
         archivoUrl,
         archivoTipo,
         docenteNombre,
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
         entregaPaecPec: requisitos.entregaPaecPec,
     }).catch(err => console.error("[planeaciones] Error en revisión background:", err));
 
-    return NextResponse.json({ ok: true, planeacionId: planeacion.id, estado: "EN_REVISION" });
+    return NextResponse.json({ ok: true, planeacionId: planeacion.id, estado: "REVISADO" });
 }
 
 // ── Revisión asíncrona en background ─────────────────────────────────────────
