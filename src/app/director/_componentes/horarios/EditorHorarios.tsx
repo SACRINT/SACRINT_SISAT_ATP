@@ -130,8 +130,20 @@ export default function EditorHorarios({
   const [limpiadoChat, setLimpiadoChat] = useState<boolean>(false);
 
   // Slots libres bloqueados: el director puede fijar horas vacías para que la IA no las ocupe
-  // Formato: Set<"dia_periodo_grupoId">
-  const [slotsLibresBloqueados, setSlotsLibresBloqueados] = useState<Set<string>>(new Set());
+  // Formato: Set<"dia_periodo_filtroId">
+  const [slotsLibresBloqueados, setSlotsLibresBloqueados] = useState<Set<string>>(() => {
+    const initialArr = horarioInicial?.scoreMetricas?.slotsLibresBloqueados;
+    if (Array.isArray(initialArr) && initialArr.length > 0) {
+      return new Set(initialArr);
+    }
+    if (typeof window !== "undefined" && escuela?.id && horarioInicial?.id) {
+      try {
+        const saved = localStorage.getItem(`horarios_slots_libres_${escuela.id}_${horarioInicial.id}`);
+        if (saved) return new Set(JSON.parse(saved));
+      } catch (e) {}
+    }
+    return new Set();
+  });
 
   const toggleBloquearSlotLibre = (dia: number, periodo: number, filtroId: string) => {
     const key = `${dia}_${periodo}_${filtroId}`;
@@ -142,8 +154,14 @@ export default function EditorHorarios({
         toast.success("Hora libre desbloqueada");
       } else {
         nuevo.add(key);
-        toast.success("🔒 Hora libre fijada — la IA no colocará clases aquí");
+        toast.success("🔒 Hora libre fijada — el sistema no colocará clases aquí");
       }
+      if (typeof window !== "undefined" && escuela?.id && horario?.id) {
+        try {
+          localStorage.setItem(`horarios_slots_libres_${escuela.id}_${horario.id}`, JSON.stringify(Array.from(nuevo)));
+        } catch (e) {}
+      }
+      setHayCambiosSinGuardar(true);
       return nuevo;
     });
   };
@@ -240,6 +258,7 @@ export default function EditorHorarios({
         body: JSON.stringify({
           horarioId: horario.id,
           celdas: horario.celdas,
+          slotsLibresBloqueados: Array.from(slotsLibresBloqueados),
           escuelaId: escuela?.id
         })
       });

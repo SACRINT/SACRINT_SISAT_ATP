@@ -800,5 +800,22 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 *Versión actualizada: Agosto 2026 — v4.4*
 
+---
+
+### 9.13 Respeto Estricto y Universal de Bloqueos en Horas Libres (v4.5)
+
+**Regla de Bloqueos en Horas Vacías/Libres**:
+
+1. **Inviolabilidad de Horas Libres Bloqueadas (🔒)**:
+   - **Regla Estricta**: Cuando el director fija una hora libre con candado (🔒) en cualquiera de las vistas (`Por Grupo`, `Por Docente` o `Por Aula`), esa casilla de tiempo queda **ESTRICTAMENTE BLOQUEADA** para ese docente, grupo o aula.
+   - La función `isSlotLibreBloqueadoParaCelda` en `src/lib/horarios/ripple-solver.ts` evalúa de forma unificada si la coordenada `(día, periodo)` está fijada en `slotsLibresBloqueados` para el `grupoId`, el `docenteId` o el `aulaId`.
+   - **Prohibición Total de Colisiones**: Ni el movimiento manual por drag-and-drop ni el motor de reordenamiento inteligente en cascada (`Ripple Solver`) ni el Asistente IA pueden colocar materias en una hora libre bloqueada para el docente, grupo o aula.
+   - **Persistencia Completa**: Los arreglos de `slotsLibresBloqueados` se persisten de forma permanente en PostgreSQL (`horarioGenerado.scoreMetricas.slotsLibresBloqueados`) y en `localStorage`, garantizando que se conserven al recargar la página o cambiar de pestaña.
+
+---
+
+*Versión actualizada: Agosto 2026 — v4.5*
+
+
 
 

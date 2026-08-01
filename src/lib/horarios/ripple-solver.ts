@@ -15,10 +15,33 @@ export interface CeldaHorario {
 }
 
 /**
+ * Helper para verificar si un slot (día, periodo) está fijado como hora libre bloqueada
+ * para el grupo, el docente o el aula.
+ */
+function isSlotLibreBloqueadoParaCelda(
+  dia: number,
+  periodo: number,
+  celda: CeldaHorario,
+  slotsLibresBloqueados: Set<string>
+): boolean {
+  if (!slotsLibresBloqueados || slotsLibresBloqueados.size === 0) return false;
+  const keyGrp = `${dia}_${periodo}_${celda.grupoId}`;
+  const keyDoc = `${dia}_${periodo}_${celda.docenteId}`;
+  const keyAula = celda.aulaId ? `${dia}_${periodo}_${celda.aulaId}` : null;
+
+  return (
+    slotsLibresBloqueados.has(keyGrp) ||
+    slotsLibresBloqueados.has(keyDoc) ||
+    (keyAula !== null && slotsLibresBloqueados.has(keyAula))
+  );
+}
+
+/**
  * Algoritmo de Reordenamiento Inteligente Ripple para Horarios.
  * Intenta mover `celdaAMover` al slot `(targetDia, targetPeriodo)`.
  * Si el movimiento genera colisiones, realiza un reacomodo en cascada (ripple)
- * de las demás clases no bloqueadas (sin candado 🔒).
+ * de las demás clases no bloqueadas (sin candado 🔒), garantizando que NINGUNA
+ * clase se coloque en horas libres bloqueadas (ya sea por docente, grupo o aula).
  * Si es imposible reacomodar sin generar empalmes, no altera el horario y retorna success = false.
  */
 export function reacomodarHorarioConRipple(
@@ -41,10 +64,9 @@ export function reacomodarHorarioConRipple(
     return { success: true, celdasActualizadas: celdasOriginales, numMovidas: 0 };
   }
 
-  // Verificar si la casilla destino para el grupo está en las horas libres bloqueadas por el usuario
-  const keySlotLibreGrupo = `${targetDia}_${targetPeriodo}_${celdaAMover.grupoId}`;
-  if (slotsLibresBloqueados.has(keySlotLibreGrupo)) {
-    return { success: false, error: "🔒 La casilla destino está fijada como hora libre." };
+  // Verificar si la casilla destino está fijada como hora libre para el docente, grupo o aula
+  if (isSlotLibreBloqueadoParaCelda(targetDia, targetPeriodo, celdaAMover, slotsLibresBloqueados)) {
+    return { success: false, error: "🔒 La casilla destino o el horario del docente/grupo está fijado como hora libre." };
   }
 
   // Clonar las celdas para trabajar sin mutar el arreglo original
@@ -71,14 +93,14 @@ export function reacomodarHorarioConRipple(
   // Identificar celdas FIJAS (todas las que tienen esBloqueado === true MÁS la celda recién movida)
   const isFixed = (idx: number) => idx === targetIndex || Boolean(celdasCopy[idx].esBloqueado);
 
-  // Verificar que las celdas FIJAS no tengan choques entre sí en el destino
+  // Verificar que las celdas FIJAS no tengan choques entre sí en el destino y respeten slots libres bloqueados
   for (let i = 0; i < celdasCopy.length; i++) {
     if (!isFixed(i)) continue;
     const c1 = celdasCopy[i];
 
-    // Verificar si alguna celda fija coincide con slots libres bloqueados
-    if (slotsLibresBloqueados.has(`${c1.diaSemana}_${c1.periodo}_${c1.grupoId}`)) {
-      return { success: false, error: "🔒 El movimiento colisiona con una hora libre bloqueada." };
+    // Verificar si alguna celda fija coincide con slots libres bloqueados (por docente, grupo o aula)
+    if (isSlotLibreBloqueadoParaCelda(c1.diaSemana, c1.periodo, c1, slotsLibresBloqueados)) {
+      return { success: false, error: "🔒 El movimiento colisiona con una hora libre bloqueada para el docente o grupo." };
     }
 
     for (let j = i + 1; j < celdasCopy.length; j++) {
@@ -195,11 +217,11 @@ export function reacomodarHorarioConRipple(
       const keyDoc = `${d}_${p}_${celda.docenteId}`;
       const keyAula = celda.aulaId ? `${d}_${p}_${celda.aulaId}` : null;
 
+      // Validar si la casilla destino está fijada como hora libre para el grupo, docente o aula
+      if (isSlotLibreBloqueadoParaCelda(d, p, celda, slotsLibresBloqueados)) continue;
+
       // Validar si el slot está libre para el grupo
       if (ocupadoGrupo.has(keyGrp)) continue;
-
-      // Validar si la casilla destino está en slots libres bloqueados
-      if (slotsLibresBloqueados.has(keyGrp)) continue;
 
       // Validar si el docente ya está dando clase a otro grupo en este periodo
       if (ocupadoDocente.has(keyDoc)) continue;
@@ -232,7 +254,7 @@ export function reacomodarHorarioConRipple(
   if (!exito) {
     return {
       success: false,
-      error: "⚠️ No es posible realizar este movimiento porque generaría una colisión de horarios imposible de resolver sin afectar clases fijadas con candado."
+      error: "⚠️ No es posible realizar este movimiento porque generaría una colisión de horarios imposible de resolver sin afectar clases o horas libres fijadas con candado."
     };
   }
 

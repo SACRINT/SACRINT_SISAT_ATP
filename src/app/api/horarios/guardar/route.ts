@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
     const user = session.user as any;
     const body = await req.json();
-    const { horarioId, celdas, escuelaId: reqEscuelaId } = body;
+    const { horarioId, celdas, slotsLibresBloqueados, escuelaId: reqEscuelaId } = body;
     const escuelaId = reqEscuelaId || user.escuelaId || user.id;
 
     if (!horarioId || !Array.isArray(celdas)) {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No se encontró el horario especificado." }, { status: 404 });
     }
 
-    // Actualizar celdas en la base de datos dentro de una transacción
+    // Actualizar celdas y metadata en la base de datos dentro de una transacción
     await prisma.$transaction(async (tx) => {
       for (const celda of celdas) {
         if (celda.id && !celda.id.startsWith("temp_")) {
@@ -42,10 +42,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Marcar el horario como actualizado
+      const currentScore = (horarioExistente.scoreMetricas as any) || {};
+      const updatedScore = {
+        ...currentScore,
+        slotsLibresBloqueados: Array.isArray(slotsLibresBloqueados) ? slotsLibresBloqueados : currentScore.slotsLibresBloqueados || []
+      };
+
+      // Marcar el horario como actualizado y persisitir slots libres bloqueados
       await tx.horarioGenerado.update({
         where: { id: horarioId },
-        data: { updatedAt: new Date() }
+        data: {
+          updatedAt: new Date(),
+          scoreMetricas: updatedScore
+        }
       });
     });
 
