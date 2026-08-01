@@ -385,7 +385,7 @@ export function obtenerAsignaturasParaGrupo(
     const ffe2 = ffeOptativasArr[1] || FFE_RECURSOS_SOCIOCOGNITIVOS[1];
     const ffe3 = ffeOptativasArr[2] || FFE_AREAS_CONOCIMIENTO[0];
     const ffe4 = ffeOptativasArr[3] || FFE_AREAS_CONOCIMIENTO[1];
-    const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[2];
+    const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1];
 
     return [
       // UACs Fundamentales oficiales del 5.º semestre MCCEMS 2025-2026 BGE Puebla

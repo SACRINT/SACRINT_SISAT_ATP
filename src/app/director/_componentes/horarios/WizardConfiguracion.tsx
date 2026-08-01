@@ -836,7 +836,7 @@ export default function WizardConfiguracion({
         { id: `uac_3_2`, uacName: "Pensamiento Matemático III", abrev: "PENS-MAT-III", tipo: "UNIVERSAL", horasSemanales: 4 },
         { id: `uac_3_3`, uacName: "Humanidades III", abrev: "HUM-III", tipo: "UNIVERSAL", horasSemanales: 5 },
         { id: `uac_3_4`, uacName: "Taller de Ciencias II", abrev: "TALL-CIEN-II", tipo: "UNIVERSAL", horasSemanales: 3 },
-        { id: `uac_3_5`, uacName: grupo.ffeoSocioemocional || "Educación para la Salud III (2025)", abrev: "CURR-AMP-3", tipo: "AMPLIADO", horasSemanales: 2 },
+        { id: `uac_3_5`, uacName: grupo.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0], abrev: "CURR-AMP-3", tipo: "AMPLIADO", horasSemanales: 2 },
         { id: `uac_3_6`, uacName: "Lengua y Comunicación III", abrev: "LENG-COM-III", tipo: "UNIVERSAL", horasSemanales: 3 },
         { id: `uac_3_7`, uacName: "Inglés III", abrev: "ING-III", tipo: "UNIVERSAL", horasSemanales: 3 },
         { id: `uac_3_lab_a`, uacName: uacsLabInfo[0].name, abrev: uacsLabInfo[0].abrev, capNombre, tipo: "LABORAL_A", horasSemanales: 3 },
@@ -865,7 +865,7 @@ export default function WizardConfiguracion({
         { id: `uac_5_ffe_2`, uacName: opts[1], abrev: "FFE-REC-B", tipo: "FFE_REC_B", horasSemanales: 3 },
         { id: `uac_5_ffe_3`, uacName: opts[2], abrev: "FFE-AREA-A", tipo: "FFE_AREA_A", horasSemanales: 3 },
         { id: `uac_5_ffe_4`, uacName: opts[3], abrev: "FFE-AREA-B", tipo: "FFE_AREA_B", horasSemanales: 3 },
-        { id: `uac_5_5`, uacName: grupo.ffeoSocioemocional || "Práctica y Colaboración Ciudadana III (2025)", abrev: "CURR-AMP-5", tipo: "AMPLIADO", horasSemanales: 2 },
+        { id: `uac_5_5`, uacName: grupo.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1], abrev: "CURR-AMP-5", tipo: "AMPLIADO", horasSemanales: 2 },
         { id: `uac_5_lab_a`, uacName: uacsLabInfo[0].name, abrev: uacsLabInfo[0].abrev, capNombre, tipo: "LABORAL_A", horasSemanales: 3 },
         { id: `uac_5_lab_b`, uacName: uacsLabInfo[1].name, abrev: uacsLabInfo[1].abrev, capNombre, tipo: "LABORAL_B", horasSemanales: 3 }
       ];
