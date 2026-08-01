@@ -126,12 +126,13 @@ export async function verificarRequisitosHorarios(escuelaId: string): Promise<{
   // tieneApiKey solo es true si la escuela REALMENTE tiene clave configurada en BD
   const tieneApiKey = !!(escuela?.geminiApiKey && String(escuela.geminiApiKey).trim().length > 10);
 
-  // El pool del sistema se usa como fallback → no bloqueamos por API Key en Horarios
-  // Solo bloqueamos si el permiso individual del módulo está desactivado
-  const puedeUsar = moduloHabilitado;
+  // Bloqueamos si el permiso individual está desactivado, o si no tiene API Key
+  const puedeUsar = moduloHabilitado && tieneApiKey;
 
   const motivoBloqueo = !moduloHabilitado
     ? "El módulo de Generador de Horarios IA no está habilitado para tu escuela. Contacta a la supervisión de zona."
+    : !tieneApiKey
+    ? "Se requiere una API Key activa de Gemini para usar este módulo. Configúrala en 'Ajustes de API IA' en el menú lateral."
     : null;
 
   return { moduloHabilitado, tieneApiKey, modoSinRestricciones: false, puedeUsar, motivoBloqueo };

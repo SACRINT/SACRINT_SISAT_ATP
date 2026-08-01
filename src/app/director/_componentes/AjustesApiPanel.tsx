@@ -165,7 +165,7 @@ export default function AjustesApiPanel({ escuela }: { escuela: any }) {
                     <div>
                         <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Clave de API Personal</h3>
                         <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                            Configura tu propia clave gratuita de Google Gemini o MorphLLM para usar el chat y las evaluaciones sin límites compartidos.
+                            Configura tu propia clave gratuita de Google Gemini para usar el chat y las evaluaciones sin límites compartidos.
                         </p>
                     </div>
                 </div>
@@ -173,7 +173,7 @@ export default function AjustesApiPanel({ escuela }: { escuela: any }) {
                 {/* Input de Clave */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "1.25rem" }}>
                     <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)" }}>
-                        Google Gemini o MorphLLM API Key
+                        Google Gemini API Key
                     </label>
                     <div style={{ display: "flex", gap: "0.5rem", position: "relative" }}>
                         <input
@@ -290,7 +290,7 @@ export default function AjustesApiPanel({ escuela }: { escuela: any }) {
                     <div style={{ background: "#e0f2fe", borderRadius: "8px", padding: "6px", display: "flex" }}>
                         <HelpCircle size={18} color="#0284c7" />
                     </div>
-                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>¿Cómo obtener tu clave API de Gemini o MorphLLM?</h4>
+                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>¿Cómo obtener tu clave API de Gemini?</h4>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -302,7 +302,7 @@ export default function AjustesApiPanel({ escuela }: { escuela: any }) {
                         <div>
                             <h5 style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700 }}>Accede a tu plataforma preferida</h5>
                             <p style={{ margin: "0.25rem 0 0", fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>
-                                Puedes usar Google AI Studio o MorphLLM Dashboard:
+                                Puedes usar Google AI Studio:
                                 <br />
                                 <a 
                                     href="https://aistudio.google.com/" 
@@ -311,14 +311,6 @@ export default function AjustesApiPanel({ escuela }: { escuela: any }) {
                                     style={{ color: "var(--primary)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.25rem", marginRight: "0.5rem" }}
                                 >
                                     Google AI Studio <ExternalLink size={12} />
-                                </a>
-                                <a 
-                                    href="https://www.morphllm.com/" 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    style={{ color: "var(--primary)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
-                                >
-                                    MorphLLM Dashboard <ExternalLink size={12} />
                                 </a>
                             </p>
                         </div>
