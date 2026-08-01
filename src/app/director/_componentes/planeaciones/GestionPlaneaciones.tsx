@@ -489,8 +489,8 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
         }
     };
 
-    // Si está bloqueado por falta de PAEC-PEC o permisos
-    if (requisitos && !requisitos.puedeUsar) {
+    // Si está bloqueado por falta de PAEC-PEC o permisos (solo aplica a directores, NUNCA al administrador)
+    if (!isAdmin && requisitos && !requisitos.puedeUsar) {
         return (
             <div className="card" style={{ padding: "2.5rem", textAlign: "center" }}>
                 <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#fee2e2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}>
@@ -1178,8 +1178,7 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                 onClose={() => setMapaModalAbierto(false)}
                 onSaved={cargarDatos}
                 forceObligatorio={!isAdmin && escuelaData.mapaCurricularCompletado === false}
-
-
+                isAdmin={isAdmin}
             />
 
         </div>

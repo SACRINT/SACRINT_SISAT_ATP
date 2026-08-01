@@ -29,6 +29,7 @@ interface Props {
   onClose?: () => void;
   onSaved?: () => void;
   forceObligatorio?: boolean;
+  isAdmin?: boolean;
 }
 
 export default function ModalConfiguracionMapaCurricular({
@@ -38,6 +39,7 @@ export default function ModalConfiguracionMapaCurricular({
   onClose,
   onSaved,
   forceObligatorio = false,
+  isAdmin = false,
 }: Props) {
   const [paso, setPaso] = useState<1 | 2>(1);
   const [guardando, setGuardando] = useState(false);
@@ -275,10 +277,11 @@ export default function ModalConfiguracionMapaCurricular({
               <Sparkles size={18} /> Mapa Curricular y Estructura del Plantel (1.º a 6.º Semestre)
             </h3>
           </div>
-          {!forceObligatorio && onClose && (
+          {(!forceObligatorio || isAdmin) && onClose && (
             <button
               onClick={onClose}
               style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "white", borderRadius: "8px", width: "32px", height: "32px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              title="Cerrar ventana"
             >
               <X size={18} />
             </button>

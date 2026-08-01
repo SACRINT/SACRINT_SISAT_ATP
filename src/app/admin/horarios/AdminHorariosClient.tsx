@@ -426,6 +426,7 @@ export default function AdminHorariosClient({ escuelas }: Props) {
           onClose={() => setMapaModalAbierto(false)}
           onSaved={() => cargarDatosEscuela(escuelaActual.id)}
           forceObligatorio={escuelaState?.mapaCurricularCompletado === false}
+          isAdmin={true}
         />
       )}
     </div>

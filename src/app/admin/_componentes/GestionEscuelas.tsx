@@ -327,6 +327,22 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                 fetch(`/api/horarios/configuracion?escuelaId=${id}`)
                     .then(res => res.json())
                     .then(data => {
+                        if (data.escuela) {
+                            const { gruposPrimerAno, gruposSegundoAno, gruposTercerAno, mapaCurricularCompletado } = data.escuela;
+                            setEscuelas(prev => prev.map(e => e.id === id ? {
+                                ...e,
+                                gruposPrimerAno: gruposPrimerAno ?? 1,
+                                gruposSegundoAno: gruposSegundoAno ?? 1,
+                                gruposTercerAno: gruposTercerAno ?? 1,
+                                mapaCurricularCompletado: mapaCurricularCompletado ?? false
+                            } : e));
+                            setFormData(prev => ({
+                                ...prev,
+                                gruposPrimerAno: gruposPrimerAno ?? 1,
+                                gruposSegundoAno: gruposSegundoAno ?? 1,
+                                gruposTercerAno: gruposTercerAno ?? 1
+                            }));
+                        }
                         if (Array.isArray(data.grupos)) {
                             setGruposConfigList(data.grupos);
                         }
@@ -1579,6 +1595,7 @@ export default function GestionEscuelas({ inicialEscuelas, programas, readOnly =
                         setMapaModalAbierto(false);
                         cargarDatosEscuela(selectedEscuela.id);
                     }}
+                    isAdmin={true}
                 />
             )}
         </div>

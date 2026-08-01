@@ -756,3 +756,25 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 *Versión actualizada: Agosto 2026 — v4.2*
 
+---
+
+### 9.11 Reglas de Privilegios Administrativos Super Admin, Sincronización de Estructura de Grupos y Feedback UX (v4.3)
+
+**Principios y Reglas Fundamentales del Proyecto**:
+
+1. **Privilegios Totales del Administrador Super Admin (`isAdmin === true`)**:
+   - **Regla Estricta**: El usuario Administrador (`role === "admin"` / `isAdmin === true`) **NUNCA DEBE SER BLOQUEADO** por faltas de requisitos del plantel (como falta de API Key de Gemini, falta de PAEC-PEC o desactivación de toggles en la matriz de escuelas).
+   - **Botón de Cerrar (✕) en Modales**: Todos los modales de configuración (incluyendo `ModalConfiguracionMapaCurricular`) DEBEN mostrar visiblemente el botón de cerrar `✕` cuando el usuario es Administrador (`isAdmin={true}`), incluso si el mapa curricular del plantel no ha sido marcado como completado (`forceObligatorio`).
+
+2. **Fuente Única de Verdad para Estructura de Grupos por Grado**:
+   - La estructura de grupos por grado (`gruposPrimerAno`, `gruposSegundoAno`, `gruposTercerAno`) configurada en `ModalConfiguracionMapaCurricular` se almacena en la tabla `Escuela` y `HorarioGrupo` de la base de datos PostgreSQL.
+   - En la sección `Escuelas` del panel Admin (`GestionEscuelas.tsx`), la tarjeta `Estructura de Grupos por Grado / Año` sincroniza su estado automáticamente al consumir el endpoint `/api/horarios/configuracion?escuelaId=${id}`, evitando que muestre la estructura por defecto (`1-1-1`) cuando la escuela ya tiene guardada una estructura real (ej. `3-3-3`).
+
+3. **Feedback Visual e Interactividad en Botones de Larga Ejecución**:
+   - Todo botón o acción que realice llamadas asíncronas o de Inteligencia Artificial que tomen tiempo (como `Reintentar IA` o `Subir Planeación` en `GestionPlaneaciones.tsx`) DEBE mostrar una animación visual clara (icono girando con `animation: spin 1s linear infinite`), deshabilitar el botón (`disabled={true}`, `cursor: wait`) y cambiar su etiqueta de texto mientras se completa la operación para dar retroalimentación inmediata al usuario.
+
+---
+
+*Versión actualizada: Agosto 2026 — v4.3*
+
+
