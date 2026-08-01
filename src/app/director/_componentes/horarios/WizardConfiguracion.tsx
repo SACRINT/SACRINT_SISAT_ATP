@@ -12,6 +12,8 @@ interface Props {
   docentesIniciales: any[];
   cargasIniciales: any[];
   onGenerarClick: () => void;
+  pasoInicial?: number;
+  onStepChange?: (paso: number) => void;
 }
 
 import {
@@ -22,7 +24,6 @@ import {
   FFE_AREAS_CONOCIMIENTO as FFE_AREA_CONOCIMIENTO,
   resolverSocioemocionalGrupo
 } from "@/lib/escuela-grupos";
-
 
 // Mapeo exhaustivo de las 15 Capacitaciones Laborales a sus 2 UACs de 3º semestre y 2 UACs de 5º semestre con Abreviaturas
 const UACS_LABORALES_MAPA: Record<string, { sem3: { name: string; abrev: string }[]; sem5: { name: string; abrev: string }[] }> = {
@@ -185,11 +186,25 @@ export default function WizardConfiguracion({
   aulasIniciales,
   docentesIniciales,
   cargasIniciales,
-  onGenerarClick
+  onGenerarClick,
+  pasoInicial = 1,
+  onStepChange
 }: Props) {
   const STORAGE_KEY = `horarios_wizard_v4_${escuelaId}`;
 
-  const [paso, setPaso] = useState<number>(1);
+  const [paso, setPasoState] = useState<number>(pasoInicial);
+
+  const setPaso = (nuevoPaso: number) => {
+    setPasoState(nuevoPaso);
+    if (onStepChange) onStepChange(nuevoPaso);
+  };
+
+  useEffect(() => {
+    if (pasoInicial && pasoInicial >= 1 && pasoInicial <= 3 && pasoInicial !== paso) {
+      setPasoState(pasoInicial);
+    }
+  }, [pasoInicial]);
+
   // Período Semestral: A = semestres impares (1°,3°,5°), B = semestres pares (2°,4°,6°)
   const [periodoActivo, setPeriodoActivo] = useState<"A" | "B">("A");
   const [loading, setLoading] = useState<boolean>(false);
@@ -225,8 +240,7 @@ export default function WizardConfiguracion({
 
   // ─── PRIORIDAD BD: Si vienen grupos desde la BD con configuración real, usarlos directamente ───
   useEffect(() => {
-    if (gruposIniciales && gruposIniciales.length > 0 && !inicializadoDesdeBD) {
-      // Normalizar datos de la BD (ffeOptativas puede venir como string JSON)
+    if (gruposIniciales && gruposIniciales.length > 0) {
       const gruposNormalizados = gruposIniciales.map((g: any) => {
         let ffeOptativas = g.ffeOptativas;
         if (typeof ffeOptativas === "string") {
@@ -234,7 +248,22 @@ export default function WizardConfiguracion({
         }
         return { ...g, ffeOptativas: Array.isArray(ffeOptativas) ? ffeOptativas : [] };
       });
-      setGrupos(gruposNormalizados);
+
+      setGrupos((prev) => {
+        if (!prev || prev.length === 0) return gruposNormalizados;
+        return prev.map((p) => {
+          const dbG = gruposNormalizados.find((db: any) => normalizarNombreGrupo(db.nombre) === normalizarNombreGrupo(p.nombre));
+          if (dbG) {
+            return {
+              ...p,
+              capacitacionNombre: dbG.capacitacionNombre || p.capacitacionNombre,
+              ffeoSocioemocional: dbG.ffeoSocioemocional || p.ffeoSocioemocional,
+              ffeOptativas: (dbG.ffeOptativas && dbG.ffeOptativas.length > 0) ? dbG.ffeOptativas : p.ffeOptativas
+            };
+          }
+          return p;
+        });
+      });
       setInicializadoDesdeBD(true);
     }
   }, [gruposIniciales, escuelaId]);
@@ -388,6 +417,8 @@ export default function WizardConfiguracion({
         // Buscar grupo exacto o por herencia de Track (ej. 4° A hereda de 3° A, 6° A hereda de 5° A)
         let grupoExistente = gruposActuales.find(
           (g) => normalizarNombreGrupo(g.nombre) === nombreGrupo
+        ) || (gruposIniciales || []).find(
+          (g: any) => normalizarNombreGrupo(g.nombre) === nombreGrupo
         );
 
         if (!grupoExistente && (sem === 4 || sem === 6)) {
@@ -395,17 +426,28 @@ export default function WizardConfiguracion({
           const nombreBase = `${semBase}° ${letra}`;
           grupoExistente = gruposActuales.find(
             (g) => normalizarNombreGrupo(g.nombre) === nombreBase
+          ) || (gruposIniciales || []).find(
+            (g: any) => normalizarNombreGrupo(g.nombre) === nombreBase
           );
         }
 
-        let ffeOpts = grupoExistente?.ffeOptativas;
+        // Buscar grupo base del mismo track para heredar capacitacionNombre si no está presente
+        const grupoBaseTrack = (gruposIniciales || []).find(
+          (g: any) => normalizarNombreGrupo(g.nombre) === (sem === 4 || sem === 6 ? `${sem === 4 ? 3 : 5}° ${letra}` : nombreGrupo)
+        ) || gruposActuales.find(
+          (g: any) => normalizarNombreGrupo(g.nombre) === (sem === 4 || sem === 6 ? `${sem === 4 ? 3 : 5}° ${letra}` : nombreGrupo)
+        );
+
+        let ffeOpts = grupoExistente?.ffeOptativas || grupoBaseTrack?.ffeOptativas;
         if (typeof ffeOpts === "string") {
           try { ffeOpts = JSON.parse(ffeOpts); } catch { ffeOpts = null; }
         }
 
         // Determinar Socioemocional automático mediante resolverSocioemocionalGrupo
-        const g3Socio = gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional;
-        const g5Socio = gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional;
+        const g3Socio = gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional
+          || (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional;
+        const g5Socio = gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional
+          || (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional;
         const resolvedSocio = resolverSocioemocionalGrupo(g3Socio, g5Socio);
 
         let socioCalculado: string;
@@ -416,12 +458,13 @@ export default function WizardConfiguracion({
         else socioCalculado = FORMACIONES_SOCIOEMOCIONALES[0];
 
         const tieneLaboral = sem >= 3;
+        const capFinal = grupoExistente?.capacitacionNombre || grupoBaseTrack?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length];
 
         nuevosGrupos.push({
           id: grupoExistente?.id || `temp_${sem}_${letra}`,
           nombre: nombreGrupo,
           semestre: sem,
-          capacitacionNombre: tieneLaboral ? (grupoExistente?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length]) : undefined,
+          capacitacionNombre: tieneLaboral ? capFinal : undefined,
           ffeoSocioemocional: tieneLaboral ? socioCalculado : undefined,
           ffeOptativas: (Array.isArray(ffeOpts) && ffeOpts.length > 0) ? ffeOpts : [
             FFE_RECURSO_SOCIOCOGNITIVO[0],

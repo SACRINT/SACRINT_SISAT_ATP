@@ -715,5 +715,31 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 ---
 
-*Versión actualizada: Agosto 2026 — v4.0*
+### 9.9 Persistencia del Mapa Curricular, Herencia de Semestre B en Planeaciones, Fix Borrado 404 y NAVEGACIÓN UNIFICADA DE 4 PASOS (v4.1)
+
+**Descripción de los Ajustes Realizados**:
+1. **Persistencia Real y Prioridad de la BD sobre Valores por Defecto (`WizardConfiguracion.tsx`)**:
+   - Se corrigió el bug por el cual el Paso 1 cargaba los valores por defecto (`Administración`) al abrir el Wizard o pulsar "Reconfigurar".
+   - `useEffect` en `WizardConfiguracion` ahora realiza un *merge* directo donde los datos guardados en la base de datos (`gruposIniciales`: `Comunicación Gráfica`, optativas FFE, socioemocionales) tienen prioridad absoluta sobre los valores por defecto y sobre la caché antigua de `localStorage`.
+2. **Herencia de Capacitación y Asignaturas para Semestre B en Planeaciones Didácticas (`GestionPlaneaciones.tsx`)**:
+   - Se ajustó el mapeo de `hGrupo` en las tarjetas de grupos de `GestionPlaneaciones.tsx`.
+   - Para grupos del Semestre B (ej. `4° A` y `6° A`), `GestionPlaneaciones` busca primero el grupo exacto o hereda directamente la capacitación (`Comunicación Gráfica`) y optativas desde sus grupos base del Semestre A (`3° A` y `5° A`).
+   - Se utilizó `resolverSocioemocionalGrupo` para asignar la 3.ª asignatura socioemocional restante (`Educación Integral en Sexualidad y Género`), previniendo que `Educación para la Salud` se repitiera erróneamente en 4.º y 6.º semestre.
+3. **Corrección de Borrado (Fix 404) y Botón de "Reintentar Dictamen IA" (`route.ts` & `GestionPlaneaciones.tsx`)**:
+   - Se corrigió el handler `DELETE /api/director/planeaciones/[id]` para buscar y eliminar la planeación directamente por su ID único (`where: { id }`), resolviendo el error 404 reportado en Vercel logs.
+   - Se agregó el handler `POST /api/director/planeaciones/[id]` para ejecutar la re-evaluación del dictamen con Gemini de forma asíncrona/síncrona.
+   - En la interfaz de planeaciones, se agregó el botón **"🔄 Reintentar IA"** en cada fila para re-ejecutar el análisis sin necesidad de eliminar y re-subir el archivo.
+4. **Navegación Unificada de 4 Pasos en Horarios (`HorariosClient.tsx` & `AdminHorariosClient.tsx`)**:
+   - Se integró un **Stepper Header Unificado de 4 Pasos**:
+     - `1️⃣ Estructura & Currículum`
+     - `2️⃣ Plantilla Docente`
+     - `3️⃣ Matriz por Semestre`
+     - `4️⃣ Horario Generado (IA)`
+   - El director o administrador puede cambiar libremente entre cualquier paso con un solo clic sin perder los datos cargados ni reiniciar la configuración.
+5. **Filtrado por Semestre A / B en el Horario Generado (`EditorHorarios.tsx`)**:
+   - Se agregó el selector de período `📅 Semestre A (1º, 3º, 5º)` y `📅 Semestre B (2º, 4º, 6º)` en el control de vistas del horario generado para alternar de forma inmediata la visualización de los grupos de semestres pares e impares.
+
+---
+
+*Versión actualizada: Agosto 2026 — v4.1*
 

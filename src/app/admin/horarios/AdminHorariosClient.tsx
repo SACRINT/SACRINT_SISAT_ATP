@@ -16,6 +16,7 @@ export default function AdminHorariosClient({ escuelas }: Props) {
   const [escuelaSeleccionadaId, setEscuelaSeleccionadaId] = useState<string>(escuelas[0]?.id || "");
   const [loading, setLoading] = useState<boolean>(true);
   const [modo, setModo] = useState<"WIZARD" | "EDITOR">("WIZARD");
+  const [pasoActual, setPasoActual] = useState<number>(1);
   const [mapaModalAbierto, setMapaModalAbierto] = useState<boolean>(false);
   const [escuelaState, setEscuelaState] = useState<any>(escuelas[0] || null);
 
@@ -53,8 +54,10 @@ export default function AdminHorariosClient({ escuelas }: Props) {
       if (data.horario) {
         setHorario(data.horario);
         setModo("EDITOR");
+        setPasoActual(4);
       } else {
         setModo("WIZARD");
+        setPasoActual(1);
       }
     } catch (e) {
       console.error("Error cargando configuración de horarios de la escuela:", e);
@@ -99,7 +102,7 @@ export default function AdminHorariosClient({ escuelas }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           escuelaId: escuelaActual.id,
-          nombreVersion: `Horario ${escuelaActual.cct} - Admin ${new Date().toLocaleDateString("es-MX")}`
+          nombreVersion: `Horario ${escuelaActual.cct} - ${new Date().toLocaleDateString("es-MX")}`
         })
       });
 
@@ -107,12 +110,13 @@ export default function AdminHorariosClient({ escuelas }: Props) {
       if (data.success && data.horario) {
         setHorario(data.horario);
         setModo("EDITOR");
-        toast.success("¡Horario generado por la Supervisión exitosamente!");
+        setPasoActual(4);
+        toast.success("¡Horario generado exitosamente con 0 empalmes!");
       } else {
         toast.error(data.error || "No se pudo generar el horario.");
       }
     } catch (e) {
-      toast.error("Error al generar horario");
+      toast.error("Error al generar horario con IA");
     } finally {
       setLoading(false);
     }
@@ -120,7 +124,7 @@ export default function AdminHorariosClient({ escuelas }: Props) {
 
   const handleEliminarHorario = async () => {
     if (!escuelaActual) return;
-    if (!confirm(`¿Estás SEGURO de eliminar el horario generado para la escuela ${escuelaActual.nombre}? El horario volverá al asistente de configuración en borrador.`)) return;
+    if (!confirm(`¿Estás SEGURO de eliminar el horario generado para ${escuelaActual.nombre}? Volverá al asistente de configuración.`)) return;
 
     setLoading(true);
     try {
@@ -131,64 +135,123 @@ export default function AdminHorariosClient({ escuelas }: Props) {
       if (data.success) {
         toast.success("Horario generado eliminado exitosamente.");
         setHorario(null);
+        await cargarDatosEscuela(escuelaActual.id);
         setModo("WIZARD");
+        setPasoActual(1);
       } else {
         toast.error(data.error || "No se pudo eliminar el horario.");
       }
     } catch (e) {
-      toast.error("Error al eliminar el horario");
+      toast.error("Error al eliminar horario");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleVolverAWizard = async () => {
+    if (escuelaSeleccionadaId) {
+      await cargarDatosEscuela(escuelaSeleccionadaId);
+    }
+    setModo("WIZARD");
+    setPasoActual(1);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+        <div style={{ textAlign: "center" }}>
+          <Sparkles style={{ width: "40px", height: "40px", color: "var(--primary)", animation: "pulse 1.5s infinite", margin: "0 auto 1rem" }} />
+          <p style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text)" }}>Cargando Panel Administrador de Horarios...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="horarios-container">
-      {/* Header General de Supervisión */}
+      {/* Header General Admin */}
       <div className="horario-header">
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
             <Link
               href="/admin"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "0.4rem",
-                background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                background: "#334155",
                 color: "#ffffff",
                 padding: "0.45rem 0.85rem",
                 borderRadius: "8px",
                 fontWeight: 800,
                 fontSize: "0.78125rem",
-                textDecoration: "none",
-                boxShadow: "0 2px 6px rgba(37,99,235,0.25)"
+                textDecoration: "none"
               }}
             >
-              ⬅️ VOLVER AL PORTAL PRINCIPAL SISAT-ATP
+              ⬅️ VOLVER AL PANEL ADMINISTRADOR
             </Link>
-            <span className="badge" style={{ background: "#f3e8ff", color: "#7e22ce", fontSize: "0.6875rem", fontWeight: 800 }}>
-              Supervisión / ATP Portal
+            <span className="badge" style={{ background: "#fef3c7", color: "#d97706", fontSize: "0.6875rem", fontWeight: 800 }}>
+              Supervisión Admin
             </span>
+            <button
+              onClick={() => setMapaModalAbierto(true)}
+              style={{
+                background: "linear-gradient(135deg, #10b981, #059669)",
+                color: "#ffffff",
+                padding: "0.45rem 0.85rem",
+                borderRadius: "8px",
+                fontWeight: 800,
+                fontSize: "0.78125rem",
+                border: "none",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem"
+              }}
+            >
+              ⚙️ Configurar Mapa Curricular
+            </button>
+            <button
+              onClick={handleReiniciarMapaCurricular}
+              style={{
+                background: "#fef2f2",
+                color: "#dc2626",
+                border: "1px solid #fca5a5",
+                padding: "0.45rem 0.85rem",
+                borderRadius: "8px",
+                fontWeight: 800,
+                fontSize: "0.78125rem",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem"
+              }}
+            >
+              🔄 Reiniciar Configuración
+            </button>
           </div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem", margin: 0 }}>
-            <Calendar style={{ width: "26px", height: "26px", color: "#7e22ce" }} /> Generador de Horarios Multiescuela
+            <Building2 style={{ width: "26px", height: "26px", color: "var(--primary)" }} /> Gestión Central de Horarios
           </h1>
           <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
-            Zona Escolar 004 | Bachilleratos Generales Estatales
+            Administración de Mapa Curricular y Generación de Horarios por Plantel
           </p>
         </div>
 
-        {/* Selector de Escuela y Botones de Configuración */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <label style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-              <Building2 style={{ width: "16px", height: "16px", color: "#7e22ce" }} /> Plantel:
-            </label>
+        {/* Selector de Escuela */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+            <label style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-secondary)" }}>Escuela Activa:</label>
             <select
               value={escuelaSeleccionadaId}
               onChange={(e) => setEscuelaSeleccionadaId(e.target.value)}
-              className="input"
-              style={{ padding: "0.4rem 0.75rem", fontSize: "0.8125rem", fontWeight: 700, minHeight: "auto" }}
+              style={{
+                padding: "0.5rem 0.75rem",
+                borderRadius: "8px",
+                border: "1px solid var(--border)",
+                fontWeight: 700,
+                fontSize: "0.875rem"
+              }}
             >
               {escuelas.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -198,129 +261,134 @@ export default function AdminHorariosClient({ escuelas }: Props) {
             </select>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setMapaModalAbierto(true)}
-            style={{
-              background: "#10b981",
-              color: "#ffffff",
-              border: "none",
-              padding: "0.45rem 0.85rem",
-              borderRadius: "8px",
-              fontWeight: 800,
-              fontSize: "0.78125rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem"
-            }}
-          >
-            ⚙️ Configurar Mapa Curricular
-          </button>
-
-          <button
-            type="button"
-            onClick={handleReiniciarMapaCurricular}
-            style={{
-              background: "#fef2f2",
-              color: "#dc2626",
-              border: "1px solid #fca5a5",
-              padding: "0.45rem 0.85rem",
-              borderRadius: "8px",
-              fontWeight: 800,
-              fontSize: "0.78125rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem"
-            }}
-          >
-            🔄 Reiniciar Mapa Curricular
-          </button>
-        </div>
-      </div>
-
-      {/* Banner de Métricas del Plantel Seleccionado */}
-      {escuelaActual && (
-        <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "10px", padding: "0.65rem 1rem", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", fontSize: "0.78125rem", fontWeight: 800 }}>
-            <span style={{ color: horario ? "#16a34a" : "#d97706" }}>
-              📊 Estado Horario: {horario ? "✅ Generado" : "⏳ Borrador (Sin Generar)"}
-            </span>
-            <span style={{ color: "#2563eb" }}>
-              💬 Consultas Chat IA: {horario?.mensajesChat?.length || 0} preguntas realizadas
-            </span>
-          </div>
-
           {horario && (
             <button
-              type="button"
               onClick={handleEliminarHorario}
               style={{
                 background: "#fef2f2",
                 color: "#dc2626",
                 border: "1px solid #fca5a5",
-                padding: "0.35rem 0.75rem",
-                borderRadius: "6px",
+                padding: "0.45rem 0.85rem",
+                borderRadius: "8px",
                 fontWeight: 800,
                 fontSize: "0.75rem",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "0.35rem"
+                gap: "0.35rem",
+                alignSelf: "flex-end"
               }}
             >
-              🗑️ Eliminar Horario Generado
+              🗑️ Eliminar Horario
             </button>
           )}
         </div>
-      )}
+      </div>
 
-      {loading ? (
-        <div style={{ background: "white", borderRadius: "16px", border: "1px solid var(--border)", padding: "3rem", textAlign: "center" }}>
-          <Sparkles style={{ width: "32px", height: "32px", color: "#7e22ce", animation: "pulse 1.5s infinite", margin: "0 auto 0.5rem" }} />
-          <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text)" }}>Cargando horario del plantel...</p>
+      {/* Stepper Principal Unificado de 4 Pasos */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "14px",
+        padding: "0.75rem 1.25rem",
+        marginBottom: "1.25rem",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase", marginRight: "0.5rem" }}>
+            Navegación del Módulo:
+          </span>
+          {[
+            { num: 1, label: "1. Estructura & Currículum" },
+            { num: 2, label: "2. Plantilla Docente" },
+            { num: 3, label: "3. Matriz por Semestre" },
+            { num: 4, label: "4. Horario Generado (IA)" }
+          ].map((step) => {
+            const esActivo = pasoActual === step.num;
+            const esCompletado = step.num < pasoActual || (step.num === 4 && !!horario);
+            const esDeshabilitado = step.num === 4 && !horario;
+
+            return (
+              <button
+                key={step.num}
+                type="button"
+                disabled={esDeshabilitado}
+                onClick={() => {
+                  if (step.num === 4) {
+                    if (horario) {
+                      setModo("EDITOR");
+                      setPasoActual(4);
+                    } else {
+                      toast.error("Aún no se ha generado un horario. Complete los pasos 1-3 y haga clic en Generar.");
+                    }
+                  } else {
+                    setModo("WIZARD");
+                    setPasoActual(step.num);
+                  }
+                }}
+                style={{
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: "20px",
+                  border: "none",
+                  fontSize: "0.8rem",
+                  fontWeight: 800,
+                  cursor: esDeshabilitado ? "not-allowed" : "pointer",
+                  background: esActivo ? "#2563eb" : esCompletado ? "#f1f5f9" : "transparent",
+                  color: esActivo ? "#ffffff" : esDeshabilitado ? "#94a3b8" : "#334155",
+                  opacity: esDeshabilitado ? 0.6 : 1,
+                  transition: "all 0.2s",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem"
+                }}
+              >
+                {step.num === 4 && horario ? "✨ " : ""}{step.label}
+              </button>
+            );
+          })}
         </div>
-      ) : escuelaActual ? (
-        modo === "WIZARD" ? (
-          <WizardConfiguracion
-            escuelaId={escuelaActual.id}
-            configInicial={{ escuela: escuelaActual, config }}
-            gruposIniciales={grupos}
-            aulasIniciales={aulas}
-            docentesIniciales={docentes}
-            cargasIniciales={cargas}
-            onGenerarClick={handleGenerarHorarioIA}
-          />
-        ) : (
-          <EditorHorarios
-            escuela={escuelaActual}
-            horarioInicial={horario}
-            grupos={grupos}
-            docentes={docentes}
-            aulas={aulas}
-            cargas={cargas}
-            onVolverAWizard={() => setModo("WIZARD")}
-            esAdmin={true}
-          />
-        )
-      ) : null}
+      </div>
 
-      {/* Modal de Configuración Abierta de Mapa Curricular */}
-      {escuelaActual && (
-        <ModalConfiguracionMapaCurricular
-          isOpen={mapaModalAbierto}
-          onClose={() => setMapaModalAbierto(false)}
-          escuela={escuelaActual}
+      {/* Renderizado del Módulo segun Paso */}
+      {modo === "WIZARD" ? (
+        <WizardConfiguracion
+          escuelaId={escuelaActual.id}
+          configInicial={config}
           gruposIniciales={grupos}
-          onSaved={() => {
-            setMapaModalAbierto(false);
-            cargarDatosEscuela(escuelaActual.id);
-          }}
+          aulasIniciales={aulas}
+          docentesIniciales={docentes}
+          cargasIniciales={cargas}
+          onGenerarClick={handleGenerarHorarioIA}
+          pasoInicial={pasoActual}
+          onStepChange={(p) => setPasoActual(p)}
+        />
+      ) : (
+        <EditorHorarios
+          escuela={escuelaActual}
+          horarioInicial={horario}
+          grupos={grupos}
+          docentes={docentes}
+          aulas={aulas}
+          cargas={cargas}
+          onVolverAWizard={handleVolverAWizard}
+          esAdmin={true}
         />
       )}
 
+      {/* Modal de Configuración de Mapa Curricular */}
+      {escuelaActual && (
+        <ModalConfiguracionMapaCurricular
+          escuela={escuelaActual}
+          gruposIniciales={grupos}
+          isOpen={mapaModalAbierto}
+          onClose={() => setMapaModalAbierto(false)}
+          onSaved={() => cargarDatosEscuela(escuelaActual.id)}
+          forceObligatorio={escuelaState?.mapaCurricularCompletado === false}
+        />
+      )}
     </div>
   );
 }
-

@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
 
 // ── Revisión asíncrona en background ─────────────────────────────────────────
 
-async function revisarPlaneacionEnBackground(
+export async function revisarPlaneacionEnBackground(
     planeacionId: string,
     params: {
         archivoUrl: string;

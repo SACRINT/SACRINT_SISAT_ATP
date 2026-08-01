@@ -59,6 +59,7 @@ export default function EditorHorarios({
 }: Props) {
   const [horario, setHorario] = useState<any>(horarioInicial);
   const [vistaTab, setVistaTab] = useState<"GRUPO" | "DOCENTE" | "AULA" | "SUMARIO">("GRUPO");
+  const [periodoFiltro, setPeriodoFiltro] = useState<"A" | "B">("A");
   
   const [grupoSeleccionadoId, setGrupoSeleccionadoId] = useState<string>(grupos[0]?.id || "");
   const [docenteSeleccionadoId, setDocenteSeleccionadoId] = useState<string>(docentes[0]?.id || "");
@@ -533,15 +534,63 @@ export default function EditorHorarios({
       <div style={{ padding: "0.75rem 1.25rem", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", display: "flex", alignItems: "center", gap: "0.75rem" }}>
         <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Filtrar Vista:</span>
         {vistaTab === "GRUPO" && (
-          <select
-            value={grupoSeleccionadoId}
-            onChange={(e) => setGrupoSeleccionadoId(e.target.value)}
-            style={{ padding: "0.4rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", background: "white", fontSize: "0.875rem", fontWeight: 700, color: "var(--text)" }}
-          >
-            {grupos.map((g) => (
-              <option key={g.id} value={g.id}>Grupo {g.nombre}</option>
-            ))}
-          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "0.25rem", background: "var(--bg-secondary)", padding: "0.2rem", borderRadius: "8px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodoFiltro("A");
+                  const gA = grupos.find((g) => [1, 3, 5].includes(g.semestre));
+                  if (gA) setGrupoSeleccionadoId(gA.id);
+                }}
+                style={{
+                  padding: "0.3rem 0.65rem",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "0.75rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  background: periodoFiltro === "A" ? "#2563eb" : "transparent",
+                  color: periodoFiltro === "A" ? "white" : "var(--text-muted)"
+                }}
+              >
+                📅 Semestre A (1º, 3º, 5º)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodoFiltro("B");
+                  const gB = grupos.find((g) => [2, 4, 6].includes(g.semestre));
+                  if (gB) setGrupoSeleccionadoId(gB.id);
+                }}
+                style={{
+                  padding: "0.3rem 0.65rem",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "0.75rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  background: periodoFiltro === "B" ? "#2563eb" : "transparent",
+                  color: periodoFiltro === "B" ? "white" : "var(--text-muted)"
+                }}
+              >
+                📅 Semestre B (2º, 4º, 6º)
+              </button>
+            </div>
+
+            <select
+              value={grupoSeleccionadoId}
+              onChange={(e) => setGrupoSeleccionadoId(e.target.value)}
+              style={{ padding: "0.4rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border)", background: "white", fontSize: "0.875rem", fontWeight: 700, color: "var(--text)" }}
+            >
+              {(grupos.filter((g) => (periodoFiltro === "A" ? [1, 3, 5].includes(g.semestre) : [2, 4, 6].includes(g.semestre))).length > 0
+                ? grupos.filter((g) => (periodoFiltro === "A" ? [1, 3, 5].includes(g.semestre) : [2, 4, 6].includes(g.semestre)))
+                : grupos
+              ).map((g) => (
+                <option key={g.id} value={g.id}>Grupo {g.nombre}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         {vistaTab === "DOCENTE" && (

@@ -468,6 +468,23 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
         }
     };
 
+    // Reintentar / Forzar Dictamen IA Gemini
+    const handleReintentarDictamen = async (id: string) => {
+        toast.loading("Re-ejecutando dictamen con IA Gemini...", { id: "dictamen-toast" });
+        try {
+            const res = await fetch(`/api/director/planeaciones/${id}`, { method: "POST" });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                toast.success("¡Dictamen IA generado exitosamente!", { id: "dictamen-toast" });
+                await cargarDatos();
+            } else {
+                toast.error(data.error || "No se pudo generar el dictamen", { id: "dictamen-toast" });
+            }
+        } catch {
+            toast.error("Error de conexión al servidor", { id: "dictamen-toast" });
+        }
+    };
+
     // Si está bloqueado por falta de PAEC-PEC o permisos
     if (requisitos && !requisitos.puedeUsar) {
         return (
@@ -649,13 +666,21 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                     {gruposGenerados
                         .filter(g => grupoSeleccionadoId === "TODOS" || g.nombre === grupoSeleccionadoId)
                         .map(grupo => {
-                            const hGrupo = gruposDB.find((g: any) => g.nombre === grupo.nombre);
-                            const capNombre = hGrupo?.capacitacionNombre || "Administracion";
-                            const ffeOpts = Array.isArray(hGrupo?.ffeOptativas) && hGrupo.ffeOptativas.length === 4 ? hGrupo.ffeOptativas : [];
-
                             const letraGrupo = grupo.nombre.split(" ")[1];
                             const hGrupo3 = gruposDB.find((g: any) => g.nombre === `3° ${letraGrupo}` || g.nombre === `3º ${letraGrupo}`);
                             const hGrupo5 = gruposDB.find((g: any) => g.nombre === `5° ${letraGrupo}` || g.nombre === `5º ${letraGrupo}`);
+
+                            // Buscar hGrupo exacto o por herencia de Semestre A (4º hereda de 3º, 6º hereda de 5º)
+                            const hGrupo = gruposDB.find((g: any) => g.nombre === grupo.nombre)
+                                || (grupo.semestre === 4 ? hGrupo3 : grupo.semestre === 6 ? hGrupo5 : undefined);
+
+                            const capNombre = hGrupo?.capacitacionNombre || hGrupo3?.capacitacionNombre || hGrupo5?.capacitacionNombre || "Administracion";
+                            const ffeOpts = (Array.isArray(hGrupo?.ffeOptativas) && hGrupo.ffeOptativas.length === 4)
+                                ? hGrupo.ffeOptativas
+                                : (Array.isArray(hGrupo5?.ffeOptativas) && hGrupo5.ffeOptativas.length === 4)
+                                    ? hGrupo5.ffeOptativas
+                                    : [];
+
                             const socio3 = hGrupo3?.ffeoSocioemocional;
                             const socio5 = hGrupo5?.ffeoSocioemocional || (grupo.semestre === 5 ? hGrupo?.ffeoSocioemocional : undefined);
                             const socioObj = resolverSocioemocionalGrupo(socio3, socio5);
@@ -826,6 +851,16 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                                                             <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}>
                                                                 {planeacion ? (
                                                                     <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end" }}>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-outline"
+                                                                            onClick={() => handleReintentarDictamen(planeacion.id)}
+                                                                            style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 700, color: "#16a34a", borderColor: "#bbf7d0" }}
+                                                                            title="Volver a ejecutar el dictamen con IA Gemini"
+                                                                        >
+                                                                            <RefreshCw size={14} /> Reintentar IA
+                                                                        </button>
+
                                                                         <button
                                                                             type="button"
                                                                             className="btn btn-outline"

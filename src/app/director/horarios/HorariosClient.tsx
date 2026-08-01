@@ -15,6 +15,7 @@ interface Props {
 export default function HorariosClient({ escuela }: Props) {
   const [loading, setLoading] = useState<boolean>(true);
   const [modo, setModo] = useState<"WIZARD" | "EDITOR">("WIZARD");
+  const [pasoActual, setPasoActual] = useState<number>(1);
   const [mapaModalAbierto, setMapaModalAbierto] = useState<boolean>(false);
   const [escuelaState, setEscuelaState] = useState<any>(escuela);
 
@@ -47,12 +48,11 @@ export default function HorariosClient({ escuela }: Props) {
       if (data.docentes) setDocentes(data.docentes);
       
       // Normalizar cargas de la DB al formato interno del frontend:
-      // { grupoId, asignaturaId (ID real DB), uacName, personalId, horasSemanales }
       if (data.cargas) {
         const cargasNormalizadas = data.cargas.map((c: any) => ({
           grupoId: c.grupoId,
-          asignaturaId: c.asignaturaId,       // ID real de HorarioAsignaturaCatalogo
-          uacName: c.asignatura?.uacName || "", // nombre de la materia para mostrar en la UI
+          asignaturaId: c.asignaturaId,
+          uacName: c.asignatura?.uacName || "",
           personalId: c.personalId,
           horasSemanales: c.horasSemanales,
           requiereAulaEspecial: c.requiereAulaEspecial || false
@@ -63,8 +63,10 @@ export default function HorariosClient({ escuela }: Props) {
       if (data.horario) {
         setHorario(data.horario);
         setModo("EDITOR");
+        setPasoActual(4);
       } else {
         setModo("WIZARD");
+        setPasoActual(1);
       }
     } catch (e) {
       console.error("Error cargando configuración de horarios:", e);
@@ -90,6 +92,7 @@ export default function HorariosClient({ escuela }: Props) {
       if (data.success && data.horario) {
         setHorario(data.horario);
         setModo("EDITOR");
+        setPasoActual(4);
         toast.success("¡Horario generado exitosamente con 0 empalmes!");
       } else {
         toast.error(data.error || "No se pudo generar el horario. Verifique la carga docente.");
@@ -115,6 +118,7 @@ export default function HorariosClient({ escuela }: Props) {
         setHorario(null);
         await cargarDatos();
         setModo("WIZARD");
+        setPasoActual(1);
       } else {
         toast.error(data.error || "No se pudo eliminar el horario.");
       }
@@ -128,6 +132,7 @@ export default function HorariosClient({ escuela }: Props) {
   const handleVolverAWizard = async () => {
     await cargarDatos();
     setModo("WIZARD");
+    setPasoActual(1);
   };
 
   const handleReiniciarMapaCurricular = async () => {
@@ -261,19 +266,77 @@ export default function HorariosClient({ escuela }: Props) {
               🗑️ Eliminar Horario Generado
             </button>
           )}
-          {modo === "EDITOR" && (
-            <button
-              onClick={handleVolverAWizard}
-              className="btn btn-outline"
-              style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem", minHeight: "auto" }}
-            >
-              ⚙️ Wizard de Configuración
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Renderizado de Modo */}
+      {/* Stepper Principal Unificado de 4 Pasos */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "14px",
+        padding: "0.75rem 1.25rem",
+        marginBottom: "1.25rem",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase", marginRight: "0.5rem" }}>
+            Navegación del Módulo:
+          </span>
+          {[
+            { num: 1, label: "1. Estructura & Currículum" },
+            { num: 2, label: "2. Plantilla Docente" },
+            { num: 3, label: "3. Matriz por Semestre" },
+            { num: 4, label: "4. Horario Generado (IA)" }
+          ].map((step) => {
+            const esActivo = pasoActual === step.num;
+            const esCompletado = step.num < pasoActual || (step.num === 4 && !!horario);
+            const esDeshabilitado = step.num === 4 && !horario;
+
+            return (
+              <button
+                key={step.num}
+                type="button"
+                disabled={esDeshabilitado}
+                onClick={() => {
+                  if (step.num === 4) {
+                    if (horario) {
+                      setModo("EDITOR");
+                      setPasoActual(4);
+                    } else {
+                      toast.error("Aún no se ha generado un horario. Complete los pasos 1-3 y haga clic en Generar.");
+                    }
+                  } else {
+                    setModo("WIZARD");
+                    setPasoActual(step.num);
+                  }
+                }}
+                style={{
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: "20px",
+                  border: "none",
+                  fontSize: "0.8rem",
+                  fontWeight: 800,
+                  cursor: esDeshabilitado ? "not-allowed" : "pointer",
+                  background: esActivo ? "#2563eb" : esCompletado ? "#f1f5f9" : "transparent",
+                  color: esActivo ? "#ffffff" : esDeshabilitado ? "#94a3b8" : "#334155",
+                  opacity: esDeshabilitado ? 0.6 : 1,
+                  transition: "all 0.2s",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem"
+                }}
+              >
+                {step.num === 4 && horario ? "✨ " : ""}{step.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Renderizado de Modo segun Paso */}
       {modo === "WIZARD" ? (
         <WizardConfiguracion
           escuelaId={escuela.id}
@@ -283,6 +346,8 @@ export default function HorariosClient({ escuela }: Props) {
           docentesIniciales={docentes}
           cargasIniciales={cargas}
           onGenerarClick={handleGenerarHorarioIA}
+          pasoInicial={pasoActual}
+          onStepChange={(p) => setPasoActual(p)}
         />
       ) : (
         <EditorHorarios
