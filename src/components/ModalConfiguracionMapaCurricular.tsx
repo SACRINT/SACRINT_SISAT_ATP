@@ -102,9 +102,14 @@ export default function ModalConfiguracionMapaCurricular({
 
   if (!isOpen) return null;
 
+  const normalizarNombreGrupo = (n: string) => (n || "").replace(/º/g, "°");
+
   const handleUpdateGrupoConfig = (grupoNombre: string, field: string, value: any) => {
+    const nNorm = normalizarNombreGrupo(grupoNombre);
+    const nAlt = grupoNombre.includes("°") ? grupoNombre.replace("°", "º") : grupoNombre.replace("º", "°");
+
     setMapaConfig(prev => {
-      const actual = prev[grupoNombre] || prev[grupoNombre.replace("º", "°")] || prev[grupoNombre.replace("°", "º")] || {
+      const actual = prev[nNorm] || prev[grupoNombre] || prev[nAlt] || {
         capacitacionNombre: "Administracion",
         ffeOptativas: [
           FFE_RECURSOS_SOCIOCOGNITIVOS[0],
@@ -115,34 +120,39 @@ export default function ModalConfiguracionMapaCurricular({
         ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[0]
       };
 
+      const updatedConfig = {
+        ...actual,
+        [field]: value
+      };
+
       const nuevoMapa = {
         ...prev,
-        [grupoNombre]: {
-          ...actual,
-          [field]: value
-        }
+        [nNorm]: updatedConfig,
+        [grupoNombre]: updatedConfig,
+        [nAlt]: updatedConfig
       };
 
       // Auto-swap inteligente bidireccional entre 3.er y 5.º Semestre (evita colisiones)
       if (field === "ffeoSocioemocional") {
         const letra = grupoNombre.split(" ")[1];
         if (grupoNombre.startsWith("3º") || grupoNombre.startsWith("3°")) {
-          const nombreGrupo5 = `5º ${letra}`;
-          const nombreGrupo5Alt = `5° ${letra}`;
-          const config5 = prev[nombreGrupo5] || prev[nombreGrupo5Alt] || {
+          const key5Norm = normalizarNombreGrupo(`5° ${letra}`);
+          const key5Alt = `5º ${letra}`;
+          const config5 = prev[key5Norm] || prev[key5Alt] || {
             capacitacionNombre: "Administracion",
             ffeOptativas: [FFE_RECURSOS_SOCIOCOGNITIVOS[0], FFE_RECURSOS_SOCIOCOGNITIVOS[1], FFE_AREAS_CONOCIMIENTO[0], FFE_AREAS_CONOCIMIENTO[1]],
             ffeoSocioemocional: FORMACIONES_SOCIOEMOCIONALES[1]
           };
           if (config5.ffeoSocioemocional === value) {
             const opcionDisponible = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== value) || FORMACIONES_SOCIOEMOCIONALES[1];
-            nuevoMapa[nombreGrupo5] = { ...config5, ffeoSocioemocional: opcionDisponible };
-            nuevoMapa[nombreGrupo5Alt] = { ...config5, ffeoSocioemocional: opcionDisponible };
+            const updated5 = { ...config5, ffeoSocioemocional: opcionDisponible };
+            nuevoMapa[key5Norm] = updated5;
+            nuevoMapa[key5Alt] = updated5;
           }
         } else if (grupoNombre.startsWith("5º") || grupoNombre.startsWith("5°")) {
-          const nombreGrupo3 = `3º ${letra}`;
-          const nombreGrupo3Alt = `3° ${letra}`;
-          const config3 = prev[nombreGrupo3] || prev[nombreGrupo3Alt] || {
+          const key3Norm = normalizarNombreGrupo(`3° ${letra}`);
+          const key3Alt = `3º ${letra}`;
+          const config3 = prev[key3Norm] || prev[key3Alt] || {
             capacitacionNombre: "Administracion",
             ffeOptativas: [
               FFE_RECURSOS_SOCIOCOGNITIVOS[0],
@@ -154,8 +164,9 @@ export default function ModalConfiguracionMapaCurricular({
           };
           if (config3.ffeoSocioemocional === value) {
             const opcionDisponible = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== value) || FORMACIONES_SOCIOEMOCIONALES[0];
-            nuevoMapa[nombreGrupo3] = { ...config3, ffeoSocioemocional: opcionDisponible };
-            nuevoMapa[nombreGrupo3Alt] = { ...config3, ffeoSocioemocional: opcionDisponible };
+            const updated3 = { ...config3, ffeoSocioemocional: opcionDisponible };
+            nuevoMapa[key3Norm] = updated3;
+            nuevoMapa[key3Alt] = updated3;
           }
         }
       }
@@ -202,6 +213,13 @@ export default function ModalConfiguracionMapaCurricular({
       });
 
       if (!res.ok) throw new Error("Error al guardar mapa curricular");
+
+      try {
+        localStorage.removeItem(`horarios_wizard_config_v4_${escuela.id}`);
+        localStorage.removeItem(`horarios_wizard_config_${escuela.id}`);
+      } catch (e) {
+        console.warn("No se pudo limpiar localStorage", e);
+      }
 
       toast.success("¡Mapa curricular y estructura del plantel guardados exitosamente!");
       if (onSaved) onSaved();
@@ -445,7 +463,7 @@ export default function ModalConfiguracionMapaCurricular({
                       {/* Grupos de 3º Semestre */}
                       {g.semestre === 3 && (() => {
                         const letra = g.nombre.split(" ")[1];
-                        const config5 = mapaConfig[`5º ${letra}`] || mapaConfig[`5° ${letra}`];
+                        const config5 = mapaConfig[normalizarNombreGrupo(`5° ${letra}`)] || mapaConfig[`5° ${letra}`] || mapaConfig[`5º ${letra}`];
                         const socio5 = config5?.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[1];
                         const socio4y6 = FORMACIONES_SOCIOEMOCIONALES.find(soc => soc !== cfg.ffeoSocioemocional && soc !== socio5) || FORMACIONES_SOCIOEMOCIONALES[2];
 
@@ -502,7 +520,7 @@ export default function ModalConfiguracionMapaCurricular({
                       {/* Grupos de 5º Semestre */}
                       {g.semestre === 5 && (() => {
                         const letra = g.nombre.split(" ")[1];
-                        const config3 = mapaConfig[`3º ${letra}`] || mapaConfig[`3° ${letra}`];
+                        const config3 = mapaConfig[normalizarNombreGrupo(`3° ${letra}`)] || mapaConfig[`3° ${letra}`] || mapaConfig[`3º ${letra}`];
                         const socio3 = config3?.ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0];
                         const opcionesSocio5 = FORMACIONES_SOCIOEMOCIONALES.filter(soc => soc !== socio3);
                         const socio5Actual = opcionesSocio5.includes(cfg.ffeoSocioemocional) ? cfg.ffeoSocioemocional : opcionesSocio5[0];

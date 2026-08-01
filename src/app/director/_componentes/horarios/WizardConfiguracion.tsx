@@ -238,7 +238,7 @@ export default function WizardConfiguracion({
     }
   }, [configInicial, escuelaId]);
 
-  // ─── PRIORIDAD BD: Si vienen grupos desde la BD con configuración real, usarlos directamente ───
+  // ─── PRIORIDAD ABSOLUTA BD: Los grupos de la BD reemplazan cualquier caché ───
   useEffect(() => {
     if (gruposIniciales && gruposIniciales.length > 0) {
       const gruposNormalizados = gruposIniciales.map((g: any) => {
@@ -249,21 +249,7 @@ export default function WizardConfiguracion({
         return { ...g, ffeOptativas: Array.isArray(ffeOptativas) ? ffeOptativas : [] };
       });
 
-      setGrupos((prev) => {
-        if (!prev || prev.length === 0) return gruposNormalizados;
-        return prev.map((p) => {
-          const dbG = gruposNormalizados.find((db: any) => normalizarNombreGrupo(db.nombre) === normalizarNombreGrupo(p.nombre));
-          if (dbG) {
-            return {
-              ...p,
-              capacitacionNombre: dbG.capacitacionNombre || p.capacitacionNombre,
-              ffeoSocioemocional: dbG.ffeoSocioemocional || p.ffeoSocioemocional,
-              ffeOptativas: (dbG.ffeOptativas && dbG.ffeOptativas.length > 0) ? dbG.ffeOptativas : p.ffeOptativas
-            };
-          }
-          return p;
-        });
-      });
+      setGrupos(gruposNormalizados);
       setInicializadoDesdeBD(true);
     }
   }, [gruposIniciales, escuelaId]);
@@ -342,7 +328,9 @@ export default function WizardConfiguracion({
         if (parsed.g2) setG2(parsed.g2);
         if (parsed.g3) setG3(parsed.g3);
         if (parsed.numPeriodos) setNumPeriodos(parsed.numPeriodos);
-        if (parsed.grupos && parsed.grupos.length > 0) setGrupos(parsed.grupos);
+        if ((!gruposIniciales || gruposIniciales.length === 0) && parsed.grupos && parsed.grupos.length > 0) {
+          setGrupos(parsed.grupos);
+        }
         if (parsed.horasDocentes) setHorasDocentes(parsed.horasDocentes);
         if (parsed.curriculoManualPorGrupo) setCurriculoManualPorGrupo(parsed.curriculoManualPorGrupo);
         if (parsed.grupoActivoManual) setGrupoActivoManual(parsed.grupoActivoManual);
@@ -352,7 +340,7 @@ export default function WizardConfiguracion({
     } catch (e) {
       console.warn("No se pudo cargar estado local previo", e);
     }
-  }, [escuelaId]);
+  }, [escuelaId, gruposIniciales]);
 
   // Autoguardado continuo en localStorage
   const guardarProgresoLocal = () => {
@@ -414,20 +402,22 @@ export default function WizardConfiguracion({
         const letra = letras[i] || `G${i + 1}`;
         const nombreGrupo = `${sem}° ${letra}`;
 
-        // Buscar grupo exacto o por herencia de Track (ej. 4° A hereda de 3° A, 6° A hereda de 5° A)
-        let grupoExistente = gruposActuales.find(
-          (g) => normalizarNombreGrupo(g.nombre) === nombreGrupo
-        ) || (gruposIniciales || []).find(
+        // Buscar primero en los datos oficiales de BD (gruposIniciales), y luego en gruposActuales
+        const grupoDbOficial = (gruposIniciales || []).find(
           (g: any) => normalizarNombreGrupo(g.nombre) === nombreGrupo
+        );
+
+        let grupoExistente = grupoDbOficial || gruposActuales.find(
+          (g) => normalizarNombreGrupo(g.nombre) === nombreGrupo
         );
 
         if (!grupoExistente && (sem === 4 || sem === 6)) {
           const semBase = sem === 4 ? 3 : 5;
           const nombreBase = `${semBase}° ${letra}`;
-          grupoExistente = gruposActuales.find(
-            (g) => normalizarNombreGrupo(g.nombre) === nombreBase
-          ) || (gruposIniciales || []).find(
+          grupoExistente = (gruposIniciales || []).find(
             (g: any) => normalizarNombreGrupo(g.nombre) === nombreBase
+          ) || gruposActuales.find(
+            (g) => normalizarNombreGrupo(g.nombre) === nombreBase
           );
         }
 
@@ -443,10 +433,8 @@ export default function WizardConfiguracion({
           try { ffeOpts = JSON.parse(ffeOpts); } catch { ffeOpts = null; }
         }
 
-        // Determinar Socioemocional: Respetar selección guardada en BD/usuario primero si existe
-        const socioDbGuardado = grupoExistente?.ffeoSocioemocional || (gruposIniciales || []).find(
-          (g: any) => normalizarNombreGrupo(g.nombre) === nombreGrupo
-        )?.ffeoSocioemocional;
+        // Determinar Socioemocional: Respetar selección guardada en BD primero si existe
+        const socioDbGuardado = grupoDbOficial?.ffeoSocioemocional || grupoExistente?.ffeoSocioemocional;
 
         const g3Socio = (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional
           || gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional;
@@ -470,7 +458,7 @@ export default function WizardConfiguracion({
         }
 
         const tieneLaboral = sem >= 3;
-        const capFinal = grupoExistente?.capacitacionNombre || grupoBaseTrack?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length];
+        const capFinal = grupoDbOficial?.capacitacionNombre || grupoExistente?.capacitacionNombre || grupoBaseTrack?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length];
 
         nuevosGrupos.push({
           id: grupoExistente?.id || `temp_${sem}_${letra}`,
@@ -1399,7 +1387,7 @@ export default function WizardConfiguracion({
                       </h4>
 
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1rem" }}>
-                        {gruposTrack.map((g) => {
+{gruposTrack.map((g) => {
                           const idx = grupos.findIndex((grp) => grp.nombre === g.nombre && grp.semestre === g.semestre);
 
                           return (
@@ -1432,26 +1420,39 @@ export default function WizardConfiguracion({
                                 </div>
                               )}
 
-                              {g.semestre >= 3 && (
-                                <div style={{ marginBottom: "0.65rem" }}>
-                                  <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "0.2rem" }}>
-                                    Currículum Ampliado / Formación Socioemocional (FFEO)
-                                  </label>
-                                  <select
-                                    value={g.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])}
-                                    onChange={(e) => handleActualizarConfigGrupo(idx, "ffeoSocioemocional", e.target.value)}
-                                    style={{ width: "100%", padding: "0.4rem 0.5rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.72rem", fontWeight: 700, color: "#0f172a" }}
-                                  >
-                                    {FORMACIONES_SOCIOEMOCIONALES.map((ffeo) => (
-                                      <option key={ffeo} value={ffeo}>
-                                        {ffeo}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              )}
+                              
+                               {g.semestre >= 3 && (() => {
+                                 const letraGrupo = g.nombre.split(" ")[1] || "A";
+                                 const g3 = grupos.find(grp => normalizarNombreGrupo(grp.nombre) === `3° ${letraGrupo}`);
+                                 const socio3 = g3?.ffeoSocioemocional;
+                                 const opcionesDisponibles = (g.semestre === 5 && socio3)
+                                   ? FORMACIONES_SOCIOEMOCIONALES.filter(s => s !== socio3)
+                                   : FORMACIONES_SOCIOEMOCIONALES;
 
-                              {g.semestre === 5 && (
+                                 const esAuto = g.semestre === 4 || g.semestre === 6;
+
+                                 return (
+                                   <div style={{ marginBottom: "0.65rem" }}>
+                                     <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "0.2rem" }}>
+                                       Currículum Ampliado / Formación Socioemocional (FFEO) {esAuto && "(Automático Semestre B)"}
+                                     </label>
+                                     <select
+                                       disabled={esAuto}
+                                       value={g.ffeoSocioemocional || (g.semestre === 3 ? FORMACIONES_SOCIOEMOCIONALES[0] : FORMACIONES_SOCIOEMOCIONALES[1])}
+                                       onChange={(e) => handleActualizarConfigGrupo(idx, "ffeoSocioemocional", e.target.value)}
+                                       style={{ width: "100%", padding: "0.4rem 0.5rem", borderRadius: "6px", border: "1px solid #94a3b8", fontSize: "0.72rem", fontWeight: 700, color: "#0f172a", opacity: esAuto ? 0.8 : 1 }}
+                                     >
+                                       {opcionesDisponibles.map((ffeo) => (
+                                         <option key={ffeo} value={ffeo}>
+                                           {ffeo}
+                                         </option>
+                                       ))}
+                                     </select>
+                                   </div>
+                                 );
+                               })()}
+
+                               {g.semestre === 5 && (
                                 <div>
                                   <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, color: "#334155", marginBottom: "0.3rem" }}>
                                     Optativas FFE (2 Recurso Sociocognitivo + 2 Área de Conocimiento)
