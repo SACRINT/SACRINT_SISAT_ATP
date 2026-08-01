@@ -801,7 +801,7 @@ export default function WizardConfiguracion({
 
     if (sem === 1) {
       return [
-        { id: `uac_1_1`, uacName: "La Materia y sus Interacciones", abrev: "MAT-INT", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_1_1`, uacName: "Ciencias Naturales, Experimentales y Tecnología I", abrev: "CNEyT-I", tipo: "UNIVERSAL", horasSemanales: 4 },
         { id: `uac_1_2`, uacName: "Pensamiento Matemático I", abrev: "PENS-MAT-I", tipo: "UNIVERSAL", horasSemanales: 4 },
         { id: `uac_1_3`, uacName: "Humanidades I", abrev: "HUM-I", tipo: "UNIVERSAL", horasSemanales: 4 },
         { id: `uac_1_4`, uacName: "Lenguaje y Comunicación I", abrev: "LENG-COM-I", tipo: "UNIVERSAL", horasSemanales: 3 },
@@ -822,7 +822,7 @@ export default function WizardConfiguracion({
       ];
 
       return [
-        { id: `uac_3_1`, uacName: "Ecosistemas: Interacciones, Energía y Dinámica", abrev: "ECOSIST", tipo: "UNIVERSAL", horasSemanales: 4 },
+        { id: `uac_3_1`, uacName: "Ciencias Naturales, Experimentales y Tecnología III", abrev: "CNEyT-III", tipo: "UNIVERSAL", horasSemanales: 4 },
         { id: `uac_3_2`, uacName: "Pensamiento Matemático III", abrev: "PENS-MAT-III", tipo: "UNIVERSAL", horasSemanales: 4 },
         { id: `uac_3_3`, uacName: "Humanidades III", abrev: "HUM-III", tipo: "UNIVERSAL", horasSemanales: 5 },
         { id: `uac_3_4`, uacName: "Taller de Ciencias II", abrev: "TALL-CIEN-II", tipo: "UNIVERSAL", horasSemanales: 3 },

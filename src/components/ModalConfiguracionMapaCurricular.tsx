@@ -438,7 +438,7 @@ export default function ModalConfiguracionMapaCurricular({
                       {/* Grupos de 1º Semestre */}
                       {g.semestre === 1 && (
                         <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontStyle: "italic" }}>
-                          ✓ Asignaturas del Currículum Fundamental MCCEMS 100% universales (La Materia y sus Interacciones, Pensamiento Matemático I, Humanidades I, Lenguaje y Comunicación I, etc.).
+                          ✓ Asignaturas del Currículum Fundamental MCCEMS 100% universales (Ciencias Naturales, Experimentales y Tecnología I, Pensamiento Matemático I, Humanidades I, Lenguaje y Comunicación I, etc.).
                         </div>
                       )}
 

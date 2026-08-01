@@ -317,7 +317,7 @@ export function obtenerAsignaturasParaGrupo(
 
   if (semestre === 1) {
     return [
-      { nombre: "La Materia y sus Interacciones", tipo: "FUNDAMENTAL", horas: 4 },
+      { nombre: "Ciencias Naturales, Experimentales y Tecnología I", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Pensamiento Matemático I", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Humanidades I", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Lenguaje y Comunicación I", tipo: "FUNDAMENTAL", horas: 3 },
@@ -349,7 +349,7 @@ export function obtenerAsignaturasParaGrupo(
     const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[0];
 
     return [
-      { nombre: "Ecosistemas: Interacciones, Energía y Dinámica", tipo: "FUNDAMENTAL", horas: 4 },
+      { nombre: "Ciencias Naturales, Experimentales y Tecnología III", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Pensamiento Matemático III", tipo: "FUNDAMENTAL", horas: 4 },
       { nombre: "Humanidades III", tipo: "FUNDAMENTAL", horas: 5 },
       { nombre: "Taller de Ciencias II", tipo: "FUNDAMENTAL", horas: 3 },
@@ -388,10 +388,10 @@ export function obtenerAsignaturasParaGrupo(
     const socioNombre = ffeoSocioemocional || FORMACIONES_SOCIOEMOCIONALES[2];
 
     return [
-      { nombre: "La Conciencia Histórica II (Historia de México)", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: "Lengua y Comunicación V", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: "Inglés V", tipo: "FUNDAMENTAL", horas: 3 },
-      { nombre: "Pensamiento Filosófico I (Humanidades)", tipo: "FUNDAMENTAL", horas: 3 },
+      // UACs Fundamentales oficiales del 5.º semestre MCCEMS 2025-2026 BGE Puebla
+      { nombre: "La Energía en los Procesos de la Vida Diaria", tipo: "FUNDAMENTAL", horas: 4 },
+      { nombre: "Conciencia Histórica II. México Durante el Expansionismo Capitalista", tipo: "FUNDAMENTAL", horas: 3 },
+      { nombre: "Taller de Habilidades del Pensamiento", tipo: "FUNDAMENTAL", horas: 3 },
       { nombre: `Socioemocional: ${socioNombre}`, tipo: "SOCIOEMOCIONAL", horas: 2 },
       { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[0].name}`, tipo: "LABORAL", horas: 3 },
       { nombre: `Formación Laboral (${capacitacionNombre}): ${labInfo[1].name}`, tipo: "LABORAL", horas: 3 },

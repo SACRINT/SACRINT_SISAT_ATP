@@ -1,20 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Wrench } from "lucide-react";
 
 export default function MantenimientoListener() {
-  const router = useRouter();
   const pathname = usePathname();
   const [bloqueado, setBloqueado] = useState(false);
 
-  // No ejecutar verificación si ya estamos en la página de mantenimiento o login
-  if (pathname === "/mantenimiento" || pathname === "/login") {
-    return null;
-  }
+  // Determinar si debemos ejecutar la verificación (no en mantenimiento/login)
+  const esRutaExcluida = pathname === "/mantenimiento" || pathname === "/login";
 
   useEffect(() => {
+    // No ejecutar si estamos en rutas excluidas
+    if (esRutaExcluida) return;
     let timerId: any;
 
     const verificarEstado = async () => {
