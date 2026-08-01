@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       where: {
         OR: [
           { uacName: asignatura },
-          { uacName: { contains: asignatura, mode: "insensitive" } },
+          { uacName: { equals: asignatura, mode: "insensitive" } },
         ],
       },
     });
