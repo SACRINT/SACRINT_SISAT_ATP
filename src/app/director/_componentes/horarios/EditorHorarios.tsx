@@ -18,7 +18,8 @@ import {
   Package,
   Download,
   Check,
-  Trash2
+  Trash2,
+  Save
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { exportarHorarioExcel, exportarHorarioPDF, exportarHorarioDOCX, exportarSumarioExcel, getHashColor } from "@/lib/horarios/exportador";
@@ -31,6 +32,7 @@ interface Props {
   aulas: any[];
   cargas: any[];
   onVolverAWizard: () => void;
+  onHorarioActualizado?: (nuevoHorario: any) => void;
   esAdmin?: boolean; // Si es true, muestra info técnica del modelo de IA
 }
 
@@ -55,9 +57,54 @@ export default function EditorHorarios({
   aulas,
   cargas,
   onVolverAWizard,
+  onHorarioActualizado,
   esAdmin = false
 }: Props) {
   const [horario, setHorario] = useState<any>(horarioInicial);
+  const [guardando, setGuardando] = useState<boolean>(false);
+  const [hayCambiosSinGuardar, setHayCambiosSinGuardar] = useState<boolean>(false);
+
+  // Sincronizar estado si horarioInicial cambia desde la API
+  React.useEffect(() => {
+    if (horarioInicial) {
+      setHorario(horarioInicial);
+      setHayCambiosSinGuardar(false);
+    }
+  }, [horarioInicial]);
+
+  // Guardar cambios manuales en la base de datos PostgreSQL
+  const handleGuardarHorario = async () => {
+    if (!horario?.id || !horario?.celdas) return;
+
+    setGuardando(true);
+    const toastId = toast.loading("💾 Guardando cambios de horario en la base de datos...");
+    try {
+      const res = await fetch("/api/horarios/guardar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          horarioId: horario.id,
+          celdas: horario.celdas
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.horario) {
+        setHorario(data.horario);
+        setHayCambiosSinGuardar(false);
+        if (onHorarioActualizado) {
+          onHorarioActualizado(data.horario);
+        }
+        toast.success("✅ ¡Horario guardado exitosamente en la base de datos!", { id: toastId });
+      } else {
+        toast.error(data.error || "No se pudieron guardar los cambios", { id: toastId });
+      }
+    } catch (e) {
+      toast.error("Error de conexión al guardar el horario", { id: toastId });
+    } finally {
+      setGuardando(false);
+    }
+  };
   const [vistaTab, setVistaTab] = useState<"GRUPO" | "DOCENTE" | "AULA" | "SUMARIO">("GRUPO");
   const [periodoFiltro, setPeriodoFiltro] = useState<"A" | "B">("A");
   
@@ -300,51 +347,131 @@ export default function EditorHorarios({
   const handleDropOnSlot = (targetDia: number, targetPeriodo: number) => {
     if (!draggedCelda) return;
 
-    if (draggedCelda.diaSemana === targetDia && draggedCelda.periodo === targetPeriodo) {
+    const origDia = draggedCelda.diaSemana;
+    const origPeriodo = draggedCelda.periodo;
+
+    // Si se soltó en la misma posición, cancelar
+    if (origDia === targetDia && origPeriodo === targetPeriodo) {
       setDraggedCelda(null);
       return;
     }
 
-    // Buscar si hay celda en el slot destino para el mismo grupo
-    const targetCelda = horario.celdas.find(
-      (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.grupoId === draggedCelda.grupoId
-    );
+    // 1. Verificar si la celda arrastrada está bloqueada
+    if (draggedCelda.esBloqueado) {
+      toast.error("🔒 Esta casilla está fijada. Desbloquéela antes de moverla.");
+      setDraggedCelda(null);
+      return;
+    }
 
+    // 2. Determinar la celda que ocupa la casilla de destino (targetCelda) según la vista activa
+    let targetCelda: any = null;
+    if (vistaTab === "GRUPO") {
+      targetCelda = horario.celdas.find(
+        (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.grupoId === grupoSeleccionadoId
+      );
+    } else if (vistaTab === "DOCENTE") {
+      targetCelda = horario.celdas.find(
+        (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.docenteId === docenteSeleccionadoId
+      );
+    } else if (vistaTab === "AULA") {
+      targetCelda = horario.celdas.find(
+        (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.aulaId === aulaSeleccionadaId
+      );
+    } else {
+      targetCelda = horario.celdas.find(
+        (c: any) => c.diaSemana === targetDia && c.periodo === targetPeriodo && c.grupoId === draggedCelda.grupoId
+      );
+    }
+
+    // 3. Impedir movimiento si la casilla de destino contiene una clase fijada con candado
     if (targetCelda?.esBloqueado) {
-      toast.error("🔒 La casilla de destino tiene una clase fijada.");
+      toast.error("🔒 La casilla de destino tiene una clase fijada con candado.");
       setDraggedCelda(null);
       return;
     }
 
-    // Verificar si el docente de la clase arrastrada ya da clase en targetDia, targetPeriodo en OTRO grupo
-    const empalmeDocente = horario.celdas.find(
+    // 4. DETECCIÓN DE COLISIONES ESTRICTA (Impide la desaparición de clases)
+    // a) Verificar colisión del docente de draggedCelda en el horario destino (targetDia, targetPeriodo)
+    const empalmeDocenteDragged = horario.celdas.find(
       (c: any) => c.diaSemana === targetDia &&
                   c.periodo === targetPeriodo &&
                   c.docenteId === draggedCelda.docenteId &&
-                  c.grupoId !== draggedCelda.grupoId
+                  c.id !== draggedCelda.id &&
+                  c.id !== targetCelda?.id
     );
 
-    if (empalmeDocente) {
-      const docNombre = getNombreDocenteCelda(draggedCelda);
-      const grpEmpalme = grupos.find(g => g.id === empalmeDocente.grupoId)?.nombre || empalmeDocente.grupoId;
-      toast.error(`⚠️ Empalme detectado: El docente ${docNombre} ya tiene clase el ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo} en el Grupo ${grpEmpalme}.`);
+    if (empalmeDocenteDragged) {
+      const docNom = getNombreDocenteCelda(draggedCelda);
+      const grpEmp = grupos.find(g => g.id === empalmeDocenteDragged.grupoId)?.nombre || empalmeDocenteDragged.grupoId;
+      toast.error(`⚠️ MOVIMIENTO CANCELADO: El docente ${docNom} ya tiene clase el ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo} en el Grupo ${grpEmp}.`);
       setDraggedCelda(null);
       return;
     }
 
-    // Intercambio o reubicación limpia
+    // b) Verificar colisión del grupo de draggedCelda en el horario destino (targetDia, targetPeriodo)
+    const empalmeGrupoDragged = horario.celdas.find(
+      (c: any) => c.diaSemana === targetDia &&
+                  c.periodo === targetPeriodo &&
+                  c.grupoId === draggedCelda.grupoId &&
+                  c.id !== draggedCelda.id &&
+                  c.id !== targetCelda?.id
+    );
+
+    if (empalmeGrupoDragged) {
+      const grpNom = grupos.find(g => g.id === draggedCelda.grupoId)?.nombre || draggedCelda.grupoId;
+      toast.error(`⚠️ MOVIMIENTO CANCELADO: El Grupo ${grpNom} ya tiene otra clase asignada el ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo}.`);
+      setDraggedCelda(null);
+      return;
+    }
+
+    // c) Si hay una clase en destino (intercambio), verificar colisiones de targetCelda en la casilla origen (origDia, origPeriodo)
+    if (targetCelda) {
+      const empalmeDocenteTarget = horario.celdas.find(
+        (c: any) => c.diaSemana === origDia &&
+                    c.periodo === origPeriodo &&
+                    c.docenteId === targetCelda.docenteId &&
+                    c.id !== targetCelda.id &&
+                    c.id !== draggedCelda.id
+      );
+
+      if (empalmeDocenteTarget) {
+        const docNom = getNombreDocenteCelda(targetCelda);
+        const grpEmp = grupos.find(g => g.id === empalmeDocenteTarget.grupoId)?.nombre || empalmeDocenteTarget.grupoId;
+        toast.error(`⚠️ MOVIMIENTO CANCELADO: Al intercambiar, el docente ${docNom} tendría un empalme el ${diasLectivos[origDia - 1]} Hora ${origPeriodo} en el Grupo ${grpEmp}.`);
+        setDraggedCelda(null);
+        return;
+      }
+
+      const empalmeGrupoTarget = horario.celdas.find(
+        (c: any) => c.diaSemana === origDia &&
+                    c.periodo === origPeriodo &&
+                    c.grupoId === targetCelda.grupoId &&
+                    c.id !== targetCelda.id &&
+                    c.id !== draggedCelda.id
+      );
+
+      if (empalmeGrupoTarget) {
+        const grpNom = grupos.find(g => g.id === targetCelda.grupoId)?.nombre || targetCelda.grupoId;
+        toast.error(`⚠️ MOVIMIENTO CANCELADO: El Grupo ${grpNom} tendría un empalme el ${diasLectivos[origDia - 1]} Hora ${origPeriodo}.`);
+        setDraggedCelda(null);
+        return;
+      }
+    }
+
+    // 5. APLICAR REUBICACIÓN O INTERCAMBIO LIMPIO POR ID ÚNICO
     const celdasActualizadas = horario.celdas.map((c: any) => {
-      if (c.id === draggedCelda.id || (c.diaSemana === draggedCelda.diaSemana && c.periodo === draggedCelda.periodo && c.grupoId === draggedCelda.grupoId)) {
+      if (c.id === draggedCelda.id) {
         return { ...c, diaSemana: targetDia, periodo: targetPeriodo };
       }
-      if (targetCelda && (c.id === targetCelda.id || (c.diaSemana === targetDia && c.periodo === targetPeriodo && c.grupoId === targetCelda.grupoId))) {
-        return { ...c, diaSemana: draggedCelda.diaSemana, periodo: draggedCelda.periodo };
+      if (targetCelda && c.id === targetCelda.id) {
+        return { ...c, diaSemana: origDia, periodo: origPeriodo };
       }
       return c;
     });
 
     setHorario({ ...horario, celdas: celdasActualizadas });
-    toast.success(`Materia reubicada a ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo}`);
+    setHayCambiosSinGuardar(true);
+    toast.success(`✨ Asignatura reubicada a ${diasLectivos[targetDia - 1]} Hora ${targetPeriodo}. Presione "💾 Guardar Cambios" para confirmar.`);
     setDraggedCelda(null);
   };
 
@@ -536,8 +663,35 @@ export default function EditorHorarios({
           </button>
         </div>
 
-        {/* Acciones de Exportación & Configuración */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        {/* Acciones de Guardado, Exportación & Configuración */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          {/* BOTÓN DEFINITIVO: Guardar Cambios Manuales en la Base de Datos */}
+          <button
+            onClick={handleGuardarHorario}
+            disabled={guardando}
+            style={{
+              background: hayCambiosSinGuardar
+                ? "linear-gradient(135deg, #16a34a, #15803d)"
+                : "#f8fafc",
+              color: hayCambiosSinGuardar ? "#ffffff" : "#475569",
+              border: hayCambiosSinGuardar ? "1px solid #15803d" : "1px solid #cbd5e1",
+              padding: "0.45rem 0.95rem",
+              borderRadius: "8px",
+              fontWeight: 800,
+              fontSize: "0.8125rem",
+              cursor: guardando ? "wait" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              boxShadow: hayCambiosSinGuardar ? "0 2px 8px rgba(22, 163, 74, 0.3)" : "none",
+              transition: "all 0.2s"
+            }}
+            title={hayCambiosSinGuardar ? "Tiene cambios manuales sin guardar. Haga clic para guardar en la BD." : "Guardar horario actual"}
+          >
+            <Save style={{ width: "16px", height: "16px", animation: guardando ? "spin 1s linear infinite" : "none" }} />
+            {guardando ? "Guardando en BD..." : hayCambiosSinGuardar ? "💾 Guardar Cambios (Pendientes)" : "💾 Guardar Horario"}
+          </button>
+
           <button
             onClick={() => setMostrarChat(!mostrarChat)}
             style={{

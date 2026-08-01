@@ -775,6 +775,23 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 ---
 
-*Versión actualizada: Agosto 2026 — v4.3*
+### 9.12 Prevención Estricta de Colisiones en Horarios y Persistencia Manual en BD (v4.4)
+
+**Principios y Soluciones de Edición de Horarios**:
+
+1. **Detección Estricta de Colisiones (Prohibición de Desaparición de Clases)**:
+   - **Causa Raíz previa**: Al arrastrar/intercambiar clases en `EditorHorarios.tsx`, el sistema permitía intercambios sin validar si el docente de destino o la materia del grupo tenían colisiones en el otro extremo del intercambio. Si dos clases compartían la misma celda `(diaSemana, periodo, grupoId)` o `(diaSemana, periodo, docenteId)`, `horario.celdas.find(...)` retornaba únicamente la primera clase y la segunda quedaba oculta, haciendo parecer que las clases "desaparecían" del horario personal del docente.
+   - **Solución Implementada**: Se reprogramó `handleDropOnSlot` en [EditorHorarios.tsx](file:///c:/NotebookLM/sisat-atp/src/app/director/_componentes/horarios/EditorHorarios.tsx) con validación bidireccional estricta de colisiones (docente y grupo para ambas casillas involucradas). Si se detecta cualquier empalme, el movimiento se **Cancela Inmediatamente** mostrando un mensaje explicativo `⚠️ MOVIMIENTO CANCELADO: El docente X ya tiene clase en el Grupo Y`. Ninguna materia se borra ni desaparece.
+
+2. **Persistencia Manual en Base de Datos y Botón "💾 Guardar Cambios"**:
+   - **Causa Raíz previa**: Los movimientos por arrastrar y soltar modificaban únicamente el estado de React en memoria (`useState`). Al cambiar de paso en el Stepper (ej. del Paso 4 al Paso 3) o refrescar la página, los cambios se perdían.
+   - **Solución Implementada**:
+     - Se creó el endpoint `POST /api/horarios/guardar` en [route.ts](file:///c:/NotebookLM/sisat-atp/src/app/api/horarios/guardar/route.ts) que ejecuta una transacción en PostgreSQL para sobrescribir las celdas actualizadas del horario generado.
+     - Se integró el botón **"💾 Guardar Cambios"** en la barra superior de acciones de [EditorHorarios.tsx](file:///c:/NotebookLM/sisat-atp/src/app/director/_componentes/horarios/EditorHorarios.tsx). Cuando hay modificaciones sin guardar, el botón resalta en color verde con un indicador de cambios pendientes y deshabilita el botón con indicador visual de carga durante el guardado.
+
+---
+
+*Versión actualizada: Agosto 2026 — v4.4*
+
 
 
