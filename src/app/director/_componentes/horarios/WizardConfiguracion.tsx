@@ -238,21 +238,13 @@ export default function WizardConfiguracion({
     }
   }, [configInicial, escuelaId]);
 
-  // ─── PRIORIDAD ABSOLUTA BD: Los grupos de la BD reemplazan cualquier caché ───
+  // ─── PRIORIDAD ABSOLUTA BD: Los grupos de la BD recargan y generan los grupos completos ───
   useEffect(() => {
     if (gruposIniciales && gruposIniciales.length > 0) {
-      const gruposNormalizados = gruposIniciales.map((g: any) => {
-        let ffeOptativas = g.ffeOptativas;
-        if (typeof ffeOptativas === "string") {
-          try { ffeOptativas = JSON.parse(ffeOptativas); } catch { ffeOptativas = []; }
-        }
-        return { ...g, ffeOptativas: Array.isArray(ffeOptativas) ? ffeOptativas : [] };
-      });
-
-      setGrupos(gruposNormalizados);
+      generarGruposSegunEstructura(g1, g2, g3);
       setInicializadoDesdeBD(true);
     }
-  }, [gruposIniciales, escuelaId]);
+  }, [gruposIniciales, escuelaId, g1, g2, g3]);
 
   // Modo de Configuración: Semiautomático (SEP General) vs Manual Libre (Tecnológicos)
   const [modoConfiguracion, setModoConfiguracion] = useState<"SEMIAUTOMATICO" | "MANUAL_TECNOLOGICO">("SEMIAUTOMATICO");
@@ -387,11 +379,13 @@ export default function WizardConfiguracion({
   const generarGruposSegunEstructura = (n1: number, n2: number, n3: number) => {
     const letras = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
     const nuevosGrupos: any[] = [];
-    // Semestre A: 1°, 3°, 5° | Semestre B: 2°, 4°, 6°
-    const semestresActivos = periodoActivo === "A" ? [1, 3, 5] : [2, 4, 6];
-    const counts: Record<number, number> = periodoActivo === "A"
-      ? { 1: n1, 3: n2, 5: n3 }
-      : { 2: n1, 4: n2, 6: n3 };
+    // Generar la estructura completa de los 6 semestres (1° a 6°)
+    const semestresActivos = [1, 2, 3, 4, 5, 6];
+    const counts: Record<number, number> = {
+      1: n1, 2: n1,
+      3: n2, 4: n2,
+      5: n3, 6: n3
+    };
 
     // Snapshot actual de grupos para búsqueda con normalización de símbolo º/°
     const gruposActuales = grupos;
@@ -411,31 +405,23 @@ export default function WizardConfiguracion({
           (g) => normalizarNombreGrupo(g.nombre) === nombreGrupo
         );
 
-        if (!grupoExistente && (sem === 4 || sem === 6)) {
-          const semBase = sem === 4 ? 3 : 5;
-          const nombreBase = `${semBase}° ${letra}`;
-          grupoExistente = (gruposIniciales || []).find(
-            (g: any) => normalizarNombreGrupo(g.nombre) === nombreBase
-          ) || gruposActuales.find(
-            (g) => normalizarNombreGrupo(g.nombre) === nombreBase
-          );
-        }
-
-        // Buscar grupo base del mismo track para heredar capacitacionNombre si no está presente
+        // Buscar grupo base del mismo track (3° para 4°, 5° para 6°)
+        const semBaseTrack = sem === 4 ? 3 : sem === 6 ? 5 : sem;
+        const nombreBaseTrack = `${semBaseTrack}° ${letra}`;
         const grupoBaseTrack = (gruposIniciales || []).find(
-          (g: any) => normalizarNombreGrupo(g.nombre) === (sem === 4 || sem === 6 ? `${sem === 4 ? 3 : 5}° ${letra}` : nombreGrupo)
+          (g: any) => normalizarNombreGrupo(g.nombre) === nombreBaseTrack
         ) || gruposActuales.find(
-          (g: any) => normalizarNombreGrupo(g.nombre) === (sem === 4 || sem === 6 ? `${sem === 4 ? 3 : 5}° ${letra}` : nombreGrupo)
+          (g: any) => normalizarNombreGrupo(g.nombre) === nombreBaseTrack
         );
 
-        let ffeOpts = grupoExistente?.ffeOptativas || grupoBaseTrack?.ffeOptativas;
+        let ffeOpts = grupoDbOficial?.ffeOptativas || grupoExistente?.ffeOptativas || grupoBaseTrack?.ffeOptativas;
         if (typeof ffeOpts === "string") {
           try { ffeOpts = JSON.parse(ffeOpts); } catch { ffeOpts = null; }
         }
 
-        // Determinar Socioemocional: Respetar selección guardada en BD primero si existe
-        const socioDbGuardado = grupoDbOficial?.ffeoSocioemocional || grupoExistente?.ffeoSocioemocional;
-
+        // Determinar Socioemocional para el grupo:
+        // - 3° y 5° semestre: Usar selección guardada en BD / usuario si existe
+        // - 4° y 6° semestre: Calcular AUTOMÁTICAMENTE la 3ª opción restante mediante resolverSocioemocionalGrupo
         const g3Socio = (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional
           || gruposActuales.find(g => normalizarNombreGrupo(g.nombre) === `3° ${letra}`)?.ffeoSocioemocional;
         const g5Socio = (gruposIniciales || []).find((g: any) => normalizarNombreGrupo(g.nombre) === `5° ${letra}`)?.ffeoSocioemocional
@@ -443,14 +429,12 @@ export default function WizardConfiguracion({
         const resolvedSocio = resolverSocioemocionalGrupo(g3Socio, g5Socio);
 
         let socioCalculado: string;
-        if (socioDbGuardado) {
-          socioCalculado = socioDbGuardado;
-        } else if (sem === 3) {
-          socioCalculado = resolvedSocio.sem3;
+        if (sem === 3) {
+          socioCalculado = grupoDbOficial?.ffeoSocioemocional || resolvedSocio.sem3;
         } else if (sem === 4) {
           socioCalculado = resolvedSocio.sem4;
         } else if (sem === 5) {
-          socioCalculado = resolvedSocio.sem5;
+          socioCalculado = grupoDbOficial?.ffeoSocioemocional || resolvedSocio.sem5;
         } else if (sem === 6) {
           socioCalculado = resolvedSocio.sem6;
         } else {
@@ -461,7 +445,7 @@ export default function WizardConfiguracion({
         const capFinal = grupoDbOficial?.capacitacionNombre || grupoExistente?.capacitacionNombre || grupoBaseTrack?.capacitacionNombre || FORMACIONES_LABORALES[i % FORMACIONES_LABORALES.length];
 
         nuevosGrupos.push({
-          id: grupoExistente?.id || `temp_${sem}_${letra}`,
+          id: grupoDbOficial?.id || grupoExistente?.id || `temp_${sem}_${letra}`,
           nombre: nombreGrupo,
           semestre: sem,
           capacitacionNombre: tieneLaboral ? capFinal : undefined,
@@ -620,18 +604,22 @@ export default function WizardConfiguracion({
       const sem = copia[index].semestre;
       const letraGrupo = copia[index].nombre.split(" ")[1];
 
-      if (sem === 3) {
-        const grupo5 = copia.find((g) => g.semestre === 5 && g.nombre.endsWith(letraGrupo));
-        if (grupo5 && grupo5.ffeoSocioemocional === value) {
-          const disponible = FORMACIONES_SOCIOEMOCIONALES.find((item) => item !== value);
-          if (disponible) grupo5.ffeoSocioemocional = disponible;
-        }
-      } else if (sem === 5) {
-        const grupo3 = copia.find((g) => g.semestre === 3 && g.nombre.endsWith(letraGrupo));
-        if (grupo3 && grupo3.ffeoSocioemocional === value) {
-          const disponible = FORMACIONES_SOCIOEMOCIONALES.find((item) => item !== value);
-          if (disponible) grupo3.ffeoSocioemocional = disponible;
-        }
+      if (sem === 3 || sem === 5) {
+        const g3 = copia.find((g) => g.semestre === 3 && g.nombre.endsWith(letraGrupo));
+        const g5 = copia.find((g) => g.semestre === 5 && g.nombre.endsWith(letraGrupo));
+
+        const socio3 = g3?.ffeoSocioemocional;
+        const socio5 = g5?.ffeoSocioemocional;
+        const resolved = resolverSocioemocionalGrupo(socio3, socio5);
+
+        if (g3) g3.ffeoSocioemocional = resolved.sem3;
+        if (g5) g5.ffeoSocioemocional = resolved.sem5;
+
+        const g4 = copia.find((g) => g.semestre === 4 && g.nombre.endsWith(letraGrupo));
+        if (g4) g4.ffeoSocioemocional = resolved.sem4;
+
+        const g6 = copia.find((g) => g.semestre === 6 && g.nombre.endsWith(letraGrupo));
+        if (g6) g6.ffeoSocioemocional = resolved.sem6;
       }
     }
 
