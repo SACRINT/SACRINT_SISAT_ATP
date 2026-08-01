@@ -22,162 +22,9 @@ import {
   FORMACIONES_SOCIOEMOCIONALES as CURRICULUM_AMPLIADO_FFEO,
   FFE_RECURSOS_SOCIOCOGNITIVOS as FFE_RECURSO_SOCIOCOGNITIVO,
   FFE_AREAS_CONOCIMIENTO as FFE_AREA_CONOCIMIENTO,
-  resolverSocioemocionalGrupo
+  resolverSocioemocionalGrupo,
+  UACS_LABORALES_MAPA
 } from "@/lib/escuela-grupos";
-
-// Mapeo exhaustivo de las 15 Capacitaciones Laborales a sus 2 UACs de 3º semestre y 2 UACs de 5º semestre con Abreviaturas
-const UACS_LABORALES_MAPA: Record<string, { sem3: { name: string; abrev: string }[]; sem5: { name: string; abrev: string }[] }> = {
-  "Administracion": {
-    sem3: [
-      { name: "Entrega recursos materiales a otras áreas de una organización", abrev: "ENTR-REC" },
-      { name: "Organiza recursos materiales a solicitud de un superior", abrev: "ORG-REC" }
-    ],
-    sem5: [
-      { name: "Elabora trámites administrativos básicos de una organización", abrev: "TRAM-ADM" },
-      { name: "Organiza expedientes y documentación interna de las diferentes áreas de una organización", abrev: "ORG-EXP" }
-    ]
-  },
-  "Agricultura Sostenible de Traspatio": {
-    sem3: [
-      { name: "Construye huerto para la producción agrícola sostenible de traspatio", abrev: "CONST-HUERTO" },
-      { name: "Planea huerto para la producción agrícola sostenible de traspatio", abrev: "PLAN-HUERTO" }
-    ],
-    sem5: [
-      { name: "Aplica técnicas agroecológicas de conservación de suelo y agua, y de control de plagas y enfermedades", abrev: "TECN-AGROE" },
-      { name: "Distingue técnicas agroecológicas de conservación de suelo y agua y de control de plagas y enfermedades", abrev: "DIST-AGROE" }
-    ]
-  },
-  "Area de la Salud": {
-    sem3: [
-      { name: "Despacha medicamentos y material de curación de acuerdo con prescripciones médicas y productos farmacéuticos", abrev: "DESP-MED" },
-      { name: "Lleva registro de recetas, inventarios de medicamentos y productos farmacéuticos", abrev: "REG-RECET" }
-    ],
-    sem5: [
-      { name: "Asiste especialistas del área en las necesidades del paciente", abrev: "ASIST-PAC" },
-      { name: "Asiste especialistas del área en las necesidades del paciente diagnosticado", abrev: "ASIST-DIAG" }
-    ]
-  },
-  "Comunicacion Grafica": {
-    sem3: [
-      { name: "Elabora bocetos gráficos comprensibles y creativos a partir de las necesidades de comunicación gráfica requerida", abrev: "BOC-GRAF" },
-      { name: "Ilustra dibujos en materiales artesanales o artísticos", abrev: "ILUS-DIB" }
-    ],
-    sem5: [
-      { name: "Integra efectos visuales a imágenes y textos por medio de software o aplicaciones digitales de uso libre", abrev: "EFEC-VIS" },
-      { name: "Utiliza técnicas de impresión para los diversos productos gráficos, artesanales, artísticos y publicitarios", abrev: "TECN-IMP" }
-    ]
-  },
-  "Contabilidad": {
-    sem3: [
-      { name: "Opera programas de cómputo para efectuar el registro, cálculo, control y análisis de la información contable", abrev: "PROG-CONT" },
-      { name: "Registra movimientos contables de una entidad económica, con base en documentos fuente", abrev: "REG-MOV" }
-    ],
-    sem5: [
-      { name: "Realiza reportes básicos previos a los estados financieros", abrev: "REP-FIN" },
-      { name: "Registra compras y ventas del sector comercial", abrev: "REG-COMP" }
-    ]
-  },
-  "Domotica": {
-    sem3: [
-      { name: "Separa componentes electrónicos y mecánicos de uso doméstico y comercial", abrev: "COMP-ELEC" },
-      { name: "Separa componentes eléctricos y domóticos de uso doméstico y comercial", abrev: "COMP-DOM" }
-    ],
-    sem5: [
-      { name: "Asiste instalaciones de equipo de automatización y control para uso residencial y comercial", abrev: "ASIST-AUTO" },
-      { name: "Opera equipo domótico en instalaciones residenciales y comerciales, bajo supervisión", abrev: "OP-DOM" }
-    ]
-  },
-  "Instalaciones Residenciales": {
-    sem3: [
-      { name: "Interpreta croquis de diferentes instalaciones básicas de una vivienda", abrev: "INTERP-CROQ" },
-      { name: "Prepara materiales en cantidad y calidad especificada para llevar a cabo diferentes tipos de mezclas bajo la supervisión del experto", abrev: "PREP-MEZC" }
-    ],
-    sem5: [
-      { name: "Coloca elementos constructivos básicos de una vivienda", abrev: "ELEM-CONST" },
-      { name: "Limpia muebles, tuberías y conexiones para llevar a cabo diferentes instalaciones de una vivienda", abrev: "LIMP-TUB" }
-    ]
-  },
-  "Mecanica Dental": {
-    sem3: [
-      { name: "Prepara modelos, moldes, porta impresiones, bloques o rodillos para realizar impresiones dentales parciales o totales", abrev: "PREP-MOLD" },
-      { name: "Registra órdenes de trabajo siguiendo especificaciones y prescripciones para dispositivos y aparatos dentales", abrev: "REG-ORD" }
-    ],
-    sem5: [
-      { name: "Modela alambres de diversos calibres para casos de aparatología ortodóntica", abrev: "MOD-ALAMB" },
-      { name: "Realiza perfilado para prótesis dentales fijas y removibles", abrev: "PERF-PROT" }
-    ]
-  },
-  "Preparacion de Alimentos Artesanales": {
-    sem3: [
-      { name: "Conserva frutas, verduras y legumbres a través de métodos tradicionales", abrev: "CONS-FRUT" },
-      { name: "Transforma cereales y harinas para la elaboración de tortillas y productos afines", abrev: "TRANS-CER" }
-    ],
-    sem5: [
-      { name: "Obtiene bebidas no alcohólicas mediante procedimientos simples", abrev: "OBT-BEB" },
-      { name: "Prepara productos de carnes, derivados disponibles y sustitutos de proteína", abrev: "PREP-CARN" }
-    ]
-  },
-  "Procesos Culinarios y Reposteria": {
-    sem3: [
-      { name: "Elabora productos de panificación siguiendo procesos establecidos", abrev: "PROD-PAN" },
-      { name: "Emplea productos, utensilios y conceptos culinarios durante el proceso de transformación de alimentos", abrev: "TRANS-ALIM" }
-    ],
-    sem5: [
-      { name: "Determina costos de producción en la elaboración de platillos", abrev: "COST-PLAT" },
-      { name: "Prepara postres y productos de repostería básica", abrev: "PREP-POST" }
-    ]
-  },
-  "Redes y Mantenimiento": {
-    sem3: [
-      { name: "Actualiza equipos de cómputo de acuerdo con especificaciones del fabricante", abrev: "ACT-EQUIP" },
-      { name: "Usa técnicas y estrategias de mantenimiento del equipo de cómputo", abrev: "MANT-COMP" }
-    ],
-    sem5: [
-      { name: "Administra redes de acuerdo con las condiciones y requerimientos de una organización", abrev: "ADM-REDES" },
-      { name: "Brinda soporte en software de aplicación y hardware según los requerimientos del usuario", abrev: "SOP-SOFT" }
-    ]
-  },
-  "Servicios Ecosistemicos": {
-    sem3: [
-      { name: "Aplica técnicas de muestreo indicadas por el especialista", abrev: "TECN-MUEST" },
-      { name: "Recopila muestras para las pruebas de niveles de contaminantes con guía del especialista", abrev: "RECOP-MUEST" }
-    ],
-    sem5: [
-      { name: "Aplica técnicas para la siembra de diversas semillas forestales bajo supervisión", abrev: "SIEMB-FOR" },
-      { name: "Realiza pruebas de suelos y fertilizantes para el mantenimiento del ecosistema forestal", abrev: "PRUEB-SUEL" }
-    ]
-  },
-  "Sistemas Electricos": {
-    sem3: [
-      { name: "Elabora empalmes acordes con las características de los hilos", abrev: "ELAB-EMP" },
-      { name: "Limpia áreas de trabajo, equipo, materiales y herramientas utilizadas durante la actividad", abrev: "LIMP-HERR" }
-    ],
-    sem5: [
-      { name: "Ensambla componentes sobre tableros en perfocel para circuitos eléctricos básicos", abrev: "ENS-PERF" },
-      { name: "Reconoce planos de sistemas eléctricos en servicios domésticos y comerciales", abrev: "PLAN-ELEC" }
-    ]
-  },
-  "Tecnologia Informatica": {
-    sem3: [
-      { name: "Elabora documentos electrónicos en diferentes procesadores de texto, relacionados con la ofimática", abrev: "DOC-OFIM" },
-      { name: "Utiliza aplicaciones ofimáticas en distintos sistemas operativos", abrev: "APL-OFIM" }
-    ],
-    sem5: [
-      { name: "Elabora presentaciones electrónicas en diferentes aplicaciones relacionadas con la ofimática", abrev: "PRES-OFIM" },
-      { name: "Opera dispositivos electrónicos multifuncionales en procesos administrativos", abrev: "OP-MULTIF" }
-    ]
-  },
-  "Turismo": {
-    sem3: [
-      { name: "Explica procesos de expedición de documentos oficiales en las instituciones gubernamentales correspondientes para transitar o viajar", abrev: "DOC-TUR" },
-      { name: "Muestra variedad de servicios que componen el catálogo de la planta turística", abrev: "SERV-TUR" }
-    ],
-    sem5: [
-      { name: "Asiste usuarios en la selección, adquisición y utilización eficiente de servicios turísticos requeridos", abrev: "ASIST-TUR" },
-      { name: "Promociona sitios alternativos de lugares a visitar según necesidades del turista", abrev: "PROM-TUR" }
-    ]
-  }
-};
 
 export default function WizardConfiguracion({
   escuelaId,
@@ -977,10 +824,7 @@ export default function WizardConfiguracion({
 
     if (sem === 4) {
       const capNombre = grupo.capacitacionNombre || FORMACIONES_LABORALES[0];
-      const uacsLabInfo = UACS_LABORALES_MAPA[capNombre]?.sem3 || [
-        { name: `Asignatura 3 de ${capNombre}`, abrev: "LAB-3" },
-        { name: `Asignatura 4 de ${capNombre}`, abrev: "LAB-4" }
-      ];
+      const uacsLabInfo = UACS_LABORALES_MAPA[capNombre]?.sem4 || UACS_LABORALES_MAPA["Administracion"].sem4;
 
       return [
         { id: `uac_4_1`, uacName: "Ciencias Naturales, Experimentales y Tecnología IV", abrev: "CNEyT-IV", tipo: "UNIVERSAL", horasSemanales: 4 },
@@ -997,10 +841,7 @@ export default function WizardConfiguracion({
 
     if (sem === 6) {
       const capNombre = grupo.capacitacionNombre || FORMACIONES_LABORALES[0];
-      const uacsLabInfo = UACS_LABORALES_MAPA[capNombre]?.sem5 || [
-        { name: `Asignatura 5 de ${capNombre}`, abrev: "LAB-5" },
-        { name: `Asignatura 6 de ${capNombre}`, abrev: "LAB-6" }
-      ];
+      const uacsLabInfo = UACS_LABORALES_MAPA[capNombre]?.sem6 || UACS_LABORALES_MAPA["Administracion"].sem6;
       const opts = grupo.ffeOptativas || [
         FFE_RECURSO_SOCIOCOGNITIVO[0],
         FFE_RECURSO_SOCIOCOGNITIVO[1],

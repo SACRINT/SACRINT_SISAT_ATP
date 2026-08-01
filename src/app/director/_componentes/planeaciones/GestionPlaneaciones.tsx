@@ -215,6 +215,7 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
     // Modal Detalle & Modal Mapa Curricular
     const [modalDetalle, setModalDetalle] = useState<Planeacion | null>(null);
     const [asignandoMap, setAsignandoMap] = useState<Record<string, boolean>>({});
+    const [reintentandoIdMap, setReintentandoIdMap] = useState<Record<string, boolean>>({});
     const [mapaModalAbierto, setMapaModalAbierto] = useState(false);
 
     // Cargar datos al montar
@@ -470,18 +471,21 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
 
     // Reintentar / Forzar Dictamen IA Gemini
     const handleReintentarDictamen = async (id: string) => {
-        toast.loading("Re-ejecutando dictamen con IA Gemini...", { id: "dictamen-toast" });
+        setReintentandoIdMap(prev => ({ ...prev, [id]: true }));
+        toast.loading("Re-ejecutando dictamen con IA Gemini...", { id: `dictamen-toast-${id}` });
         try {
             const res = await fetch(`/api/director/planeaciones/${id}`, { method: "POST" });
             const data = await res.json();
             if (res.ok && data.ok) {
-                toast.success("¡Dictamen IA generado exitosamente!", { id: "dictamen-toast" });
+                toast.success("¡Dictamen IA generado exitosamente!", { id: `dictamen-toast-${id}` });
                 await cargarDatos();
             } else {
-                toast.error(data.error || "No se pudo generar el dictamen", { id: "dictamen-toast" });
+                toast.error(data.error || "No se pudo generar el dictamen", { id: `dictamen-toast-${id}` });
             }
         } catch {
-            toast.error("Error de conexión al servidor", { id: "dictamen-toast" });
+            toast.error("Error de conexión al servidor", { id: `dictamen-toast-${id}` });
+        } finally {
+            setReintentandoIdMap(prev => ({ ...prev, [id]: false }));
         }
     };
 
@@ -852,14 +856,27 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
                                                                 {planeacion ? (
                                                                     <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end" }}>
                                                                         <button
-                                                                            type="button"
-                                                                            className="btn btn-outline"
-                                                                            onClick={() => handleReintentarDictamen(planeacion.id)}
-                                                                            style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 700, color: "#16a34a", borderColor: "#bbf7d0" }}
-                                                                            title="Volver a ejecutar el dictamen con IA Gemini"
-                                                                        >
-                                                                            <RefreshCw size={14} /> Reintentar IA
-                                                                        </button>
+                                                                             type="button"
+                                                                             className="btn btn-outline"
+                                                                             disabled={!!reintentandoIdMap[planeacion.id]}
+                                                                             onClick={() => handleReintentarDictamen(planeacion.id)}
+                                                                             style={{
+                                                                                 padding: "0.3rem 0.6rem",
+                                                                                 fontSize: "0.75rem",
+                                                                                 fontWeight: 700,
+                                                                                 color: reintentandoIdMap[planeacion.id] ? "#94a3b8" : "#16a34a",
+                                                                                 borderColor: reintentandoIdMap[planeacion.id] ? "#cbd5e1" : "#bbf7d0",
+                                                                                 opacity: reintentandoIdMap[planeacion.id] ? 0.7 : 1,
+                                                                                 cursor: reintentandoIdMap[planeacion.id] ? "wait" : "pointer",
+                                                                                 display: "inline-flex",
+                                                                                 alignItems: "center",
+                                                                                 gap: "0.35rem"
+                                                                             }}
+                                                                             title="Volver a ejecutar el dictamen con IA Gemini"
+                                                                         >
+                                                                             <RefreshCw size={14} style={{ animation: reintentandoIdMap[planeacion.id] ? "spin 1s linear infinite" : "none" }} />
+                                                                             {reintentandoIdMap[planeacion.id] ? "Revisando..." : "Reintentar IA"}
+                                                                         </button>
 
                                                                         <button
                                                                             type="button"
@@ -1086,8 +1103,16 @@ export default function GestionPlaneaciones({ escuela: inicialEscuela, readOnly 
 
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
                                 <button type="button" className="btn btn-outline" onClick={() => setModalSubidaAbierto(false)}>Cancelar</button>
-                                <button type="submit" className="btn btn-primary" disabled={subiendo}>
-                                    {subiendo ? "Subiendo y Analizando con IA..." : "Enviar a Revisión IA"}
+                                <button type="submit" className="btn btn-primary" disabled={subiendo} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                                    {subiendo ? (
+                                        <>
+                                            <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> Subiendo y Analizando con IA...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload size={14} /> Enviar a Revisión IA
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
