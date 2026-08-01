@@ -113,6 +113,7 @@ export default function HorariosClient({ escuela }: Props) {
       if (data.success) {
         toast.success("Horario generado eliminado exitosamente.");
         setHorario(null);
+        await cargarDatos();
         setModo("WIZARD");
       } else {
         toast.error(data.error || "No se pudo eliminar el horario.");
@@ -122,6 +123,11 @@ export default function HorariosClient({ escuela }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVolverAWizard = async () => {
+    await cargarDatos();
+    setModo("WIZARD");
   };
 
   const handleReiniciarMapaCurricular = async () => {
@@ -257,7 +263,7 @@ export default function HorariosClient({ escuela }: Props) {
           )}
           {modo === "EDITOR" && (
             <button
-              onClick={() => setModo("WIZARD")}
+              onClick={handleVolverAWizard}
               className="btn btn-outline"
               style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem", minHeight: "auto" }}
             >
@@ -286,7 +292,7 @@ export default function HorariosClient({ escuela }: Props) {
           docentes={docentes}
           aulas={aulas}
           cargas={cargas}
-          onVolverAWizard={() => setModo("WIZARD")}
+          onVolverAWizard={handleVolverAWizard}
         />
       )}
 

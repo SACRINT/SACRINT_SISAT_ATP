@@ -273,6 +273,14 @@ export default function WizardConfiguracion({
     if (!cargasRaw || cargasRaw.length === 0) return [];
     const mapa = new Map<string, any>();
     for (const c of cargasRaw) {
+      // Intentar obtener uacName en sus distintas formas posibles, sobre todo si viene de la base de datos (anidado)
+      const uacNameReal = c.uacName || c.asignatura?.uacName || c.asignaturaNombre;
+      
+      // Inyectarlo en la raíz para que el filtro de getDocenteAsignado funcione bien
+      if (!c.uacName && uacNameReal) {
+        c.uacName = uacNameReal;
+      }
+      
       const key = `${c.grupoId}__${c.uacName || c.asignaturaId}`;
       mapa.set(key, c); // sobrescribe si existe, dejando la más reciente
     }
@@ -306,6 +314,7 @@ export default function WizardConfiguracion({
         if (parsed.horasDocentes) setHorasDocentes(parsed.horasDocentes);
         if (parsed.curriculoManualPorGrupo) setCurriculoManualPorGrupo(parsed.curriculoManualPorGrupo);
         if (parsed.grupoActivoManual) setGrupoActivoManual(parsed.grupoActivoManual);
+        if (parsed.cargas && parsed.cargas.length > 0) setCargas(parsed.cargas);
       }
     } catch (e) {
       console.warn("No se pudo cargar estado local previo", e);
@@ -326,7 +335,8 @@ export default function WizardConfiguracion({
           grupos,
           horasDocentes,
           curriculoManualPorGrupo,
-          grupoActivoManual
+          grupoActivoManual,
+          cargas
         })
       );
     } catch (e) {
