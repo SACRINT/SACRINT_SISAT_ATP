@@ -66,6 +66,7 @@ import GestionLlavesIA from "./_componentes/GestionLlavesIA";
 import ReportesNivel from "./_componentes/ReportesNivel";
 import RankingEscuelas from "./_componentes/RankingEscuelas";
 import PlaneacionesAdminPanel from "./_componentes/PlaneacionesAdminPanel";
+import GestionNormativas from "./_componentes/GestionNormativas";
 
 // Componentes exclusivos para Supervisor
 import EntregasListado from "../director/_componentes/EntregasListado";
@@ -120,7 +121,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
+    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -149,6 +150,7 @@ export default function AdminDashboard({
             case "capems": return "capems";
             case "expedientes": return "expedientes";
             case "documentos": return "documentos";
+            case "normativas": return "documentos";
             case "planeaciones-ia": return "planeaciones";
             case "gestion-atps": return "seguridad";
             case "mis-entregas": return "supervision_entregas";
@@ -924,6 +926,12 @@ export default function AdminDashboard({
                                         <span>Herramientas de IA</span>
                                     </button>
                                 )}
+                                {hasAccess("documentos", "read") && (
+                                    <button className={`sidebar-link ${vista === "normativas" ? "active" : ""}`} onClick={() => navigate("normativas")}>
+                                        <BookMarked size={17} />
+                                        <span>Biblioteca de Normativas SEP</span>
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -1341,6 +1349,13 @@ export default function AdminDashboard({
                 {
                     vista === "documentos" && (
                         <DocumentosAdmin hasAccess={hasAccess} />
+                    )
+                }
+
+                {/* ========= VISTA: BIBLIOTECA DE NORMATIVAS SEP (RAG) ========= */}
+                {
+                    vista === "normativas" && (
+                        <GestionNormativas />
                     )
                 }
 

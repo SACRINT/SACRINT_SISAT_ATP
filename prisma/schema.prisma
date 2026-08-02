@@ -869,3 +869,33 @@ model PlaneacionesConfig {
   modoSinRestricciones Boolean @default(false)
   // Si true, saltea todos los requisitos (PAEC-PEC, API Key, módulo activo, etc.) — sólo para pruebas del admin
 }
+
+// ─── Asistente Virtual y Chatbot de Trámites / Normativas SEP (RAG) ───────────
+
+model DocumentoNormativo {
+  id              String   @id @default(cuid())
+  escuelaId       String?  // null = global de la supervisión
+  categoria       String   // "USICAMM" | "PAEC_PEC" | "CAPEMS" | "CIRCULARES" | "TRAMITES_SEP" | "HORARIOS_CURRICULO"
+  titulo          String
+  descripcion     String?
+  contenidoTexto  String   @db.Text // Texto completo / extracto para el motor RAG
+  archivoNombre   String?
+  archivoUrl      String?
+  tags            String[] // ["matemáticas", "ficha-capems", "fecha-limite"]
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([categoria])
+  @@index([activo])
+}
+
+model ChatTramitesMensaje {
+  id          String   @id @default(cuid())
+  usuarioId   String?
+  role        String   // "user" | "assistant"
+  content     String   @db.Text
+  fuentes     Json?    // Documentos citados [{ titulo, categoria }]
+  createdAt   DateTime @default(now())
+}
+

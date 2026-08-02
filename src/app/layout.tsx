@@ -7,6 +7,7 @@ export const metadata: Metadata = {
 };
 
 import MantenimientoListener from "@/components/MantenimientoListener";
+import ChatbotTramitesWidget from "@/components/ChatbotTramitesWidget";
 
 export default function RootLayout({
   children,
@@ -24,6 +25,7 @@ export default function RootLayout({
       <body>
         <MantenimientoListener />
         {children}
+        <ChatbotTramitesWidget />
       </body>
     </html>
   );

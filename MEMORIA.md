@@ -829,7 +829,31 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 ---
 
-*Versión actualizada: Agosto 2026 — v4.6*
+### 9.15 Asistente / Chatbot de Trámites y Normativa SEP (Motor RAG 24/7) (v4.7)
+
+**Arquitectura RAG para Consultas Normativas**:
+
+1. **Esquema de Base de Datos PostgreSQL**:
+   - `DocumentoNormativo`: Almacena manuales, rubricas USICAMM, lineamientos PAEC/PEC, formatos CAPEMS, circulares oficiales y guías de horarios con metadatos (`categoria`, `titulo`, `descripcion`, `tags`, `contenidoTexto`, `archivoUrl`, `esOficial`).
+   - `ChatTramitesMensaje`: Almacena el historial de consultas de usuarios y respuestas generadas por Gemini 3.5 con citas a fuentes oficiales.
+
+2. **Motor RAG (`src/lib/tramites/rag-engine.ts`)**:
+   - Analiza la consulta del docente o director contra los documentos normativos activos.
+   - Pondera coincidencias léxicas/semánticas para inyectar el contexto normativo oficial más relevante en Gemini 3.5 Flash / Flash Lite.
+   - Genera respuestas estructuradas que incluyen obligatoriamente el bloque `📌 **Fuente(s) Oficial(es) Consultada(s):**` con el título exacto de las normativas consultadas.
+
+3. **Panel de Gestión de Normativas (`src/app/admin/_componentes/GestionNormativas.tsx`)**:
+   - Accesible para la Supervisión/Administrador desde el menú lateral en "Biblioteca de Normativas SEP".
+   - Soporta pestañas de navegación por categoría (`USICAMM`, `PAEC_PEC`, `CAPEMS`, `CIRCULARES`, `TRAMITES_SEP`, `HORARIOS_CURRICULO`), tarjetas descriptivas, extracción de texto de documentos y modal de edición.
+
+4. **Widget Flotante Web (`src/components/ChatbotTramitesWidget.tsx`)**:
+   - Integrado globalmente en `src/app/layout.tsx` para estar disponible 24/7 para directores y docentes en todas las secciones de la plataforma.
+   - Diseñado siguiendo la identidad visual de SISAT-ATP (píldora azul `#2563eb`, tarjetas slate `#0f172a`, badges de fuentes citadas y preguntas sugeridas preconfiguradas).
+
+---
+
+*Versión actualizada: Agosto 2026 — v4.7*
+
 
 
 
