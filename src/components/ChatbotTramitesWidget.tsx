@@ -25,7 +25,7 @@ const PREGUNTAS_SUGERIDAS = [
   "¿Qué formato lleva la ficha CAPEMS para Matemáticas?",
   "¿Cuándo es la fecha límite del PAEC?",
   "¿Cuál es la rúbrica de Formación Laboral en USICAMM?",
-  "¿Qué requisitos exige la Circular 05?"
+  "¿Qué requisitos exige la Circular 03?"
 ];
 
 export default function ChatbotTramitesWidget({ escuelaId }: { escuelaId?: string }) {

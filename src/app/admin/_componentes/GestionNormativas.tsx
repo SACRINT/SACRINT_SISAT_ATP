@@ -52,7 +52,40 @@ export default function GestionNormativas() {
   // Estado del Modal Editor
   const [mostrarModal, setMostrarModal] = useState<boolean>(false);
   const [guardando, setGuardando] = useState<boolean>(false);
+  const [cargandoArchivo, setCargandoArchivo] = useState<boolean>(false);
   const [docEditando, setDocEditando] = useState<Partial<DocumentoNormativoUI> | null>(null);
+
+  const handleSubirArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !docEditando) return;
+
+    setCargandoArchivo(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/tramites/normativas/extraer-texto", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        const nombreSinExt = file.name.replace(/\.[^/.]+$/, "");
+        setDocEditando((prev) => ({
+          ...prev,
+          titulo: prev?.titulo || nombreSinExt,
+          contenidoTexto: data.texto
+        }));
+      } else {
+        alert("⚠️ Error: " + (data.error || "No se pudo extraer el texto del archivo."));
+      }
+    } catch (err) {
+      alert("⚠️ Error procesando el archivo.");
+    } finally {
+      setCargandoArchivo(false);
+      e.target.value = "";
+    }
+  };
 
   // Cargar normativas desde API
   const cargarNormativas = async () => {
@@ -414,11 +447,69 @@ export default function GestionNormativas() {
                 />
               </div>
 
+              {/* Carga automática desde archivo PDF, DOCX, TXT o MD */}
+              <div
+                style={{
+                  background: "#f8fafc",
+                  border: "2px dashed #cbd5e1",
+                  borderRadius: "12px",
+                  padding: "1rem",
+                  textAlign: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "0.4rem"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#2563eb", fontWeight: 800, fontSize: "0.875rem" }}>
+                  <Upload style={{ width: "18px", height: "18px" }} />
+                  <span>Cargar desde Archivo (PDF, DOCX, TXT, MD)</span>
+                </div>
+                <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                  Selecciona un archivo oficial de tu equipo para extraer automáticamente su contenido de texto.
+                </p>
+                <label
+                  style={{
+                    background: cargandoArchivo ? "#94a3b8" : "#2563eb",
+                    color: "white",
+                    padding: "0.45rem 1rem",
+                    borderRadius: "8px",
+                    fontSize: "0.8125rem",
+                    fontWeight: 800,
+                    cursor: cargandoArchivo ? "wait" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    marginTop: "0.25rem",
+                    boxShadow: "0 2px 6px rgba(37,99,235,0.2)"
+                  }}
+                >
+                  {cargandoArchivo ? (
+                    <>
+                      <RefreshCw style={{ width: "15px", height: "15px", animation: "spin 1s linear infinite" }} />
+                      <span>Extrayendo Texto...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText style={{ width: "15px", height: "15px" }} />
+                      <span>Seleccionar Archivo (PDF / DOCX / TXT / MD)</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md"
+                    onChange={handleSubirArchivo}
+                    disabled={cargandoArchivo}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              </div>
+
               <div>
                 <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#475569", marginBottom: "0.3rem" }}>Contenido del Documento / Extracto RAG (Texto completo):</label>
                 <textarea
                   rows={8}
-                  placeholder="Pegue aquí el texto oficial del manual, rúbrica o circular que la IA debe consultar para responder a los usuarios..."
+                  placeholder="El texto extraído de tu PDF/DOCX/TXT aparecerá aquí automáticamente, o puedes pegarlo/editarlo manualmente..."
                   value={docEditando.contenidoTexto || ""}
                   onChange={(e) => setDocEditando({ ...docEditando, contenidoTexto: e.target.value })}
                   style={{ width: "100%", padding: "0.6rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.8125rem", fontFamily: "monospace", lineHeight: 1.5 }}
