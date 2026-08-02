@@ -330,9 +330,10 @@ export default function ListadoEscuelas({ escuelas, onSetMessage, onSetCorreccio
                 const matchesStatus = statusFilter === "TODOS" || esc.entregas.some(ent => ent.estado === statusFilter);
                 return matchesSearch && matchesStatus;
             }).map((esc) => {
-                const entregadosEsc = esc.entregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
-                const totalEsc = esc.entregas.length;
-                const porcEsc = totalEsc > 0 ? Math.round((entregadosEsc / totalEsc) * 100) : 0;
+                const entregasRequeridas = esc.entregas.filter((e) => e.estado !== "EXENTO");
+                const totalEsc = entregasRequeridas.length;
+                const aprobadasEsc = entregasRequeridas.filter((e) => ["APROBADO", "ENTREGADO_FISICO"].includes(e.estado)).length;
+                const porcEsc = totalEsc > 0 ? Math.round((aprobadasEsc / totalEsc) * 100) : 100;
                 const isExpanded = expanded === esc.id;
 
                 let progressColor = "var(--danger)";

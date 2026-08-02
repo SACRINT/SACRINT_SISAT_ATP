@@ -369,9 +369,11 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
             {programas.map((prog) => {
                 const allEntregas = prog.periodos.flatMap((p) => p.entregas);
                 const statEntregas = allEntregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision);
-                const entregadosProg = statEntregas.filter((e) => e.estado !== "NO_ENTREGADO").length;
-                const totalProg = statEntregas.length;
-                const porc = totalProg > 0 ? Math.round((entregadosProg / totalProg) * 100) : 0;
+                const entregasRequeridas = statEntregas.filter((e) => e.estado !== "EXENTO");
+                const totalProg = entregasRequeridas.length;
+                const entregadosProg = statEntregas.filter(e => ["APROBADO", "ENTREGADO_FISICO", "EN_REVISION", "REQUIERE_CORRECCION"].includes(e.estado)).length;
+                const aprobadasProg = entregasRequeridas.filter((e) => ["APROBADO", "ENTREGADO_FISICO"].includes(e.estado)).length;
+                const porc = totalProg > 0 ? Math.round((aprobadasProg / totalProg) * 100) : 100;
                 const isExpanded = expanded === prog.id;
 
                 let progressColor = "var(--danger)";
