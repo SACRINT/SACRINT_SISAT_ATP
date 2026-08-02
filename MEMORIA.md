@@ -237,13 +237,19 @@ Implementado en julio 2026. Permite a los directores subir planeaciones didácti
 | `src/app/director/_componentes/planeaciones/GestionPlaneaciones.tsx` | UI del director: subida, listado, dictámenes, descarga Word |
 | `src/app/admin/_componentes/GestionEscuelas.tsx` | Columna "📋 Planeaciones IA" en la Matriz de Módulos |
 
-#### Estructura de Grupos por Escuela y Catálogo MCCEMS 2025-2026 (v3.4)
+#### Estructura de Grupos por Escuela y Catálogo MCCEMS 2025-2026 (v3.4 - Actualizado v3.6)
 - **Estructura de Grupos en `Escuela` (`gruposPrimerAno`, `gruposSegundoAno`, `gruposTercerAno`)**: Define la cantidad de grupos por año lectivo (ej. `3-3-3` = 3 grupos de 1.º/2.º semestre, 3 de 3.er/4.º semestre, 3 de 5.º/6.º semestre).
+- **Catálogo Maestro Oficial**: Exactamente **203 Asignaturas / UACs totales** (correspondientes a **201 programas de estudio** debido a que *Actividades Artísticas y Culturales I y II* comparten el mismo programa de estudio, al igual que *Actividades Físicas y Deportivas I y II*).
+- **Desglose de las 203 UACs**:
+  1. **Currículum Fundamental**: 27 UACs (1.º a 6.º semestre).
+  2. **Currículum Ampliado (Socioemocionales)**: 7 UACs (1.º a 5.º semestre).
+  3. **FFEO (Obligatorias)**: 9 UACs (1.º a 6.º semestre).
+  4. **FFE Optativas**: 40 UACs (20 en 5.º y 20 en 6.º semestre).
+  5. **Currículum Laboral**: 120 Submódulos oficiales exactos (15 Capacitaciones × 8 submódulos por capacitación de 3.º a 6.º semestre).
 - **Semestres A / B**:
   - **Semestre A**: 1.º, 3.er y 5.º Semestres.
   - **Semestre B**: 2.º, 4.º y 6.º Semestres.
-- **Formaciones Laborales (15 Capacitaciones BGE Puebla)**: Cada grupo de 3.er y 5.º Semestre tiene asignada su Capacitación Laboral (Administración, Tecnología Informática, Redes y Mantenimiento, Área de la Salud, etc.), resolviendo automáticamente los 2 submódulos oficiales de esa capacitación.
-- **Optativas FFE (5.º y 6.º Semestre)**: Cada grupo en 5.º Semestre lleva 4 Optativas FFE asignadas, sustituyendo nombres obsoletos.
+- **Formaciones Laborales (15 Capacitaciones BGE Puebla)**: Cada grupo de 3.er y 5.º Semestre tiene asignada su Capacitación Laboral (Administración, Tecnología Informática, Redes y Mantenimiento, Área de la Salud, etc.), resolviendo automáticamente los 2 submódulos oficiales de esa capacitación por semestre (8 submódulos totales por capacitación).
 
 #### Modelos Prisma Nuevos
 ```prisma
