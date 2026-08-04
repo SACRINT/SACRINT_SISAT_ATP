@@ -104,11 +104,62 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
             modelsSupported: [],
             rawError: lastErrText
         };
-    } else if (provider === "morphllm" || provider === "openai" || provider === "openrouter" || provider === "deepseek") {
+    }
+
+    if (provider === "openrouter") {
+        try {
+            const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${key}`,
+                    "HTTP-Referer": "https://sacrint-sisat-atp.vercel.app/",
+                    "X-Title": "SISAT-ATP",
+                },
+                signal: AbortSignal.timeout(12000),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                const errMsg = err?.error?.message || `HTTP ${res.status} - Llave inválida`;
+                return {
+                    label,
+                    provider: "openrouter",
+                    status: "INVALID_KEY",
+                    message: errMsg,
+                    modelsSupported: ["openrouter/auth"],
+                    rawError: errMsg,
+                };
+            }
+
+            const data = await res.json();
+            const keyLabel = data?.data?.label || "API Key válida";
+            const credits = data?.data?.usage !== undefined
+                ? ` | Uso: $${(data.data.usage / 1000000).toFixed(4)}`
+                : "";
+
+            return {
+                label,
+                provider: "openrouter",
+                status: "OK_PRO",
+                message: `${keyLabel}${credits}`,
+                modelsSupported: ["openrouter/auth"],
+            };
+        } catch (e: any) {
+            return {
+                label,
+                provider: "openrouter",
+                status: "ERROR",
+                message: `⚠️ Error de conexión: ${e.message}`,
+                modelsSupported: [],
+                rawError: e.message,
+            };
+        }
+    }
+
+    if (provider === "morphllm" || provider === "openai" || provider === "deepseek") {
         const endpoints: Record<string, { url: string; model: string }> = {
             morphllm: { url: "https://api.morphllm.com/v1/chat/completions", model: "morph-glm52-744b" },
             openai: { url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o-mini" },
-            openrouter: { url: "https://openrouter.ai/api/v1/chat/completions", model: "google/gemini-2.5-flash" },
             deepseek: { url: "https://api.deepseek.com/v1/chat/completions", model: "deepseek-chat" }
         };
 

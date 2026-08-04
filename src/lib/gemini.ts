@@ -218,7 +218,7 @@ export async function callGemini(
         fallbackProviderOrder = fallbackProviderOrder.filter(p => p === "gemini" || p === "claude");
     }
     const defaultModelByProvider: Record<string, string> = {
-        openrouter: "google/gemini-2.5-flash",
+        openrouter: "meta-llama/llama-3.1-8b-instruct",
         morphllm: "morph-glm52-744b",
         deepseek: "deepseek-chat",
         openai: "gpt-4o-mini",
