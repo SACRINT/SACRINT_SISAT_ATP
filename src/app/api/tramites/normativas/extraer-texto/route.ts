@@ -7,7 +7,10 @@ export async function POST(req: Request) {
     const file = formData.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: "No se proporcionó ningún archivo." }, { status: 400 });
+      return NextResponse.json(
+        { error: "No se proporcionó ningún archivo." },
+        { status: 400 }
+      );
     }
 
     const filename = file.name || "documento";
@@ -18,37 +21,21 @@ export async function POST(req: Request) {
 
     if (filename.toLowerCase().endsWith(".pdf")) {
       try {
-        // Usar pdfjs-dist en modo Node.js (sin DOM, sin canvas)
-        const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-
-        // Deshabilitar worker (modo serverless)
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "";
-
-        const loadingTask = pdfjsLib.getDocument({
-          data: new Uint8Array(buffer),
-          useWorkerFetch: false,
-          useSystemFonts: true,
-          disableFontFace: true,
+        // unpdf está diseñado específicamente para entornos serverless/edge
+        // sin dependencias de DOM ni canvas
+        const { extractText } = await import("unpdf");
+        const { text } = await extractText(new Uint8Array(buffer), {
+          mergePages: true,
         });
-
-        const pdfDoc = await loadingTask.promise;
-        const numPages = pdfDoc.numPages;
-        const textParts: string[] = [];
-
-        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-          const page = await pdfDoc.getPage(pageNum);
-          const content = await page.getTextContent();
-          const pageText = content.items
-            .map((item: any) => ("str" in item ? item.str : ""))
-            .join(" ");
-          textParts.push(pageText);
-        }
-
-        textoExtraido = textParts.join("\n");
+        textoExtraido = text;
       } catch (pdfErr: any) {
-        console.error("[extraer-texto] Error procesando PDF con pdfjs:", pdfErr);
+        console.error("[extraer-texto] Error procesando PDF con unpdf:", pdfErr);
         return NextResponse.json(
-          { error: "Error al leer el archivo PDF: " + (pdfErr?.message || pdfErr) },
+          {
+            error:
+              "Error al leer el archivo PDF: " +
+              (pdfErr?.message || String(pdfErr)),
+          },
           { status: 400 }
         );
       }
@@ -59,13 +46,22 @@ export async function POST(req: Request) {
         // Extraer texto simple removiendo etiquetas XML
         textoExtraido = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       } catch (errDocx) {
-        return NextResponse.json({ error: "Error extrayendo texto del archivo DOCX." }, { status: 400 });
+        return NextResponse.json(
+          { error: "Error extrayendo texto del archivo DOCX." },
+          { status: 400 }
+        );
       }
-    } else if (filename.toLowerCase().endsWith(".txt") || filename.toLowerCase().endsWith(".md")) {
+    } else if (
+      filename.toLowerCase().endsWith(".txt") ||
+      filename.toLowerCase().endsWith(".md")
+    ) {
       textoExtraido = buffer.toString("utf-8");
     } else {
       return NextResponse.json(
-        { error: "Formato no soportado. Formatos válidos: PDF, DOCX, TXT, MD." },
+        {
+          error:
+            "Formato no soportado. Formatos válidos: PDF, DOCX, TXT, MD.",
+        },
         { status: 400 }
       );
     }
@@ -85,7 +81,11 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("[extraer-texto] Error procesando archivo:", error);
     return NextResponse.json(
-      { error: "Ocurrió un error al procesar el archivo: " + (error?.message || error) },
+      {
+        error:
+          "Ocurrió un error al procesar el archivo: " +
+          (error?.message || error),
+      },
       { status: 500 }
     );
   }
