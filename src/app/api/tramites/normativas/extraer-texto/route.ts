@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import PizZip from "pizzip";
-const pdfParse = require("pdf-parse");
 
 export async function POST(req: Request) {
   try {
@@ -18,8 +17,41 @@ export async function POST(req: Request) {
     let textoExtraido = "";
 
     if (filename.toLowerCase().endsWith(".pdf")) {
-      const data = await pdfParse(buffer);
-      textoExtraido = data.text || "";
+      try {
+        // Usar pdfjs-dist en modo Node.js (sin DOM, sin canvas)
+        const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+        // Deshabilitar worker (modo serverless)
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+
+        const loadingTask = pdfjsLib.getDocument({
+          data: new Uint8Array(buffer),
+          useWorkerFetch: false,
+          useSystemFonts: true,
+          disableFontFace: true,
+        });
+
+        const pdfDoc = await loadingTask.promise;
+        const numPages = pdfDoc.numPages;
+        const textParts: string[] = [];
+
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          const page = await pdfDoc.getPage(pageNum);
+          const content = await page.getTextContent();
+          const pageText = content.items
+            .map((item: any) => ("str" in item ? item.str : ""))
+            .join(" ");
+          textParts.push(pageText);
+        }
+
+        textoExtraido = textParts.join("\n");
+      } catch (pdfErr: any) {
+        console.error("[extraer-texto] Error procesando PDF con pdfjs:", pdfErr);
+        return NextResponse.json(
+          { error: "Error al leer el archivo PDF: " + (pdfErr?.message || pdfErr) },
+          { status: 400 }
+        );
+      }
     } else if (filename.toLowerCase().endsWith(".docx")) {
       try {
         const zip = new PizZip(buffer);
@@ -48,7 +80,7 @@ export async function POST(req: Request) {
       success: true,
       filename,
       texto: textoLimpio,
-      totalCaracteres: textoLimpio.length
+      totalCaracteres: textoLimpio.length,
     });
   } catch (error: any) {
     console.error("[extraer-texto] Error procesando archivo:", error);
