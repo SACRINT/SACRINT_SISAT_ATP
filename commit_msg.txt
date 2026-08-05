@@ -1,1 +1,0 @@
-fix: usa unpdf para extraccion PDF sin dependencias de DOM en serverless
