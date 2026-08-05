@@ -53,6 +53,7 @@ export default function GestionNormativas() {
   const [mostrarModal, setMostrarModal] = useState<boolean>(false);
   const [guardando, setGuardando] = useState<boolean>(false);
   const [cargandoArchivo, setCargandoArchivo] = useState<boolean>(false);
+  const [generandoDescripcion, setGenerandoDescripcion] = useState<boolean>(false);
   const [docEditando, setDocEditando] = useState<Partial<DocumentoNormativoUI> | null>(null);
 
   const handleSubirArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,11 +72,38 @@ export default function GestionNormativas() {
       const data = await res.json();
       if (data.success) {
         const nombreSinExt = file.name.replace(/\.[^/.]+$/, "");
+        const tituloFinal = docEditando?.titulo || nombreSinExt;
+
         setDocEditando((prev) => ({
           ...prev,
-          titulo: prev?.titulo || nombreSinExt,
+          titulo: tituloFinal,
           contenidoTexto: data.texto
         }));
+
+        // ── Generar descripción automática con IA ──
+        setGenerandoDescripcion(true);
+        try {
+          const resDesc = await fetch("/api/tramites/normativas/generar-descripcion", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              titulo: tituloFinal,
+              categoria: docEditando?.categoria || "USICAMM",
+              contenidoTexto: data.texto
+            })
+          });
+          const dataDesc = await resDesc.json();
+          if (dataDesc.success && dataDesc.descripcion) {
+            setDocEditando((prev) => ({
+              ...prev,
+              descripcion: dataDesc.descripcion
+            }));
+          }
+        } catch {
+          // Si falla la descripción automática, simplemente no la rellena (el usuario puede escribirla)
+        } finally {
+          setGenerandoDescripcion(false);
+        }
       } else {
         alert("⚠️ Error: " + (data.error || "No se pudo extraer el texto del archivo."));
       }
@@ -437,14 +465,78 @@ export default function GestionNormativas() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#475569", marginBottom: "0.3rem" }}>Resumen / Descripción corta:</label>
-                <input
-                  type="text"
-                  placeholder="Breve explicación del propósito de este documento"
-                  value={docEditando.descripcion || ""}
-                  onChange={(e) => setDocEditando({ ...docEditando, descripcion: e.target.value })}
-                  style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem" }}
-                />
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#475569", marginBottom: "0.3rem" }}>
+                  Resumen / Descripción corta:
+                  {generandoDescripcion && (
+                    <span style={{ marginLeft: "0.5rem", fontSize: "0.7rem", fontWeight: 600, color: "#7c3aed", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                      <Sparkles style={{ width: "11px", height: "11px", animation: "spin 1.5s linear infinite" }} />
+                      IA generando...
+                    </span>
+                  )}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    placeholder={generandoDescripcion ? "✨ La IA está generando el resumen..." : "Breve explicación del propósito de este documento"}
+                    value={docEditando.descripcion || ""}
+                    onChange={(e) => setDocEditando({ ...docEditando, descripcion: e.target.value })}
+                    disabled={generandoDescripcion}
+                    style={{
+                      width: "100%",
+                      padding: "0.5rem 2.5rem 0.5rem 0.75rem",
+                      borderRadius: "8px",
+                      border: generandoDescripcion ? "1px solid #a78bfa" : "1px solid #cbd5e1",
+                      fontSize: "0.875rem",
+                      background: generandoDescripcion ? "#faf5ff" : "white",
+                      color: generandoDescripcion ? "#7c3aed" : "inherit",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                  {!generandoDescripcion && docEditando.contenidoTexto && (
+                    <button
+                      type="button"
+                      title="Regenerar descripción con IA"
+                      onClick={async () => {
+                        setGenerandoDescripcion(true);
+                        try {
+                          const r = await fetch("/api/tramites/normativas/generar-descripcion", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              titulo: docEditando.titulo || "",
+                              categoria: docEditando.categoria || "USICAMM",
+                              contenidoTexto: docEditando.contenidoTexto || ""
+                            })
+                          });
+                          const d = await r.json();
+                          if (d.success && d.descripcion) {
+                            setDocEditando((prev) => ({ ...prev, descripcion: d.descripcion }));
+                          }
+                        } catch { /* silencioso */ } finally {
+                          setGenerandoDescripcion(false);
+                        }
+                      }}
+                      style={{
+                        position: "absolute",
+                        right: "0.5rem",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#7c3aed",
+                        padding: "0.2rem",
+                        display: "flex",
+                        alignItems: "center"
+                      }}
+                    >
+                      <Sparkles style={{ width: "15px", height: "15px" }} />
+                    </button>
+                  )}
+                </div>
+                <p style={{ margin: "0.2rem 0 0", fontSize: "0.7rem", color: "#94a3b8" }}>
+                  ✨ Se genera automáticamente al subir un archivo. Puedes editarla libremente.
+                </p>
               </div>
 
               {/* Carga automática desde archivo PDF, DOCX, TXT o MD */}
