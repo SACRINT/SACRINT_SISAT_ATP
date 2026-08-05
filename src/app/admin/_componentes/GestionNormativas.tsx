@@ -93,10 +93,11 @@ export default function GestionNormativas() {
             })
           });
           const dataDesc = await resDesc.json();
-          if (dataDesc.success && dataDesc.descripcion) {
+          if (dataDesc.success) {
             setDocEditando((prev) => ({
               ...prev,
-              descripcion: dataDesc.descripcion
+              ...(dataDesc.descripcion ? { descripcion: dataDesc.descripcion } : {}),
+              ...(Array.isArray(dataDesc.tags) && dataDesc.tags.length > 0 ? { tags: dataDesc.tags } : {}),
             }));
           }
         } catch {
@@ -442,14 +443,82 @@ export default function GestionNormativas() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#475569", marginBottom: "0.3rem" }}>Etiquetas / Tags (separadas por coma):</label>
-                  <input
-                    type="text"
-                    placeholder="ej. matemáticas, ficha-capems, fechas"
-                    value={Array.isArray(docEditando.tags) ? docEditando.tags.join(", ") : docEditando.tags || ""}
-                    onChange={(e) => setDocEditando({ ...docEditando, tags: e.target.value.split(",").map((t) => t.trim()) })}
-                    style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem" }}
-                  />
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#475569", marginBottom: "0.3rem" }}>
+                    Etiquetas / Tags (separadas por coma):
+                    {generandoDescripcion && (
+                      <span style={{ marginLeft: "0.5rem", fontSize: "0.7rem", fontWeight: 600, color: "#7c3aed", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                        <Sparkles style={{ width: "11px", height: "11px", animation: "spin 1.5s linear infinite" }} />
+                        IA generando...
+                      </span>
+                    )}
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="text"
+                      placeholder={generandoDescripcion ? "✨ La IA está generando las etiquetas..." : "ej. matemáticas, ficha-capems, fechas"}
+                      value={Array.isArray(docEditando.tags) ? docEditando.tags.join(", ") : docEditando.tags || ""}
+                      onChange={(e) => setDocEditando({ ...docEditando, tags: e.target.value.split(",").map((t) => t.trim()) })}
+                      disabled={generandoDescripcion}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem 2.5rem 0.5rem 0.75rem",
+                        borderRadius: "8px",
+                        border: generandoDescripcion ? "1px solid #a78bfa" : "1px solid #cbd5e1",
+                        fontSize: "0.875rem",
+                        background: generandoDescripcion ? "#faf5ff" : "white",
+                        color: generandoDescripcion ? "#7c3aed" : "inherit",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    {!generandoDescripcion && docEditando.contenidoTexto && (
+                      <button
+                        type="button"
+                        title="Regenerar tags con IA"
+                        onClick={async () => {
+                          setGenerandoDescripcion(true);
+                          try {
+                            const r = await fetch("/api/tramites/normativas/generar-descripcion", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                titulo: docEditando.titulo || "",
+                                categoria: docEditando.categoria || "USICAMM",
+                                contenidoTexto: docEditando.contenidoTexto || ""
+                              })
+                            });
+                            const d = await r.json();
+                            if (d.success) {
+                              setDocEditando((prev) => ({
+                                ...prev,
+                                ...(d.descripcion ? { descripcion: d.descripcion } : {}),
+                                ...(Array.isArray(d.tags) && d.tags.length > 0 ? { tags: d.tags } : {}),
+                              }));
+                            }
+                          } catch { /* silencioso */ } finally {
+                            setGenerandoDescripcion(false);
+                          }
+                        }}
+                        style={{
+                          position: "absolute",
+                          right: "0.5rem",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#7c3aed",
+                          padding: "0.2rem",
+                          display: "flex",
+                          alignItems: "center"
+                        }}
+                      >
+                        <Sparkles style={{ width: "15px", height: "15px" }} />
+                      </button>
+                    )}
+                  </div>
+                  <p style={{ margin: "0.2rem 0 0", fontSize: "0.7rem", color: "#94a3b8" }}>
+                    ✨ Se generan automáticamente al subir un archivo. Puedes editarlas libremente.
+                  </p>
                 </div>
               </div>
 
