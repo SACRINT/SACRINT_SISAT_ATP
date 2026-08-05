@@ -16,6 +16,11 @@ build/
 # misc
 .DS_Store
 *.pem
+# archivos temporales de commits y scripts scratch
+cm.txt
+cm2.txt
+commit_msg.txt
+scratch/
 
 # debug
 npm-debug.log*
