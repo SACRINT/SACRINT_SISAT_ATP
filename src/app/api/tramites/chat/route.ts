@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { responderConsultaNormativa } from "@/lib/tramites/rag-engine";
 
+// Extender el timeout de Vercel a 60s para dar tiempo a la llamada Gemini
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();

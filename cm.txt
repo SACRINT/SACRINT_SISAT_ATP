@@ -1,0 +1,1 @@
+fix: extiende timeout chat a 60s y limita contexto RAG para evitar 504

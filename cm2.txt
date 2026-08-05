@@ -1,1 +1,0 @@
-chore: ignora commit_msg.txt y lo elimina del repositorio

@@ -67,17 +67,22 @@ export async function responderConsultaNormativa(
       return { doc, score };
     });
 
-    // Ordenar por relevancia y tomar los 4 mejores (o los primeros si no hay coincidencia directa)
+    // Ordenar por relevancia y tomar los 3 mejores (o los primeros si no hay coincidencia directa)
     documentosPonderados.sort((a: { score: number }, b: { score: number }) => b.score - a.score);
     const mejoresDocs = documentosPonderados
-      .slice(0, 4)
+      .slice(0, 3)
       .map((item: { doc: any }) => item.doc);
 
-    // 3. Preparar contexto de la base de conocimientos
+    // 3. Preparar contexto de la base de conocimientos (máx 2000 chars por documento)
+    const MAX_CHARS_POR_DOC = 2000;
     const contextoNormativo = mejoresDocs
       .map(
-        (d: any, idx: number) =>
-          `--- DOCUMENTO [${idx + 1}]: "${d.titulo}" (Categoría: ${d.categoria}) ---\nDESCRIPCIÓN: ${d.descripcion || "N/A"}\nTAGS: ${d.tags?.join(", ") || "N/A"}\nCONTENIDO NORMATIVO:\n${d.contenidoTexto}\n`
+        (d: any, idx: number) => {
+          const contenidoTruncado = d.contenidoTexto.length > MAX_CHARS_POR_DOC
+            ? d.contenidoTexto.substring(0, MAX_CHARS_POR_DOC) + "... [contenido truncado]"
+            : d.contenidoTexto;
+          return `--- DOCUMENTO [${idx + 1}]: "${d.titulo}" (Categoría: ${d.categoria}) ---\nDESCRIPCIÓN: ${d.descripcion || "N/A"}\nTAGS: ${d.tags?.join(", ") || "N/A"}\nCONTENIDO NORMATIVO:\n${contenidoTruncado}\n`;
+        }
       )
       .join("\n\n");
 
