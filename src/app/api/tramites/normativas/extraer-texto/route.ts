@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import PizZip from "pizzip";
 
+// ── Polyfill para Math.sumPrecise ─────────────────────────────────────────────
+// pdfjs-dist (usado por unpdf) requiere Math.sumPrecise, disponible en Node 24+.
+// Este polyfill lo proporciona en entornos Vercel con Node <24.
+if (typeof (Math as any).sumPrecise === "undefined") {
+  (Math as any).sumPrecise = function (values: Iterable<number>): number {
+    let sum = 0;
+    for (const v of values) {
+      sum += v;
+    }
+    return sum;
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -20,21 +34,40 @@ export async function POST(req: Request) {
     let textoExtraido = "";
 
     if (filename.toLowerCase().endsWith(".pdf")) {
+      let extraido = false;
+
+      // Intento 1: unpdf (con polyfill de Math.sumPrecise ya aplicado)
       try {
-        // unpdf está diseñado específicamente para entornos serverless/edge
-        // sin dependencias de DOM ni canvas
         const { extractText } = await import("unpdf");
         const { text } = await extractText(new Uint8Array(buffer), {
           mergePages: true,
         });
-        textoExtraido = text;
-      } catch (pdfErr: any) {
-        console.error("[extraer-texto] Error procesando PDF con unpdf:", pdfErr);
+        if (text && text.trim().length > 10) {
+          textoExtraido = text;
+          extraido = true;
+        }
+      } catch (err1: any) {
+        console.warn("[extraer-texto] unpdf falló, intentando pdf-parse:", err1?.message);
+      }
+
+      // Intento 2: pdf-parse como fallback
+      if (!extraido) {
+        try {
+          const pdfParse = (await import("pdf-parse")).default;
+          const data = await pdfParse(buffer);
+          textoExtraido = data.text || "";
+          extraido = true;
+        } catch (err2: any) {
+          console.error("[extraer-texto] pdf-parse también falló:", err2?.message);
+        }
+      }
+
+      // Si ninguno funcionó, devolver error claro
+      if (!extraido || textoExtraido.trim().length < 5) {
         return NextResponse.json(
           {
             error:
-              "Error al leer el archivo PDF: " +
-              (pdfErr?.message || String(pdfErr)),
+              "No se pudo extraer texto del PDF. Intenta convertirlo a TXT/DOCX antes de subirlo.",
           },
           { status: 400 }
         );
