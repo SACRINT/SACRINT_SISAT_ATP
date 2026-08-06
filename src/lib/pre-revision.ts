@@ -1,15 +1,4 @@
-if (typeof global !== "undefined" && !(global as any).DOMMatrix) {
-    (global as any).DOMMatrix = class DOMMatrix {
-        constructor(init?: any) {
-            if (init && init.length >= 6) {
-                this.a = init[0]; this.b = init[1];
-                this.c = init[2]; this.d = init[3];
-                this.e = init[4]; this.f = init[5];
-            }
-        }
-        a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
-    };
-}
+
 
 import { prisma } from "./db";
 import { callGemini } from "./gemini";
@@ -61,45 +50,16 @@ export async function extractTextFromPdf(
 ): Promise<{ text: string; total: number }> {
     try {
         console.log("[pre-revision] Starting local PDF text extraction, buffer size:", buffer.length);
-        // @ts-ignore
-        const pdf = await import("pdf-parse");
-        // @ts-ignore
-        const { GlobalWorkerOptions } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-        
-        const fs = await import("fs");
-        const path = await import("path");
-
-        // Read local worker file and encode it to base64 Data URL at runtime
-        const workerPath = path.resolve(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs");
-        console.log("[pre-revision] Reading worker file dynamically at:", workerPath);
-        const workerContent = fs.readFileSync(workerPath, "utf8");
-        const base64Worker = "data:text/javascript;base64," + Buffer.from(workerContent).toString("base64");
-        
-        GlobalWorkerOptions.workerSrc = base64Worker;
-        console.log("[pre-revision] Configured GlobalWorkerOptions.workerSrc dynamically using fs base64 worker data URL.");
-
-        const uint8Array = new Uint8Array(buffer);
-        console.log("[pre-revision] PDFParse constructor initializing with disableWorker: true...");
-        const parser: any = new pdf.PDFParse({ data: uint8Array, verbosity: 0, disableWorker: true } as any);
-        console.log("[pre-revision] PDFParse loading document...");
-        await parser.load();
-        console.log("[pre-revision] PDFParse document loaded. Extracting text...");
-        
-        const parseParams: any = {};
-        if (pageOptions?.start && pageOptions?.end) {
-            parseParams.first = pageOptions.start;
-            parseParams.last = pageOptions.end;
-        }
-        
-        const result = await parser.getText(parseParams);
-        const rawText = result?.text || "";
+        const pdfParse = (await import("pdf-parse")).default;
+        const data = await pdfParse(buffer);
+        const rawText = data.text || "";
         const text = rawText
             .replace(/[ \t]+/g, " ")
             .replace(/\r\n/g, "\n")
             .replace(/\n\s*\n/g, "\n")
             .trim();
-        console.log(`[pre-revision] Text extraction complete. Pages parsed: ${result?.pages?.length || 0}/${result?.total || 0}. Raw length: ${rawText.length}, Clean length: ${text.length}`);
-        return { text, total: result?.total || 0 };
+        console.log(`[pre-revision] Text extraction complete. Pages: ${data.numpages}. Raw length: ${rawText.length}, Clean length: ${text.length}`);
+        return { text, total: data.numpages || 0 };
     } catch (error) {
         console.error("[pre-revision] Error extracting text from PDF locally:", error);
         throw error;
