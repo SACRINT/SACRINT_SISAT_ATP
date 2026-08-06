@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import PizZip from "pizzip";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 
 export async function POST(req: Request) {
   try {
@@ -22,8 +22,9 @@ export async function POST(req: Request) {
 
     if (filename.toLowerCase().endsWith(".pdf")) {
       try {
-        const data = await pdfParse(buffer);
-        textoExtraido = data.text || "";
+        const parser = new PDFParse({ data: buffer });
+        const result = await parser.getText();
+        textoExtraido = result.text || "";
       } catch (err: any) {
         console.error("[extraer-texto] pdf-parse falló:", err?.message);
         return NextResponse.json(
