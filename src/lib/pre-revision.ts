@@ -50,7 +50,7 @@ export async function extractTextFromPdf(
 ): Promise<{ text: string; total: number }> {
     try {
         console.log("[pre-revision] Starting local PDF text extraction, buffer size:", buffer.length);
-        const pdfParse = (await import("pdf-parse")).default;
+        const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
         const data = await pdfParse(buffer);
         const rawText = data.text || "";
         const text = rawText

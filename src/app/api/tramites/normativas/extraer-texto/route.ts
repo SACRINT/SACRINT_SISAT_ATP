@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import PizZip from "pizzip";
-import pdfParse from "pdf-parse";
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 
 export async function POST(req: Request) {
   try {
