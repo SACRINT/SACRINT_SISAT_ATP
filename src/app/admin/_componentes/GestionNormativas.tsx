@@ -97,7 +97,8 @@ export default function GestionNormativas() {
             setDocEditando((prev) => ({
               ...prev,
               ...(dataDesc.descripcion ? { descripcion: dataDesc.descripcion } : {}),
-              ...(Array.isArray(dataDesc.tags) && dataDesc.tags.length > 0 ? { tags: dataDesc.tags } : {}),
+              ...(dataDesc.tags && dataDesc.tags.length > 0 ? { tags: dataDesc.tags } : {}),
+              ...(dataDesc.categoria ? { categoria: dataDesc.categoria } : {}),
             }));
           }
         } catch {
@@ -430,16 +431,39 @@ export default function GestionNormativas() {
             <form onSubmit={handleGuardar} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#475569", marginBottom: "0.3rem" }}>Categoría Oficial:</label>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, color: "#475569", marginBottom: "0.3rem" }}>
+                    Categoría Oficial:
+                    {generandoDescripcion && (
+                      <span style={{ marginLeft: "0.5rem", fontSize: "0.7rem", fontWeight: 600, color: "#7c3aed", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                        <Sparkles style={{ width: "11px", height: "11px", animation: "spin 1.5s linear infinite" }} />
+                        IA detectando...
+                      </span>
+                    )}
+                  </label>
                   <select
                     value={docEditando.categoria || "USICAMM"}
                     onChange={(e) => setDocEditando({ ...docEditando, categoria: e.target.value })}
-                    style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.875rem", fontWeight: 700 }}
+                    disabled={generandoDescripcion}
+                    style={{
+                      width: "100%",
+                      padding: "0.5rem 0.75rem",
+                      borderRadius: "8px",
+                      border: generandoDescripcion ? "1px solid #a78bfa" : "1px solid #cbd5e1",
+                      fontSize: "0.875rem",
+                      fontWeight: 700,
+                      background: generandoDescripcion ? "#faf5ff" : "white",
+                      color: generandoDescripcion ? "#7c3aed" : "inherit",
+                    }}
                   >
                     {CATEGORIAS.filter((c) => c.id !== "TODAS").map((c) => (
                       <option key={c.id} value={c.id}>{c.label}</option>
                     ))}
                   </select>
+                  {!generandoDescripcion && (
+                    <p style={{ margin: "0.2rem 0 0", fontSize: "0.7rem", color: "#94a3b8" }}>
+                      ✨ La IA la detecta al subir el archivo. Puedes cambiarla.
+                    </p>
+                  )}
                 </div>
 
                 <div>
