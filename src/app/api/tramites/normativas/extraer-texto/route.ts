@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import PizZip from "pizzip";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import { callGemini } from "@/lib/gemini";
+
+// Allow up to 60s for OCR on scanned PDFs via Gemini
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
@@ -19,20 +23,47 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     let textoExtraido = "";
+    let usedOcr = false;
 
     if (filename.toLowerCase().endsWith(".pdf")) {
+      // ── Paso 1: Intentar extracción directa con pdf-parse ────────────
       try {
         const data = await pdfParse(buffer);
         textoExtraido = data.text || "";
       } catch (err: any) {
-        console.error("[extraer-texto] pdf-parse falló:", err?.message);
-        return NextResponse.json(
-          {
-            error:
-              "No se pudo extraer texto del PDF. Intenta convertirlo a TXT/DOCX antes de subirlo.",
-          },
-          { status: 400 }
+        console.warn("[extraer-texto] pdf-parse falló, continuando a OCR:", err?.message);
+      }
+
+      // ── Paso 2: Fallback OCR con Gemini si el texto es demasiado corto
+      // (PDF escaneado / basado en imágenes sin texto digital embebido)
+      if (textoExtraido.trim().length < 100) {
+        console.log(
+          `[extraer-texto] PDF con poco texto digital (${textoExtraido.trim().length} chars). ` +
+          "Activando OCR con Gemini..."
         );
+        try {
+          textoExtraido = await callGemini(
+            "Eres un asistente especializado en extraer texto de documentos oficiales de la SEP.",
+            "Extrae y transcribe TODO el texto de este documento PDF exactamente como aparece, " +
+            "manteniendo la estructura: encabezados, párrafos, listas y tablas. " +
+            "Responde ÚNICAMENTE con el texto extraído, sin comentarios ni explicaciones adicionales.",
+            buffer,
+            "application/pdf"
+          );
+          usedOcr = true;
+          console.log("[extraer-texto] OCR con Gemini exitoso. Chars extraídos:", textoExtraido.length);
+        } catch (ocrErr: any) {
+          console.error("[extraer-texto] Gemini OCR falló:", ocrErr?.message);
+          return NextResponse.json(
+            {
+              error:
+                "No se pudo extraer texto del PDF. " +
+                "El archivo parece ser un PDF escaneado y el servicio de OCR no está disponible en este momento. " +
+                "Intenta convertirlo a TXT/DOCX o ingresar el texto manualmente.",
+            },
+            { status: 400 }
+          );
+        }
       }
     } else if (filename.toLowerCase().endsWith(".docx")) {
       try {
@@ -72,6 +103,7 @@ export async function POST(req: Request) {
       filename,
       texto: textoLimpio,
       totalCaracteres: textoLimpio.length,
+      usedOcr,
     });
   } catch (error: any) {
     console.error("[extraer-texto] Error procesando archivo:", error);
