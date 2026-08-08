@@ -36,6 +36,7 @@ function TTSControls({ text }: { text: string }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speed, setSpeed] = useState<number>(1);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     return () => {
@@ -44,15 +45,27 @@ function TTSControls({ text }: { text: string }) {
   }, []);
 
   const handlePlay = (rate: number) => {
+    if (utteranceRef.current) {
+      utteranceRef.current.onend = null;
+      utteranceRef.current.onerror = null;
+    }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "es-MX";
-    utterance.rate = rate;
-    utterance.onend = () => { setIsPlaying(false); setIsPaused(false); };
-    utterance.onerror = () => { setIsPlaying(false); setIsPaused(false); };
-    window.speechSynthesis.speak(utterance);
-    setIsPlaying(true);
-    setIsPaused(false);
+    
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utteranceRef.current = utterance;
+      utterance.lang = "es-MX";
+      utterance.rate = rate;
+      utterance.onend = () => { setIsPlaying(false); setIsPaused(false); };
+      utterance.onerror = (e) => { 
+        console.error("TTS error:", e);
+        setIsPlaying(false); 
+        setIsPaused(false); 
+      };
+      window.speechSynthesis.speak(utterance);
+      setIsPlaying(true);
+      setIsPaused(false);
+    }, 100);
   };
 
   const handlePlayPause = () => {
