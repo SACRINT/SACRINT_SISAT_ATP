@@ -55,33 +55,87 @@ export default function GestionNormativas() {
   const [cargandoArchivo, setCargandoArchivo] = useState<boolean>(false);
   const [generandoDescripcion, setGenerandoDescripcion] = useState<boolean>(false);
   const [docEditando, setDocEditando] = useState<Partial<DocumentoNormativoUI> | null>(null);
+  const [progresoChunking, setProgresoChunking] = useState<string>("");
 
   const handleSubirArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !docEditando) return;
 
     setCargandoArchivo(true);
-    const formData = new FormData();
-    formData.append("file", file);
+    setProgresoChunking("");
 
     try {
-      const res = await fetch("/api/tramites/normativas/extraer-texto", {
-        method: "POST",
-        body: formData
-      });
-      const data = await res.json();
-      if (data.success) {
-        const nombreSinExt = file.name.replace(/\.[^/.]+$/, "");
-        const tituloFinal = docEditando?.titulo || nombreSinExt;
+      let textoTotal = "";
+      const isPdf = file.name.toLowerCase().endsWith('.pdf');
+      const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 
-        setDocEditando((prev) => ({
-          ...prev,
-          titulo: tituloFinal,
-          contenidoTexto: data.texto
-        }));
+      if (isPdf && file.size > MAX_FILE_SIZE) {
+        setProgresoChunking("Cargando PDF localmente...");
+        const { PDFDocument } = await import("pdf-lib");
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        const totalPages = pdfDoc.getPageCount();
+        
+        const PAGES_PER_CHUNK = 5;
+        const totalChunks = Math.ceil(totalPages / PAGES_PER_CHUNK);
+        
+        for (let i = 0; i < totalChunks; i++) {
+          setProgresoChunking(`Procesando parte ${i + 1} de ${totalChunks}...`);
+          const subPdf = await PDFDocument.create();
+          const startPage = i * PAGES_PER_CHUNK;
+          const endPage = Math.min((i + 1) * PAGES_PER_CHUNK, totalPages);
+          
+          const pageIndices = Array.from({ length: endPage - startPage }, (_, k) => startPage + k);
+          const copiedPages = await subPdf.copyPages(pdfDoc, pageIndices);
+          copiedPages.forEach((page) => subPdf.addPage(page));
+          
+          const subPdfBytes = await subPdf.save();
+          const chunkBlob = new Blob([subPdfBytes as any], { type: "application/pdf" });
+          const chunkFile = new File([chunkBlob], `chunk_${i}.pdf`, { type: "application/pdf" });
+          
+          const formData = new FormData();
+          formData.append("file", chunkFile);
+          
+          const res = await fetch("/api/tramites/normativas/extraer-texto", {
+            method: "POST",
+            body: formData
+          });
+          
+          const data = await res.json();
+          if (data.success) {
+             textoTotal += (data.texto || "") + "\n\n";
+          } else {
+             throw new Error(`Error en parte ${i + 1}: ${data.error}`);
+          }
+        }
+      } else {
+        const formData = new FormData();
+        formData.append("file", file);
 
-        // ── Generar descripción automática con IA ──
-        setGenerandoDescripcion(true);
+        const res = await fetch("/api/tramites/normativas/extraer-texto", {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          textoTotal = data.texto;
+        } else {
+          throw new Error(data.error || "No se pudo extraer el texto del archivo.");
+        }
+      }
+
+      const nombreSinExt = file.name.replace(/\.[^/.]+$/, "");
+      const tituloFinal = docEditando?.titulo || nombreSinExt;
+
+      setDocEditando((prev) => ({
+        ...prev,
+        titulo: tituloFinal,
+        contenidoTexto: textoTotal.trim()
+      }));
+
+      // ── Generar descripción automática con IA ──
+      setGenerandoDescripcion(true);
+      setProgresoChunking("Generando resumen con IA...");
         try {
           const resDesc = await fetch("/api/tramites/normativas/generar-descripcion", {
             method: "POST",
@@ -89,7 +143,7 @@ export default function GestionNormativas() {
             body: JSON.stringify({
               titulo: tituloFinal,
               categoria: docEditando?.categoria || "USICAMM",
-              contenidoTexto: data.texto
+              contenidoTexto: textoTotal
             })
           });
           const dataDesc = await resDesc.json();
@@ -105,14 +159,13 @@ export default function GestionNormativas() {
           // Si falla la descripción automática, simplemente no la rellena (el usuario puede escribirla)
         } finally {
           setGenerandoDescripcion(false);
+          setProgresoChunking("");
         }
-      } else {
-        alert("⚠️ Error: " + (data.error || "No se pudo extraer el texto del archivo."));
-      }
-    } catch (err) {
-      alert("⚠️ Error procesando el archivo.");
+    } catch (err: any) {
+      alert("⚠️ Error procesando el archivo: " + err.message);
     } finally {
       setCargandoArchivo(false);
+      setProgresoChunking("");
       e.target.value = "";
     }
   };
@@ -672,7 +725,7 @@ export default function GestionNormativas() {
                   {cargandoArchivo ? (
                     <>
                       <RefreshCw style={{ width: "15px", height: "15px", animation: "spin 1s linear infinite" }} />
-                      <span>Extrayendo Texto...</span>
+                      <span>{progresoChunking || "Extrayendo Texto..."}</span>
                     </>
                   ) : (
                     <>
