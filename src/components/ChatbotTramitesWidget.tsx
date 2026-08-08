@@ -11,7 +11,8 @@ import {
   HelpCircle,
   FileText,
   Trash2,
-  ChevronDown
+  ChevronDown,
+  Volume2
 } from "lucide-react";
 
 export interface ChatMensajeTramite {
@@ -229,6 +230,38 @@ export default function ChatbotTramitesWidget({ escuelaId }: { escuelaId?: strin
                 >
                   {msg.content}
                 </div>
+
+                {msg.role === "assistant" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if ("speechSynthesis" in window) {
+                        window.speechSynthesis.cancel();
+                        const utterance = new SpeechSynthesisUtterance(msg.content);
+                        utterance.lang = "es-MX";
+                        utterance.rate = 1.0;
+                        window.speechSynthesis.speak(utterance);
+                      }
+                    }}
+                    title="Escuchar respuesta"
+                    style={{
+                      alignSelf: "flex-start",
+                      background: "transparent",
+                      border: "none",
+                      color: "#94a3b8",
+                      cursor: "pointer",
+                      padding: "0",
+                      marginTop: "2px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      fontSize: "0.7rem"
+                    }}
+                  >
+                    <Volume2 style={{ width: "14px", height: "14px" }} />
+                    <span>Leer respuesta</span>
+                  </button>
+                )}
 
                 {/* Fuentes oficial citadas si existen */}
                 {msg.fuentes && msg.fuentes.length > 0 && (
