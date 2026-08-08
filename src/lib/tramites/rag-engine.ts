@@ -73,8 +73,8 @@ export async function responderConsultaNormativa(
       .slice(0, 3)
       .map((item: { doc: any }) => item.doc);
 
-    // 3. Preparar contexto de la base de conocimientos (máx 2000 chars por documento)
-    const MAX_CHARS_POR_DOC = 2000;
+    // 3. Preparar contexto de la base de conocimientos (máx 100000 chars por documento)
+    const MAX_CHARS_POR_DOC = 100000;
     const contextoNormativo = mejoresDocs
       .map(
         (d: any, idx: number) => {
