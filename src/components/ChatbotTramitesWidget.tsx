@@ -12,7 +12,10 @@ import {
   FileText,
   Trash2,
   ChevronDown,
-  Volume2
+  Volume2,
+  Play,
+  Pause,
+  Square
 } from "lucide-react";
 
 export interface ChatMensajeTramite {
@@ -28,6 +31,119 @@ const PREGUNTAS_SUGERIDAS = [
   "¿Cuál es la rúbrica de Formación Laboral en USICAMM?",
   "¿Qué requisitos exige la Circular 03?"
 ];
+
+function TTSControls({ text }: { text: string }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [speed, setSpeed] = useState<number>(1);
+
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  const handlePlay = (rate: number) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "es-MX";
+    utterance.rate = rate;
+    utterance.onend = () => { setIsPlaying(false); setIsPaused(false); };
+    utterance.onerror = () => { setIsPlaying(false); setIsPaused(false); };
+    window.speechSynthesis.speak(utterance);
+    setIsPlaying(true);
+    setIsPaused(false);
+  };
+
+  const handlePlayPause = () => {
+    if (!("speechSynthesis" in window)) return;
+    if (isPlaying) {
+      if (isPaused) {
+        window.speechSynthesis.resume();
+        setIsPaused(false);
+      } else {
+        window.speechSynthesis.pause();
+        setIsPaused(true);
+      }
+    } else {
+      handlePlay(speed);
+    }
+  };
+
+  const handleStop = () => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      setIsPaused(false);
+    }
+  };
+
+  const cycleSpeed = () => {
+    const newSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+    setSpeed(newSpeed);
+    if (isPlaying) {
+      handlePlay(newSpeed);
+    }
+  };
+
+  if (!isPlaying) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "2px" }}>
+        <button
+          type="button"
+          onClick={handlePlayPause}
+          title="Escuchar respuesta"
+          style={{
+            background: "transparent", border: "none", color: "#94a3b8",
+            cursor: "pointer", padding: "0", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.7rem"
+          }}
+        >
+          <Volume2 style={{ width: "14px", height: "14px" }} />
+          <span>Leer respuesta</span>
+        </button>
+        <button
+          type="button"
+          onClick={cycleSpeed}
+          title="Velocidad de lectura"
+          style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "0", fontSize: "0.65rem", fontWeight: "bold" }}
+        >
+          {speed}x
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "2px" }}>
+      <button
+        type="button"
+        onClick={handlePlayPause}
+        title={isPaused ? "Reanudar" : "Pausar"}
+        style={{ background: "transparent", border: "none", color: "#60a5fa", cursor: "pointer", padding: "0", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.7rem" }}
+      >
+        {isPaused ? <Play style={{ width: "14px", height: "14px" }} /> : <Pause style={{ width: "14px", height: "14px" }} />}
+        <span>{isPaused ? "Reanudar" : "Pausar"}</span>
+      </button>
+      <button
+        type="button"
+        onClick={handleStop}
+        title="Detener"
+        style={{ background: "transparent", border: "none", color: "#f87171", cursor: "pointer", padding: "0", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.7rem" }}
+      >
+        <Square style={{ width: "14px", height: "14px" }} />
+        <span>Detener</span>
+      </button>
+      <button
+        type="button"
+        onClick={cycleSpeed}
+        title="Velocidad de lectura"
+        style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "0", fontSize: "0.65rem", fontWeight: "bold" }}
+      >
+        {speed}x
+      </button>
+    </div>
+  );
+}
 
 export default function ChatbotTramitesWidget({ escuelaId }: { escuelaId?: string }) {
   const [abierto, setAbierto] = useState<boolean>(false);
@@ -232,35 +348,7 @@ export default function ChatbotTramitesWidget({ escuelaId }: { escuelaId?: strin
                 </div>
 
                 {msg.role === "assistant" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if ("speechSynthesis" in window) {
-                        window.speechSynthesis.cancel();
-                        const utterance = new SpeechSynthesisUtterance(msg.content);
-                        utterance.lang = "es-MX";
-                        utterance.rate = 1.0;
-                        window.speechSynthesis.speak(utterance);
-                      }
-                    }}
-                    title="Escuchar respuesta"
-                    style={{
-                      alignSelf: "flex-start",
-                      background: "transparent",
-                      border: "none",
-                      color: "#94a3b8",
-                      cursor: "pointer",
-                      padding: "0",
-                      marginTop: "2px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      fontSize: "0.7rem"
-                    }}
-                  >
-                    <Volume2 style={{ width: "14px", height: "14px" }} />
-                    <span>Leer respuesta</span>
-                  </button>
+                  <TTSControls text={msg.content} />
                 )}
 
                 {/* Fuentes oficial citadas si existen */}
