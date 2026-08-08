@@ -37,35 +37,65 @@ function TTSControls({ text }: { text: string }) {
   const [isPaused, setIsPaused] = useState(false);
   const [speed, setSpeed] = useState<number>(1);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const charIndexRef = useRef<number>(0);
 
   useEffect(() => {
     return () => {
+      if (utteranceRef.current) {
+        utteranceRef.current.onend = null;
+        utteranceRef.current.onerror = null;
+        utteranceRef.current.onboundary = null;
+      }
       window.speechSynthesis.cancel();
     };
   }, []);
 
-  const handlePlay = (rate: number) => {
+  const handlePlay = (rate: number, startPos: number = 0) => {
     if (utteranceRef.current) {
       utteranceRef.current.onend = null;
       utteranceRef.current.onerror = null;
+      utteranceRef.current.onboundary = null;
     }
     window.speechSynthesis.cancel();
     
+    // Necesitamos esperar un momento para que el navegador procese el cancel()
     setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
+      const remainingText = text.substring(startPos);
+      if (!remainingText.trim()) {
+        setIsPlaying(false);
+        setIsPaused(false);
+        charIndexRef.current = 0;
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(remainingText);
       utteranceRef.current = utterance;
       utterance.lang = "es-MX";
       utterance.rate = rate;
-      utterance.onend = () => { setIsPlaying(false); setIsPaused(false); };
-      utterance.onerror = (e) => { 
-        console.error("TTS error:", e);
+      
+      utterance.onboundary = (e) => {
+        charIndexRef.current = startPos + e.charIndex;
+      };
+      
+      utterance.onend = () => { 
         setIsPlaying(false); 
         setIsPaused(false); 
+        charIndexRef.current = 0;
       };
+      
+      utterance.onerror = (e) => { 
+        console.error("TTS error:", e);
+        // Algunos navegadores disparan un error si se interrumpe
+        if (e.error !== 'interrupted' && e.error !== 'canceled') {
+          setIsPlaying(false); 
+          setIsPaused(false); 
+        }
+      };
+      
       window.speechSynthesis.speak(utterance);
       setIsPlaying(true);
       setIsPaused(false);
-    }, 100);
+    }, 150);
   };
 
   const handlePlayPause = () => {
@@ -79,15 +109,20 @@ function TTSControls({ text }: { text: string }) {
         setIsPaused(true);
       }
     } else {
-      handlePlay(speed);
+      handlePlay(speed, 0);
     }
   };
 
   const handleStop = () => {
     if ("speechSynthesis" in window) {
+      if (utteranceRef.current) {
+        utteranceRef.current.onend = null;
+        utteranceRef.current.onerror = null;
+      }
       window.speechSynthesis.cancel();
       setIsPlaying(false);
       setIsPaused(false);
+      charIndexRef.current = 0;
     }
   };
 
@@ -95,7 +130,7 @@ function TTSControls({ text }: { text: string }) {
     const newSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
     setSpeed(newSpeed);
     if (isPlaying) {
-      handlePlay(newSpeed);
+      handlePlay(newSpeed, charIndexRef.current);
     }
   };
 
