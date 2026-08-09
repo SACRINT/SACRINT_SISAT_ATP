@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Settings2, ShieldAlert, RefreshCw, MessageCircle } from "lucide-react";
+import { Settings2, ShieldAlert, RefreshCw, MessageCircle, KeyRound, FolderOpen } from "lucide-react";
 import toast from "react-hot-toast";
 
 type Escuela = {
@@ -19,6 +19,12 @@ interface ConfigPlaneaciones {
     modoSinRestricciones: boolean;
 }
 
+interface ConfigHorarios {
+    modoSinRestriccionesHorarios: boolean;
+    requiereApiKeyHorarios: boolean;
+    requiereExpedientesHorarios: boolean;
+}
+
 interface PermisosHerramientasIAProps {
     escuelas: Escuela[];
     readOnly?: boolean;
@@ -26,7 +32,11 @@ interface PermisosHerramientasIAProps {
 
 export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosHerramientasIAProps) {
     const [configPlaneaciones, setConfigPlaneaciones] = useState<ConfigPlaneaciones | null>(null);
-    const [modoSinRestriccionesHorarios, setModoSinRestriccionesHorarios] = useState(false);
+    const [configHorarios, setConfigHorarios] = useState<ConfigHorarios>({
+        modoSinRestriccionesHorarios: false,
+        requiereApiKeyHorarios: true,
+        requiereExpedientesHorarios: true,
+    });
     const [horarioStats, setHorarioStats] = useState<Record<string, { totalMensajesChat: number; totalUsos: number; ultimoUso: string | null }>>({});
     const [loading, setLoading] = useState(true);
     const [savingPlaneaciones, setSavingPlaneaciones] = useState(false);
@@ -40,14 +50,18 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                 fetch("/api/admin/horarios/config"),
                 fetch("/api/admin/horarios/reset-stats")
             ]);
-            
+
             if (cfgRes.ok) setConfigPlaneaciones(await cfgRes.json());
-            
+
             if (hCfgRes.ok) {
                 const hCfg = await hCfgRes.json();
-                setModoSinRestriccionesHorarios(hCfg.modoSinRestriccionesHorarios ?? false);
+                setConfigHorarios({
+                    modoSinRestriccionesHorarios: hCfg.modoSinRestriccionesHorarios ?? false,
+                    requiereApiKeyHorarios: hCfg.requiereApiKeyHorarios ?? true,
+                    requiereExpedientesHorarios: hCfg.requiereExpedientesHorarios ?? true,
+                });
             }
-            
+
             if (statsRes.ok) {
                 const data = await statsRes.json();
                 if (data.success && Array.isArray(data.stats)) {
@@ -75,11 +89,11 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
 
     const handlePlaneacionesChange = async (updates: Partial<ConfigPlaneaciones>) => {
         if (!configPlaneaciones || readOnly) return;
-        
-        const newConfig = { ...configPlaneaciones, ...updates };
+
+        const newConfig = { ...configPlaneaciones, ...updates, modoSinRestricciones: false };
         setConfigPlaneaciones(newConfig);
         setSavingPlaneaciones(true);
-        
+
         try {
             const res = await fetch("/api/admin/planeaciones-config", {
                 method: "POST",
@@ -90,7 +104,7 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                 toast.success("Configuración de Planeaciones IA guardada");
             } else {
                 toast.error("Error al guardar configuración");
-                await cargarDatos(); // Revert
+                await cargarDatos();
             }
         } catch {
             toast.error("Error de conexión");
@@ -100,22 +114,23 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
         }
     };
 
-    const handleToggleModoPruebasHorarios = async (valor: boolean) => {
+    const handleHorariosChange = async (updates: Partial<ConfigHorarios>) => {
         if (readOnly) return;
-        setModoSinRestriccionesHorarios(valor);
+        const newConfig = { ...configHorarios, ...updates };
+        setConfigHorarios(newConfig);
         setSavingHorarios(true);
-        
+
         try {
             const res = await fetch("/api/admin/horarios/config", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ modoSinRestriccionesHorarios: valor }),
+                body: JSON.stringify(newConfig),
             });
             if (res.ok) {
-                toast.success(valor ? "Modo Pruebas Horarios IA activado" : "Restricciones Horarios IA restauradas");
+                toast.success("Configuración de Horarios IA guardada");
             } else {
-                toast.error("Error al guardar bypass de Horarios");
-                await cargarDatos(); // Revert
+                toast.error("Error al guardar configuración de Horarios");
+                await cargarDatos();
             }
         } catch {
             toast.error("Error de conexión");
@@ -158,65 +173,67 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
         );
     }
 
-    // Filtrar escuelas para quitar la supervisión si es necesario, o mantenerlas todas
     const escuelasList = escuelas.filter(e => !e.esSupervision);
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-            
+
             {/* 📋 Planeaciones Didácticas IA */}
             <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text)", fontSize: "1.1rem" }}>
                     📋 Planeaciones Didácticas IA
                 </h3>
                 {configPlaneaciones && (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-                        
-                        <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
-                            <div>
-                                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>Módulo Activo (Global)</div>
-                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Habilita el módulo para toda la zona.</div>
-                            </div>
-                            <input 
-                                type="checkbox" 
-                                checked={configPlaneaciones.activoGlobal} 
-                                onChange={e => handlePlaneacionesChange({ activoGlobal: e.target.checked })} 
-                                disabled={readOnly || savingPlaneaciones}
-                                style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }} 
-                            />
-                        </label>
-                        
-                        <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
-                            <div>
-                                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>Requiere PAEC-PEC</div>
-                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Obliga a subir el PAEC-PEC antes de usar.</div>
-                            </div>
-                            <input 
-                                type="checkbox" 
-                                checked={configPlaneaciones.requierePaecPec} 
-                                onChange={e => handlePlaneacionesChange({ requierePaecPec: e.target.checked })} 
-                                disabled={readOnly || savingPlaneaciones}
-                                style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }} 
-                            />
-                        </label>
-                        
-                        <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer", background: configPlaneaciones.modoSinRestricciones ? "#fef9c3" : "transparent" }}>
-                            <div>
-                                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: configPlaneaciones.modoSinRestricciones ? "#92400e" : "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                                    <ShieldAlert size={14} /> Modo Sin Restricciones
+                    <>
+                        <p style={{ margin: 0, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                            Estas opciones controlan el acceso global al módulo. Para activar/desactivar o eximir requisitos por escuela individual, usa la pestaña <strong>"⚙️ Programas y Módulos por Escuela"</strong>.
+                        </p>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+
+                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>🟢 Módulo activo (global)</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Si está desactivado, ninguna escuela puede usar la revisión de planeaciones.</div>
                                 </div>
-                                <div style={{ fontSize: "0.75rem", color: configPlaneaciones.modoSinRestricciones ? "#b45309" : "var(--text-muted)" }}>Bypass de requisitos (solo pruebas).</div>
-                            </div>
-                            <input 
-                                type="checkbox" 
-                                checked={configPlaneaciones.modoSinRestricciones} 
-                                onChange={e => handlePlaneacionesChange({ modoSinRestricciones: e.target.checked })} 
-                                disabled={readOnly || savingPlaneaciones}
-                                style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }} 
-                            />
-                        </label>
-                        
-                    </div>
+                                <input
+                                    type="checkbox"
+                                    checked={configPlaneaciones.activoGlobal}
+                                    onChange={e => handlePlaneacionesChange({ activoGlobal: e.target.checked })}
+                                    disabled={readOnly || savingPlaneaciones}
+                                    style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
+                                />
+                            </label>
+
+                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>🔒 Requiere PAEC-PEC</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Los directores deben haber subido su PAEC-PEC antes de poder usar este módulo.</div>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={configPlaneaciones.requierePaecPec}
+                                    onChange={e => handlePlaneacionesChange({ requierePaecPec: e.target.checked })}
+                                    disabled={readOnly || savingPlaneaciones}
+                                    style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
+                                />
+                            </label>
+
+                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>🔑 Requiere API Key propia</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>La escuela debe tener su API Key de Gemini configurada (además del pool del sistema).</div>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={configPlaneaciones.requiereApiKey}
+                                    onChange={e => handlePlaneacionesChange({ requiereApiKey: e.target.checked })}
+                                    disabled={readOnly || savingPlaneaciones}
+                                    style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
+                                />
+                            </label>
+
+                        </div>
+                    </>
                 )}
             </div>
 
@@ -225,22 +242,59 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                 <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text)", fontSize: "1.1rem" }}>
                     📅 Generador de Horarios IA
                 </h3>
+                <p style={{ margin: 0, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                    Estas opciones controlan el acceso global al módulo. Para activar/desactivar o eximir requisitos por escuela individual, usa la pestaña <strong>"⚙️ Programas y Módulos por Escuela"</strong>.
+                </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-                    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer", background: modoSinRestriccionesHorarios ? "#fef9c3" : "transparent" }}>
+
+                    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer", background: configHorarios.modoSinRestriccionesHorarios ? "#fef9c3" : "transparent" }}>
                         <div>
-                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: modoSinRestriccionesHorarios ? "#92400e" : "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: configHorarios.modoSinRestriccionesHorarios ? "#92400e" : "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
                                 <ShieldAlert size={14} /> Modo Sin Restricciones
                             </div>
-                            <div style={{ fontSize: "0.75rem", color: modoSinRestriccionesHorarios ? "#b45309" : "var(--text-muted)" }}>Permite a todas las escuelas usar el módulo.</div>
+                            <div style={{ fontSize: "0.75rem", color: configHorarios.modoSinRestriccionesHorarios ? "#b45309" : "var(--text-muted)" }}>Permite a todas las escuelas usar el módulo sin ningún requisito.</div>
                         </div>
-                        <input 
-                            type="checkbox" 
-                            checked={modoSinRestriccionesHorarios} 
-                            onChange={e => handleToggleModoPruebasHorarios(e.target.checked)} 
+                        <input
+                            type="checkbox"
+                            checked={configHorarios.modoSinRestriccionesHorarios}
+                            onChange={e => handleHorariosChange({ modoSinRestriccionesHorarios: e.target.checked })}
                             disabled={readOnly || savingHorarios}
-                            style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }} 
+                            style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
                         />
                     </label>
+
+                    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                                <KeyRound size={14} /> 🔑 Requiere API Key propia
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Los directores deben configurar su API Key de Gemini en el dashboard para usar este módulo.</div>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={configHorarios.requiereApiKeyHorarios}
+                            onChange={e => handleHorariosChange({ requiereApiKeyHorarios: e.target.checked })}
+                            disabled={readOnly || savingHorarios}
+                            style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
+                        />
+                    </label>
+
+                    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                                <FolderOpen size={14} /> 📁 Requiere Expedientes de Personal
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>La escuela debe haber subido sus expedientes de personal a la plataforma.</div>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={configHorarios.requiereExpedientesHorarios}
+                            onChange={e => handleHorariosChange({ requiereExpedientesHorarios: e.target.checked })}
+                            disabled={readOnly || savingHorarios}
+                            style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
+                        />
+                    </label>
+
                 </div>
             </div>
 
@@ -274,23 +328,23 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                                             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{escuela.cct}</div>
                                         </td>
                                         <td style={{ textAlign: "center" }}>
-                                            <span style={{ 
-                                                background: stats.totalMensajesChat > 0 ? "var(--bg-blue-light)" : "var(--bg-secondary)", 
-                                                color: stats.totalMensajesChat > 0 ? "var(--primary)" : "var(--text-muted)", 
-                                                padding: "0.25rem 0.5rem", 
-                                                borderRadius: "4px", 
-                                                fontWeight: 700 
+                                            <span style={{
+                                                background: stats.totalMensajesChat > 0 ? "var(--bg-blue-light)" : "var(--bg-secondary)",
+                                                color: stats.totalMensajesChat > 0 ? "var(--primary)" : "var(--text-muted)",
+                                                padding: "0.25rem 0.5rem",
+                                                borderRadius: "4px",
+                                                fontWeight: 700
                                             }}>
                                                 {stats.totalMensajesChat}
                                             </span>
                                         </td>
                                         <td style={{ textAlign: "center" }}>
-                                            <span style={{ 
-                                                background: stats.totalUsos > 0 ? "var(--bg-green-light, #dcfce7)" : "var(--bg-secondary)", 
-                                                color: stats.totalUsos > 0 ? "var(--text-success, #166534)" : "var(--text-muted)", 
-                                                padding: "0.25rem 0.5rem", 
-                                                borderRadius: "4px", 
-                                                fontWeight: 700 
+                                            <span style={{
+                                                background: stats.totalUsos > 0 ? "var(--bg-green-light, #dcfce7)" : "var(--bg-secondary)",
+                                                color: stats.totalUsos > 0 ? "var(--text-success, #166534)" : "var(--text-muted)",
+                                                padding: "0.25rem 0.5rem",
+                                                borderRadius: "4px",
+                                                fontWeight: 700
                                             }}>
                                                 {stats.totalUsos}
                                             </span>
@@ -300,9 +354,9 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                                         </td>
                                         {!readOnly && (
                                             <td style={{ textAlign: "right" }}>
-                                                <button 
+                                                <button
                                                     onClick={() => handleResetStats(escuela.id, escuela.nombre)}
-                                                    className="btn btn-outline" 
+                                                    className="btn btn-outline"
                                                     style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
                                                     disabled={stats.totalMensajesChat === 0 && stats.totalUsos === 0}
                                                 >

@@ -11,7 +11,7 @@ type Escuela = {
     nombre: string;
     localidad?: string | null;
     esSupervision?: boolean;
-    permisos?: { horariosDesactivado?: boolean; planeacionesDesactivado?: boolean; programasInactivos?: string[]; [key: string]: unknown };
+    permisos?: { horariosDesactivado?: boolean; planeacionesDesactivado?: boolean; horariosSinRequisitos?: boolean; planeacionesSinRequisitos?: boolean; programasInactivos?: string[]; [key: string]: unknown };
 };
 
 interface ProgramasModulosPorEscuelaProps {
@@ -103,6 +103,54 @@ export default function ProgramasModulosPorEscuela({
         }
     };
 
+    const handleToggleHorariosSinRequisitos = async (escuelaId: string, sinRequisitos: boolean) => {
+        if (readOnly) return;
+        const escTarget = escuelas.find(e => e.id === escuelaId);
+        if (!escTarget) return;
+        const permisosNuevos = { ...(escTarget.permisos || {}), horariosSinRequisitos: sinRequisitos };
+        setEscuelas(prev => prev.map(e => e.id === escuelaId ? { ...e, permisos: permisosNuevos } : e));
+        try {
+            const res = await fetch(`/api/escuelas/${escuelaId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ permisos: permisosNuevos })
+            });
+            if (res.ok) {
+                toast.success(sinRequisitos
+                    ? `Horarios IA SIN REQUISITOS para ${escTarget.nombre}`
+                    : `Horarios IA con requisitos para ${escTarget.nombre}`);
+            } else {
+                toast.error("Error al actualizar estado");
+            }
+        } catch {
+            toast.error("Error de red al actualizar");
+        }
+    };
+
+    const handleTogglePlaneacionesSinRequisitos = async (escuelaId: string, sinRequisitos: boolean) => {
+        if (readOnly) return;
+        const escTarget = escuelas.find(e => e.id === escuelaId);
+        if (!escTarget) return;
+        const permisosNuevos = { ...(escTarget.permisos || {}), planeacionesSinRequisitos: sinRequisitos };
+        setEscuelas(prev => prev.map(e => e.id === escuelaId ? { ...e, permisos: permisosNuevos } : e));
+        try {
+            const res = await fetch(`/api/escuelas/${escuelaId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ permisos: permisosNuevos })
+            });
+            if (res.ok) {
+                toast.success(sinRequisitos
+                    ? `Planeaciones IA SIN REQUISITOS para ${escTarget.nombre}`
+                    : `Planeaciones IA con requisitos para ${escTarget.nombre}`);
+            } else {
+                toast.error("Error al actualizar estado de Planeaciones IA");
+            }
+        } catch {
+            toast.error("Error de red al actualizar Planeaciones IA");
+        }
+    };
+
     const handleToggleProgramaEscuela = async (escuelaId: string, programaId: string, programaNombre: string, activar: boolean) => {
         if (readOnly) return;
         const escTarget = escuelas.find(e => e.id === escuelaId);
@@ -138,9 +186,9 @@ export default function ProgramasModulosPorEscuela({
         }
     };
 
-    const handleAccionMasivaPermisos = async (tipo: "HORARIOS_IA" | "PLANEACIONES_IA" | "PROGRAMA", accion: "ACTIVAR_TODOS" | "DESACTIVAR_TODOS", programaId?: string, programaNombre?: string) => {
+    const handleAccionMasivaPermisos = async (tipo: "HORARIOS_IA" | "PLANEACIONES_IA" | "HORARIOS_SIN_REQUISITOS" | "PLANEACIONES_SIN_REQUISITOS" | "PROGRAMA", accion: "ACTIVAR_TODOS" | "DESACTIVAR_TODOS", programaId?: string, programaNombre?: string) => {
         if (readOnly) return;
-        const targetLabel = tipo === "HORARIOS_IA" ? "Horarios IA" : tipo === "PLANEACIONES_IA" ? "Planeaciones IA" : `Programa "${programaNombre}"`;
+        const targetLabel = tipo === "HORARIOS_IA" ? "Horarios IA" : tipo === "PLANEACIONES_IA" ? "Planeaciones IA" : tipo === "HORARIOS_SIN_REQUISITOS" ? "Horarios IA (requisitos)" : tipo === "PLANEACIONES_SIN_REQUISITOS" ? "Planeaciones IA (requisitos)" : `Programa "${programaNombre}"`;
         const accionLabel = accion === "ACTIVAR_TODOS" ? "ACTIVAR" : "DESACTIVAR";
         if (!confirm(`¿Estás seguro de ${accionLabel} ${targetLabel} para TODAS las escuelas?`)) return;
 
@@ -165,6 +213,18 @@ export default function ProgramasModulosPorEscuela({
                     setEscuelas(prev => prev.map(e => ({
                         ...e,
                         permisos: { ...(e.permisos || {}), planeacionesDesactivado }
+                    })));
+                } else if (tipo === "HORARIOS_SIN_REQUISITOS") {
+                    const sinRequisitos = accion === "ACTIVAR_TODOS";
+                    setEscuelas(prev => prev.map(e => ({
+                        ...e,
+                        permisos: { ...(e.permisos || {}), horariosSinRequisitos: sinRequisitos }
+                    })));
+                } else if (tipo === "PLANEACIONES_SIN_REQUISITOS") {
+                    const sinRequisitos = accion === "ACTIVAR_TODOS";
+                    setEscuelas(prev => prev.map(e => ({
+                        ...e,
+                        permisos: { ...(e.permisos || {}), planeacionesSinRequisitos: sinRequisitos }
                     })));
                 } else if (tipo === "PROGRAMA" && (programaId || programaNombre)) {
                     const esDesactivar = accion === "DESACTIVAR_TODOS";
@@ -212,6 +272,8 @@ export default function ProgramasModulosPorEscuela({
                         const escuelasLista = escuelas.filter(e => !e.esSupervision);
                         const todosHorariosActivos = escuelasLista.every(e => e.permisos?.horariosDesactivado !== true);
                         const todosPlaneacionesActivos = escuelasLista.every(e => e.permisos?.planeacionesDesactivado !== true);
+                        const todosHorariosSinRequisitos = escuelasLista.length > 0 && escuelasLista.every(e => e.permisos?.horariosSinRequisitos === true);
+                        const todosPlaneacionesSinRequisitos = escuelasLista.length > 0 && escuelasLista.every(e => e.permisos?.planeacionesSinRequisitos === true);
 
                         return (
                             <thead>
@@ -274,6 +336,68 @@ export default function ProgramasModulosPorEscuela({
                                                 title={todosPlaneacionesActivos ? "Clic para DESACTIVAR Planeaciones IA en TODAS" : "Clic para ACTIVAR Planeaciones IA en TODAS"}
                                             >
                                                 {todosPlaneacionesActivos ? "🟣 Activo" : "🔴 Inactivo"}
+                                            </button>
+                                        </div>
+                                    </th>
+
+                                    {/* Columna Requisitos Horarios IA con Botón Master */}
+                                    <th style={{ padding: "0.75rem 0.5rem", fontWeight: 800, color: "#0f766e", textAlign: "center", minWidth: "150px", verticalAlign: "top" }}>
+                                        <div>🛡️ Requisitos Horarios IA</div>
+                                        <div style={{ fontSize: "0.65rem", color: "#0d9488", fontWeight: 600 }}>Sin requisitos = sin API/expedientes</div>
+                                        <div style={{ display: "flex", justifyContent: "center", marginTop: "0.35rem" }}>
+                                            <button
+                                                type="button"
+                                                disabled={saving || readOnly}
+                                                onClick={() => handleAccionMasivaPermisos("HORARIOS_SIN_REQUISITOS", todosHorariosSinRequisitos ? "DESACTIVAR_TODOS" : "ACTIVAR_TODOS")}
+                                                style={{
+                                                    padding: "0.25rem 0.6rem",
+                                                    borderRadius: "20px",
+                                                    fontSize: "0.725rem",
+                                                    fontWeight: 800,
+                                                    border: "none",
+                                                    cursor: (saving || readOnly) ? "not-allowed" : "pointer",
+                                                    opacity: (saving || readOnly) ? 0.7 : 1,
+                                                    background: todosHorariosSinRequisitos ? "#ccfbf1" : "#fee2e2",
+                                                    color: todosHorariosSinRequisitos ? "#0f766e" : "#b91c1c",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "0.35rem",
+                                                    boxShadow: "0 1px 3px rgba(0,0,0,0.08)"
+                                                }}
+                                                title={todosHorariosSinRequisitos ? "Clic para que TODAS las escuelas vuelvan a requerir requisitos en Horarios IA" : "Clic para EXIMIR requisitos de Horarios IA en TODAS las escuelas"}
+                                            >
+                                                {todosHorariosSinRequisitos ? "🟢 Sin req." : "🔒 Con req."}
+                                            </button>
+                                        </div>
+                                    </th>
+
+                                    {/* Columna Requisitos Planeaciones IA con Botón Master */}
+                                    <th style={{ padding: "0.75rem 0.5rem", fontWeight: 800, color: "#7c3aed", textAlign: "center", minWidth: "160px", verticalAlign: "top" }}>
+                                        <div>🛡️ Requisitos Planeaciones IA</div>
+                                        <div style={{ fontSize: "0.65rem", color: "#a78bfa", fontWeight: 600 }}>Sin requisitos = sin PAEC/API</div>
+                                        <div style={{ display: "flex", justifyContent: "center", marginTop: "0.35rem" }}>
+                                            <button
+                                                type="button"
+                                                disabled={saving || readOnly}
+                                                onClick={() => handleAccionMasivaPermisos("PLANEACIONES_SIN_REQUISITOS", todosPlaneacionesSinRequisitos ? "DESACTIVAR_TODOS" : "ACTIVAR_TODOS")}
+                                                style={{
+                                                    padding: "0.25rem 0.6rem",
+                                                    borderRadius: "20px",
+                                                    fontSize: "0.725rem",
+                                                    fontWeight: 800,
+                                                    border: "none",
+                                                    cursor: (saving || readOnly) ? "not-allowed" : "pointer",
+                                                    opacity: (saving || readOnly) ? 0.7 : 1,
+                                                    background: todosPlaneacionesSinRequisitos ? "#f3e8ff" : "#fee2e2",
+                                                    color: todosPlaneacionesSinRequisitos ? "#7c3aed" : "#b91c1c",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "0.35rem",
+                                                    boxShadow: "0 1px 3px rgba(0,0,0,0.08)"
+                                                }}
+                                                title={todosPlaneacionesSinRequisitos ? "Clic para que TODAS las escuelas vuelvan a requerir requisitos en Planeaciones IA" : "Clic para EXIMIR requisitos de Planeaciones IA en TODAS las escuelas"}
+                                            >
+                                                {todosPlaneacionesSinRequisitos ? "🟢 Sin req." : "🔒 Con req."}
                                             </button>
                                         </div>
                                     </th>
@@ -382,6 +506,58 @@ export default function ProgramasModulosPorEscuela({
                                             }}
                                         >
                                             {permisosEsc.planeacionesDesactivado === true ? "🔴 Desactivado" : "🟣 Activo"}
+                                        </button>
+                                    </td>
+
+                                    {/* Toggle Requisitos Horarios IA */}
+                                    <td style={{ textAlign: "center", padding: "0.75rem" }}>
+                                        <button
+                                            type="button"
+                                            disabled={saving || readOnly}
+                                            onClick={() => handleToggleHorariosSinRequisitos(esc.id, permisosEsc.horariosSinRequisitos !== true)}
+                                            title={`${permisosEsc.horariosSinRequisitos === true ? "Haga clic para exigir requisitos (API/expedientes) en Horarios IA" : "Haga clic para EXIMIR requisitos (API/expedientes) en Horarios IA"} de ${esc.nombre}`}
+                                            style={{
+                                                padding: "0.35rem 0.75rem",
+                                                borderRadius: "20px",
+                                                fontWeight: 800,
+                                                fontSize: "0.725rem",
+                                                border: "none",
+                                                cursor: (saving || readOnly) ? "not-allowed" : "pointer",
+                                                opacity: (saving || readOnly) ? 0.7 : 1,
+                                                background: permisosEsc.horariosSinRequisitos === true ? "#ccfbf1" : "#f0fdfa",
+                                                color: permisosEsc.horariosSinRequisitos === true ? "#0f766e" : "#0d9488",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "0.35rem"
+                                            }}
+                                        >
+                                            {permisosEsc.horariosSinRequisitos === true ? "🟢 Sin req." : "🔒 Con req."}
+                                        </button>
+                                    </td>
+
+                                    {/* Toggle Requisitos Planeaciones IA */}
+                                    <td style={{ textAlign: "center", padding: "0.75rem" }}>
+                                        <button
+                                            type="button"
+                                            disabled={saving || readOnly}
+                                            onClick={() => handleTogglePlaneacionesSinRequisitos(esc.id, permisosEsc.planeacionesSinRequisitos !== true)}
+                                            title={`${permisosEsc.planeacionesSinRequisitos === true ? "Haga clic para exigir requisitos (PAEC/API) en Planeaciones IA" : "Haga clic para EXIMIR requisitos (PAEC/API) en Planeaciones IA"} de ${esc.nombre}`}
+                                            style={{
+                                                padding: "0.35rem 0.75rem",
+                                                borderRadius: "20px",
+                                                fontWeight: 800,
+                                                fontSize: "0.725rem",
+                                                border: "none",
+                                                cursor: (saving || readOnly) ? "not-allowed" : "pointer",
+                                                opacity: (saving || readOnly) ? 0.7 : 1,
+                                                background: permisosEsc.planeacionesSinRequisitos === true ? "#f3e8ff" : "#faf5ff",
+                                                color: permisosEsc.planeacionesSinRequisitos === true ? "#7c3aed" : "#a78bfa",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "0.35rem"
+                                            }}
+                                        >
+                                            {permisosEsc.planeacionesSinRequisitos === true ? "🟢 Sin req." : "🔒 Con req."}
                                         </button>
                                     </td>
 

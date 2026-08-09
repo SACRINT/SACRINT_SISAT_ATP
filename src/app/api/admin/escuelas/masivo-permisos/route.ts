@@ -59,8 +59,47 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (tipo === "PROGRAMA" && (programaId || programaNombre)) {
-      const esDesactivar = accion === "DESACTIVAR_TODOS";
+    if (tipo === "HORARIOS_SIN_REQUISITOS") {
+      const sinRequisitos = accion === "ACTIVAR_TODOS";
+      await Promise.all(
+        escuelas.map((esc) => {
+          const permisosActuales = (esc.permisos as any) || {};
+          return prisma.escuela.update({
+            where: { id: esc.id },
+            data: { permisos: { ...permisosActuales, horariosSinRequisitos: sinRequisitos } }
+          });
+        })
+      );
+      return NextResponse.json({
+        success: true,
+        message: sinRequisitos
+          ? "Requisitos (API/expedientes) EXIMIDOS para Horarios IA en TODAS las escuelas."
+          : "Requisitos (API/expedientes) restablecidos para Horarios IA en TODAS las escuelas."
+      });
+    }
+
+    if (tipo === "PLANEACIONES_SIN_REQUISITOS") {
+      const sinRequisitos = accion === "ACTIVAR_TODOS";
+      await Promise.all(
+        escuelas
+          .filter(esc => !(esc as any).esSupervision)
+          .map((esc) => {
+            const permisosActuales = (esc.permisos as any) || {};
+            return prisma.escuela.update({
+              where: { id: esc.id },
+              data: { permisos: { ...permisosActuales, planeacionesSinRequisitos: sinRequisitos } }
+            });
+          })
+      );
+      return NextResponse.json({
+        success: true,
+        message: sinRequisitos
+          ? "Requisitos (PAEC/API) EXIMIDOS para Planeaciones IA en TODAS las escuelas."
+          : "Requisitos (PAEC/API) restablecidos para Planeaciones IA en TODAS las escuelas."
+      });
+    }
+
+    if (tipo === "PROGRAMA" && (programaId || programaNombre)) {      const esDesactivar = accion === "DESACTIVAR_TODOS";
 
       await Promise.all(
         escuelas.map((esc) => {

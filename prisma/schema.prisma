@@ -512,6 +512,8 @@ model PreRevisionConfig {
   providerPremium String  @default("gemini")
   modelPremium    String  @default("gemini-3.1-flash-lite")  // Fallback autorizado
   modoSinRestriccionesHorarios    Boolean @default(false)  // Si true, saltea todos los requisitos del módulo Horarios IA
+  requiereApiKeyHorarios         Boolean @default(true)   // Si true, la escuela debe tener API Key para usar Horarios IA
+  requiereExpedientesHorarios    Boolean @default(true)   // Si true, la escuela debe haber subido expedientes de personal
 }
 
 model PlantillaEvaluacion {

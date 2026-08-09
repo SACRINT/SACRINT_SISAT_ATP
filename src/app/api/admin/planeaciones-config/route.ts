@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest) {
         activoGlobal: true,
         requierePaecPec: true,
         requiereApiKey: true,
-        modoSinRestricciones: true,
+        modoSinRestricciones: false,
     });
 }
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
             activoGlobal: activoGlobal ?? true,
             requierePaecPec: requierePaecPec ?? true,
             requiereApiKey: requiereApiKey ?? true,
-            modoSinRestricciones: modoSinRestricciones ?? true,
+            modoSinRestricciones: modoSinRestricciones ?? false,
         },
         update: {
             ...(activoGlobal !== undefined && { activoGlobal }),

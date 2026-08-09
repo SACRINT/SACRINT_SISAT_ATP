@@ -41,9 +41,11 @@ export async function verificarRequisitosPlaneaciones(escuelaId: string): Promis
     }),
   ]);
 
-  // ── Modo Sin Restricciones o escuela de prueba ──
+  // ── Modo Sin Restricciones, escuela de prueba o exención individual ──
   const modoSinRestricciones = config ? config.modoSinRestricciones : false;
-  if (escuela?.esDePrueba || modoSinRestricciones) {
+  const permisos = escuela?.permisos as any;
+  const exentoIndividual = permisos?.planeacionesSinRequisitos === true;
+  if (escuela?.esDePrueba || modoSinRestricciones || exentoIndividual) {
     return {
       moduloHabilitado: true,
       tieneApiKey: true,
@@ -53,15 +55,13 @@ export async function verificarRequisitosPlaneaciones(escuelaId: string): Promis
       puedeUsar: true,
       motivoBloqueo: null,
       entregaPaecPec: entregaPaec,
-      modoSinRestricciones: true,
+      modoSinRestricciones: modoSinRestricciones || exentoIndividual,
     };
   }
 
   const globalActivo = config ? config.activoGlobal : true;
   const requierePaecPec = config ? config.requierePaecPec : true;
   const requiereApiKey = config ? config.requiereApiKey : true;
-
-  const permisos = escuela?.permisos as any;
   const moduloHabilitado = permisos?.planeacionesDesactivado !== true && globalActivo;
 
   // ✅ CORRECCIÓN: tieneApiKey solo es true si REALMENTE tiene la clave en BD
@@ -101,40 +101,52 @@ export async function verificarRequisitosPlaneaciones(escuelaId: string): Promis
 export async function verificarRequisitosHorarios(escuelaId: string): Promise<{
   moduloHabilitado: boolean;
   tieneApiKey: boolean;
+  tieneExpedientes: boolean;
   modoSinRestricciones: boolean;
   puedeUsar: boolean;
   motivoBloqueo: string | null;
 }> {
-  const [preRevisionConfig, escuela] = await Promise.all([
-    // modoSinRestriccionesHorarios vive en PreRevisionConfig
+  const [preRevisionConfig, escuela, totalPersonal] = await Promise.all([
+    // modoSinRestriccionesHorarios y restricciones de Horarios IA viven en PreRevisionConfig
     prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } }).catch(() => null),
     prisma.escuela.findUnique({
       where: { id: escuelaId },
       select: { geminiApiKey: true, permisos: true, esDePrueba: true },
     }),
+    prisma.personal.count({ where: { escuelaId } }),
   ]);
 
   const modoSinRestricciones = (preRevisionConfig as any)?.modoSinRestriccionesHorarios ?? false;
-
-  if (escuela?.esDePrueba || modoSinRestricciones) {
-    return { moduloHabilitado: true, tieneApiKey: true, modoSinRestricciones: true, puedeUsar: true, motivoBloqueo: null };
-  }
+  const requiereApiKeyHorarios = (preRevisionConfig as any)?.requiereApiKeyHorarios ?? true;
+  const requiereExpedientesHorarios = (preRevisionConfig as any)?.requiereExpedientesHorarios ?? true;
 
   const permisos = escuela?.permisos as any;
+  const exentoIndividual = permisos?.horariosSinRequisitos === true;
+
+  if (escuela?.esDePrueba || modoSinRestricciones || exentoIndividual) {
+    return { moduloHabilitado: true, tieneApiKey: true, tieneExpedientes: true, modoSinRestricciones: modoSinRestricciones || exentoIndividual, puedeUsar: true, motivoBloqueo: null };
+  }
+
   const moduloHabilitado = permisos?.horariosDesactivado !== true;
 
   // tieneApiKey solo es true si la escuela REALMENTE tiene clave configurada en BD
   const tieneApiKey = !!(escuela?.geminiApiKey && String(escuela.geminiApiKey).trim().length > 10);
+  // tieneExpedientes: la escuela ha registrado al menos un miembro del personal en sus expedientes
+  const tieneExpedientes = totalPersonal > 0;
 
-  // Bloqueamos si el permiso individual está desactivado, o si no tiene API Key
-  const puedeUsar = moduloHabilitado && tieneApiKey;
+  const puedeUsar =
+    moduloHabilitado &&
+    (!requiereApiKeyHorarios || tieneApiKey) &&
+    (!requiereExpedientesHorarios || tieneExpedientes);
 
   const motivoBloqueo = !moduloHabilitado
     ? "El módulo de Generador de Horarios IA no está habilitado para tu escuela. Contacta a la supervisión de zona."
-    : !tieneApiKey
+    : requiereApiKeyHorarios && !tieneApiKey
     ? "Se requiere una API Key activa de Gemini para usar este módulo. Configúrala en 'Ajustes de API IA' en el menú lateral."
+    : requiereExpedientesHorarios && !tieneExpedientes
+    ? "Para usar el Generador de Horarios IA es obligatorio haber registrado el Expediente de Personal de tu escuela. Dirígete al apartado 'Expedientes' y registra al personal primero."
     : null;
 
-  return { moduloHabilitado, tieneApiKey, modoSinRestricciones: false, puedeUsar, motivoBloqueo };
+  return { moduloHabilitado, tieneApiKey, tieneExpedientes, modoSinRestricciones: false, puedeUsar, motivoBloqueo };
 }
 
