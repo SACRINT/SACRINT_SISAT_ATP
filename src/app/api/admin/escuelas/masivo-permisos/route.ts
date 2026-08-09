@@ -15,91 +15,131 @@ export async function POST(req: NextRequest) {
     // Obtener todas las escuelas registradas
     const escuelas = await prisma.escuela.findMany();
 
+    // ── Módulo Horarios IA (on/off por escuela) ──────────────────────────────
     if (tipo === "HORARIOS_IA") {
       const horariosDesactivado = accion === "DESACTIVAR_TODOS";
-
-      // Actualizar permisos para cada escuela
       await Promise.all(
         escuelas.map((esc) => {
           const permisosActuales = (esc.permisos as any) || {};
-          const nuevosPermisos = {
-            ...permisosActuales,
-            horariosDesactivado
-          };
           return prisma.escuela.update({
             where: { id: esc.id },
-            data: { permisos: nuevosPermisos }
+            data: { permisos: { ...permisosActuales, horariosDesactivado } },
           });
         })
       );
-
       return NextResponse.json({
         success: true,
-        message: `Horarios IA ${horariosDesactivado ? "desactivados" : "activados"} para TODAS las escuelas.`
+        message: `Horarios IA ${horariosDesactivado ? "desactivados" : "activados"} para TODAS las escuelas.`,
       });
     }
 
+    // ── Módulo Planeaciones IA (on/off por escuela) ──────────────────────────
     if (tipo === "PLANEACIONES_IA") {
       const planeacionesDesactivado = accion === "DESACTIVAR_TODOS";
       await Promise.all(
         escuelas
-          .filter(esc => !(esc as any).esSupervision)
+          .filter((esc) => !(esc as any).esSupervision)
           .map((esc) => {
             const permisosActuales = (esc.permisos as any) || {};
-            const nuevosPermisos = { ...permisosActuales, planeacionesDesactivado };
             return prisma.escuela.update({
               where: { id: esc.id },
-              data: { permisos: nuevosPermisos }
+              data: { permisos: { ...permisosActuales, planeacionesDesactivado } },
             });
           })
       );
       return NextResponse.json({
         success: true,
-        message: `Módulo Planeaciones IA ${planeacionesDesactivado ? "desactivado" : "activado"} para TODAS las escuelas.`
+        message: `Módulo Planeaciones IA ${planeacionesDesactivado ? "desactivado" : "activado"} para TODAS las escuelas.`,
       });
     }
 
-    if (tipo === "HORARIOS_SIN_REQUISITOS") {
-      const sinRequisitos = accion === "ACTIVAR_TODOS";
+    // ── Exención granular: API Key para Horarios IA ──────────────────────────
+    if (tipo === "HORARIOS_SIN_API_KEY") {
+      const sinApiKey = accion === "ACTIVAR_TODOS";
       await Promise.all(
         escuelas.map((esc) => {
           const permisosActuales = (esc.permisos as any) || {};
           return prisma.escuela.update({
             where: { id: esc.id },
-            data: { permisos: { ...permisosActuales, horariosSinRequisitos: sinRequisitos } }
+            data: { permisos: { ...permisosActuales, horariosSinApiKey: sinApiKey } },
           });
         })
       );
       return NextResponse.json({
         success: true,
-        message: sinRequisitos
-          ? "Requisitos (API/expedientes) EXIMIDOS para Horarios IA en TODAS las escuelas."
-          : "Requisitos (API/expedientes) restablecidos para Horarios IA en TODAS las escuelas."
+        message: sinApiKey
+          ? "API Key EXIMIDA para Horarios IA en TODAS las escuelas."
+          : "Requisito de API Key restablecido para Horarios IA en TODAS las escuelas.",
       });
     }
 
-    if (tipo === "PLANEACIONES_SIN_REQUISITOS") {
-      const sinRequisitos = accion === "ACTIVAR_TODOS";
+    // ── Exención granular: Expedientes de Personal para Horarios IA ──────────
+    if (tipo === "HORARIOS_SIN_EXPEDIENTES") {
+      const sinExpedientes = accion === "ACTIVAR_TODOS";
+      await Promise.all(
+        escuelas.map((esc) => {
+          const permisosActuales = (esc.permisos as any) || {};
+          return prisma.escuela.update({
+            where: { id: esc.id },
+            data: { permisos: { ...permisosActuales, horariosSinExpedientes: sinExpedientes } },
+          });
+        })
+      );
+      return NextResponse.json({
+        success: true,
+        message: sinExpedientes
+          ? "Expedientes de Personal EXIMIDOS para Horarios IA en TODAS las escuelas."
+          : "Requisito de Expedientes restablecido para Horarios IA en TODAS las escuelas.",
+      });
+    }
+
+    // ── Exención granular: API Key para Planeaciones IA ──────────────────────
+    if (tipo === "PLANEACIONES_SIN_API_KEY") {
+      const sinApiKey = accion === "ACTIVAR_TODOS";
       await Promise.all(
         escuelas
-          .filter(esc => !(esc as any).esSupervision)
+          .filter((esc) => !(esc as any).esSupervision)
           .map((esc) => {
             const permisosActuales = (esc.permisos as any) || {};
             return prisma.escuela.update({
               where: { id: esc.id },
-              data: { permisos: { ...permisosActuales, planeacionesSinRequisitos: sinRequisitos } }
+              data: { permisos: { ...permisosActuales, planeacionesSinApiKey: sinApiKey } },
             });
           })
       );
       return NextResponse.json({
         success: true,
-        message: sinRequisitos
-          ? "Requisitos (PAEC/API) EXIMIDOS para Planeaciones IA en TODAS las escuelas."
-          : "Requisitos (PAEC/API) restablecidos para Planeaciones IA en TODAS las escuelas."
+        message: sinApiKey
+          ? "API Key EXIMIDA para Planeaciones IA en TODAS las escuelas."
+          : "Requisito de API Key restablecido para Planeaciones IA en TODAS las escuelas.",
       });
     }
 
-    if (tipo === "PROGRAMA" && (programaId || programaNombre)) {      const esDesactivar = accion === "DESACTIVAR_TODOS";
+    // ── Exención granular: PAEC-PEC para Planeaciones IA ─────────────────────
+    if (tipo === "PLANEACIONES_SIN_PAEC") {
+      const sinPaec = accion === "ACTIVAR_TODOS";
+      await Promise.all(
+        escuelas
+          .filter((esc) => !(esc as any).esSupervision)
+          .map((esc) => {
+            const permisosActuales = (esc.permisos as any) || {};
+            return prisma.escuela.update({
+              where: { id: esc.id },
+              data: { permisos: { ...permisosActuales, planeacionesSinPaec: sinPaec } },
+            });
+          })
+      );
+      return NextResponse.json({
+        success: true,
+        message: sinPaec
+          ? "PAEC-PEC EXIMIDO para Planeaciones IA en TODAS las escuelas."
+          : "Requisito de PAEC-PEC restablecido para Planeaciones IA en TODAS las escuelas.",
+      });
+    }
+
+    // ── Activación/desactivación masiva por Programa ─────────────────────────
+    if (tipo === "PROGRAMA" && (programaId || programaNombre)) {
+      const esDesactivar = accion === "DESACTIVAR_TODOS";
 
       await Promise.all(
         escuelas.map((esc) => {
@@ -108,7 +148,7 @@ export async function POST(req: NextRequest) {
             ? permisosActuales.programasInactivos
             : [];
 
-          // Limpiar entradas legacy almacenadas por nombre y dejar el id como formato estándar
+          // Limpiar entradas legacy almacenadas por nombre
           if (programaNombre) {
             programasInactivos = programasInactivos.filter((p: string) => p !== programaNombre);
           }
@@ -121,21 +161,16 @@ export async function POST(req: NextRequest) {
             programasInactivos = programasInactivos.filter((p: string) => p !== programaId);
           }
 
-          const nuevosPermisos = {
-            ...permisosActuales,
-            programasInactivos
-          };
-
           return prisma.escuela.update({
             where: { id: esc.id },
-            data: { permisos: nuevosPermisos }
+            data: { permisos: { ...permisosActuales, programasInactivos } },
           });
         })
       );
 
       return NextResponse.json({
         success: true,
-        message: `Programa "${programaNombre}" ${esDesactivar ? "desactivado" : "activado"} para TODAS las escuelas.`
+        message: `Programa "${programaNombre}" ${esDesactivar ? "desactivado" : "activado"} para TODAS las escuelas.`,
       });
     }
 

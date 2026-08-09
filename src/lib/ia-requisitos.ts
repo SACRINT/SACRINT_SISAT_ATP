@@ -41,11 +41,16 @@ export async function verificarRequisitosPlaneaciones(escuelaId: string): Promis
     }),
   ]);
 
-  // ── Modo Sin Restricciones, escuela de prueba o exención individual ──
   const modoSinRestricciones = config ? config.modoSinRestricciones : false;
   const permisos = escuela?.permisos as any;
-  const exentoIndividual = permisos?.planeacionesSinRequisitos === true;
-  if (escuela?.esDePrueba || modoSinRestricciones || exentoIndividual) {
+
+  // Exención legacy (todo junto) — mantener por compatibilidad hacia atrás
+  const exentoLegacyTodo = permisos?.planeacionesSinRequisitos === true;
+  // Exenciones granulares individuales (nueva lógica)
+  const exentoApiKey = permisos?.planeacionesSinApiKey === true;
+  const exentoPaec  = permisos?.planeacionesSinPaec    === true;
+
+  if (escuela?.esDePrueba || modoSinRestricciones || exentoLegacyTodo) {
     return {
       moduloHabilitado: true,
       tieneApiKey: true,
@@ -55,16 +60,17 @@ export async function verificarRequisitosPlaneaciones(escuelaId: string): Promis
       puedeUsar: true,
       motivoBloqueo: null,
       entregaPaecPec: entregaPaec,
-      modoSinRestricciones: modoSinRestricciones || exentoIndividual,
+      modoSinRestricciones: modoSinRestricciones || exentoLegacyTodo,
     };
   }
 
-  const globalActivo = config ? config.activoGlobal : true;
-  const requierePaecPec = config ? config.requierePaecPec : true;
-  const requiereApiKey = config ? config.requiereApiKey : true;
+  const globalActivo   = config ? config.activoGlobal : true;
+  // Los requisitos globales siguen activos; la exención por escuela los anula individualmente
+  const requierePaecPec = (config ? config.requierePaecPec : true) && !exentoPaec;
+  const requiereApiKey  = (config ? config.requiereApiKey  : true) && !exentoApiKey;
   const moduloHabilitado = permisos?.planeacionesDesactivado !== true && globalActivo;
 
-  // ✅ CORRECCIÓN: tieneApiKey solo es true si REALMENTE tiene la clave en BD
+  // ✅ tieneApiKey solo es true si REALMENTE tiene la clave en BD
   const tieneApiKey = !!(escuela?.geminiApiKey && String(escuela.geminiApiKey).trim().length > 10);
   const tienePaecPec = !!entregaPaec;
 
@@ -107,7 +113,6 @@ export async function verificarRequisitosHorarios(escuelaId: string): Promise<{
   motivoBloqueo: string | null;
 }> {
   const [preRevisionConfig, escuela, totalPersonal] = await Promise.all([
-    // modoSinRestriccionesHorarios y restricciones de Horarios IA viven en PreRevisionConfig
     prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } }).catch(() => null),
     prisma.escuela.findUnique({
       where: { id: escuelaId },
@@ -116,37 +121,64 @@ export async function verificarRequisitosHorarios(escuelaId: string): Promise<{
     prisma.personal.count({ where: { escuelaId } }),
   ]);
 
-  const modoSinRestricciones = (preRevisionConfig as any)?.modoSinRestriccionesHorarios ?? false;
-  const requiereApiKeyHorarios = (preRevisionConfig as any)?.requiereApiKeyHorarios ?? true;
+  // Interruptores globales
+  const activoGlobalHorarios      = (preRevisionConfig as any)?.activoGlobalHorarios      ?? true;
+  const modoSinRestricciones      = (preRevisionConfig as any)?.modoSinRestriccionesHorarios ?? false;
+  const requiereApiKeyHorarios    = (preRevisionConfig as any)?.requiereApiKeyHorarios    ?? true;
   const requiereExpedientesHorarios = (preRevisionConfig as any)?.requiereExpedientesHorarios ?? true;
 
   const permisos = escuela?.permisos as any;
-  const exentoIndividual = permisos?.horariosSinRequisitos === true;
 
-  if (escuela?.esDePrueba || modoSinRestricciones || exentoIndividual) {
-    return { moduloHabilitado: true, tieneApiKey: true, tieneExpedientes: true, modoSinRestricciones: modoSinRestricciones || exentoIndividual, puedeUsar: true, motivoBloqueo: null };
+  // Exención legacy (todo junto) — mantener por compatibilidad hacia atrás
+  const exentoLegacyTodo    = permisos?.horariosSinRequisitos   === true;
+  // Exenciones granulares individuales (nueva lógica)
+  const exentoApiKey        = permisos?.horariosSinApiKey        === true;
+  const exentoExpedientes   = permisos?.horariosSinExpedientes   === true;
+
+  if (escuela?.esDePrueba || modoSinRestricciones || exentoLegacyTodo) {
+    return {
+      moduloHabilitado: true,
+      tieneApiKey: true,
+      tieneExpedientes: true,
+      modoSinRestricciones: modoSinRestricciones || exentoLegacyTodo,
+      puedeUsar: true,
+      motivoBloqueo: null,
+    };
   }
 
-  const moduloHabilitado = permisos?.horariosDesactivado !== true;
+  // Módulo habilitado: combinación del interruptor global + permiso individual de la escuela
+  const moduloHabilitado = activoGlobalHorarios && permisos?.horariosDesactivado !== true;
 
   // tieneApiKey solo es true si la escuela REALMENTE tiene clave configurada en BD
   const tieneApiKey = !!(escuela?.geminiApiKey && String(escuela.geminiApiKey).trim().length > 10);
-  // tieneExpedientes: la escuela ha registrado al menos un miembro del personal en sus expedientes
+  // tieneExpedientes: la escuela ha registrado al menos un miembro del personal
   const tieneExpedientes = totalPersonal > 0;
+
+  // Los requisitos globales siguen activos; la exención por escuela los anula individualmente
+  const apiKeyRequerida     = requiereApiKeyHorarios     && !exentoApiKey;
+  const expedientesRequeridos = requiereExpedientesHorarios && !exentoExpedientes;
 
   const puedeUsar =
     moduloHabilitado &&
-    (!requiereApiKeyHorarios || tieneApiKey) &&
-    (!requiereExpedientesHorarios || tieneExpedientes);
+    (!apiKeyRequerida     || tieneApiKey) &&
+    (!expedientesRequeridos || tieneExpedientes);
 
-  const motivoBloqueo = !moduloHabilitado
+  const motivoBloqueo = !activoGlobalHorarios
+    ? "El módulo de Generador de Horarios IA está desactivado globalmente por la supervisión."
+    : !moduloHabilitado
     ? "El módulo de Generador de Horarios IA no está habilitado para tu escuela. Contacta a la supervisión de zona."
-    : requiereApiKeyHorarios && !tieneApiKey
+    : apiKeyRequerida && !tieneApiKey
     ? "Se requiere una API Key activa de Gemini para usar este módulo. Configúrala en 'Ajustes de API IA' en el menú lateral."
-    : requiereExpedientesHorarios && !tieneExpedientes
+    : expedientesRequeridos && !tieneExpedientes
     ? "Para usar el Generador de Horarios IA es obligatorio haber registrado el Expediente de Personal de tu escuela. Dirígete al apartado 'Expedientes' y registra al personal primero."
     : null;
 
-  return { moduloHabilitado, tieneApiKey, tieneExpedientes, modoSinRestricciones: false, puedeUsar, motivoBloqueo };
+  return {
+    moduloHabilitado,
+    tieneApiKey,
+    tieneExpedientes,
+    modoSinRestricciones: false,
+    puedeUsar,
+    motivoBloqueo,
+  };
 }
-

@@ -514,6 +514,7 @@ model PreRevisionConfig {
   modoSinRestriccionesHorarios    Boolean @default(false)  // Si true, saltea todos los requisitos del módulo Horarios IA
   requiereApiKeyHorarios         Boolean @default(true)   // Si true, la escuela debe tener API Key para usar Horarios IA
   requiereExpedientesHorarios    Boolean @default(true)   // Si true, la escuela debe haber subido expedientes de personal
+  activoGlobalHorarios           Boolean @default(true)   // Interruptor global: si false, ninguna escuela puede usar Horarios IA
 }
 
 model PlantillaEvaluacion {

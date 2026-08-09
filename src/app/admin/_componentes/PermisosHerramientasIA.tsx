@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Settings2, ShieldAlert, RefreshCw, MessageCircle, KeyRound, FolderOpen } from "lucide-react";
+import { RefreshCw, MessageCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 type Escuela = {
@@ -20,9 +20,7 @@ interface ConfigPlaneaciones {
 }
 
 interface ConfigHorarios {
-    modoSinRestriccionesHorarios: boolean;
-    requiereApiKeyHorarios: boolean;
-    requiereExpedientesHorarios: boolean;
+    activoGlobalHorarios: boolean;
 }
 
 interface PermisosHerramientasIAProps {
@@ -33,9 +31,7 @@ interface PermisosHerramientasIAProps {
 export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosHerramientasIAProps) {
     const [configPlaneaciones, setConfigPlaneaciones] = useState<ConfigPlaneaciones | null>(null);
     const [configHorarios, setConfigHorarios] = useState<ConfigHorarios>({
-        modoSinRestriccionesHorarios: false,
-        requiereApiKeyHorarios: true,
-        requiereExpedientesHorarios: true,
+        activoGlobalHorarios: true,
     });
     const [horarioStats, setHorarioStats] = useState<Record<string, { totalMensajesChat: number; totalUsos: number; ultimoUso: string | null }>>({});
     const [loading, setLoading] = useState(true);
@@ -56,9 +52,7 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
             if (hCfgRes.ok) {
                 const hCfg = await hCfgRes.json();
                 setConfigHorarios({
-                    modoSinRestriccionesHorarios: hCfg.modoSinRestriccionesHorarios ?? false,
-                    requiereApiKeyHorarios: hCfg.requiereApiKeyHorarios ?? true,
-                    requiereExpedientesHorarios: hCfg.requiereExpedientesHorarios ?? true,
+                    activoGlobalHorarios: hCfg.activoGlobalHorarios ?? true,
                 });
             }
 
@@ -204,34 +198,6 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                                 />
                             </label>
 
-                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
-                                <div>
-                                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>🔒 Requiere PAEC-PEC</div>
-                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Los directores deben haber subido su PAEC-PEC antes de poder usar este módulo.</div>
-                                </div>
-                                <input
-                                    type="checkbox"
-                                    checked={configPlaneaciones.requierePaecPec}
-                                    onChange={e => handlePlaneacionesChange({ requierePaecPec: e.target.checked })}
-                                    disabled={readOnly || savingPlaneaciones}
-                                    style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
-                                />
-                            </label>
-
-                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
-                                <div>
-                                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>🔑 Requiere API Key propia</div>
-                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>La escuela debe tener su API Key de Gemini configurada (además del pool del sistema).</div>
-                                </div>
-                                <input
-                                    type="checkbox"
-                                    checked={configPlaneaciones.requiereApiKey}
-                                    onChange={e => handlePlaneacionesChange({ requiereApiKey: e.target.checked })}
-                                    disabled={readOnly || savingPlaneaciones}
-                                    style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
-                                />
-                            </label>
-
                         </div>
                     </>
                 )}
@@ -247,49 +213,15 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
 
-                    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer", background: configHorarios.modoSinRestriccionesHorarios ? "#fef9c3" : "transparent" }}>
-                        <div>
-                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: configHorarios.modoSinRestriccionesHorarios ? "#92400e" : "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                                <ShieldAlert size={14} /> Modo Sin Restricciones
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: configHorarios.modoSinRestriccionesHorarios ? "#b45309" : "var(--text-muted)" }}>Permite a todas las escuelas usar el módulo sin ningún requisito.</div>
-                        </div>
-                        <input
-                            type="checkbox"
-                            checked={configHorarios.modoSinRestriccionesHorarios}
-                            onChange={e => handleHorariosChange({ modoSinRestriccionesHorarios: e.target.checked })}
-                            disabled={readOnly || savingHorarios}
-                            style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
-                        />
-                    </label>
-
                     <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
                         <div>
-                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                                <KeyRound size={14} /> 🔑 Requiere API Key propia
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Los directores deben configurar su API Key de Gemini en el dashboard para usar este módulo.</div>
+                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>🟢 Módulo activo (global)</div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Si está desactivado, ninguna escuela puede usar el generador de horarios.</div>
                         </div>
                         <input
                             type="checkbox"
-                            checked={configHorarios.requiereApiKeyHorarios}
-                            onChange={e => handleHorariosChange({ requiereApiKeyHorarios: e.target.checked })}
-                            disabled={readOnly || savingHorarios}
-                            style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
-                        />
-                    </label>
-
-                    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
-                        <div>
-                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                                <FolderOpen size={14} /> 📁 Requiere Expedientes de Personal
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>La escuela debe haber subido sus expedientes de personal a la plataforma.</div>
-                        </div>
-                        <input
-                            type="checkbox"
-                            checked={configHorarios.requiereExpedientesHorarios}
-                            onChange={e => handleHorariosChange({ requiereExpedientesHorarios: e.target.checked })}
+                            checked={configHorarios.activoGlobalHorarios}
+                            onChange={e => handleHorariosChange({ activoGlobalHorarios: e.target.checked })}
                             disabled={readOnly || savingHorarios}
                             style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
                         />
