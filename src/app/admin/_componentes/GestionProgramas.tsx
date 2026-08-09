@@ -22,7 +22,7 @@ interface ProgramaAdmin {
     periodos: PeriodoAdmin[];
 }
 
-export default function GestionProgramas({ inicialProgramas, readOnly = false }: { inicialProgramas: ProgramaAdmin[]; readOnly?: boolean }) {
+export default function GestionProgramas({ inicialProgramas, readOnly = false, onGoToPermisosIA }: { inicialProgramas: ProgramaAdmin[]; readOnly?: boolean; onGoToPermisosIA?: () => void }) {
     const [programas, setProgramas] = useState<ProgramaAdmin[]>(inicialProgramas);
 
     useEffect(() => {
@@ -254,12 +254,17 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false }:
             <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "10px", padding: "0.85rem 1.25rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
                     <div style={{ fontWeight: 800, fontSize: "0.875rem", color: "#1d4ed8", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Settings size={18} /> Control de Activación y Permisos Individuales por Escuela
+                        <Settings size={18} /> Control de Activación y Permisos
                     </div>
                     <div style={{ fontSize: "0.78125rem", color: "#1e40af", marginTop: "0.25rem" }}>
-                        Todos los nuevos programas creados aparecen disponibles automáticamente. Si deseas desactivar un programa específico para una sola escuela, usa la pestaña <strong>"Programas y Módulos por Escuela"</strong> en la sección Escuelas.
+                        Todos los nuevos programas creados aparecen disponibles automáticamente. Si deseas desactivar un programa específico para una sola escuela, usa la pestaña <strong>"⚙️ Programas y Módulos por Escuela"</strong>. Para permisos de IA, ve a <strong>"🤖 Permisos de Herramientas de IA"</strong>.
                     </div>
                 </div>
+                {onGoToPermisosIA && (
+                    <button className="btn btn-primary btn-sm" onClick={onGoToPermisosIA} style={{ background: "#1d4ed8", borderColor: "#1d4ed8", fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
+                        Ir a Permisos de IA
+                    </button>
+                )}
             </div>
 
             {message && !isModalOpen && (

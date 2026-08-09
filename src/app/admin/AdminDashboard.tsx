@@ -66,6 +66,8 @@ import GestionLlavesIA from "./_componentes/GestionLlavesIA";
 import ReportesNivel from "./_componentes/ReportesNivel";
 import RankingEscuelas from "./_componentes/RankingEscuelas";
 import PlaneacionesAdminPanel from "./_componentes/PlaneacionesAdminPanel";
+import ProgramasModulosPorEscuela from "./_componentes/ProgramasModulosPorEscuela";
+import PermisosHerramientasIA from "./_componentes/PermisosHerramientasIA";
 import GestionNormativas from "./_componentes/GestionNormativas";
 
 // Componentes exclusivos para Supervisor
@@ -128,7 +130,7 @@ export default function AdminDashboard({
         config: false,
         modulos: true,
     });
-    const [programasTab, setProgramasTab] = useState<"programas" | "modulos">("programas");
+    const [programasTab, setProgramasTab] = useState<"programas" | "modulos" | "matriz-escuelas" | "permisos-ia">("programas");
     const [iaTab, setIaTab] = useState<"rubricas" | "orquestador" | "llaves">("rubricas");
 
     const getSectionKey = (v: typeof vista): string => {
@@ -1272,17 +1274,56 @@ export default function AdminDashboard({
                             >
                                 Módulos Especiales
                             </button>
+                            <button
+                                onClick={() => setProgramasTab("matriz-escuelas")}
+                                className={`tab-item ${programasTab === "matriz-escuelas" ? "active" : ""}`}
+                            >
+                                ⚙️ Programas y Módulos por Escuela
+                            </button>
+                            <button
+                                onClick={() => setProgramasTab("permisos-ia")}
+                                className={`tab-item ${programasTab === "permisos-ia" ? "active" : ""}`}
+                            >
+                                🤖 Permisos de Herramientas de IA
+                            </button>
                         </div>
                         {programasTab === "programas" && (
                             <GestionProgramas 
                                 inicialProgramas={programas} 
                                 readOnly={!hasAccess("programas", "write")}
+                                onGoToPermisosIA={() => setProgramasTab("permisos-ia")}
                             />
                         )}
                         {programasTab === "modulos" && (
                             <PanelModulos 
                                 sidebarConfig={sidebarConfig} 
                                 readOnly={!hasAccess("modulosControl", "write")}
+                            />
+                        )}
+                        {programasTab === "matriz-escuelas" && (
+                            <ProgramasModulosPorEscuela 
+                                escuelas={escuelas.map(e => ({
+                                    id: e.id,
+                                    cct: e.cct,
+                                    nombre: e.nombre,
+                                    localidad: e.localidad,
+                                    esSupervision: e.esSupervision,
+                                    permisos: e.permisos
+                                }))}
+                                programas={programas}
+                                readOnly={!hasAccess("escuelas", "write")}
+                            />
+                        )}
+                        {programasTab === "permisos-ia" && (
+                            <PermisosHerramientasIA 
+                                escuelas={escuelas.map(e => ({
+                                    id: e.id,
+                                    cct: e.cct,
+                                    nombre: e.nombre,
+                                    esSupervision: e.esSupervision,
+                                    permisos: e.permisos
+                                }))}
+                                readOnly={!hasAccess("rubricas", "write")}
                             />
                         )}
                     </div>
