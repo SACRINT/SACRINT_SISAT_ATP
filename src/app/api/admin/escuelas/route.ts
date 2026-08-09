@@ -22,6 +22,7 @@ export async function GET() {
             municipio: true,
             esSupervision: true,
             esDePrueba: true,
+            permisos: true,
             gruposPrimerAno: true,
             gruposSegundoAno: true,
             gruposTercerAno: true,

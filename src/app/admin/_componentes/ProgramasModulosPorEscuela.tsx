@@ -31,10 +31,27 @@ export default function ProgramasModulosPorEscuela({
     const [escuelas, setEscuelas] = useState<Escuela[]>(listadoInicial);
     const [saving, setSaving] = useState(false);
 
-    // Update state when initial schools change
     useEffect(() => {
-        setEscuelas(escuelasProp || inicialEscuelas || []);
-    }, [escuelasProp, inicialEscuelas]);
+        (async () => {
+            try {
+                const res = await fetch("/api/admin/escuelas");
+                if (!res.ok) return;
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    setEscuelas(data.map((e: any) => ({
+                        id: e.id,
+                        cct: e.cct,
+                        nombre: e.nombre,
+                        localidad: e.localidad ?? null,
+                        esSupervision: e.esSupervision ?? false,
+                        permisos: e.permisos ?? null,
+                    })));
+                }
+            } catch {
+                // Conserva la prop inicial si el fetch falla
+            }
+        })();
+    }, []);
 
     const handleToggleHorariosEscuela = async (escuelaId: string, desactivado: boolean) => {
         if (readOnly) return;
@@ -86,7 +103,7 @@ export default function ProgramasModulosPorEscuela({
         }
     };
 
-    const handleToggleProgramaEscuela = async (escuelaId: string, programaId: string, activar: boolean) => {
+    const handleToggleProgramaEscuela = async (escuelaId: string, programaId: string, programaNombre: string, activar: boolean) => {
         if (readOnly) return;
         const escTarget = escuelas.find(e => e.id === escuelaId);
         if (!escTarget) return;
@@ -94,8 +111,9 @@ export default function ProgramasModulosPorEscuela({
         const permisosActuales = escTarget.permisos || {};
         let inactivos: string[] = Array.isArray(permisosActuales.programasInactivos) ? [...permisosActuales.programasInactivos] : [];
 
+        inactivos = inactivos.filter(p => p !== programaNombre);
         if (activar) {
-            inactivos = inactivos.filter(id => id !== programaId);
+            inactivos = inactivos.filter(p => p !== programaId);
         } else {
             if (!inactivos.includes(programaId)) inactivos.push(programaId);
         }
@@ -120,7 +138,7 @@ export default function ProgramasModulosPorEscuela({
         }
     };
 
-    const handleAccionMasivaPermisos = async (tipo: "HORARIOS_IA" | "PLANEACIONES_IA" | "PROGRAMA", accion: "ACTIVAR_TODOS" | "DESACTIVAR_TODOS", programaNombre?: string) => {
+    const handleAccionMasivaPermisos = async (tipo: "HORARIOS_IA" | "PLANEACIONES_IA" | "PROGRAMA", accion: "ACTIVAR_TODOS" | "DESACTIVAR_TODOS", programaId?: string, programaNombre?: string) => {
         if (readOnly) return;
         const targetLabel = tipo === "HORARIOS_IA" ? "Horarios IA" : tipo === "PLANEACIONES_IA" ? "Planeaciones IA" : `Programa "${programaNombre}"`;
         const accionLabel = accion === "ACTIVAR_TODOS" ? "ACTIVAR" : "DESACTIVAR";
@@ -131,7 +149,7 @@ export default function ProgramasModulosPorEscuela({
             const res = await fetch("/api/admin/escuelas/masivo-permisos", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tipo, accion, programaNombre })
+                body: JSON.stringify({ tipo, accion, programaId, programaNombre })
             });
             const data = await res.json();
             if (data.success) {
@@ -148,17 +166,19 @@ export default function ProgramasModulosPorEscuela({
                         ...e,
                         permisos: { ...(e.permisos || {}), planeacionesDesactivado }
                     })));
-                } else if (tipo === "PROGRAMA" && programaNombre) {
+                } else if (tipo === "PROGRAMA" && (programaId || programaNombre)) {
                     const esDesactivar = accion === "DESACTIVAR_TODOS";
                     setEscuelas(prev => prev.map(e => {
                         const permisosActuales = e.permisos || {};
                         let programasInactivos: string[] = Array.isArray(permisosActuales.programasInactivos)
                             ? [...permisosActuales.programasInactivos]
                             : [];
+                        if (programaNombre) programasInactivos = programasInactivos.filter(p => p !== programaNombre);
                         if (esDesactivar) {
-                            if (!programasInactivos.includes(programaNombre)) programasInactivos.push(programaNombre);
-                        } else {
-                            programasInactivos = programasInactivos.filter(p => p !== programaNombre);
+                            const valor = programaId || programaNombre;
+                            if (valor && !programasInactivos.includes(valor)) programasInactivos.push(valor);
+                        } else if (programaId) {
+                            programasInactivos = programasInactivos.filter(p => p !== programaId);
                         }
                         return { ...e, permisos: { ...permisosActuales, programasInactivos } };
                     }));
@@ -274,7 +294,7 @@ export default function ProgramasModulosPorEscuela({
                                                     <button
                                                         type="button"
                                                         disabled={saving || readOnly}
-                                                        onClick={() => handleAccionMasivaPermisos("PROGRAMA", todosProgActivos ? "DESACTIVAR_TODOS" : "ACTIVAR_TODOS", prog.nombre)}
+                                                        onClick={() => handleAccionMasivaPermisos("PROGRAMA", todosProgActivos ? "DESACTIVAR_TODOS" : "ACTIVAR_TODOS", prog.id, prog.nombre)}
                                                         style={{
                                                             padding: "0.25rem 0.55rem",
                                                             borderRadius: "20px",
@@ -367,13 +387,13 @@ export default function ProgramasModulosPorEscuela({
 
                                     {/* Toggles por Programa */}
                                     {programas.map((prog) => {
-                                        const progActivo = !programasInactivos.includes(prog.id);
+                                        const progActivo = !programasInactivos.includes(prog.id) && !programasInactivos.includes(prog.nombre);
                                         return (
                                             <td key={prog.id} style={{ textAlign: "center", padding: "0.5rem" }}>
                                                 <button
                                                     type="button"
                                                     disabled={saving || readOnly}
-                                                    onClick={() => handleToggleProgramaEscuela(esc.id, prog.id, !progActivo)}
+                                                    onClick={() => handleToggleProgramaEscuela(esc.id, prog.id, prog.nombre, !progActivo)}
                                                     title={progActivo ? `Haga clic para desactivar ${prog.nombre} en ${esc.nombre}` : `Haga clic para activar ${prog.nombre} en ${esc.nombre}`}
                                                     style={{
                                                         padding: "0.35rem 0.65rem",

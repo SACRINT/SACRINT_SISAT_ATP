@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { tipo, accion, programaNombre } = body;
+    const { tipo, accion, programaId, programaNombre } = body;
 
     // Obtener todas las escuelas registradas
     const escuelas = await prisma.escuela.findMany();
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (tipo === "PROGRAMA" && programaNombre) {
+    if (tipo === "PROGRAMA" && (programaId || programaNombre)) {
       const esDesactivar = accion === "DESACTIVAR_TODOS";
 
       await Promise.all(
@@ -69,12 +69,17 @@ export async function POST(req: NextRequest) {
             ? permisosActuales.programasInactivos
             : [];
 
-          if (esDesactivar) {
-            if (!programasInactivos.includes(programaNombre)) {
-              programasInactivos = [...programasInactivos, programaNombre];
-            }
-          } else {
+          // Limpiar entradas legacy almacenadas por nombre y dejar el id como formato estándar
+          if (programaNombre) {
             programasInactivos = programasInactivos.filter((p: string) => p !== programaNombre);
+          }
+          if (esDesactivar) {
+            const valor = programaId || programaNombre;
+            if (valor && !programasInactivos.includes(valor)) {
+              programasInactivos = [...programasInactivos, valor];
+            }
+          } else if (programaId) {
+            programasInactivos = programasInactivos.filter((p: string) => p !== programaId);
           }
 
           const nuevosPermisos = {
