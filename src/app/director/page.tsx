@@ -107,7 +107,9 @@ export default async function DirectorPage() {
     const permisosEscuela = (escuela.permisos as any) || {};
     // Si el admin activó modo sin restricciones para Horarios, siempre está activo
     const modoSinRestriccionesHorarios = configGlobal?.modoSinRestriccionesHorarios ?? false;
-    const isHorariosActive = modoSinRestriccionesHorarios ? true : permisosEscuela.horariosDesactivado !== true;
+    const isHorariosActive = escuela.esDePrueba || modoSinRestriccionesHorarios
+        ? true
+        : (configGlobal?.activoGlobalHorarios ?? true) && permisosEscuela.horariosDesactivado !== true;
     const programasInactivos: string[] = permisosEscuela.programasInactivos || [];
 
     // Filtrar programas inactivos para esta escuela
