@@ -606,7 +606,7 @@ export default function ErroresServidorPanel() {
                                         fontSize: "0.75rem",
                                         marginTop: "0.4rem",
                                         overflowX: "auto",
-                                        whitespace: "pre-wrap",
+                                        whiteSpace: "pre-wrap",
                                         maxHeight: "260px",
                                         overflowY: "auto",
                                         lineHeight: 1.5

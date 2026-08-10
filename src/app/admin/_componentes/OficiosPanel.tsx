@@ -640,7 +640,7 @@ export default function OficiosPanel() {
                                 borderTop: "1px solid #e2e8f0",
                                 display: "flex",
                                 alignItems: "center",
-                                justifySpaceBetween: "space-between",
+                                justifyContent: "space-between",
                                 fontSize: "0.8125rem",
                                 color: "#475569",
                                 fontWeight: 600
