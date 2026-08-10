@@ -2,16 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
-
-
+import { getAppUrl } from "@/lib/app-url";
+import { getInstitucion } from "@/lib/institucion";
 
 export async function POST(req: NextRequest) {
     try {
         const session = await auth();
-        const user = session?.user as { role?: string } | undefined;
+        const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
         if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
+
+        const tenantId = user?.organizacionId || user?.tenantId;
+        const institucion = await getInstitucion(tenantId);
 
         const body = await req.json();
         const { asunto, contenido, tipoDestinatarios, escuelasSeleccionadas } = body;
@@ -82,12 +85,12 @@ export async function POST(req: NextRequest) {
                         <p>Por favor, ingrese al sistema para dar seguimiento o resolver los pendientes indicados.</p>
                         
                         <p style="text-align: center; margin: 30px 0;">
-                            <a href="https://sacrint-sisat-atp.vercel.app" style="background-color: #1d4ed8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Acceder al Portal del Director</a>
+                            <a href="${getAppUrl()}" style="background-color: #1d4ed8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Acceder al Portal del Director</a>
                         </p>
 
                         <br>
                         <p>Atentamente,</p>
-                        <p><strong>Supervisión Escolar ATP</strong><br>Zona Escolar 004</p>
+                        <p><strong>${institucion.nombreSupervision}</strong><br>Zona Escolar ${institucion.zona}</p>
                         <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
                         <p style="font-size: 11px; color: #64748b; text-align: center;">Este es un mensaje institucional enviado desde la plataforma SISAT-ATP.</p>
                     </div>

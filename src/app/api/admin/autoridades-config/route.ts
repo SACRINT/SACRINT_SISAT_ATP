@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { INSTITUCION_FALLBACK } from "@/lib/institucion";
 
 export async function GET() {
     try {
         const session = await auth();
-        const role = (session?.user as any)?.role;
-        if (!session || !["admin", "supervision", "atp"].includes(role)) {
+        const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
+        if (!session || !["admin", "supervision", "atp"].includes(user?.role || "")) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -30,7 +31,8 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
     try {
         const session = await auth();
-        if (!session || (session.user as any).role !== "admin") {
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -39,6 +41,13 @@ export async function PUT(req: NextRequest) {
         const config = await prisma.autoridadesConfig.upsert({
             where: { id: "singleton" },
             update: {
+                nombreSupervision: data.nombreSupervision,
+                zona: data.zona,
+                cct: data.cct,
+                municipio: data.municipio,
+                entidad: data.entidad,
+                numeroOficioBase: data.numeroOficioBase,
+                emailReporteNivel: data.emailReporteNivel,
                 supervisor: data.supervisor,
                 supervisorRFC: data.supervisorRFC,
                 supervisorFecha: data.supervisorFecha,
@@ -64,6 +73,13 @@ export async function PUT(req: NextRequest) {
             },
             create: {
                 id: "singleton",
+                nombreSupervision: data.nombreSupervision || INSTITUCION_FALLBACK.nombreSupervision,
+                zona: data.zona || INSTITUCION_FALLBACK.zona,
+                cct: data.cct || INSTITUCION_FALLBACK.cct,
+                municipio: data.municipio || INSTITUCION_FALLBACK.municipio,
+                entidad: data.entidad || INSTITUCION_FALLBACK.entidad,
+                numeroOficioBase: data.numeroOficioBase || INSTITUCION_FALLBACK.numeroOficioBase,
+                emailReporteNivel: data.emailReporteNivel || INSTITUCION_FALLBACK.emailReporteNivel,
                 supervisor: data.supervisor,
                 supervisorRFC: data.supervisorRFC,
                 supervisorFecha: data.supervisorFecha,

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getInstitucion } from "@/lib/institucion";
 import { ShieldCheck, XCircle, Search } from "lucide-react";
 
 interface ValidarPageProps {
@@ -8,6 +9,7 @@ interface ValidarPageProps {
 export default async function ValidarDocumentoPage({ searchParams }: ValidarPageProps) {
     const params = await searchParams;
     const cvd = params.cvd?.trim() || "";
+    const institucion = await getInstitucion();
 
     let entrega: any = null;
     let errorMsg = "";
@@ -58,7 +60,7 @@ export default async function ValidarDocumentoPage({ searchParams }: ValidarPage
                     Módulo de Verificación de Validez Oficial
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.15rem" }}>
-                    Zona Escolar 004 • Bachilleratos Generales
+                    Zona Escolar {institucion.zona} • Bachilleratos Generales
                 </div>
             </header>
 
@@ -187,10 +189,10 @@ export default async function ValidarDocumentoPage({ searchParams }: ValidarPage
                                         ✍️ Firma de Aprobación
                                     </div>
                                     <div style={{ color: "#1f2937", fontWeight: 700 }}>
-                                        Ing. Alejandro Escamilla Martínez
+                                        {institucion.supervisor || "Supervisor Escolar"}
                                     </div>
                                     <div style={{ color: "#4b5563", fontSize: "0.8rem" }}>
-                                        Supervisor de Bachilleratos Zona 004
+                                        Supervisor de Bachilleratos Zona {institucion.zona}
                                     </div>
                                 </div>
 
@@ -255,7 +257,7 @@ export default async function ValidarDocumentoPage({ searchParams }: ValidarPage
             {/* Footer */}
             <footer style={{ marginTop: "3rem", fontSize: "0.75rem", color: "#94a3b8", textAlign: "center" }}>
                 © {new Date().getFullYear()} SISAT-ATP. Todos los derechos reservados.<br />
-                Gobierno del Estado de Puebla • Secretaría de Educación Pública
+                Gobierno del Estado de {institucion.entidad} • Secretaría de Educación Pública
             </footer>
         </div>
     );

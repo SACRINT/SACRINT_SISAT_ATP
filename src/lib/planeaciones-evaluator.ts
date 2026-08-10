@@ -295,7 +295,7 @@ function generarResultadoFallback(input: InputEvaluacion, rubricaUsada: string):
         mejorasUrgentes: ["No fue posible analizar automáticamente el documento. Se requiere revisión manual por el ATP."],
         observacionesExtendidas: `El sistema de revisión automática no pudo procesar la planeación del docente ${input.docenteNombre} para la asignatura ${input.asignatura}. Por favor, intente nuevamente o contacte al ATP.`,
         alineacionPaecPec: "No determinado — análisis automático no disponible.",
-        retroalimentacionDocente: `Estimado/a Profesor/a:\n\nEl sistema no pudo completar el análisis automático de su Planeación Didáctica de ${input.asignatura}, ${input.semestre}° semestre. Le solicitamos que contacte a su director para programar una revisión manual con el ATP de la zona.\n\nAtentamente,\nSupervisión Escolar Zona 004`,
+        retroalimentacionDocente: `Estimado/a Profesor/a:\n\nEl sistema no pudo completar el análisis automático de su Planeación Didáctica de ${input.asignatura}, ${input.semestre}° semestre. Le solicitamos que contacte a su director para programar una revisión manual con el ATP de la zona.\n\nAtentamente,\nSupervisión Escolar de Bachilleratos Generales`,
     };
 }
 

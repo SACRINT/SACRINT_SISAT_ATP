@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useMemo } from "react";
 import {
-    Download,
     Copy,
     Check,
     FileText,
     Mail,
-    Info,
     Loader2,
     Calendar,
+    Send,
 } from "lucide-react";
+
+import { INSTITUCION_FALLBACK } from "@/lib/institucion-constantes";
 
 interface Escuela {
     id: string;
@@ -56,6 +57,9 @@ export default function ReportesNivel() {
     const [downloading, setDownloading] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+    // Configuración institucional dinámica
+    const [institucionConfig, setInstitucionConfig] = useState<any>(null);
+
     // Estados de copia
     const [copiedSubject, setCopiedSubject] = useState(false);
     const [copiedBody, setCopiedBody] = useState(false);
@@ -65,23 +69,30 @@ export default function ReportesNivel() {
     const [acosoSchools, setAcosoSchools] = useState<any[]>([]);
     const [selectedCaseIdx, setSelectedCaseIdx] = useState(0);
 
-    // Cargar lista de escuelas
+    // Cargar lista de escuelas y config institucional
     useEffect(() => {
-        async function fetchEscuelas() {
+        async function fetchEscuelasYConfig() {
             setLoadingEscuelas(true);
             try {
-                const res = await fetch("/api/admin/escuelas");
-                if (res.ok) {
-                    const data = await res.json();
+                const [resEscuelas, resConfig] = await Promise.all([
+                    fetch("/api/admin/escuelas"),
+                    fetch("/api/admin/autoridades-config"),
+                ]);
+                if (resEscuelas.ok) {
+                    const data = await resEscuelas.json();
                     setEscuelasList(data);
                 }
+                if (resConfig.ok) {
+                    const cfg = await resConfig.json();
+                    setInstitucionConfig(cfg);
+                }
             } catch (err) {
-                console.error("Error al cargar escuelas:", err);
+                console.error("Error al cargar datos institucionales:", err);
             } finally {
                 setLoadingEscuelas(false);
             }
         }
-        fetchEscuelas();
+        fetchEscuelasYConfig();
     }, []);
 
     // Cargar casos de acoso desde archivos Excel subidos por escuelas
@@ -166,30 +177,36 @@ export default function ReportesNivel() {
 
     // Redacción dinámica del correo
     const emailData = useMemo(() => {
-        const dest = "dbepa.igualdad@seppue.gob.mx";
+        const dest = institucionConfig?.emailReporteNivel || INSTITUCION_FALLBACK.emailReporteNivel;
+        const zonaStr = institucionConfig?.zona || "004";
+        const cctStr = institucionConfig?.cct || "21FMS0020X";
+        const supervisorStr = institucionConfig?.supervisor || "Ing. Alejandro Escamilla Martínez";
+        const entidadStr = institucionConfig?.entidad || "Puebla";
+        const nombreSupervisionStr = institucionConfig?.nombreSupervision || `SUPERVISIÓN ESCOLAR DE BACHILLERATOS GENERALES ZONA ${zonaStr}`;
+
         let sub = "";
         let body = "";
 
         if (programa === "BANAVIM") {
-            sub = `REPORTE_BANAVIM_ZONA004_21FMS0020X`;
-            body = `En respuesta a su oficio SEP-1.1.2.1-DBEPA/0330/2026, y con fundamento en los artículos 3º y 4º de la Constitución Política de los Estados Unidos Mexicanos; 83 de la Constitución Política del Estado Libre y Soberano de Puebla; 31 fracción XII; 43 fracción XXXVIII de la Ley Orgánica de la Administración Pública del Estado de Puebla; 1, 4 fracción II, 6, 18 fracción IV y 19 de la Ley de Educación del Estado de Puebla, así como a la fracción X del artículo 43 de la Ley para el Acceso de las Mujeres a una Vida Libre de Violencia del Estado de Puebla; y con el objetivo de consolidar el Banco Estatal de Datos de Violencia contra las Mujeres (BANAVIM), me permito informarle que durante el mes de ${mes} del año en curso, no se ha recibido ningún reporte de casos de violencia contra niñas, adolescentes o mujeres en los planteles adscritos a esta Supervisión Escolar Zona 004, con CCT 21FMS0020X.
+            sub = `REPORTE_BANAVIM_ZONA${zonaStr}_${cctStr}`;
+            body = `En respuesta a su oficio SEP-1.1.2.1-DBEPA/0330/2026, y con fundamento en los artículos 3º y 4º de la Constitución Política de los Estados Unidos Mexicanos; 83 de la Constitución Política del Estado Libre y Soberano de ${entidadStr}; 31 fracción XII; 43 fracción XXXVIII de la Ley Orgánica de la Administración Pública del Estado de ${entidadStr}; 1, 4 fracción II, 6, 18 fracción IV y 19 de la Ley de Educación del Estado de ${entidadStr}, así como a la fracción X del artículo 43 de la Ley para el Acceso de las Mujeres a una Vida Libre de Violencia del Estado de ${entidadStr}; y con el objetivo de consolidar el Banco Estatal de Datos de Violencia contra las Mujeres (BANAVIM), me permito informarle que durante el mes de ${mes} del año en curso, no se ha recibido ningún reporte de casos de violencia contra niñas, adolescentes o mujeres en los planteles adscritos a esta Supervisión Escolar Zona ${zonaStr}, con CCT ${cctStr}.
 
 Sin otro particular, le envío un cordial saludo.
 
 ATENTAMENTE
 «SUFRAGIO EFECTIVO. NO REELECCIÓN»
-Ing. Alejandro Escamilla Martínez
+${supervisorStr}
 Supervisor Escolar
-Zona Escolar 004
-CCT: 21FMS0020X`;
+Zona Escolar ${zonaStr}
+CCT: ${cctStr}`;
         } else if (programa === "CEDAVIM") {
-            sub = `TEMAS DE ACOSO ESCOLAR_ZONA 004_21FMS0020X`;
+            sub = `TEMAS DE ACOSO ESCOLAR_ZONA ${zonaStr}_${cctStr}`;
             if (tieneAcoso) {
                 const escNombre = selectedEscuela ? selectedEscuela.nombre : "Nombre Escuela";
                 const escCct = selectedEscuela ? selectedEscuela.cct : "CCT";
                 const escMuni = selectedEscuela?.municipio || "Municipio";
 
-                body = `En atención al oficio identificado con número SEP-1.1.2.1-DBEPA/2026, mediante el cual se solicita el reporte mensual correspondiente al formato denominado "TEMAS ACOSO ESCOLAR 2026", me permito informar a usted que, derivado del seguimiento realizado en las instituciones educativas que integran la Zona Escolar 004 a mi cargo, durante el mes de ${mes} de ${anio} se registró un (1) caso relacionado con ${tipoViolencia}, en el Bachillerato General "${escNombre}", con CCT. ${escCct}, ubicado en el municipio de ${escMuni}, Puebla.
+                body = `En atención al oficio identificado con número SEP-1.1.2.1-DBEPA/2026, mediante el cual se solicita el reporte mensual correspondiente al formato denominado "TEMAS ACOSO ESCOLAR 2026", me permito informar a usted que, derivado del seguimiento realizado en las instituciones educativas que integran la Zona Escolar ${zonaStr} a mi cargo, durante el mes de ${mes} de ${anio} se registró un (1) caso relacionado con ${tipoViolencia}, en el Bachillerato General "${escNombre}", con CCT. ${escCct}, ubicado en el municipio de ${escMuni}, ${entidadStr}.
 
 Al respecto, el plantel educativo, en coordinación con esta Supervisión Escolar y las instancias competentes, implementó las acciones de atención e intervención correspondientes, entre las que destacan ${acciones}. Derivado de dichas intervenciones, el caso se reporta con estatus de ${estatus}, conforme a la información proporcionada por el plantel.
 
@@ -199,24 +216,24 @@ Sin otro particular, le envío un cordial saludo y quedo a sus órdenes para cua
 
 ATENTAMENTE
 «SUFRAGIO EFECTIVO. NO REELECCIÓN»
-SUPERVISOR DE LA ZONA ESCOLAR 004
-ING. ALEJANDRO ESCAMILLA MARTÍNEZ
-CCT: 21FMS0020X`;
+SUPERVISOR DE LA ZONA ESCOLAR ${zonaStr}
+${supervisorStr.toUpperCase()}
+CCT: ${cctStr}`;
             } else {
-                body = `En atención al oficio identificado con número SEP-1.1.2.1-DBEPA/2026, mediante el cual se solicita el reporte mensual correspondiente al formato denominado “TEMAS ACOSO ESCOLAR 2026”, me permito informar a usted que, derivado de la revisión realizada en las instituciones educativas que integran la Zona Escolar 004 a mi cargo, no se presentó ningún caso relacionado con los rubros señalados (Acoso Escolar, Acoso Sexual, Violencia Intrafamiliar, Violencia Cibernética, Violencia por parte del docente y Violencia contra el docente por parte del alumno o alumna) durante el mes de ${mes.toLowerCase()} del presente año.
+                body = `En atención al oficio identificado con número SEP-1.1.2.1-DBEPA/2026, mediante el cual se solicita el reporte mensual correspondiente al formato denominado “TEMAS ACOSO ESCOLAR 2026”, me permito informar a usted que, derivado de la revisión realizada en las instituciones educativas que integran la Zona Escolar ${zonaStr} a mi cargo, no se presentó ningún caso relacionado con los rubros señalados (Acoso Escolar, Acoso Sexual, Violencia Intrafamiliar, Violencia Cibernética, Violencia por parte del docente y Violencia contra el docente por parte del alumno o alumna) durante el mes de ${mes.toLowerCase()} del presente año.
 
 Lo anterior se comunica para los efectos administrativos correspondientes, dando cumplimiento en tiempo y forma a lo solicitado.
 
 ATENTAMENTE
 «SUFRAGIO EFECTIVO. NO REELECCIÓN»
-SUPERVISOR DE LA ZONA ESCOLAR 004
-ING. ALEJANDRO ESCAMILLA MARTÍNEZ
-CCT: 21FMS0020X`;
+SUPERVISOR DE LA ZONA ESCOLAR ${zonaStr}
+${supervisorStr.toUpperCase()}
+CCT: ${cctStr}`;
             }
         } else {
             // DIA NARANJA
-            sub = `25N_${mes.toUpperCase()}_GEN004_21FMS0020X`;
-            body = `Por este medio, y en atención al oficio SEP-1.1.2.1-DBEPA/2026, relacionado con la Conmemoración del “25 N - Día Naranja” mes de ${mes}, me permito hacer llegar la información correspondiente a la Zona Escolar 004, con CCT de Supervisión 21FMS0020X.
+            sub = `25N_${mes.toUpperCase()}_GEN${zonaStr}_${cctStr}`;
+            body = `Por este medio, y en atención al oficio SEP-1.1.2.1-DBEPA/2026, relacionado con la Conmemoración del “25 N - Día Naranja” mes de ${mes}, me permito hacer llegar la información correspondiente a la Zona Escolar ${zonaStr}, con CCT de Supervisión ${cctStr}.
 
 Se anexan dos archivos que integran la información de los 17 bachilleratos adscritos a esta Zona Escolar:
 Archivo 1: Evidencias fotográficas
@@ -229,14 +246,14 @@ Sin más por el momento, reitero mi disposición para cualquier aclaración o in
 Reciba un cordial y atento saludo.
 
 ATENTAMENTE
-Ing. Alejandro Escamilla Martínez
+${supervisorStr}
 Supervisor Escolar
-Zona Escolar 004
-CCT: 21FMS0020X`;
+Zona Escolar ${zonaStr}
+CCT: ${cctStr}`;
         }
 
         return { dest, sub, body };
-    }, [programa, mes, anio, tieneAcoso, selectedEscuela, tipoViolencia, acciones, estatus]);
+    }, [programa, mes, anio, tieneAcoso, selectedEscuela, tipoViolencia, acciones, estatus, institucionConfig]);
 
     // Función para copiar texto al portapapeles
     const handleCopy = async (text: string, type: "subject" | "body") => {
@@ -321,16 +338,48 @@ CCT: 21FMS0020X`;
         }
     };
 
+    const [sendingResumen, setSendingResumen] = useState(false);
+
+    const handleEnviarResumenSemanal = async () => {
+        setSendingResumen(true);
+        setMessage(null);
+        try {
+            const res = await fetch("/api/admin/reportes/resumen-semanal", { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                setMessage({ type: "success", text: data.mensaje || "Resumen semanal enviado exitosamente." });
+            } else {
+                setMessage({ type: "error", text: data.error || "Error al enviar resumen semanal." });
+            }
+        } catch (err: any) {
+            setMessage({ type: "error", text: "Error al conectar con el servidor." });
+        } finally {
+            setSendingResumen(false);
+        }
+    };
+
     return (
         <div style={{ padding: "0.5rem" }}>
-            <div className="page-header" style={{ marginBottom: "1.5rem" }}>
-                <h1 className="title" style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1.5rem" }}>
-                    <Mail size={24} style={{ color: "var(--primary)" }} />
-                    Reportes y Respuestas al Nivel
-                </h1>
-                <p className="description" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-                    Genera las redacciones de correos y los reportes de supervisión (.docx) membretados para enviar formalmente a la Dirección de Bachilleratos.
-                </p>
+            <div className="page-header" style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                <div>
+                    <h1 className="title" style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1.5rem" }}>
+                        <Mail size={24} style={{ color: "var(--primary)" }} />
+                        Reportes y Respuestas al Nivel
+                    </h1>
+                    <p className="description" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                        Genera las redacciones de correos y los reportes de supervisión (.docx) membretados para enviar formalmente a la Dirección de Bachilleratos.
+                    </p>
+                </div>
+
+                <button
+                    onClick={handleEnviarResumenSemanal}
+                    disabled={sendingResumen}
+                    className="btn btn-primary"
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 1.2rem" }}
+                >
+                    {sendingResumen ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    <span>Enviar resumen ahora</span>
+                </button>
             </div>
 
             {message && (

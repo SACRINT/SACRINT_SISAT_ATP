@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "Archivo no especificado o inválido" }, { status: 400 });
         }
 
-        const filePath = path.join("C:", "NotebookLM", "sisat-atp", "Formatos_Oficiales", targetFilename);
+        const formatosDir = process.env.FORMATOS_DIR || path.join(process.cwd(), "Formatos_Oficiales");
+        const filePath = path.join(formatosDir, targetFilename);
         if (!fs.existsSync(filePath)) {
             return NextResponse.json({ error: `El archivo ${targetFilename} no existe en Formatos_Oficiales` }, { status: 404 });
         }
@@ -45,8 +46,9 @@ export async function GET(req: NextRequest) {
                 "Cache-Control": "no-store",
             },
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errMessage = error instanceof Error ? error.message : "Error interno al descargar la plantilla";
         console.error("Error al descargar plantilla oficial:", error);
-        return NextResponse.json({ error: error.message || "Error interno al descargar la plantilla" }, { status: 500 });
+        return NextResponse.json({ error: errMessage }, { status: 500 });
     }
 }

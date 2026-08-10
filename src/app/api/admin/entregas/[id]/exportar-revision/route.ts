@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getInstitucion } from "@/lib/institucion";
 import {
     Document,
     Packer,
@@ -179,6 +180,9 @@ export async function GET(
             year: "numeric",
         });
 
+        const tenantId = (user as any)?.organizacionId || (user as any)?.tenantId;
+        const institucion = await getInstitucion(tenantId);
+
         // 1. Create document
         const doc = new Document({
             title: `Reporte de Evaluación ${programaNombre}`,
@@ -192,7 +196,7 @@ export async function GET(
                             alignment: AlignmentType.RIGHT,
                             children: [
                                 new TextRun({
-                                    text: "SUPERVISIÓN ESCOLAR DE BACHILLERATOS GENERALES · ZONA 004\n",
+                                    text: `${institucion.nombreSupervision.toUpperCase()}\n`,
                                     bold: true,
                                     size: 16,
                                     color: "5c768d",
@@ -365,16 +369,16 @@ export async function GET(
                                                 new Paragraph({
                                                     alignment: AlignmentType.CENTER,
                                                     children: [
-                                                        new TextRun({
-                                                            text: "\nIng. Samuel Cruz Interial\n",
-                                                            bold: true,
-                                                            size: 20,
-                                                        }),
-                                                        new TextRun({
-                                                            text: "Asesor Técnico Pedagógico\nSupervisión Escolar Zona 004",
-                                                            size: 18,
-                                                            color: "5c768d",
-                                                        }),
+                                                         new TextRun({
+                                                             text: `\n${institucion.atp1Nombre || "Asesor Técnico Pedagógico"}\n`,
+                                                             bold: true,
+                                                             size: 20,
+                                                         }),
+                                                         new TextRun({
+                                                             text: `Asesor Técnico Pedagógico\n${institucion.nombreSupervision}`,
+                                                             size: 18,
+                                                             color: "5c768d",
+                                                         }),
                                                     ],
                                                 }),
                                             ],

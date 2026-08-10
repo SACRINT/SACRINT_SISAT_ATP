@@ -100,7 +100,7 @@ export default function LoginPage() {
 
                 <h2 style={{ fontSize: "2.25rem", fontWeight: 800, lineHeight: 1.15, marginBottom: "1.25rem", color: "white" }}>
                     Supervisión Escolar<br />
-                    <span style={{ color: "#93c5fd" }}>Zona 004 BG</span>
+                    <span style={{ color: "#93c5fd" }}>Bachilleratos Generales</span>
                 </h2>
                 <p style={{ fontSize: "1rem", opacity: 0.75, lineHeight: 1.7, marginBottom: "2.5rem" }}>
                     Plataforma centralizada para el seguimiento de programas escolares, 
@@ -162,7 +162,7 @@ export default function LoginPage() {
                             color: "#64748b",
                             fontWeight: 500,
                         }}>
-                            Supervisión Escolar Zona 004 BG
+                            Supervisión Escolar de Bachilleratos Generales
                         </p>
                     </div>
 
@@ -203,7 +203,7 @@ export default function LoginPage() {
                                 <input
                                     id="email"
                                     type="email"
-                                    placeholder="tu-cct@seppue.gob.mx"
+                                    placeholder="tu-cct@dominio.edu.mx"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required

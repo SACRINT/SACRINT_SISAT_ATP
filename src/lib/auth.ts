@@ -29,6 +29,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             role: "admin",
                             dbRole: admin.role,
                             permisos: admin.permisos,
+                            organizacionId: admin.organizacionId || "zona004",
                         };
                     }
                 }
@@ -57,6 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             dbRole: userRole,
                             cct: escuela.cct,
                             permisos: escuela.permisos,
+                            organizacionId: escuela.zonaEscolar ? `zona${escuela.zonaEscolar.replace(/^0+/, '').padStart(3, '0')}` : "zona004",
                         };
                     }
                 }
@@ -68,22 +70,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
-                const customUser = user as { role?: string; dbRole?: string; cct?: string; permisos?: any };
+                const customUser = user as { role?: string; dbRole?: string; cct?: string; permisos?: unknown; organizacionId?: string };
                 token.role = customUser.role;
                 token.dbRole = customUser.dbRole;
                 token.cct = customUser.cct;
                 token.permisos = customUser.permisos;
+                token.organizacionId = customUser.organizacionId;
             }
             return token;
         },
         async session({ session, token }) {
             if (session.user) {
-                const customSessionUser = session.user as { id?: string; role?: unknown; dbRole?: unknown; cct?: unknown; permisos?: unknown };
+                const customSessionUser = session.user as { id?: string; role?: unknown; dbRole?: unknown; cct?: unknown; permisos?: unknown; organizacionId?: unknown; tenantId?: unknown };
                 customSessionUser.id = token.sub;
                 customSessionUser.role = token.role;
                 customSessionUser.dbRole = token.dbRole;
                 customSessionUser.cct = token.cct;
                 customSessionUser.permisos = token.permisos;
+                customSessionUser.organizacionId = token.organizacionId;
+                customSessionUser.tenantId = token.organizacionId;
             }
             return session;
         },

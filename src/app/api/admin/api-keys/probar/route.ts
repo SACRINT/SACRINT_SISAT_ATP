@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { getAppUrl } from "@/lib/app-url";
 
 export const dynamic = "force-dynamic";
 
@@ -112,7 +113,7 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
                 method: "GET",
                 headers: {
                     Authorization: `Bearer ${key}`,
-                    "HTTP-Referer": "https://sacrint-sisat-atp.vercel.app/",
+                    "HTTP-Referer": getAppUrl(),
                     "X-Title": "SISAT-ATP",
                 },
                 signal: AbortSignal.timeout(12000),

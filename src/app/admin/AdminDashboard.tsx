@@ -39,6 +39,7 @@ import {
     Sparkles,
     Mail,
     Trash2,
+    Database,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import BuscadorGlobal from "@/app/_componentes/BuscadorGlobal";
@@ -69,6 +70,9 @@ import PlaneacionesAdminPanel from "./_componentes/PlaneacionesAdminPanel";
 import ProgramasModulosPorEscuela from "./_componentes/ProgramasModulosPorEscuela";
 import PermisosHerramientasIA from "./_componentes/PermisosHerramientasIA";
 import GestionNormativas from "./_componentes/GestionNormativas";
+import AuditoriaInteligentePanel from "./_componentes/AuditoriaInteligentePanel";
+import OficiosPanel from "./_componentes/OficiosPanel";
+import ErroresServidorPanel from "./_componentes/ErroresServidorPanel";
 
 // Componentes exclusivos para Supervisor
 import EntregasListado from "../director/_componentes/EntregasListado";
@@ -123,10 +127,11 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
+    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia" | "auditoria-inteligente" | "oficios" | "errores">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
+        auditoria: true,
         config: false,
         modulos: true,
     });
@@ -139,9 +144,10 @@ export default function AdminDashboard({
             case "avances": return "avances";
             case "ranking": return "avances"; // Using "avances" permission for ranking
             case "reportes-nivel": return "reportesNivel";
+            case "auditoria-inteligente": return "auditoria_atp";
             case "gestion-escuelas": return "escuelas";
             case "gestion-programas": return "programas";
-            case "gestion-fechas": return "fechas";
+            case "gestion-fechas": return "periodos";
             case "gestion-ciclos": return "ciclos";
             case "recursos": return "formatos";
             case "herramientas-ia": return "rubricas";
@@ -158,6 +164,7 @@ export default function AdminDashboard({
             case "mis-entregas": return "supervision_entregas";
             case "ajustes-api": return "supervision_api";
             case "mis-expedientes": return "supervision_expedientes";
+            case "errores": return "seguridad";
             default: return "general";
         }
     };
@@ -833,6 +840,39 @@ export default function AdminDashboard({
                     </div>
                     )}
 
+                    {/* ── GRUPO: AUDITORÍA INTELIGENTE ATP ── */}
+                    {hasAccess("auditoria_atp", "read") && (
+                        <div className="sidebar-group">
+                            <button
+                                className={`sidebar-group-header ${vista === "auditoria-inteligente" ? "sidebar-group-header-active" : ""}`}
+                                onClick={() => toggleGroup("auditoria")}
+                            >
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <Database size={14} />
+                                    <span>Auditoría & Corpus</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                                    <span className="sidebar-badge" style={{ background: "linear-gradient(135deg, #10b981, #059669)", color: "white", fontSize: "0.6rem" }}>
+                                        5,272
+                                    </span>
+                                    {groupOpen.auditoria ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </div>
+                            </button>
+                            {groupOpen.auditoria && (
+                                <div className="sidebar-group-items">
+                                    <button className={`sidebar-link ${vista === "auditoria-inteligente" ? "active" : ""}`} onClick={() => navigate("auditoria-inteligente")}>
+                                        <Database size={17} />
+                                        <span>Auditoría Inteligente</span>
+                                    </button>
+                                    <button className={`sidebar-link ${vista === "oficios" ? "active" : ""}`} onClick={() => navigate("oficios")}>
+                                        <FileText size={17} />
+                                        <span>Oficios y Plazos</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* ── GRUPO: MI INSTITUCIÓN (SUPERVISOR) ── */}
                     {dbRole === "SUPERVISION" && supervisionEscuela && (
                         <div className="sidebar-group">
@@ -917,10 +957,16 @@ export default function AdminDashboard({
                                     </button>
                                 )}
                                 {dbRole === "SUPER_ADMIN" && (
-                                    <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => navigate("gestion-atps")}>
-                                        <ShieldCheck size={17} />
-                                        <span>Accesos y Seguridad</span>
-                                    </button>
+                                    <>
+                                        <button className={`sidebar-link ${vista === "gestion-atps" ? "active" : ""}`} onClick={() => navigate("gestion-atps")}>
+                                            <ShieldCheck size={17} />
+                                            <span>Accesos y Seguridad</span>
+                                        </button>
+                                        <button className={`sidebar-link ${vista === "errores" ? "active" : ""}`} onClick={() => navigate("errores")}>
+                                            <AlertTriangle size={17} />
+                                            <span>Errores del Servidor</span>
+                                        </button>
+                                    </>
                                 )}
                                 {hasAccess("rubricas", "read") && (
                                     <button className={`sidebar-link ${vista === "herramientas-ia" ? "active" : ""}`} onClick={() => navigate("herramientas-ia")}>
@@ -1475,6 +1521,23 @@ export default function AdminDashboard({
                 {/* ========= VISTA: PLANEACIONES DIDÁCTICAS IA ========= */}
                 {vista === "planeaciones-ia" && (
                     <PlaneacionesAdminPanel />
+                )}
+
+                {/* ========= VISTA: AUDITORÍA INTELIGENTE & DESCUBRIMIENTO ATP ========= */}
+                {vista === "auditoria-inteligente" && (
+                    <AuditoriaInteligentePanel 
+                        readOnly={!hasAccess("auditoria_atp", "write")}
+                    />
+                )}
+
+                {/* ========= VISTA: OFICIOS Y PLAZOS (ATP-MOD-01) ========= */}
+                {vista === "oficios" && (
+                    <OficiosPanel />
+                )}
+
+                {/* ========= VISTA: ERRORES DEL SERVIDOR (P4) ========= */}
+                {vista === "errores" && (
+                    <ErroresServidorPanel />
                 )}
             </main >
 

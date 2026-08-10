@@ -112,6 +112,18 @@ export const SECCIONES_PERMISOS = [
             { key: "documentos_autoridades", label: "Autoridades Educativas" }
         ]
     },
+    {
+        key: "auditoria_atp",
+        label: "Auditoría Inteligente ATP",
+        sub: [
+            { key: "auditoria_cuenta", label: "Fuente & Configuración" },
+            { key: "auditoria_ingesta", label: "Importar Evidencia" },
+            { key: "auditoria_explorador", label: "Explorador de Comunicaciones" },
+            { key: "auditoria_procesos", label: "Procesos Descubiertos" },
+            { key: "auditoria_plan", label: "Plan Maestro de Automatización" },
+            { key: "auditoria_gap", label: "Matriz GAP" }
+        ]
+    },
 ];
 
 export const DEFAULT_PERMISOS: Record<string, string> = {
@@ -142,4 +154,11 @@ export const DEFAULT_PERMISOS: Record<string, string> = {
     documentos_generar: "NINGUNO",
     documentos_plantillas: "NINGUNO",
     documentos_autoridades: "NINGUNO",
+    auditoria_atp: "NINGUNO",
+    auditoria_cuenta: "NINGUNO",
+    auditoria_ingesta: "NINGUNO",
+    auditoria_explorador: "NINGUNO",
+    auditoria_procesos: "NINGUNO",
+    auditoria_plan: "NINGUNO",
+    auditoria_gap: "NINGUNO",
 };

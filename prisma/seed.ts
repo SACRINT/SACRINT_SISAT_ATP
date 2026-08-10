@@ -8,6 +8,18 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+if (process.env.NODE_ENV === "production") {
+    throw new Error("El seed no puede ejecutarse en producción.");
+}
+
+const seedAdminEmail = process.env.SEED_ADMIN_EMAIL;
+const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+const seedSchoolPassword = process.env.SEED_SCHOOL_PASSWORD;
+const seedSchoolEmailDomain = process.env.SEED_SCHOOL_EMAIL_DOMAIN;
+if (!seedAdminEmail || !seedAdminPassword || !seedSchoolPassword || !seedSchoolEmailDomain) {
+    throw new Error("Faltan variables de entorno para el seed: SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_SCHOOL_PASSWORD, SEED_SCHOOL_EMAIL_DOMAIN.");
+}
+
 // ─── 18 Bachilleratos ────────────────────────────
 const escuelas = [
     { cct: "21EBH0088T", nombre: "ALFONSO DE LA MADRID VIDAURRETA", localidad: "VENUSTIANO CARRANZA", hombres: 0, mujeres: 0, total: 0 },
@@ -74,18 +86,18 @@ async function main() {
 
     // ─── Admin ────────────────────────────────────
     console.log("👤 Creando cuenta de administrador ATP...");
-    const hashedAdminPwd = await bcrypt.hash("admin2025", 12);
+    const hashedAdminPwd = await bcrypt.hash(seedAdminPassword!, 12);
     await prisma.admin.create({
-        data: { email: "atp@supervision.edu.mx", password: hashedAdminPwd, nombre: "Supervisión ATP", role: "SUPER_ADMIN" },
+        data: { email: seedAdminEmail!, password: hashedAdminPwd, nombre: "Supervisión ATP", role: "SUPER_ADMIN" },
     });
 
     // ─── Escuelas ─────────────────────────────────
     console.log("🏫 Creando 18 escuelas...");
-    const hashedSchoolPwd = await bcrypt.hash("escuela2025", 12);
+    const hashedSchoolPwd = await bcrypt.hash(seedSchoolPassword!, 12);
     const createdEscuelas = [];
     for (const esc of escuelas) {
         const e = await prisma.escuela.create({
-            data: { ...esc, email: `${esc.cct}@seppue.gob.mx`, password: hashedSchoolPwd },
+            data: { ...esc, email: `${esc.cct}@${seedSchoolEmailDomain}`, password: hashedSchoolPwd },
         });
         createdEscuelas.push(e);
     }

@@ -301,8 +301,15 @@ export default function RankingEscuelas({ cicloNombre, isDirector = false }: Pro
 async function buildWordReport(data: any): Promise<Blob> {
     const {
         cicloNombre, fechaGeneracion, supervisor, atpNombre,
-        escuelas, narrativaPorEscuela, observacionesGenerales, conclusion, resumen
+        escuelas, narrativaPorEscuela, observacionesGenerales, conclusion, resumen,
+        institucion
     } = data;
+
+    const zonaStr = institucion?.zona || "004";
+    const cctStr = institucion?.cct || "21FMS0020X";
+    const muniStr = institucion?.municipio || "Venustiano Carranza";
+    const entidadStr = institucion?.entidad || "Puebla";
+    const nombreSupervisionStr = institucion?.nombreSupervision || `Zona ${zonaStr} de Bachilleratos Generales Estatales`;
 
     // Mapa de narrativas por CCT
     const narrativaMap: Record<string, string> = {};
@@ -400,12 +407,12 @@ async function buildWordReport(data: any): Promise<Blob> {
     children.push(p("SUBSECRETARÍA DE EDUCACIÓN OBLIGATORIA", { bold: true, size: 9, color: "1F3A5F", center: true, spAfter: 2 }));
     children.push(p("DIRECCIÓN GENERAL DE EDUCACIÓN BÁSICA SEGUNDO NIVEL", { size: 9, color: "1F3A5F", center: true, spAfter: 2 }));
     children.push(p("DIRECCIÓN DE BACHILLERATOS ESTATALES Y PREPARATORIA ABIERTA", { size: 9, color: "1F3A5F", center: true, spAfter: 2 }));
-    children.push(p("SUPERVISIÓN ESCOLAR ZONA 004  —  CCT: 21FMS0020X", { bold: true, size: 9, color: "2E5F9A", center: true, spAfter: 10 }));
+    children.push(p(`${nombreSupervisionStr.toUpperCase()}  —  CCT: ${cctStr}`, { bold: true, size: 9, color: "2E5F9A", center: true, spAfter: 10 }));
 
     // --- Título ---
     children.push(p("INFORME DE CUMPLIMIENTO DE ENTREGA DE DOCUMENTACIÓN", { bold: true, size: 16, color: "1F3A5F", center: true, spBefore: 10, spAfter: 4 }));
     children.push(p(`FIN DE CICLO ESCOLAR ${cicloNombre}`, { bold: true, size: 14, color: "2E5F9A", center: true, spAfter: 4 }));
-    children.push(p("Zona 004 de Bachilleratos Generales Estatales  |  Venustiano Carranza, Puebla", { size: 10, color: "555555", center: true, spAfter: 16 }));
+    children.push(p(`${nombreSupervisionStr}  |  ${muniStr}, ${entidadStr}`, { size: 10, color: "555555", center: true, spAfter: 16 }));
     children.push(spacer());
 
     // --- Sección I: Identificación ---
@@ -413,8 +420,8 @@ async function buildWordReport(data: any): Promise<Blob> {
     children.push(mkTable([], [
         ["Fecha de elaboración:", fecha],
         ["Ciclo escolar:", cicloNombre],
-        ["Supervisión:", "Zona 004 de Bachilleratos Generales Estatales"],
-        ["CCT de la supervisión:", "21FMS0020X"],
+        ["Supervisión:", nombreSupervisionStr],
+        ["CCT de la supervisión:", cctStr],
         ["Supervisor escolar:", supervisor || "ALEJANDRO ESCAMILLA MARTÍNEZ"],
         ["Elaboró (ATP):", atpNombre || "ASESOR TÉCNICO PEDAGÓGICO"],
         ["Centros de trabajo evaluados:", `${resumen?.total ?? escuelas.length} bachilleratos`],
@@ -425,7 +432,7 @@ async function buildWordReport(data: any): Promise<Blob> {
     // --- Sección II: Antecedentes ---
     children.push(heading("II.  ANTECEDENTES Y CONTEXTO"));
     children.push(p(
-        `En el marco del cierre del ciclo escolar ${cicloNombre}, la Supervisión Escolar de la Zona 004 de Bachilleratos Generales Estatales, con sede en el municipio de Venustiano Carranza, Puebla, llevó a cabo el proceso de recopilación, revisión y validación de la documentación de fin de ciclo correspondiente a los ${resumen?.total ?? escuelas.length} centros de trabajo adscritos a la zona.`,
+        `En el marco del cierre del ciclo escolar ${cicloNombre}, la ${nombreSupervisionStr}, con sede en el municipio de ${muniStr}, ${entidadStr}, llevó a cabo el proceso de recopilación, revisión y validación de la documentación de fin de ciclo correspondiente a los ${resumen?.total ?? escuelas.length} centros de trabajo adscritos a la zona.`,
         { size: 11, justify: true, indent: true, spAfter: 6 }
     ));
     children.push(p(

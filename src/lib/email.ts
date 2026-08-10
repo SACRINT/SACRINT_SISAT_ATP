@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
+import { getAppUrl } from "@/lib/app-url";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "dummy_key");
 
@@ -102,7 +103,7 @@ export async function sendUploadConfirmation(
           <p>En los próximos días, el ATP revisará sus documentos y le notificará por este medio en caso de requerir alguna corrección o ajuste.</p>
           
           <p style="text-align: center; margin: 30px 0;">
-            <a href="https://sacrint-sisat-atp.vercel.app" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Acceder a la Plataforma</a>
+            <a href="${getAppUrl()}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Acceder a la Plataforma</a>
           </p>
 
           <p>Agradecemos su compromiso.</p>
@@ -128,7 +129,7 @@ export async function sendCorrectionNotification(
   adminNombre: string,
   archivoAdjuntoUrl?: string
 ) {
-  const APP_URL = "https://sacrint-sisat-atp.vercel.app";
+  const APP_URL = getAppUrl();
 
   try {
     await sendEmail({
@@ -188,7 +189,7 @@ export async function sendTactfulReminder(
 
   let subject = "";
   let htmlContent = "";
-  const APP_URL = "https://sacrint-sisat-atp.vercel.app";
+  const APP_URL = getAppUrl();
 
   if (type === "proximo") {
     subject = `🕒 Recordatorio amistoso: Próxima entrega de ${programaNombre}`;

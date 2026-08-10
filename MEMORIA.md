@@ -858,7 +858,39 @@ El generador de horarios (`WizardConfiguracion.tsx`) estaba limitado únicamente
 
 ---
 
-*Versión actualizada: Agosto 2026 — v4.7*
+### 9.16 Auditoría Inteligente & Descubrimiento de Procesos ATP (v5.0)
+
+**Arquitectura de Ingesta Local Offline y Descubrimiento Semántico**:
+
+1. **Esquema de Base de Datos Multi-Tenant en Neon PostgreSQL**:
+   - `CuentaAuditoria`: Configuración administrable de cuenta de supervisión/auditoría (`email`, `nombreTitular`, `tipoFuente: CORPUS_LOCAL | MICROSOFT_GRAPH`, `directorioCorpus`). Cero hardcodes de correos o nombres en esquema de DB.
+   - `EmailConversation`: 1,687 hilos de conversación agrupados y trazados con métricas de confianza, duración y participantes.
+   - `EmailMessage`: 5,272 mensajes de correo (3,068 recibidos y 2,204 enviados) con hash SHA-256 de cuerpo, clasificación de origen/tipo, plazos y resúmenes semánticos IA (&le; 500 tokens).
+   - `EmailAttachment`: 9,143 adjuntos catalogados con rutas relativas a disco (`Adjuntos/` y `Adjuntos_md/`), preservando espacio y garantizando privacidad sin almacenar blobs binarios en DB.
+   - Modelos de Gobernanza y Automatización: `Process`, `Task`, `Discovery`, `Evidence`, `ProcesoCorreccion`, `ModulePlan`, `GapItem`, `SyncState`.
+   - **Multi-Tenant Ready**: Todos los modelos indexados y particionados con `tenantId` (default `"zona004"` como valor de datos).
+
+2. **Servicio Ingestor Local (`src/lib/discovery/local-ingestor.ts`)**:
+   - Ingesta en batches de 500 registros desde `index.json`, `threads.json` y `analisis_semantico.json` en `C:\NotebookLM\BaseConocimiento`.
+   - Duración de ingesta inicial: 25 segundos para el corpus completo de 5,272 correos y 9,143 adjuntos.
+   - Aislamiento estricto de privacidad: Base de datos almacena únicamente metadatos, rutas relativas y análisis semánticos; el contenido masivo físico permanece seguro en disco.
+
+3. **Endpoints y Controladores API**:
+   - `/api/admin/auditoria/cuenta`: CRUD multi-tenant de configuración de cuenta y directorio de corpus.
+   - `/api/admin/auditoria/ingestar-local`: Trigger de sincronización/re-ingesta del corpus local.
+   - `/api/admin/auditoria/mensajes`: Consultas con paginación, filtros por bandeja, categorías, plazos y búsqueda full-text.
+   - `/api/admin/auditoria/hilos`: Consulta de los 1,687 hilos con su historial cronológico de mensajes.
+
+4. **Panel de Control Web (`src/app/admin/_componentes/AuditoriaInteligentePanel.tsx`)**:
+   - Pestaña **Resumen Ejecutivo**: Métricas en tiempo real, desglose de correos por bandeja, hilos y adjuntos.
+   - Pestaña **Explorador de Correos**: Búsqueda interactiva en los 5,272 correos con etiquetas de tipo, origen, badges de plazos detectados y resúmenes IA.
+   - Pestaña **Hilos de Conversación**: Visualización de los 1,687 flujos conversacionales multi-turno.
+   - Pestaña **Configuración Fuente & Multi-Tenant**: Formulario para editar cuenta, nombre del titular y directorio del corpus local.
+
+---
+
+*Versión actualizada: Agosto 2026 — v5.0*
+
 
 
 

@@ -625,7 +625,7 @@ export default function VistaGeneral({
                                             checked={emailRecipientType === "TODOS"}
                                             onChange={() => setEmailRecipientType("TODOS")}
                                         />
-                                        Todas las escuelas de la Zona 004 ({stats.escuelas?.length || 0} escuelas)
+                                        Todas las escuelas de la Zona ({stats.escuelas?.length || 0} escuelas)
                                     </label>
                                     <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem", cursor: "pointer" }}>
                                         <input

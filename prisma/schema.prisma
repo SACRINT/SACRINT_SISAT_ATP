@@ -28,13 +28,14 @@ enum TipoPeriodo {
 // ─── Models ────────────────────────────────────
 
 model Admin {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  password     String
-  nombre       String
-  role         String       @default("ATP_LECTOR")
-  permisos     Json?
-  correcciones Correccion[]
+  id             String       @id @default(cuid())
+  email          String       @unique
+  password       String
+  nombre         String
+  role           String       @default("ATP_LECTOR")
+  organizacionId String       @default("zona004")
+  permisos       Json?
+  correcciones   Correccion[]
 }
 
 model Escuela {
@@ -358,6 +359,15 @@ model AdminSidebarConfig {
 
 model AutoridadesConfig {
   id                  String @id @default("singleton")
+  tenantId            String @default("zona004")
+  nombreSupervision   String @default("SUPERVISIÓN ESCOLAR DE BACHILLERATOS GENERALES ZONA 004")
+  zona                String @default("004")
+  cct                 String @default("21FMS0020X")
+  municipio           String @default("Venustiano Carranza")
+  entidad             String @default("Puebla")
+  numeroOficioBase    String @default("SEP-A/ZONA004/")
+  emailReporteNivel   String @default("dbepa.igualdad@seppue.gob.mx")
+
   supervisor          String @default("C. SUPERVISOR(A)")
   supervisorRFC       String @default("")
   supervisorFecha     String @default("")
@@ -901,4 +911,479 @@ model ChatTramitesMensaje {
   fuentes     Json?    // Documentos citados [{ titulo, categoria }]
   createdAt   DateTime @default(now())
 }
+
+// ─── AUDITORÍA Y DESCUBRIMIENTO DE PROCESOS ATP (MULTI-TENANT) ──────────────
+
+model CuentaAuditoria {
+  id                    String    @id @default(cuid())
+  tenantId              String    @default("zona004")
+  email                 String    @unique
+  nombreTitular         String?
+  tipoFuente            String    @default("CORPUS_LOCAL") // "CORPUS_LOCAL" | "MICROSOFT_GRAPH"
+  directorioCorpus      String?
+  totalMensajes         Int       @default(0)
+  totalRecibidos        Int       @default(0)
+  totalEnviados         Int       @default(0)
+  totalHilos            Int       @default(0)
+  totalAdjuntos         Int       @default(0)
+  fechaInicioCorpus     DateTime?
+  fechaFinCorpus        DateTime?
+  estadoIngestion       String    @default("PENDIENTE") // PENDIENTE | INGESTADO | PROCESANDO | ERROR
+  ultimaIngestion       DateTime?
+  encryptedToken        String?   @db.Text
+  ivToken               String?
+  authTag               String?
+  tokenExpiresAt        DateTime?
+  deltaToken            String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  mensajes              EmailMessage[]
+  conversaciones        EmailConversation[]
+  adjuntos              EmailAttachment[]
+  syncStates            SyncState[]
+
+  @@index([tenantId])
+}
+
+model EmailConversation {
+  id                    String    @id @default(cuid())
+  tenantId              String    @default("zona004")
+  cuentaId              String
+  hiloId                String    @unique // Ej. "HILO_PROBABLE_00001"
+  asuntoNormalizado     String
+  numMensajes           Int       @default(1)
+  confianzaHilo         Int       @default(100)
+  razonUnion            String?   @db.Text
+  fechaInicio           DateTime
+  fechaFin              DateTime
+  participantesJson     Json
+  mensajesIdsJson       Json?
+  patronDetectado       String?
+  procesoId             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  cuenta                CuentaAuditoria @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  mensajes              EmailMessage[]
+  proceso               Process?        @relation(fields: [procesoId], references: [id], onDelete: SetNull)
+  evidencias            Evidence[]
+
+  @@index([tenantId])
+  @@index([cuentaId])
+  @@index([fechaInicio])
+}
+
+model EmailMessage {
+  id                    String    @id // ID: "B_000064f1275d054a" o "E_bed5a4727a2a4114"
+  tenantId              String    @default("zona004")
+  cuentaId              String
+  hiloId                String?
+  bandeja               String    // "BandejaEntrada" | "Enviados"
+  esEnviado             Boolean   @default(false)
+  fechaMensaje          DateTime
+  remitenteNombre       String?
+  remitenteEmail        String?
+  destinatariosJson     Json      // [{ name, email }]
+  conCopiaJson          Json?     // [{ name, email }]
+  asunto                String
+  asuntoNormalizado     String?
+  categoriaTematica     String?
+  rutaMd                String?   // "Correos/BandejaEntrada/B_000064f1275d054a.md"
+  
+  // Señales de Auditoría
+  bodyHash              String?
+  tamanoCuerpoChars     Int       @default(0)
+  tieneAdjuntos         Boolean   @default(false)
+  numAdjuntos           Int       @default(0)
+  tieneSenalesPlazo     Boolean   @default(false)
+  esDuplicado           Boolean   @default(false)
+  duplicadoDeId         String?
+  
+  // Análisis Semántico IA
+  estadoAnalisis        String    @default("METADATOS_CARGADOS")
+  resumenIA             String?   @db.Text
+  clasificacionOrigen   String?
+  clasificacionTipo     String?
+  clasificacionAccion   String?
+  fechaLimiteDetectada  DateTime?
+  prioridadIA           String?   @default("MEDIA")
+  confianzaIA           Float?    @default(1.0)
+  entidadesJson         Json?
+
+  procesoId             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  cuenta                CuentaAuditoria    @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  conversation          EmailConversation? @relation(fields: [hiloId], references: [hiloId], onDelete: SetNull)
+  proceso               Process?           @relation(fields: [procesoId], references: [id], onDelete: SetNull)
+  adjuntos              EmailAttachment[]
+  evidencias            Evidence[]
+
+  @@index([tenantId])
+  @@index([cuentaId])
+  @@index([bandeja])
+  @@index([fechaMensaje])
+  @@index([clasificacionOrigen])
+  @@index([clasificacionTipo])
+}
+
+model EmailAttachment {
+  id                    String    @id @default(cuid())
+  tenantId              String    @default("zona004")
+  cuentaId              String
+  mensajeId             String
+  nombre                String
+  categoria             String?   // "PDF", "Word", "Excel", "Imagenes", "Otros"
+  extension             String?   // ".pdf", ".docx", ".xlsx", ".png"
+  tamanoBytes           Int       @default(0)
+  rutaOriginal          String?   // "Adjuntos/PDF/documento.pdf"
+  rutaMd                String?   // "Adjuntos_md/PDF/documento.pdf.md"
+  procesoId             String?
+  createdAt             DateTime  @default(now())
+
+  cuenta                CuentaAuditoria @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  mensaje               EmailMessage    @relation(fields: [mensajeId], references: [id], onDelete: Cascade)
+  proceso               Process?        @relation(fields: [procesoId], references: [id], onDelete: SetNull)
+  evidencias            Evidence[]
+
+  @@index([tenantId])
+  @@index([cuentaId])
+  @@index([mensajeId])
+  @@index([categoria])
+}
+
+model Process {
+  id                    String    @id // Ej: "ATP-PROC-001"
+  tenantId              String    @default("zona004")
+  nombre                String
+  descripcion           String    @db.Text
+  origenPrincipal       String
+  frecuenciaEstimada    String
+  participantes         Json
+  entradas              Json
+  salidas               Json
+  documentosRelacionados Json
+  nivelRepeticion       String
+  
+  // Tiempos y Estimaciones (Rangos)
+  tiempoEstimadoMinHoras Float
+  tiempoEstimadoMaxHoras Float
+  ahorroEstimadoHoras    Float
+  
+  // Clasificación y Prioridad
+  automatizabilidad     Int
+  prioridadScore        Float
+  nivelPrioridad        String
+  riesgoOperativo       String
+  confianzaScore        Float
+  razonDeteccion        String    @db.Text
+  
+  // Gobernanza
+  estado                String    @default("PROPUESTO")
+  notasAdmin            String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  tareas                Task[]
+  mensajes              EmailMessage[]
+  conversaciones        EmailConversation[]
+  adjuntos              EmailAttachment[]
+  evidencias            Evidence[]
+  planesModulo          ModulePlan[]
+  gapItems              GapItem[]
+  correcciones          ProcesoCorreccion[]
+
+  @@index([tenantId])
+}
+
+model Task {
+  id                    String    @id // Ej: "TAR-001"
+  tenantId              String    @default("zona004")
+  procesoId             String
+  nombre                String
+  descripcion           String?   @db.Text
+  responsableActual     String?
+  responsablePropuesto  String?
+  automatizabilidad     Int?      @default(1)
+  automatizabilidadDesc String?   @db.Text
+  automatizacionPropuesta String? @db.Text
+  frecuencia            String?
+  frecuenciaAnual       Int?      @default(0)
+  tiempoMinUnitario     Int?      @default(0)
+  tiempoMaxUnitario     Int?      @default(0)
+  horasMinAno           Float?    @default(0)
+  horasMaxAno           Float?    @default(0)
+  duracionMinutosMin    Int       @default(15)
+  duracionMinutosMax    Int       @default(60)
+  herramientasUsadas    Json?
+  actividadManualTipo   String?
+  estado                String    @default("IDENTIFICADO")
+  createdAt             DateTime  @default(now())
+
+  proceso               Process   @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([procesoId])
+}
+
+model Discovery {
+  id              String    @id @default(cuid())
+  tenantId        String    @default("zona004")
+  tipo            String
+  titulo          String
+  descripcion     String    @db.Text
+  confianzaScore  Float
+  razonEvidencia  String    @db.Text
+  evidenciaIdsJson Json
+  estado          String    @default("ACTIVO")
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+model Evidence {
+  id              String    @id @default(cuid())
+  tenantId        String    @default("zona004")
+  procesoId       String?
+  mensajeId       String?
+  conversacionId  String?
+  adjuntoId       String?
+  tipoFuente      String
+  citaTexto       String    @db.Text
+  metadatosJson   Json?
+  createdAt       DateTime  @default(now())
+
+  proceso         Process?           @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  mensaje         EmailMessage?      @relation(fields: [mensajeId], references: [id], onDelete: SetNull)
+  conversacion    EmailConversation? @relation(fields: [conversacionId], references: [id], onDelete: SetNull)
+  adjunto         EmailAttachment?   @relation(fields: [adjuntoId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([procesoId])
+}
+
+model ProcesoCorreccion {
+  id              String    @id @default(cuid())
+  tenantId        String    @default("zona004")
+  procesoId       String?
+  tipoCorreccion  String
+  reglaTexto      String    @db.Text
+  valorAnterior   Json?
+  valorNuevo      Json?
+  aplicadoPor     String
+  createdAt       DateTime  @default(now())
+
+  proceso         Process?  @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model ModulePlan {
+  id                    String    @id // Ej: "ATP-MOD-01"
+  tenantId              String    @default("zona004")
+  procesoOrigenId       String?
+  nombreModulo          String
+  faseRoadmap           Int
+  objetivo              String    @db.Text
+  problemaQueResuelve   String    @db.Text
+  especificacionJson    Json
+  especificacionMd      String?   @db.Text
+  prioridad             String
+  complejidad           String
+  beneficioCualitativo  String    @db.Text
+  ahorroHorasAnualMin   Float
+  ahorroHorasAnualMax   Float
+  estado                String    @default("PENDIENTE") // PENDIENTE | APROBADO | RECHAZADO | MODIFICADO | EN_ESPERA
+  fechaDecision         DateTime?
+  decisionPor           String?
+  comentarioDecision    String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  procesoOrigen         Process?  @relation(fields: [procesoOrigenId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+}
+
+model GapItem {
+  id                    String    @id @default(cuid())
+  tenantId              String    @default("zona004")
+  procesoId             String?
+  nombreProceso         String
+  plataformaActual      String
+  estadoCobertura       String
+  funcionalidadFaltante String    @db.Text
+  solucionPropuesta     String    @db.Text
+  prioridad             String
+  createdAt             DateTime  @default(now())
+
+  proceso               Process?  @relation(fields: [procesoId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+}
+
+model SyncState {
+  id                  String    @id @default(cuid())
+  tenantId            String    @default("zona004")
+  cuentaId            String
+  tipoCorrida         String
+  estado              String
+  mensajesIngestados  Int       @default(0)
+  mensajesAnalizados  Int       @default(0)
+  tokensConsumidos    Int       @default(0)
+  errorMensaje        String?   @db.Text
+  iniciadoEn          DateTime  @default(now())
+  finalizadoEn        DateTime?
+
+  cuenta              CuentaAuditoria @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([cuentaId])
+}
+// ─── ATP-MOD-01: Gestión Central de Oficios, Circulares y Plazos Urgentes ─────
+
+/// Estado de ciclo de vida de un oficio o circular
+enum EstadoOficio {
+  RECIBIDO
+  ENVIADO
+  ACUSADO
+  VENCIDO
+  CANCELADO
+}
+
+/// Criticidad calculada por horas restantes al plazo (configurable en OficioConfig)
+enum CriticidadOficio {
+  VERDE    // > umbralAmarillo horas
+  AMARILLO // <= umbralAmarillo y > umbralRojo horas
+  ROJO     // <= umbralRojo horas o vencido
+}
+
+/// Oficio o circular institucional
+model Oficio {
+  id                  String            @id @default(cuid())
+  tenantId            String
+  /// Número oficial del oficio (ej. DGDC/ATP/2025/001)
+  numeroOficio        String
+  asunto              String
+  remitenteNombre     String?
+  remitenteEmail      String?
+  /// Fecha y hora límite para acuse o respuesta
+  fechaLimite         DateTime?
+  /// Fecha de recepción del oficio
+  fechaRecepcion      DateTime          @default(now())
+  estado              EstadoOficio      @default(RECIBIDO)
+  criticidad          CriticidadOficio  @default(VERDE)
+  /// Ruta relativa al archivo original (PDF/imagen) — nunca almacenamos el payload
+  rutaArchivo         String?
+  /// Hash SHA-256 del archivo para integridad
+  sha256Hash          String?
+  /// Extracción IA: metadatos normalizados (remitente, asunto, fechaLimite, instrucciones)
+  metadatosIA         Json?
+  /// Indicador de si la IA ya procesó el archivo
+  iaProcessed         Boolean           @default(false)
+  /// Notas manuales del ATP
+  notas               String?           @db.Text
+  /// Si es true, es un oficio recibido externo; false = generado internamente
+  esRecibido          Boolean           @default(true)
+
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  destinatarios       OficioDestinatario[]
+  recordatorios       OficioRecordatorioLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, estado])
+  @@index([tenantId, criticidad])
+  @@index([tenantId, fechaLimite])
+}
+
+/// Distribución del oficio a escuelas y seguimiento de acuse por plantel
+model OficioDestinatario {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  oficioId            String
+  escuelaId           String?
+  escuelaNombre       String?
+  escuelaCCT          String?
+  emailDestino        String?
+  /// Fecha en que se envió el correo de distribución
+  fechaEnvioCorreo    DateTime?
+  /// Si el acuse fue recibido (firmado o confirmado digitalmente)
+  acuseRecibido       Boolean   @default(false)
+  fechaAcuse          DateTime?
+  /// Ruta al archivo de acuse firmado subido por el director
+  rutaAcuse           String?
+  sha256Acuse         String?
+  /// Confirmación manual por el ATP (botón "Confirmar recepción")
+  confirmadoATP       Boolean   @default(false)
+  fechaConfirmacionATP DateTime?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  oficio              Oficio    @relation(fields: [oficioId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([oficioId])
+  @@index([tenantId, acuseRecibido])
+}
+
+/// Log de recordatorios enviados (48h y 12h antes del vencimiento)
+model OficioRecordatorioLog {
+  id          String    @id @default(cuid())
+  tenantId    String
+  oficioId    String
+  tipo        String    // "48H" | "12H" | "VENCIDO"
+  enviadoEn   DateTime  @default(now())
+  exitoso     Boolean   @default(true)
+  errorMsg    String?
+
+  oficio      Oficio    @relation(fields: [oficioId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([oficioId])
+}
+
+/// Configuración del módulo de oficios por tenant (singleton por tenant)
+model OficioConfig {
+  id                  String    @id @default(cuid())
+  tenantId            String    @unique
+  /// Umbral en horas para semáforo ROJO (default 24)
+  umbralRojoHoras     Int       @default(24)
+  /// Umbral en horas para semáforo AMARILLO (default 72)
+  umbralAmarilloHoras Int       @default(72)
+  /// Email del remitente institucional para distribución (sin hardcode en código)
+  cuentaRemitente     String?
+  /// Plantilla DOCX base para generar acuses (ruta relativa en FORMATOS_DIR)
+  plantillaAcuseDocx  String?
+  /// Hora de día (24h) en que el cron revisa vencimientos (ej. "07:00")
+  horaIngesta         String    @default("07:00")
+  /// Notificaciones activas
+  recordatorios48h    Boolean   @default(true)
+  recordatorios12h    Boolean   @default(true)
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+/// Registro centralizado de errores de servidor (P4)
+model ErrorLog {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  ruta      String
+  metodo    String
+  mensaje   String   @db.Text
+  stack     String?  @db.Text
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
 

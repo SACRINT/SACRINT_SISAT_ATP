@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { getAppUrl } from "./app-url";
 
 export interface GeminiResponse {
     signed?: boolean;
@@ -26,15 +27,21 @@ export async function callGemini(
     escuelaId?: string
 ): Promise<string> {
     // 1. Cargar la configuración actual de IA
-    let config = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
-    if (!config) {
-        config = await prisma.preRevisionConfig.create({
-            data: { id: "singleton", activoDirectores: false, limiteIntentos: 3 },
-        });
-    }
+    let providerToUse = "gemini";
+    let modelToUse = "gemini-1.5-flash";
 
-    const providerToUse = usePremiumModel ? config.providerPremium : config.providerDefault;
-    const modelToUse = usePremiumModel ? config.modelPremium : config.modelDefault;
+    try {
+        let config = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
+        if (!config) {
+            config = await prisma.preRevisionConfig.create({
+                data: { id: "singleton", activoDirectores: false, limiteIntentos: 3 },
+            });
+        }
+        providerToUse = usePremiumModel ? config.providerPremium : config.providerDefault;
+        modelToUse = usePremiumModel ? config.modelPremium : config.modelDefault;
+    } catch (dbError) {
+        console.warn("[orquestador-ia] BD no disponible para consultar PreRevisionConfig, usando defaults.");
+    }
 
     // 1.1 Si hay escuelaId y el proveedor es Gemini, verificar si tiene llave propia
     if (escuelaId && providerToUse === "gemini") {
@@ -86,16 +93,21 @@ export async function callGemini(
     }
 
     // 2. Obtener llaves de API activas para el proveedor seleccionado
-    const keys = await prisma.apiKey.findMany({
-        where: {
-            provider: providerToUse,
-            active: true,
-            isPremium: usePremiumModel ? undefined : false,
-        },
-        orderBy: {
-            createdAt: "asc",
-        },
-    });
+    let keys: any[] = [];
+    try {
+        keys = await prisma.apiKey.findMany({
+            where: {
+                provider: providerToUse,
+                active: true,
+                isPremium: usePremiumModel ? undefined : false,
+            },
+            orderBy: {
+                createdAt: "asc",
+            },
+        });
+    } catch (dbKeyErr) {
+        console.warn("[orquestador-ia] No se pudo consultar la tabla ApiKey en BD, se recurrirá a .env");
+    }
 
     console.log(`[orquestador-ia] Encontradas ${keys.length} llaves activas en base de datos para el proveedor ${providerToUse}.`);
 
@@ -490,7 +502,7 @@ async function callOpenAiCompatible(
 
     // OpenRouter requiere opcionalmente ciertos encabezados informativos
     if (url.includes("openrouter.ai")) {
-        headers["HTTP-Referer"] = "https://sacrint-sisat-atp.vercel.app";
+        headers["HTTP-Referer"] = getAppUrl();
         headers["X-Title"] = "SISAT-ATP";
     }
 

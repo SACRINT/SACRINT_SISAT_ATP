@@ -49,11 +49,17 @@ export async function POST(
         let defaultName = "";
 
         if (template.modulo === "PMC") {
-            const docxPath = "C:\\NotebookLM\\sisat-atp\\ORIENTACIONES PMC 2025-2026\\PROMPT MAESTRO PARA EVALUAR PMC.docx";
+            const docxPath = process.env.PROMPT_PMC_DOCX_PATH;
+            if (!docxPath) {
+                throw new Error("Variable de entorno PROMPT_PMC_DOCX_PATH no configurada. Indica la ruta del DOCX del Prompt Maestro PMC.");
+            }
             defaultText = await extractTextFromDocxFile(docxPath);
             defaultName = "Prompt Maestro para Evaluar PMC 2025-2026 (Edición Actualizada)";
         } else if (template.modulo === "PAEC") {
-            const docxPath = "C:\\NotebookLM\\sisat-atp\\DATOS PAEC-PEC\\PROMPT MAESTRO PARA PAEC 2025-2026 COMPLETO.docx";
+            const docxPath = process.env.PROMPT_PAEC_DOCX_PATH;
+            if (!docxPath) {
+                throw new Error("Variable de entorno PROMPT_PAEC_DOCX_PATH no configurada. Indica la ruta del DOCX del Prompt Maestro PAEC.");
+            }
             defaultText = await extractTextFromDocxFile(docxPath);
             defaultName = "Prompt Maestro para Evaluar PAEC 2025-2026";
         } else if (template.modulo === "INFORME_FINAL") {

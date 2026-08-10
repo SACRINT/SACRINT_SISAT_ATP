@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { callGemini } from "@/lib/gemini";
 
+import { getInstitucion } from "@/lib/institucion";
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -59,16 +61,18 @@ const AI_RESPONSE_SCHEMA = {
 // ─── GET — Genera el reporte completo con IA ──────────────────────────────────
 export async function GET() {
     const session = await auth();
-    const role = (session?.user as any)?.role;
-    if (!session || !["admin", "supervision", "atp"].includes(role)) {
+    const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
+    const role = user?.role;
+    if (!session || !["admin", "supervision", "atp"].includes(role || "")) {
         return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     try {
-        // 1. Ciclo activo + configuración de autoridades
-        const [cicloActivo, autoridades] = await Promise.all([
+        const tenantId = user?.organizacionId || user?.tenantId;
+        // 1. Ciclo activo + configuración institucional dinámica
+        const [cicloActivo, institucion] = await Promise.all([
             prisma.cicloEscolar.findFirst({ where: { activo: true } }),
-            prisma.autoridadesConfig.findUnique({ where: { id: "singleton" } }).catch(() => null),
+            getInstitucion(tenantId),
         ]);
 
         if (!cicloActivo) {
@@ -282,8 +286,8 @@ export async function GET() {
                     cct: esc.cct,
                     narrativa: generarNarrativaFallback(esc)
                 })),
-                observacionesGenerales: `Durante el ciclo escolar ${cicloActivo.nombre}, la Zona Escolar 004 registró un cumplimiento promedio del ${resumen.promedioZona}%. Se identificaron escuelas con distintos niveles de cumplimiento, observándose casos de documentos no presentados y correcciones sin atender. Se exhorta a los directivos a regularizar su situación documentaria a la brevedad posible.`,
-                conclusion: `El presente informe expone el estado documentario de los ${resumen.total} planteles de la Zona 004 al cierre del ciclo escolar ${cicloActivo.nombre}. El supervisor escolar deberá dar seguimiento prioritario a los centros de trabajo con adeudo documentario para garantizar la regularización total de la zona.`
+                observacionesGenerales: `Durante el ciclo escolar ${cicloActivo.nombre}, la ${institucion.nombreSupervision} registró un cumplimiento promedio del ${resumen.promedioZona}%. Se identificaron escuelas con distintos niveles de cumplimiento, observándose casos de documentos no presentados y correcciones sin atender. Se exhorta a los directivos a regularizar su situación documentaria a la brevedad posible.`,
+                conclusion: `El presente informe expone el estado documentario de los ${resumen.total} planteles de la Zona ${institucion.zona} al cierre del ciclo escolar ${cicloActivo.nombre}. El supervisor escolar deberá dar seguimiento prioritario a los centros de trabajo con adeudo documentario para garantizar la regularización total de la zona.`
             };
         }
 
@@ -291,8 +295,9 @@ export async function GET() {
         return NextResponse.json({
             cicloNombre: cicloActivo.nombre,
             fechaGeneracion: new Date().toISOString(),
-            supervisor: autoridades?.supervisor ?? "SUPERVISOR ESCOLAR",
-            atpNombre: autoridades?.atp1Nombre ?? "ASESOR TÉCNICO PEDAGÓGICO",
+            supervisor: institucion.supervisor ?? "SUPERVISOR ESCOLAR",
+            atpNombre: institucion.atp1Nombre ?? "ASESOR TÉCNICO PEDAGÓGICO",
+            institucion,
             escuelas: escuelasData,
             narrativaPorEscuela: aiResult.narrativaPorEscuela,
             observacionesGenerales: aiResult.observacionesGenerales,

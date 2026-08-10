@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getAppUrl } from "@/lib/app-url";
+import { getInstitucion } from "@/lib/institucion";
 import {
     Document,
     Packer,
@@ -151,6 +153,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Entrega no encontrada" }, { status: 404 });
         }
 
+        const tenantId = (user as any)?.organizacionId || (user as any)?.tenantId;
+        const institucion = await getInstitucion(tenantId);
+
         // Si la entrega está aprobada pero aún no tiene CVD/firma (ej: registros anteriores), generarlo al vuelo
         let finalCvd = entrega.cvd;
         let finalFirma = entrega.firmaDigital;
@@ -159,7 +164,7 @@ export async function POST(req: NextRequest) {
             const randomHex = crypto.randomBytes(4).toString("hex").toUpperCase();
             const cleanCct = entrega.escuela.cct.replace(/\s+/g, "");
             finalCvd = `CVD-${cleanCct}-${randomHex}`;
-            const dataToSign = `${entrega.escuela.id}-${entrega.periodoEntrega.programa.nombre}-${new Date().toISOString()}-Ing.AlejandroEscamilla`;
+            const dataToSign = `${entrega.escuela.id}-${entrega.periodoEntrega.programa.nombre}-${new Date().toISOString()}-${institucion.supervisor || "SUPERVISOR"}`;
             finalFirma = crypto.createHash("sha256").update(dataToSign).digest("hex").substring(0, 32).toUpperCase();
 
             await prisma.entrega.update({
@@ -191,7 +196,7 @@ export async function POST(req: NextRequest) {
                     new TextRun({ text: "SECRETARÍA DE EDUCACIÓN PÚBLICA\n", bold: true, size: 18, font: "Arial", color: "475569" }),
                     new TextRun({ text: "SUBSECRETARÍA DE EDUCACIÓN OBLIGATORIA\n", bold: true, size: 16, font: "Arial", color: "475569" }),
                     new TextRun({ text: "DIRECCIÓN DE BACHILLERATOS ESTATALES Y PREPARATORIA ABIERTA\n", bold: true, size: 16, font: "Arial", color: "475569" }),
-                    new TextRun({ text: "SUPERVISIÓN ESCOLAR DE LA ZONA 004 (CCT: 21FMS0020X)\n\n", bold: true, size: 16, font: "Arial", color: "475569" }),
+                    new TextRun({ text: `${institucion.nombreSupervision.toUpperCase()} (CCT: ${institucion.cct})\n\n`, bold: true, size: 16, font: "Arial", color: "475569" }),
                 ],
             })
         );
@@ -199,13 +204,14 @@ export async function POST(req: NextRequest) {
         const today = new Date();
         const monthToday = today.getMonth() + 1;
         const semestreLetra = (monthToday >= 8 || monthToday === 1) ? "A" : "B";
+        const baseOficio = institucion.numeroOficioBase || `SEP-${semestreLetra}/ZONA${institucion.zona}/`;
 
         // 2. Oficio Number & Date
         paragraphs.push(
             new Paragraph({
                 alignment: AlignmentType.RIGHT,
                 children: [
-                    new TextRun({ text: `OFICIO No: SEP-${semestreLetra}/ZONA004/${numeroOficio}\n`, bold: true, size: 22, font: "Arial" }),
+                    new TextRun({ text: `OFICIO No: ${baseOficio}${numeroOficio}\n`, bold: true, size: 22, font: "Arial" }),
                     new TextRun({ text: `Lugar y Fecha: ${lugarFecha}\n\n`, size: 20, font: "Arial" }),
                 ],
             })
@@ -338,9 +344,9 @@ export async function POST(req: NextRequest) {
                 alignment: AlignmentType.CENTER,
                 children: [
                     new TextRun({ text: "ATENTAMENTE\n", bold: true, size: 22, font: "Arial" }),
-                    new TextRun({ text: "SUPERVISOR DE LA ZONA ESCOLAR 004\n\n\n\n\n", bold: true, size: 20, font: "Arial" }),
+                    new TextRun({ text: `SUPERVISOR DE LA ZONA ESCOLAR ${institucion.zona}\n\n\n\n\n`, bold: true, size: 20, font: "Arial" }),
                     new TextRun({ text: "____________________________________________\n", size: 20, font: "Arial" }),
-                    new TextRun({ text: "ING. ALEJANDRO ESCAMILLA MARTÍNEZ", bold: true, size: 22, font: "Arial" }),
+                    new TextRun({ text: (institucion.supervisor || "SUPERVISOR ESCOLAR").toUpperCase(), bold: true, size: 22, font: "Arial" }),
                 ],
                 spacing: { before: 360 },
             })
@@ -356,7 +362,7 @@ export async function POST(req: NextRequest) {
                         new TextRun({ text: "🛡️ VALIDEZ Y SELLO DIGITAL OFICIAL (SISAT-ATP ZONA 004)\n", bold: true, size: 16, font: "Courier New", color: "1e3a8a" }),
                         new TextRun({ text: `Código CVD: ${finalCvd}\n`, bold: true, size: 16, font: "Courier New", color: "4b5563" }),
                         new TextRun({ text: `Firma Electrónica: ${finalFirma}\n`, size: 14, font: "Courier New", color: "6b7280" }),
-                        new TextRun({ text: `Enlace de Verificación: https://sacrint-sisat-atp.vercel.app/validar-documento?cvd=${finalCvd}\n`, size: 14, font: "Courier New", color: "2563eb", underline: {} }),
+                        new TextRun({ text: `Enlace de Verificación: ${getAppUrl()}/validar-documento?cvd=${finalCvd}\n`, size: 14, font: "Courier New", color: "2563eb", underline: {} }),
                         new TextRun({ text: "--------------------------------------------------------------------------------", size: 14, font: "Courier New", color: "d1d5db" }),
                     ],
                     spacing: { before: 240, after: 120 },
