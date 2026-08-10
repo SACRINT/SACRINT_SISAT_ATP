@@ -201,7 +201,7 @@ export default function AuditoriaInteligentePanel({
     tenantId?: string;
     readOnly?: boolean;
 }) {
-    const { data: session } = useSession();
+    const { data: session } = useSession() || {};
     const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string; name?: string; email?: string } | undefined;
     const tenantId = propTenantId || user?.organizacionId || user?.tenantId;
 

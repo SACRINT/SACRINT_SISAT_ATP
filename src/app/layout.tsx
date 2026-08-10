@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import MantenimientoListener from "@/components/MantenimientoListener";
 import ChatbotTramitesWidget from "@/components/ChatbotTramitesWidget";
+import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "SISAT-ATP — Centro de Mando",
@@ -36,9 +37,11 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body>
-        <MantenimientoListener />
-        {children}
-        <ChatbotTramitesWidget />
+        <Providers>
+          <MantenimientoListener />
+          {children}
+          <ChatbotTramitesWidget />
+        </Providers>
       </body>
     </html>
   );

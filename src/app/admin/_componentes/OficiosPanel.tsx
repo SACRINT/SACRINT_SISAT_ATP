@@ -110,7 +110,7 @@ function diasRestantes(fechaLimite: string | null): string {
 // ── Componente Principal ──────────────────────────────────────────────────────
 
 export default function OficiosPanel() {
-    const { data: session } = useSession();
+    const { data: session } = useSession() || {};
     const [tab, setTab] = useState<"lista" | "nuevo" | "config">("lista");
     const [oficios, setOficios] = useState<Oficio[]>([]);
     const [total, setTotal] = useState(0);
