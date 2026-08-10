@@ -14,8 +14,9 @@ import {
     ChevronLeft,
     ChevronRight,
     X,
-    Filter,
     Server,
+    Activity,
+    Database,
 } from "lucide-react";
 
 interface ErrorItem {
@@ -83,140 +84,356 @@ export default function ErroresServidorPanel() {
     };
 
     return (
-        <div className="space-y-6">
-            {/* Header Banner */}
-            <div className="relative bg-white p-6 sm:p-7 rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-5 transition-all">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full blur-3xl pointer-events-none" />
-                <div className="flex items-start sm:items-center gap-4 relative z-10">
-                    <div className="p-3.5 rounded-2xl bg-gradient-to-br from-red-500/10 to-rose-500/20 border border-red-200 text-red-600 shadow-sm shrink-0">
-                        <AlertTriangle className="w-7 h-7" />
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }} className="fade-in">
+            {/* Header Banner - Estilo Premium Coincidente */}
+            <div style={{
+                background: "linear-gradient(135deg, #0f172a, #1e293b)",
+                borderRadius: "16px",
+                padding: "1.5rem 1.75rem",
+                border: "1px solid rgba(255,255,255,0.1)",
+                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "1.25rem"
+            }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <div style={{
+                        width: "48px",
+                        height: "48px",
+                        borderRadius: "12px",
+                        background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "white",
+                        boxShadow: "0 4px 14px rgba(239, 68, 68, 0.4)",
+                        flexShrink: 0
+                    }}>
+                        <AlertTriangle size={26} />
                     </div>
                     <div>
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+                            <h2 style={{ fontSize: "1.375rem", fontWeight: 800, color: "white", margin: 0 }}>
                                 Registro de Errores del Servidor
                             </h2>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
+                            <span style={{
+                                fontSize: "0.6875rem",
+                                padding: "0.2rem 0.6rem",
+                                borderRadius: "20px",
+                                background: "rgba(239, 68, 68, 0.2)",
+                                color: "#fca5a5",
+                                fontWeight: 700,
+                                border: "1px solid rgba(239, 68, 68, 0.3)"
+                            }}>
                                 Log en vivo
                             </span>
                         </div>
-                        <p className="text-sm font-medium text-slate-500 mt-1">
-                            Monitoreo y bitácora centralizada de excepciones de backend en tiempo real
+                        <p style={{ color: "#94a3b8", fontSize: "0.8125rem", margin: "0.25rem 0 0" }}>
+                            Monitoreo y bitácora de excepciones en tiempo real para mantenimiento proactivo de la plataforma.
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 relative z-10 shrink-0">
+                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
                     <button
                         onClick={() => cargarErrores(page)}
                         disabled={loading}
-                        className="px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 active:scale-95 border border-slate-300 rounded-xl transition-all duration-200 shadow-sm flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            background: "rgba(255, 255, 255, 0.1)",
+                            color: "white",
+                            border: "1px solid rgba(255, 255, 255, 0.15)",
+                            padding: "0.625rem 1.125rem",
+                            borderRadius: "10px",
+                            fontSize: "0.8125rem",
+                            fontWeight: 700,
+                            cursor: loading ? "not-allowed" : "pointer",
+                            transition: "all 0.2s ease"
+                        }}
                     >
-                        <RefreshCw className={`w-4 h-4 text-slate-600 ${loading ? "animate-spin" : ""}`} />
-                        Actualizar
+                        <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+                        <span>Actualizar</span>
                     </button>
+
                     <button
                         onClick={handleLimpiar}
                         disabled={limpiando || errores.length === 0}
-                        className="px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 active:scale-95 disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed rounded-xl transition-all duration-200 shadow-sm flex items-center gap-2 cursor-pointer"
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            background: errores.length === 0 || limpiando
+                                ? "rgba(239, 68, 68, 0.3)"
+                                : "linear-gradient(135deg, #ef4444, #dc2626)",
+                            color: "white",
+                            border: "none",
+                            padding: "0.625rem 1.125rem",
+                            borderRadius: "10px",
+                            fontSize: "0.8125rem",
+                            fontWeight: 700,
+                            cursor: errores.length === 0 || limpiando ? "not-allowed" : "pointer",
+                            boxShadow: errores.length === 0 ? "none" : "0 4px 12px rgba(239, 68, 68, 0.3)",
+                            opacity: errores.length === 0 ? 0.6 : 1,
+                            transition: "all 0.2s ease"
+                        }}
                     >
-                        <Trash2 className="w-4 h-4" />
-                        {limpiando ? "Limpiando..." : "Limpiar Errores"}
+                        <Trash2 size={15} />
+                        <span>{limpiando ? "Limpiando..." : "Limpiar Errores"}</span>
                     </button>
                 </div>
             </div>
 
             {/* Notification Banner */}
             {mensajeFeedback && (
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-3 shadow-xs animate-in fade-in duration-200">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <span className="text-sm font-medium">{mensajeFeedback}</span>
+                <div style={{
+                    padding: "0.875rem 1.25rem",
+                    borderRadius: "12px",
+                    background: "#ecfdf5",
+                    border: "1px solid #a7f3d0",
+                    color: "#065f46",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    fontSize: "0.875rem",
+                    fontWeight: 600
+                }}>
+                    <CheckCircle2 size={18} color="#059669" />
+                    <span>{mensajeFeedback}</span>
                 </div>
             )}
 
-            {/* Summary Bar */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2 text-slate-600">
-                    <Server className="w-4 h-4 text-slate-400" />
-                    <span className="font-semibold text-slate-700">Estado del Sistema:</span>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">
-                        Total capturado: <strong className="text-slate-900">{total}</strong>
-                    </span>
+            {/* Metrics KPI Cards Grid */}
+            <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "1rem"
+            }}>
+                <div style={{
+                    background: "white",
+                    borderRadius: "14px",
+                    padding: "1.125rem 1.25rem",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem"
+                }}>
+                    <div style={{
+                        width: "42px",
+                        height: "42px",
+                        borderRadius: "10px",
+                        background: "#fef2f2",
+                        color: "#ef4444",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid #fee2e2"
+                    }}>
+                        <Server size={20} />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                            Total Capturados
+                        </div>
+                        <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
+                            {total}
+                        </div>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-slate-500">
-                    <Filter className="w-3.5 h-3.5" />
-                    <span>Límite por página: 20 registros</span>
+                <div style={{
+                    background: "white",
+                    borderRadius: "14px",
+                    padding: "1.125rem 1.25rem",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem"
+                }}>
+                    <div style={{
+                        width: "42px",
+                        height: "42px",
+                        borderRadius: "10px",
+                        background: "#ecfdf5",
+                        color: "#10b981",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid #a7f3d0"
+                    }}>
+                        <Activity size={20} />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                            Estado de Captura
+                        </div>
+                        <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#059669", lineHeight: 1.2, marginTop: "0.2rem" }}>
+                            {total === 0 ? "100% Operativo Sin Excepciones" : "Capturando Excepciones"}
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{
+                    background: "white",
+                    borderRadius: "14px",
+                    padding: "1.125rem 1.25rem",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem"
+                }}>
+                    <div style={{
+                        width: "42px",
+                        height: "42px",
+                        borderRadius: "10px",
+                        background: "#eff6ff",
+                        color: "#3b82f6",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid #bfdbfe"
+                    }}>
+                        <Database size={20} />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                            Límite de Bitácora
+                        </div>
+                        <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#1e293b", lineHeight: 1.2, marginTop: "0.2rem" }}>
+                            20 registros por página
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Main Content Table */}
-            <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-sm">
+            {/* Content Table Card */}
+            <div style={{
+                background: "white",
+                borderRadius: "16px",
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.03)",
+                overflow: "hidden"
+            }}>
                 {loading && errores.length === 0 ? (
-                    <div className="p-16 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
-                        <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-                        <p className="text-sm font-medium text-slate-700">Cargando bitácora de excepciones...</p>
+                    <div style={{ padding: "4rem 2rem", textAlign: "center", color: "#64748b" }}>
+                        <RefreshCw size={32} style={{ animation: "spin 1s linear infinite", color: "#2563eb", margin: "0 auto 1rem" }} />
+                        <p style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#1e293b", margin: 0 }}>
+                            Cargando bitácora de excepciones del servidor...
+                        </p>
                     </div>
                 ) : errores.length === 0 ? (
-                    <div className="p-16 text-center text-slate-500 space-y-3">
-                        <div className="w-16 h-16 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full flex items-center justify-center mx-auto shadow-sm">
-                            <ShieldCheck className="w-8 h-8" />
+                    <div style={{ padding: "4rem 2rem", textAlign: "center" }}>
+                        <div style={{
+                            width: "64px",
+                            height: "64px",
+                            borderRadius: "50%",
+                            background: "#ecfdf5",
+                            color: "#059669",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            margin: "0 auto 1.25rem",
+                            border: "1px solid #a7f3d0"
+                        }}>
+                            <ShieldCheck size={32} />
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900">
-                            Sin excepciones en el servidor
+                        <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#0f172a", margin: "0 0 0.5rem" }}>
+                            Sin excepciones registradas en el servidor
                         </h3>
-                        <p className="text-sm text-slate-500 max-w-md mx-auto">
-                            No se han registrado fallos ni excepciones no capturadas. Las rutas y APIs operan normalmente.
+                        <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0, maxWidth: "480px", marginInline: "auto" }}>
+                            El sistema se encuentra operando correctamente sin excepciones no capturadas.
                         </p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-700">
-                            <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                                <tr>
-                                    <th className="px-6 py-3.5">Fecha y Hora</th>
-                                    <th className="px-6 py-3.5">Método y Ruta</th>
-                                    <th className="px-6 py-3.5">Mensaje del Error</th>
-                                    <th className="px-6 py-3.5 text-right">Acciones</th>
+                    <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
+                            <thead>
+                                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                                    <th style={{ padding: "0.875rem 1.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                        Fecha / Hora
+                                    </th>
+                                    <th style={{ padding: "0.875rem 1.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                        Método / Ruta
+                                    </th>
+                                    <th style={{ padding: "0.875rem 1.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                        Mensaje de Error
+                                    </th>
+                                    <th style={{ padding: "0.875rem 1.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>
+                                        Acción
+                                    </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody>
                                 {errores.map((err) => (
-                                    <tr key={err.id} className="hover:bg-slate-50/80 transition-colors">
-                                        <td className="px-6 py-4 text-xs whitespace-nowrap text-slate-500 font-mono">
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <tr key={err.id} style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.15s ease" }}>
+                                        <td style={{ padding: "1rem 1.25rem", fontFamily: "monospace", fontSize: "0.75rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                                <Clock size={14} color="#94a3b8" />
                                                 <span>{new Date(err.createdAt).toLocaleString("es-MX")}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-2.5 font-mono text-xs">
-                                                <span
-                                                    className={`px-2 py-0.5 rounded-md font-bold border ${
-                                                        err.metodo === "DELETE"
-                                                            ? "bg-rose-50 text-rose-700 border-rose-200"
-                                                            : err.metodo === "POST" || err.metodo === "PATCH" || err.metodo === "PUT"
-                                                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                                                            : "bg-blue-50 text-blue-700 border-blue-200"
-                                                    }`}
-                                                >
+                                        <td style={{ padding: "1rem 1.25rem", whiteSpace: "nowrap" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                <span style={{
+                                                    fontSize: "0.6875rem",
+                                                    fontWeight: 800,
+                                                    fontFamily: "monospace",
+                                                    padding: "0.2rem 0.5rem",
+                                                    borderRadius: "6px",
+                                                    background: err.metodo === "DELETE" ? "#fef2f2" : err.metodo === "POST" || err.metodo === "PATCH" || err.metodo === "PUT" ? "#fffbeb" : "#eff6ff",
+                                                    color: err.metodo === "DELETE" ? "#b91c1c" : err.metodo === "POST" || err.metodo === "PATCH" || err.metodo === "PUT" ? "#b45309" : "#1d4ed8",
+                                                    border: `1px solid ${err.metodo === "DELETE" ? "#fecaca" : err.metodo === "POST" || err.metodo === "PATCH" || err.metodo === "PUT" ? "#fde68a" : "#bfdbfe"}`
+                                                }}>
                                                     {err.metodo}
                                                 </span>
-                                                <span className="font-semibold text-slate-800">{err.ruta}</span>
+                                                <span style={{ fontFamily: "monospace", fontSize: "0.8125rem", fontWeight: 700, color: "#1e293b" }}>
+                                                    {err.ruta}
+                                                </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 max-w-md">
-                                            <div className="p-2 rounded-lg bg-red-50/70 border border-red-100 text-red-700 font-mono text-xs truncate inline-block max-w-full">
+                                        <td style={{ padding: "1rem 1.25rem", maxWidth: "380px" }}>
+                                            <div style={{
+                                                background: "#fef2f2",
+                                                color: "#991b1b",
+                                                border: "1px solid #fee2e2",
+                                                padding: "0.4rem 0.75rem",
+                                                borderRadius: "8px",
+                                                fontFamily: "monospace",
+                                                fontSize: "0.75rem",
+                                                whiteSpace: "nowrap",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis"
+                                            }}>
                                                 {err.mensaje}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                                        <td style={{ padding: "1rem 1.25rem", textAlign: "right", whiteSpace: "nowrap" }}>
                                             <button
                                                 onClick={() => setErrorSeleccionado(err)}
-                                                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 active:scale-95 rounded-lg transition-all border border-slate-300 shadow-2xs inline-flex items-center gap-1.5 cursor-pointer"
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "0.4rem",
+                                                    background: "#f8fafc",
+                                                    color: "#334155",
+                                                    border: "1px solid #cbd5e1",
+                                                    padding: "0.4rem 0.85rem",
+                                                    borderRadius: "8px",
+                                                    fontSize: "0.75rem",
+                                                    fontWeight: 700,
+                                                    cursor: "pointer",
+                                                    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                                                    transition: "all 0.15s ease"
+                                                }}
                                             >
-                                                <FileText className="w-3.5 h-3.5 text-slate-500" />
-                                                Ver Detalle
+                                                <FileText size={14} color="#64748b" />
+                                                <span>Ver Stack</span>
                                             </button>
                                         </td>
                                     </tr>
@@ -226,99 +443,210 @@ export default function ErroresServidorPanel() {
                     </div>
                 )}
 
-                {/* Pagination */}
+                {/* Pagination Controls */}
                 {totalPages > 1 && (
-                    <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600 font-medium">
+                    <div style={{
+                        padding: "0.875rem 1.25rem",
+                        background: "#f8fafc",
+                        borderTop: "1px solid #e2e8f0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        fontSize: "0.8125rem",
+                        color: "#475569",
+                        fontWeight: 600
+                    }}>
                         <span>Página <strong>{page}</strong> de <strong>{totalPages}</strong></span>
-                        <div className="flex items-center gap-2">
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
                             <button
                                 onClick={() => cargarErrores(page - 1)}
                                 disabled={page === 1}
-                                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 rounded-lg transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.25rem",
+                                    padding: "0.4rem 0.85rem",
+                                    borderRadius: "8px",
+                                    background: "white",
+                                    border: "1px solid #cbd5e1",
+                                    color: "#334155",
+                                    fontWeight: 700,
+                                    cursor: page === 1 ? "not-allowed" : "pointer",
+                                    opacity: page === 1 ? 0.5 : 1
+                                }}
                             >
-                                <ChevronLeft className="w-4 h-4" />
+                                <ChevronLeft size={16} />
                                 Anterior
                             </button>
                             <button
                                 onClick={() => cargarErrores(page + 1)}
                                 disabled={page === totalPages}
-                                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 rounded-lg transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.25rem",
+                                    padding: "0.4rem 0.85rem",
+                                    borderRadius: "8px",
+                                    background: "white",
+                                    border: "1px solid #cbd5e1",
+                                    color: "#334155",
+                                    fontWeight: 700,
+                                    cursor: page === totalPages ? "not-allowed" : "pointer",
+                                    opacity: page === totalPages ? 0.5 : 1
+                                }}
                             >
                                 Siguiente
-                                <ChevronRight className="w-4 h-4" />
+                                <ChevronRight size={16} />
                             </button>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Modal Stack Trace */}
+            {/* Modal de Stack Trace - Modern Dialog */}
             {errorSeleccionado && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-white border border-slate-200 shadow-2xl rounded-2xl max-w-3xl w-full p-6 space-y-5 max-h-[85vh] overflow-y-auto">
-                        <div className="flex justify-between items-start border-b border-slate-100 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-red-50 text-red-600 rounded-xl border border-red-100">
-                                    <Code className="w-5 h-5" />
+                <div style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(15, 23, 42, 0.65)",
+                    backdropFilter: "blur(6px)",
+                    zIndex: 9999,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "1rem"
+                }}>
+                    <div style={{
+                        background: "white",
+                        borderRadius: "16px",
+                        border: "1px solid #e2e8f0",
+                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                        maxWidth: "750px",
+                        width: "100%",
+                        padding: "1.5rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "1.25rem",
+                        maxHeight: "85vh",
+                        overflowY: "auto"
+                    }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #f1f5f9", paddingBottom: "1rem" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                <div style={{
+                                    width: "40px",
+                                    height: "40px",
+                                    borderRadius: "10px",
+                                    background: "#fef2f2",
+                                    color: "#ef4444",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    border: "1px solid #fee2e2"
+                                }}>
+                                    <Code size={22} />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-slate-900">
+                                    <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
                                         Detalle de la Excepción
                                     </h3>
-                                    <p className="text-xs font-mono text-slate-500 mt-0.5">
-                                        <span className="font-bold text-slate-700">[{errorSeleccionado.metodo}]</span> {errorSeleccionado.ruta}
+                                    <p style={{ fontSize: "0.8125rem", fontFamily: "monospace", color: "#64748b", margin: "0.2rem 0 0" }}>
+                                        <strong>[{errorSeleccionado.metodo}]</strong> {errorSeleccionado.ruta}
                                     </p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setErrorSeleccionado(null)}
-                                className="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                                style={{
+                                    background: "#f1f5f9",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    padding: "0.4rem",
+                                    cursor: "pointer",
+                                    color: "#64748b",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                }}
                             >
-                                <X className="w-5 h-5" />
+                                <X size={18} />
                             </button>
                         </div>
 
-                        <div className="space-y-4">
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                             <div>
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Mensaje de Error:</span>
-                                <div className="p-3.5 bg-red-50/80 border border-red-200/80 rounded-xl text-red-900 font-mono text-xs mt-1.5 shadow-2xs font-semibold">
+                                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                    Mensaje de Error:
+                                </span>
+                                <div style={{
+                                    padding: "0.875rem",
+                                    background: "#fef2f2",
+                                    border: "1px solid #fee2e2",
+                                    borderRadius: "10px",
+                                    color: "#991b1b",
+                                    fontFamily: "monospace",
+                                    fontSize: "0.8125rem",
+                                    marginTop: "0.4rem",
+                                    fontWeight: 700
+                                }}>
                                     {errorSeleccionado.mensaje}
                                 </div>
                             </div>
 
                             {errorSeleccionado.stack && (
                                 <div>
-                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Stack Trace:</span>
-                                    <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl font-mono text-xs mt-1.5 overflow-x-auto whitespace-pre-wrap max-h-72 overflow-y-auto shadow-inner leading-relaxed border border-slate-800">
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                        Stack Trace:
+                                    </span>
+                                    <pre style={{
+                                        padding: "1rem",
+                                        background: "#0f172a",
+                                        color: "#e2e8f0",
+                                        borderRadius: "10px",
+                                        fontFamily: "monospace",
+                                        fontSize: "0.75rem",
+                                        marginTop: "0.4rem",
+                                        overflowX: "auto",
+                                        whitespace: "pre-wrap",
+                                        maxHeight: "260px",
+                                        overflowY: "auto",
+                                        lineHeight: 1.5
+                                    }}>
                                         {errorSeleccionado.stack}
                                     </pre>
                                 </div>
                             )}
 
-                            <div className="flex flex-wrap gap-4 text-xs text-slate-600 pt-3 border-t border-slate-100 font-mono bg-slate-50 p-3 rounded-xl">
-                                <span className="flex items-center gap-1.5">
-                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                    <strong className="text-slate-700">Fecha:</strong> {new Date(errorSeleccionado.createdAt).toLocaleString("es-MX")}
-                                </span>
-                                {errorSeleccionado.userId && (
-                                    <span className="flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-slate-400" />
-                                        <strong className="text-slate-700">Usuario ID:</strong> {errorSeleccionado.userId}
-                                    </span>
-                                )}
-                                {errorSeleccionado.tenantId && (
-                                    <span className="flex items-center gap-1.5">
-                                        <Server className="w-3.5 h-3.5 text-slate-400" />
-                                        <strong className="text-slate-700">Tenant:</strong> {errorSeleccionado.tenantId}
-                                    </span>
-                                )}
+                            <div style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "1rem",
+                                fontSize: "0.75rem",
+                                color: "#475569",
+                                fontFamily: "monospace",
+                                background: "#f8fafc",
+                                padding: "0.75rem 1rem",
+                                borderRadius: "10px",
+                                border: "1px solid #e2e8f0"
+                            }}>
+                                <span><strong>Fecha:</strong> {new Date(errorSeleccionado.createdAt).toLocaleString("es-MX")}</span>
+                                {errorSeleccionado.userId && <span><strong>Usuario ID:</strong> {errorSeleccionado.userId}</span>}
+                                {errorSeleccionado.tenantId && <span><strong>Tenant:</strong> {errorSeleccionado.tenantId}</span>}
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-2">
+                        <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: "0.5rem" }}>
                             <button
                                 onClick={() => setErrorSeleccionado(null)}
-                                className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                                style={{
+                                    padding: "0.5rem 1.25rem",
+                                    fontSize: "0.8125rem",
+                                    fontWeight: 700,
+                                    color: "#334155",
+                                    background: "#f1f5f9",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    cursor: "pointer"
+                                }}
                             >
                                 Cerrar
                             </button>
