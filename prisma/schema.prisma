@@ -118,6 +118,9 @@ model Programa {
   etiquetasArchivos String[]       @default([])
   recordatorioAuto Boolean          @default(false)
   esParaSupervision Boolean         @default(false)
+  activo           Boolean          @default(true)
+  visibleEnDirector Boolean         @default(true)
+  quienesPuedenSubir String[]       @default(["director"])
   createdAt        DateTime         @default(now())
 
   periodos PeriodoEntrega[]
@@ -353,6 +356,9 @@ model AdminSidebarConfig {
   showPAEC        Boolean @default(true)
   showCapems      Boolean @default(true)
   showExpedientes Boolean @default(true)
+  showOficios     Boolean @default(true)
+  showSparh       Boolean @default(true)
+  showBecas       Boolean @default(true)
 }
 
 // ─── Autoridades Educativas (Constancias) ────────
@@ -1364,6 +1370,8 @@ model OficioConfig {
   /// Notificaciones activas
   recordatorios48h    Boolean   @default(true)
   recordatorios12h    Boolean   @default(true)
+  activo              Boolean   @default(true)
+  visibleEnDirector   Boolean   @default(true)
 
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -1384,6 +1392,122 @@ model ErrorLog {
 
   @@index([tenantId])
   @@index([createdAt])
+}
+
+// ─── ATP-MOD-02: Plantillas de Personal SPARH / CENSUS ───
+
+enum EstadoPlantilla {
+  PENDIENTE
+  RECIBIDO
+  VALIDADO
+  CON_ERRORES
+  CORREGIR
+  LISTO_PARA_CORDE
+  ENTREGADO_A_CORDE
+  CARGADO
+  EN_VALIDACION
+  CONSOLIDADO
+}
+
+enum SeveridadInconsistencia {
+  INFO
+  ADVERTENCIA
+  ERROR_CRITICO
+}
+
+/// Registro de entregables y sábanas de plantillas de personal por escuela
+model PlantillaPersonalRegistro {
+  id                      String            @id @default(cuid())
+  tenantId                String
+  escuelaId               String?
+  escuelaNombre           String?
+  escuelaCCT              String?
+  nombreArchivo           String
+  sha256Hash              String
+  rutaArchivo             String?
+  pdfNombre               String?
+  pdfUrl                  String?
+  excelNombre             String?
+  excelUrl                String?
+  fechaEntregaPdf         DateTime?
+  fechaSubidaExcel        DateTime?
+  observacionesSupervision String?           @db.Text
+  totalRegistros          Int               @default(0)
+  totalHoras              Float             @default(0)
+  estado                  EstadoPlantilla   @default(PENDIENTE)
+  metadatos               Json?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  plazas                  PlantillaDetallePlaza[]
+  inconsistencias         PlantillaInconsistencia[]
+
+  @@index([tenantId])
+  @@index([tenantId, escuelaId])
+  @@index([tenantId, estado])
+}
+
+/// Detalle de plazas capturadas en la sábana de personal
+model PlantillaDetallePlaza {
+  id                  String                    @id @default(cuid())
+  tenantId            String
+  plantillaRegistroId String
+  escuelaCCT          String?
+  rfc                 String?
+  curp                String?
+  nombreDocente       String?
+  clavePlaza          String?
+  funcion             String?
+  horasAsignadas      Float                     @default(0)
+  tipoJornada         String?
+  esIncompatible      Boolean                   @default(false)
+  datosExtra          Json?
+  createdAt           DateTime                  @default(now())
+
+  plantillaRegistro   PlantillaPersonalRegistro @relation(fields: [plantillaRegistroId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([plantillaRegistroId])
+  @@index([tenantId, rfc])
+  @@index([tenantId, curp])
+}
+
+/// Inconsistencias y errores aritméticos/estructurales detectados en las plantillas
+model PlantillaInconsistencia {
+  id                  String                  @id @default(cuid())
+  tenantId            String
+  plantillaRegistroId String
+  escuelaCCT          String?
+  tipoInconsistencia  String                  // DUPLICADO_RFC, EXCESO_HORAS, CAMPO_VACIO, INCOMPATIBILIDAD_PLAZA
+  severidad           SeveridadInconsistencia @default(ADVERTENCIA)
+  filaNumero          Int?
+  columnaCampo        String?
+  valorEncontrado     String?
+  descripcion         String                  @db.Text
+  detalles            Json?
+  createdAt           DateTime                @default(now())
+
+  plantillaRegistro   PlantillaPersonalRegistro @relation(fields: [plantillaRegistroId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([plantillaRegistroId])
+  @@index([tenantId, tipoInconsistencia])
+}
+
+/// Configuración de validación y corte oficial para plantillas SPARH por tenant
+model PlantillaCorteConfig {
+  id                      String    @id @default(cuid())
+  tenantId                String    @unique
+  maxHorasJornadaDocente  Float     @default(40)
+  permitirDoblePlaza      Boolean   @default(false)
+  fechaCorteOficial       DateTime?
+  notificarInconsistencias Boolean   @default(true)
+  activo                  Boolean   @default(true)
+  visibleEnDirector       Boolean   @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([tenantId])
 }
 
 

@@ -68,11 +68,14 @@ import ReportesNivel from "./_componentes/ReportesNivel";
 import RankingEscuelas from "./_componentes/RankingEscuelas";
 import PlaneacionesAdminPanel from "./_componentes/PlaneacionesAdminPanel";
 import ProgramasModulosPorEscuela from "./_componentes/ProgramasModulosPorEscuela";
+import ActivacionModulosPanel from "./_componentes/ActivacionModulosPanel";
 import PermisosHerramientasIA from "./_componentes/PermisosHerramientasIA";
 import GestionNormativas from "./_componentes/GestionNormativas";
 import AuditoriaInteligentePanel from "./_componentes/AuditoriaInteligentePanel";
 import OficiosPanel from "./_componentes/OficiosPanel";
 import ErroresServidorPanel from "./_componentes/ErroresServidorPanel";
+import PlantillasSparhPanel from "./_componentes/PlantillasSparhPanel";
+import { FileSpreadsheet } from "lucide-react";
 
 // Componentes exclusivos para Supervisor
 import EntregasListado from "../director/_componentes/EntregasListado";
@@ -127,7 +130,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia" | "auditoria-inteligente" | "oficios" | "errores">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
+    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "activacion-modulos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia" | "auditoria-inteligente" | "oficios" | "plantillas-sparh" | "errores">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -135,7 +138,7 @@ export default function AdminDashboard({
         config: false,
         modulos: true,
     });
-    const [programasTab, setProgramasTab] = useState<"programas" | "modulos" | "matriz-escuelas" | "permisos-ia">("programas");
+    const [programasTab, setProgramasTab] = useState<"programas" | "activacion" | "modulos" | "matriz-escuelas" | "permisos-ia">("programas");
     const [iaTab, setIaTab] = useState<"rubricas" | "orquestador" | "llaves">("rubricas");
 
     const getSectionKey = (v: typeof vista): string => {
@@ -145,6 +148,8 @@ export default function AdminDashboard({
             case "ranking": return "avances"; // Using "avances" permission for ranking
             case "reportes-nivel": return "reportesNivel";
             case "auditoria-inteligente": return "auditoria_atp";
+            case "oficios": return "auditoria_atp";
+            case "plantillas-sparh": return "auditoria_atp";
             case "gestion-escuelas": return "escuelas";
             case "gestion-programas": return "programas";
             case "gestion-fechas": return "periodos";
@@ -868,6 +873,10 @@ export default function AdminDashboard({
                                         <FileText size={17} />
                                         <span>Oficios y Plazos</span>
                                     </button>
+                                    <button className={`sidebar-link ${vista === "plantillas-sparh" ? "active" : ""}`} onClick={() => navigate("plantillas-sparh")}>
+                                        <FileSpreadsheet size={17} />
+                                        <span>Plantillas SPARH</span>
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -930,6 +939,12 @@ export default function AdminDashboard({
                                     <button className={`sidebar-link ${vista === "gestion-programas" ? "active" : ""}`} onClick={() => navigate("gestion-programas")}>
                                         <Layers size={17} />
                                         <span>Programas y Módulos</span>
+                                    </button>
+                                )}
+                                {hasAccess("programas", "read") && (
+                                    <button className={`sidebar-link ${vista === "activacion-modulos" ? "active" : ""}`} onClick={() => navigate("activacion-modulos")}>
+                                        <ToggleLeft size={17} />
+                                        <span>Activación de Módulos</span>
                                     </button>
                                 )}
                                 {hasAccess("periodos", "read") && (
@@ -1315,6 +1330,12 @@ export default function AdminDashboard({
                                 Programas Regulares
                             </button>
                             <button
+                                onClick={() => setProgramasTab("activacion")}
+                                className={`tab-item ${programasTab === "activacion" ? "active" : ""}`}
+                            >
+                                ⚡ Activación y Permisos
+                            </button>
+                            <button
                                 onClick={() => setProgramasTab("modulos")}
                                 className={`tab-item ${programasTab === "modulos" ? "active" : ""}`}
                             >
@@ -1339,6 +1360,9 @@ export default function AdminDashboard({
                                 readOnly={!hasAccess("programas", "write")}
                                 onGoToPermisosIA={() => setProgramasTab("permisos-ia")}
                             />
+                        )}
+                        {programasTab === "activacion" && (
+                            <ActivacionModulosPanel />
                         )}
                         {programasTab === "modulos" && (
                             <PanelModulos 
@@ -1373,6 +1397,11 @@ export default function AdminDashboard({
                             />
                         )}
                     </div>
+                )}
+
+                {/* ========= VISTA: ACTIVACIÓN DE MÓDULOS Y PERMISOS ========= */}
+                {vista === "activacion-modulos" && (
+                    <ActivacionModulosPanel />
                 )}
 
                 {/* ========= VISTA: RECURSOS Y FORMATOS ========= */}
@@ -1533,6 +1562,11 @@ export default function AdminDashboard({
                 {/* ========= VISTA: OFICIOS Y PLAZOS (ATP-MOD-01) ========= */}
                 {vista === "oficios" && (
                     <OficiosPanel />
+                )}
+
+                {/* ========= VISTA: PLANTILLAS SPARH / CENSUS (ATP-MOD-02) ========= */}
+                {vista === "plantillas-sparh" && (
+                    <PlantillasSparhPanel readOnly={!hasAccess("auditoria_atp", "write")} />
                 )}
 
                 {/* ========= VISTA: ERRORES DEL SERVIDOR (P4) ========= */}

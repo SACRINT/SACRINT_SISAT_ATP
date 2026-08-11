@@ -61,6 +61,9 @@ export default function DirectorPortal({
     isDocumentosActive = false,
     isHorariosActive = true,
     isPlaneacionesActive = false,
+    isOficiosActive = true,
+    isSparhActive = true,
+    isBecasActive = true,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null; geminiApiKey?: string | null; permisos?: any };
     programas: ProgramaGroup[];
@@ -79,6 +82,9 @@ export default function DirectorPortal({
     isDocumentosActive?: boolean;
     isHorariosActive?: boolean;
     isPlaneacionesActive?: boolean;
+    isOficiosActive?: boolean;
+    isSparhActive?: boolean;
+    isBecasActive?: boolean;
 }) {
     const [tab, setTab] = useState<TabType>("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);

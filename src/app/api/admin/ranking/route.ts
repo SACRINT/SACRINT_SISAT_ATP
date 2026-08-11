@@ -21,6 +21,23 @@ export async function GET() {
             return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 400 });
         }
 
+        // Obtener configuración de SPARH para verificar si el módulo está activo
+        const sparhConfig = await prisma.plantillaCorteConfig.findUnique({
+            where: { tenantId: "zona004" }
+        });
+        const sparhActivo = sparhConfig?.activo ?? true;
+
+        // Obtener registros de plantillas por escuela para el módulo SPARH
+        const plantillasSparh = sparhActivo ? await prisma.plantillaPersonalRegistro.findMany({
+            where: { tenantId: "zona004" }
+        }) : [];
+
+        const plantillasMap = new Map<string, any>();
+        plantillasSparh.forEach((p) => {
+            if (p.escuelaId) plantillasMap.set(p.escuelaId, p);
+            if (p.escuelaCCT) plantillasMap.set(p.escuelaCCT, p);
+        });
+
         const escuelas = await prisma.escuela.findMany({
             where: { esDePrueba: false, esSupervision: false },
             include: {
@@ -42,31 +59,70 @@ export async function GET() {
             // Exclude EXENTO from required
             const entregasRequeridas = entregas.filter((e: any) => e.estado !== "EXENTO");
             
-            const totalRequeridas = entregasRequeridas.length;
+            let totalRequeridas = entregasRequeridas.length;
             const entregadas = entregasRequeridas.filter((e: any) => ["APROBADO", "ENTREGADO_FISICO", "EN_REVISION", "REQUIERE_CORRECCION"].includes(e.estado));
             const aprobadas = entregasRequeridas.filter((e: any) => ["APROBADO", "ENTREGADO_FISICO"].includes(e.estado));
+
+            // Evaluacion de entregable de módulo SPARH (si está activo)
+            let sparhAprobada = false;
+            let sparhEntregada = false;
+            let sparhATiempo = false;
+            let sparhPendienteCorreccion = false;
+            let sparhNoEntregada = false;
+
+            if (sparhActivo) {
+                totalRequeridas += 1;
+                const regSparh = plantillasMap.get(esc.id) || plantillasMap.get(esc.cct);
+                if (regSparh) {
+                    if (["VALIDADO", "LISTO_PARA_CORDE", "ENTREGADO_A_CORDE"].includes(regSparh.estado)) {
+                        sparhAprobada = true;
+                        sparhEntregada = true;
+                        aprobadas.push(regSparh);
+                        entregadas.push(regSparh);
+                    } else if (["RECIBIDO", "EN_VALIDACION", "CONSOLIDADO"].includes(regSparh.estado)) {
+                        sparhEntregada = true;
+                        entregadas.push(regSparh);
+                    } else if (["CON_ERRORES", "CORREGIR"].includes(regSparh.estado)) {
+                        sparhEntregada = true;
+                        sparhPendienteCorreccion = true;
+                        entregadas.push(regSparh);
+                    } else {
+                        sparhNoEntregada = true;
+                    }
+
+                    const fechaSubida = regSparh.fechaEntregaPdf || regSparh.fechaSubidaExcel || regSparh.updatedAt;
+                    const fechaLimite = sparhConfig?.fechaCorteOficial;
+                    if (sparhAprobada) {
+                        if (!fechaLimite || new Date(fechaSubida) <= new Date(fechaLimite)) {
+                            sparhATiempo = true;
+                        }
+                    }
+                } else {
+                    sparhNoEntregada = true;
+                }
+            }
 
             // TIPO A: entregó pero el director no atendió las correcciones señaladas por el ATP
             const docsConCorreccionesPendientes = entregasRequeridas.filter((e: any) =>
                 e.estado === "REQUIERE_CORRECCION"
-            ).length;
+            ).length + (sparhPendienteCorreccion ? 1 : 0);
 
             // TIPO B: nunca entregó nada — incumplimiento total (más grave que TIPO A)
             const docsNoEntregados = entregasRequeridas.filter((e: any) =>
                 ["PENDIENTE", "NO_ENTREGADO", "NO_APROBADO"].includes(e.estado)
-            ).length;
+            ).length + (sparhNoEntregada ? 1 : 0);
             
             // Check if all were on time (fechaSubida <= fechaLimite)
-            const todasAprobadasYATiempo = entregasRequeridas.length > 0 && entregasRequeridas.every((e: any) => {
-                const esAprobada = ["APROBADO", "ENTREGADO_FISICO"].includes(e.estado);
-                if (!esAprobada) return false;
-                if (!e.fechaSubida) return false;
-                
-                // Set the end of the day for fechaLimite
-                const limite = new Date(e.periodoEntrega.fechaLimite);
-                limite.setHours(23, 59, 59, 999);
-                return new Date(e.fechaSubida) <= limite;
-            });
+            const todasAprobadasYATiempo = (entregasRequeridas.length > 0 || sparhActivo) &&
+                entregasRequeridas.every((e: any) => {
+                    const esAprobada = ["APROBADO", "ENTREGADO_FISICO"].includes(e.estado);
+                    if (!esAprobada) return false;
+                    if (!e.fechaSubida) return false;
+                    
+                    const limite = new Date(e.periodoEntrega.fechaLimite);
+                    limite.setHours(23, 59, 59, 999);
+                    return new Date(e.fechaSubida) <= limite;
+                }) && (!sparhActivo || sparhATiempo);
 
             const cumplimiento = totalRequeridas > 0 ? (aprobadas.length / totalRequeridas) * 100 : 100;
             const entregadasPorcentaje = totalRequeridas > 0 ? (entregadas.length / totalRequeridas) * 100 : 100;

@@ -32,8 +32,9 @@ export default async function SupervisionPage() {
         orderBy: { inicio: "desc" },
     });
 
-    // Fetch programas with periodos and entregas
+    // Fetch programas con filtro de activos
     const programas = await prisma.programa.findMany({
+        where: { activo: true },
         orderBy: { orden: "asc" },
         include: {
             periodos: {
@@ -149,6 +150,9 @@ export default async function SupervisionPage() {
         showPAEC: sidebarConfigRaw?.showPAEC ?? true,
         showCapems: sidebarConfigRaw?.showCapems ?? true,
         showExpedientes: sidebarConfigRaw?.showExpedientes ?? true,
+        showOficios: sidebarConfigRaw?.showOficios ?? true,
+        showSparh: sidebarConfigRaw?.showSparh ?? true,
+        showBecas: sidebarConfigRaw?.showBecas ?? true,
     };
 
     // Calculate stats from active periods only

@@ -81,7 +81,7 @@ export default async function DirectorPage() {
 
     // Group entregas by programa
     const programasMap: Record<string, {
-        programa: { id: string; nombre: string; numArchivos: number; tipo: string; etiquetasArchivos?: string[] };
+        programa: { id: string; nombre: string; numArchivos: number; tipo: string; etiquetasArchivos?: string[]; activo?: boolean; visibleEnDirector?: boolean; quienesPuedenSubir?: string[] };
         entregas: typeof entregas;
     }> = {};
 
@@ -95,7 +95,10 @@ export default async function DirectorPage() {
                     nombre: prog.nombre,
                     numArchivos: customNumArchivos !== undefined ? customNumArchivos : prog.numArchivos,
                     tipo: prog.tipo,
-                    etiquetasArchivos: (prog.etiquetasArchivos as string[]) || []
+                    etiquetasArchivos: (prog.etiquetasArchivos as string[]) || [],
+                    activo: (prog as any).activo ?? true,
+                    visibleEnDirector: (prog as any).visibleEnDirector ?? true,
+                    quienesPuedenSubir: (prog as any).quienesPuedenSubir || ["director"]
                 },
                 entregas: [],
             };
@@ -112,13 +115,15 @@ export default async function DirectorPage() {
         : (configGlobal?.activoGlobalHorarios ?? true) && permisosEscuela.horariosDesactivado !== true;
     const programasInactivos: string[] = permisosEscuela.programasInactivos || [];
 
-    // Filtrar programas inactivos para esta escuela
+    // Filtrar programas inactivos para esta escuela o desactivados globalmente
     const programasFiltrados = Object.values(programasMap).filter(
-        (p) => !programasInactivos.includes(p.programa.id)
+        (p) => !programasInactivos.includes(p.programa.id) &&
+               p.programa.activo !== false &&
+               p.programa.visibleEnDirector !== false
     );
 
     // Fetch configs globales para los tabs
-    const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig, planeacionesConfig] = await Promise.all([
+    const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig, planeacionesConfig, oficiosConfig, sparhConfig] = await Promise.all([
         prisma.adminSidebarConfig.findUnique({ where: { id: "singleton" } }),
         prisma.eventosConfig.findUnique({ where: { id: "singleton" } }),
         prisma.circular05Config.findUnique({ where: { id: "singleton" } }),
@@ -127,6 +132,8 @@ export default async function DirectorPage() {
         prisma.capemsConfig.findFirst(),
         prisma.expedientesConfig.findUnique({ where: { id: "singleton" } }),
         prisma.planeacionesConfig.findUnique({ where: { id: "singleton" } }),
+        prisma.oficioConfig.findUnique({ where: { tenantId: "zona004" } }),
+        prisma.plantillaCorteConfig.findUnique({ where: { tenantId: "zona004" } }),
     ]);
 
     const isEventosActive = (eventosConfig?.activo ?? false) && (sidebarConfig?.showEventos ?? true);
@@ -135,6 +142,9 @@ export default async function DirectorPage() {
     const isPAECActive = (paecConfig?.activo ?? false) && (sidebarConfig?.showPAEC ?? true);
     const isCapemsActive = (capemsConfig?.activo ?? false) && (sidebarConfig?.showCapems ?? true);
     const isExpedientesActive = (expedientesConfig?.activo ?? false) && (sidebarConfig?.showExpedientes ?? true);
+    const isOficiosActive = (oficiosConfig?.activo ?? true) && (sidebarConfig?.showOficios ?? true);
+    const isSparhActive = (sparhConfig?.activo ?? true) && (sidebarConfig?.showSparh ?? true);
+    const isBecasActive = (sidebarConfig?.showBecas ?? true);
     const isPlaneacionesActive = escuela.esDePrueba || (planeacionesConfig ? planeacionesConfig.modoSinRestricciones : true)
         ? true
         : (planeacionesConfig ? planeacionesConfig.activoGlobal : true) && permisosEscuela.planeacionesDesactivado !== true;
@@ -158,6 +168,9 @@ export default async function DirectorPage() {
             isDocumentosActive={true}
             isHorariosActive={isHorariosActive}
             isPlaneacionesActive={isPlaneacionesActive}
+            isOficiosActive={isOficiosActive}
+            isSparhActive={isSparhActive}
+            isBecasActive={isBecasActive}
         />
     );
 }
