@@ -137,7 +137,7 @@ export default function AdminDashboard({
         config: false,
         modulos: true,
     });
-    const [programasTab, setProgramasTab] = useState<"programas" | "modulos" | "matriz-escuelas" | "permisos-ia">("programas");
+    const [programasTab, setProgramasTab] = useState<"programas" | "matriz-escuelas" | "permisos-ia">("programas");
     const [iaTab, setIaTab] = useState<"rubricas" | "orquestador" | "llaves">("rubricas");
 
     const getSectionKey = (v: typeof vista): string => {
@@ -1320,13 +1320,7 @@ export default function AdminDashboard({
                                 onClick={() => setProgramasTab("programas")}
                                 className={`tab-item ${programasTab === "programas" ? "active" : ""}`}
                             >
-                                Programas Regulares
-                            </button>
-                            <button
-                                onClick={() => setProgramasTab("modulos")}
-                                className={`tab-item ${programasTab === "modulos" ? "active" : ""}`}
-                            >
-                                Módulos Especiales
+                                Programas y Módulos
                             </button>
                             <button
                                 onClick={() => setProgramasTab("matriz-escuelas")}
@@ -1342,17 +1336,18 @@ export default function AdminDashboard({
                             </button>
                         </div>
                         {programasTab === "programas" && (
-                            <GestionProgramas 
-                                inicialProgramas={programas} 
-                                readOnly={!hasAccess("programas", "write")}
-                                onGoToPermisosIA={() => setProgramasTab("permisos-ia")}
-                            />
-                        )}
-                        {programasTab === "modulos" && (
-                            <PanelModulos 
-                                sidebarConfig={sidebarConfig} 
-                                readOnly={!hasAccess("modulosControl", "write")}
-                            />
+                            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                                <GestionProgramas 
+                                    inicialProgramas={programas} 
+                                    readOnly={!hasAccess("programas", "write")}
+                                    onGoToPermisosIA={() => setProgramasTab("permisos-ia")}
+                                />
+                                <hr style={{ border: "0", borderTop: "1px solid var(--border)" }} />
+                                <PanelModulos 
+                                    sidebarConfig={sidebarConfig} 
+                                    readOnly={!hasAccess("modulosControl", "write")}
+                                />
+                            </div>
                         )}
                         {programasTab === "matriz-escuelas" && (
                             <ProgramasModulosPorEscuela 
