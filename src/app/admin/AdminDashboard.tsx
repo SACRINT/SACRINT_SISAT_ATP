@@ -130,7 +130,7 @@ export default function AdminDashboard({
         showExpedientes: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "activacion-modulos" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia" | "auditoria-inteligente" | "oficios" | "plantillas-sparh" | "errores">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
+    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia" | "auditoria-inteligente" | "oficios" | "plantillas-sparh" | "errores">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -941,12 +941,6 @@ export default function AdminDashboard({
                                         <span>Programas y Módulos</span>
                                     </button>
                                 )}
-                                {hasAccess("programas", "read") && (
-                                    <button className={`sidebar-link ${vista === "activacion-modulos" ? "active" : ""}`} onClick={() => navigate("activacion-modulos")}>
-                                        <ToggleLeft size={17} />
-                                        <span>Activación de Módulos</span>
-                                    </button>
-                                )}
                                 {hasAccess("periodos", "read") && (
                                     <button className={`sidebar-link ${vista === "gestion-fechas" ? "active" : ""}`} onClick={() => navigate("gestion-fechas")}>
                                         <Calendar size={17} />
@@ -1333,7 +1327,7 @@ export default function AdminDashboard({
                                 onClick={() => setProgramasTab("activacion")}
                                 className={`tab-item ${programasTab === "activacion" ? "active" : ""}`}
                             >
-                                ⚡ Activación y Permisos
+                                Activación de Módulos
                             </button>
                             <button
                                 onClick={() => setProgramasTab("modulos")}
@@ -1397,11 +1391,6 @@ export default function AdminDashboard({
                             />
                         )}
                     </div>
-                )}
-
-                {/* ========= VISTA: ACTIVACIÓN DE MÓDULOS Y PERMISOS ========= */}
-                {vista === "activacion-modulos" && (
-                    <ActivacionModulosPanel />
                 )}
 
                 {/* ========= VISTA: RECURSOS Y FORMATOS ========= */}

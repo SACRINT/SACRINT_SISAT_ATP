@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
         }
 
         const data = await request.json();
-        const { nombre, descripcion, tipo, numArchivos, orden, etiquetasArchivos, esParaSupervision } = data;
+        const { nombre, descripcion, tipo, numArchivos, orden, etiquetasArchivos, esParaSupervision, activo, visibleEnDirector, quienesPuedenSubir } = data;
 
         if (!nombre || !tipo) {
             return NextResponse.json({ error: "El nombre y el tipo son requeridos" }, { status: 400 });
@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
                 orden: parseInt(orden) || 0,
                 etiquetasArchivos: Array.isArray(etiquetasArchivos) ? etiquetasArchivos : [],
                 esParaSupervision: esParaSupervision === true,
+                activo: activo !== undefined ? activo === true : true,
+                visibleEnDirector: visibleEnDirector !== undefined ? visibleEnDirector === true : true,
+                quienesPuedenSubir: Array.isArray(quienesPuedenSubir) ? quienesPuedenSubir : ["director"],
             },
         });
 

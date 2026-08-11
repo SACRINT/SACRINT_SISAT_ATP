@@ -18,6 +18,9 @@ interface ProgramaAdmin {
     orden: number;
     etiquetasArchivos?: string[];
     esParaSupervision?: boolean;
+    activo?: boolean;
+    visibleEnDirector?: boolean;
+    quienesPuedenSubir?: string[];
     recordatorioAuto?: boolean;
     periodos: PeriodoAdmin[];
 }
@@ -48,6 +51,9 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
         orden: 0,
         etiquetasArchivos: [] as string[],
         esParaSupervision: false,
+        activo: true,
+        visibleEnDirector: true,
+        quienesPuedenSubir: ["director"] as string[],
     });
 
     const handleOpenModal = (prog?: ProgramaAdmin) => {
@@ -62,6 +68,9 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
                 orden: prog.orden,
                 etiquetasArchivos: prog.etiquetasArchivos || [],
                 esParaSupervision: prog.esParaSupervision || false,
+                activo: prog.activo ?? true,
+                visibleEnDirector: prog.visibleEnDirector ?? true,
+                quienesPuedenSubir: prog.quienesPuedenSubir || ["director"],
             });
         } else {
             setEditingId(null);
@@ -73,6 +82,9 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
                 orden: 0,
                 etiquetasArchivos: [],
                 esParaSupervision: false,
+                activo: true,
+                visibleEnDirector: true,
+                quienesPuedenSubir: ["director"],
             });
         }
         setIsModalOpen(true);
@@ -314,6 +326,15 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
                             <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
                                 <Layers size={12} /> {prog.numArchivos} Documento(s) req.
                             </span>
+                            <span style={{ fontSize: "0.75rem", background: prog.activo !== false ? "rgba(16,185,129,0.1)" : "var(--bg-secondary)", color: prog.activo !== false ? "#10b981" : "var(--text-muted)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)" }}>
+                                {prog.activo !== false ? "● Activo" : "○ Inactivo"}
+                            </span>
+                            <span style={{ fontSize: "0.75rem", background: prog.visibleEnDirector !== false ? "rgba(99,102,241,0.1)" : "var(--bg-secondary)", color: prog.visibleEnDirector !== false ? "#6366f1" : "var(--text-muted)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)" }}>
+                                {prog.visibleEnDirector !== false ? "Eye Director" : "Hidden Director"}
+                            </span>
+                            <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)" }}>
+                                Suben: {(prog.quienesPuedenSubir || ["director"]).join(", ")}
+                            </span>
                             {prog.esParaSupervision && (
                                 <span style={{ fontSize: "0.75rem", background: "#fef3c7", color: "#d97706", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid #fde68a", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
                                     Supervisión
@@ -466,6 +487,57 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
                                     </div>
                                 </div>
                             )}
+
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", background: "var(--bg-secondary)", padding: "0.75rem", borderRadius: "8px" }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer" }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.activo}
+                                        onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
+                                        disabled={isLoading}
+                                    />
+                                    Programa Activo
+                                </label>
+                                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer" }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.visibleEnDirector}
+                                        onChange={(e) => setFormData({ ...formData, visibleEnDirector: e.target.checked })}
+                                        disabled={isLoading}
+                                    />
+                                    Visible en Director
+                                </label>
+                            </div>
+
+                            <div style={{ background: "var(--bg-secondary)", padding: "0.75rem", borderRadius: "8px" }}>
+                                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8125rem", fontWeight: 600 }}>Permisos de Subida de Documentos</label>
+                                <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                                    {[
+                                        { rol: "director", label: "Director" },
+                                        { rol: "atp", label: "ATP" },
+                                        { rol: "supervisor", label: "Supervisor" }
+                                    ].map((r) => {
+                                        const checked = formData.quienesPuedenSubir.includes(r.rol);
+                                        return (
+                                            <label key={r.rol} style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem", cursor: "pointer" }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={() => {
+                                                        const existe = formData.quienesPuedenSubir.includes(r.rol);
+                                                        const nuevos = existe
+                                                            ? formData.quienesPuedenSubir.filter(x => x !== r.rol)
+                                                            : [...formData.quienesPuedenSubir, r.rol];
+                                                        setFormData({ ...formData, quienesPuedenSubir: nuevos.length > 0 ? nuevos : ["director"] });
+                                                    }}
+                                                    disabled={isLoading}
+                                                />
+                                                {r.label}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
                             <div>
                                 <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer" }}>
