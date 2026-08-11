@@ -68,7 +68,6 @@ import ReportesNivel from "./_componentes/ReportesNivel";
 import RankingEscuelas from "./_componentes/RankingEscuelas";
 import PlaneacionesAdminPanel from "./_componentes/PlaneacionesAdminPanel";
 import ProgramasModulosPorEscuela from "./_componentes/ProgramasModulosPorEscuela";
-import ActivacionModulosPanel from "./_componentes/ActivacionModulosPanel";
 import PermisosHerramientasIA from "./_componentes/PermisosHerramientasIA";
 import GestionNormativas from "./_componentes/GestionNormativas";
 import AuditoriaInteligentePanel from "./_componentes/AuditoriaInteligentePanel";
@@ -138,7 +137,7 @@ export default function AdminDashboard({
         config: false,
         modulos: true,
     });
-    const [programasTab, setProgramasTab] = useState<"programas" | "activacion" | "modulos" | "matriz-escuelas" | "permisos-ia">("programas");
+    const [programasTab, setProgramasTab] = useState<"programas" | "modulos" | "matriz-escuelas" | "permisos-ia">("programas");
     const [iaTab, setIaTab] = useState<"rubricas" | "orquestador" | "llaves">("rubricas");
 
     const getSectionKey = (v: typeof vista): string => {
@@ -1324,12 +1323,6 @@ export default function AdminDashboard({
                                 Programas Regulares
                             </button>
                             <button
-                                onClick={() => setProgramasTab("activacion")}
-                                className={`tab-item ${programasTab === "activacion" ? "active" : ""}`}
-                            >
-                                Activación de Módulos
-                            </button>
-                            <button
                                 onClick={() => setProgramasTab("modulos")}
                                 className={`tab-item ${programasTab === "modulos" ? "active" : ""}`}
                             >
@@ -1354,9 +1347,6 @@ export default function AdminDashboard({
                                 readOnly={!hasAccess("programas", "write")}
                                 onGoToPermisosIA={() => setProgramasTab("permisos-ia")}
                             />
-                        )}
-                        {programasTab === "activacion" && (
-                            <ActivacionModulosPanel />
                         )}
                         {programasTab === "modulos" && (
                             <PanelModulos 

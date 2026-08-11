@@ -12,12 +12,16 @@ import { useRouter } from "next/navigation";
 // ─── Types ──────────────────────────────────────────────────────────────
 
 interface ModuloInfo {
-    key: keyof SidebarConfig;
+    key: string;
     nombre: string;
     descripcion: string;
     icon: React.ReactNode;
     color: string;
     configEndpoint: string;    // GET/POST endpoint for activo + fechaLimite
+    configPath?: string;       // Ruta (dot) del flag activo dentro de la respuesta GET (configEndpoint)
+    configModule?: string;     // Discriminador enviado en el POST (cuando el endpoint es compartido)
+    allowFecha?: boolean;      // false oculta la sección de fecha límite (default true)
+    showSidebarChip?: boolean; // false oculta el chip de visibilidad en menú (default true)
     dataEndpoint?: string;     // Optional: GET for count of inscriptions/entries
     countLabel?: string;       // Label shown with count
 }
@@ -105,9 +109,55 @@ const MODULOS: ModuloInfo[] = [
         dataEndpoint: "/api/expedientes/personal",
         countLabel: "personas registradas",
     },
+    {
+        key: "showOficios",
+        nombre: "Oficios",
+        descripcion: "Generación de oficios de gestión interna del ATP (Oficio D01).",
+        icon: <FileText size={22} />,
+        color: "#8b5cf6",
+        configEndpoint: "/api/admin/modulos-activacion",
+        configPath: "oficiosConfig.activo",
+        configModule: "oficios",
+        allowFecha: false,
+        showSidebarChip: false,
+    },
+    {
+        key: "showSparh",
+        nombre: "Plantillas SPARH",
+        descripcion: "Corte de plantillas SPARH por disciplina académica.",
+        icon: <GraduationCap size={22} />,
+        color: "#06b6d4",
+        configEndpoint: "/api/admin/modulos-activacion",
+        configPath: "sparhConfig.activo",
+        configModule: "sparh",
+        allowFecha: false,
+        showSidebarChip: false,
+    },
+    {
+        key: "showBecas",
+        nombre: "Becas (Convocatorias)",
+        descripcion: "Publicación de convocatorias de becas para las escuelas.",
+        icon: <BookMarked size={22} />,
+        color: "#f97316",
+        configEndpoint: "/api/admin/modulos-activacion",
+        configPath: "sidebarConfig.showBecas",
+        configModule: "becas",
+        allowFecha: false,
+        showSidebarChip: false,
+    },
 ];
 
 // ─── Helper ─────────────────────────────────────────────────────────────
+
+function getPath(obj: Record<string, unknown> | undefined, path: string): unknown {
+    if (!obj) return undefined;
+    return path.split(".").reduce<unknown>((acc, key) => {
+        if (acc && typeof acc === "object" && key in (acc as Record<string, unknown>)) {
+            return (acc as Record<string, unknown>)[key];
+        }
+        return undefined;
+    }, obj);
+}
 
 function toInputDate(iso: string | null): string {
     if (!iso) return "";
@@ -147,7 +197,7 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
     });
     const [loading, setLoading] = useState(true);
     const [savingSidebar, setSavingSidebar] = useState<string | null>(null);
-    const [localSidebar, setLocalSidebar] = useState(sidebarConfig);
+    const [localSidebar, setLocalSidebar] = useState<Record<string, boolean>>(sidebarConfig as unknown as Record<string, boolean>);
     const [globalMessage, setGlobalMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // AI Config States
@@ -167,8 +217,9 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
                 const res = await fetch(m.configEndpoint);
                 if (res.ok) {
                     const data = await res.json();
+                    const activoVal = m.configPath ? getPath(data, m.configPath) : data.activo;
                     updates[m.key] = {
-                        activo: data.activo ?? false,
+                        activo: typeof activoVal === "boolean" ? activoVal : false,
                         fechaLimite: data.fechaLimite ?? null,
                         fechaInput: toInputDate(data.fechaLimite ?? null),
                     };
@@ -223,7 +274,10 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
             const res = await fetch(modulo.configEndpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ activo: !current.activo }),
+                body: JSON.stringify({
+                    activo: !current.activo,
+                    ...(modulo.configModule ? { modulo: modulo.configModule } : {}),
+                }),
             });
             if (res.ok) {
                 setStates(prev => ({
@@ -247,6 +301,7 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
     // ─── Save fecha límite ──────────────────────────────────────────────
 
     async function handleSaveFecha(modulo: ModuloInfo) {
+        if (modulo.allowFecha === false) return;
         const fechaInput = states[modulo.key].fechaInput;
         setStates(prev => ({ ...prev, [modulo.key]: { ...prev[modulo.key], savingFecha: true, error: null } }));
 
@@ -326,7 +381,7 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
 
     // ─── Toggle sidebar visibility ──────────────────────────────────────
 
-    async function handleToggleSidebar(key: keyof SidebarConfig) {
+    async function handleToggleSidebar(key: string) {
         setSavingSidebar(key);
         const newVal = !localSidebar[key];
         try {
@@ -483,7 +538,8 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
                                     )}
 
                                     {/* Sidebar visibility chip */}
-                                    <button
+                                    {modulo.showSidebarChip !== false && (
+                                        <button
                                         onClick={() => handleToggleSidebar(modulo.key)}
                                         disabled={readOnly || isSavingSidebar}
                                         style={{
@@ -500,7 +556,8 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
                                             ? <Loader2 size={10} className="spin" />
                                             : sidebarVisible ? <Eye size={10} /> : <EyeOff size={10} />}
                                         {sidebarVisible ? "Visible en menú" : "Oculto en menú"}
-                                    </button>
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Error */}
@@ -512,6 +569,7 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
                             </div>
 
                             {/* Fecha límite section */}
+                            {modulo.allowFecha !== false && (
                             <div style={{ padding: "0.75rem 1rem", background: "var(--bg-secondary)" }}>
                                 <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
                                     <Calendar size={12} /> Fecha Límite
@@ -541,6 +599,7 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
                                     </button>
                                 </div>
                             </div>
+                            )}
                         </div>
                     );
                 })}

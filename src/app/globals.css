@@ -922,4 +922,40 @@ h3 {
   justify-content: center;
   font-weight: 700;
   font-size: 0.875rem;
+}
+
+/* ==========================================================================
+   MATRIZ PROGRAMAS Y MÓDULOS POR ESCUELA — tabla con scroll contenido,
+   encabezado fijo y primera columna (Escuela/CCT) fija
+   ========================================================================== */
+
+.matriz-escuelas-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.matriz-escuelas-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border);
+}
+
+.matriz-escuelas-table thead th:first-child {
+  left: 0;
+  z-index: 4;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
+}
+
+.matriz-escuelas-table tbody td {
+  border-bottom: 1px solid var(--border);
+}
+
+.matriz-escuelas-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
 }

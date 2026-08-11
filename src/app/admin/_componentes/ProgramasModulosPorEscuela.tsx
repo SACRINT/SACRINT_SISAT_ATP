@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { Settings2 } from "lucide-react";
+import { Settings2, ToggleLeft, ToggleRight } from "lucide-react";
 import { ProgramaAdmin } from "@/types";
 
 type Escuela = {
@@ -271,8 +271,8 @@ export default function ProgramasModulosPorEscuela({
             </div>
 
             {/* Tabla Matriz Interactivas */}
-            <div style={{ border: "1px solid var(--border)", borderRadius: "12px", overflowX: "auto", background: "var(--bg)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+            <div style={{ border: "1px solid var(--border)", borderRadius: "12px", overflow: "auto", maxHeight: "65vh", background: "var(--bg)" }}>
+                <table className="matriz-escuelas-table" style={{ width: "100%", fontSize: "0.8125rem" }}>
                     {(() => {
                         const escuelasLista = escuelas.filter(e => !e.esSupervision);
                         const todosHorariosActivos = escuelasLista.every(e => e.permisos?.horariosDesactivado !== true);
@@ -284,7 +284,7 @@ export default function ProgramasModulosPorEscuela({
 
                         return (
                             <thead>
-                                <tr style={{ background: "var(--bg-secondary)", borderBottom: "2px solid var(--border)", textAlign: "left" }}>
+                                <tr style={{ background: "var(--bg-secondary)", textAlign: "left" }}>
                                     <th style={{ padding: "0.75rem 1rem", fontWeight: 800, color: "var(--text)", verticalAlign: "top" }}>Escuela / CCT</th>
                                     
                                     {/* Columna Horarios IA con Botón Único Master */}
@@ -465,52 +465,42 @@ export default function ProgramasModulosPorEscuela({
                                     </td>
 
                                     {/* Toggle Horarios IA */}
-                                    <td style={{ textAlign: "center", padding: "0.75rem" }}>
+                                    <td style={{ textAlign: "center", padding: "0.375rem" }}>
                                         <button
                                             type="button"
                                             disabled={saving || readOnly}
                                             onClick={() => handleToggleHorariosEscuela(esc.id, horariosActivo)}
+                                            title={horariosActivo ? `Desactivar Horarios IA en ${esc.nombre}` : `Activar Horarios IA en ${esc.nombre}`}
                                             style={{
-                                                padding: "0.35rem 0.75rem",
-                                                borderRadius: "20px",
-                                                fontWeight: 800,
-                                                fontSize: "0.725rem",
+                                                background: "none",
                                                 border: "none",
-                                                cursor: (saving || readOnly) ? "not-allowed" : "pointer",
-                                                opacity: (saving || readOnly) ? 0.7 : 1,
-                                                background: horariosActivo ? "#dcfce7" : "#fee2e2",
-                                                color: horariosActivo ? "#15803d" : "#b91c1c",
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: "0.35rem"
+                                                cursor: (saving || readOnly) ? "default" : "pointer",
+                                                padding: "4px"
                                             }}
                                         >
-                                            {horariosActivo ? "🟢 Activo" : "🔴 Desactivado"}
+                                            {horariosActivo
+                                                ? <ToggleRight size={22} style={{ color: "#10b981" }} />
+                                                : <ToggleLeft size={22} style={{ color: "#ef4444" }} />}
                                         </button>
                                     </td>
 
                                     {/* Toggle Planeaciones IA */}
-                                    <td style={{ textAlign: "center", padding: "0.75rem" }}>
+                                    <td style={{ textAlign: "center", padding: "0.375rem" }}>
                                         <button
                                             type="button"
                                             disabled={saving || readOnly}
                                             onClick={() => handleTogglePlaneacionesEscuela(esc.id, permisosEsc.planeacionesDesactivado === true)}
+                                            title={permisosEsc.planeacionesDesactivado === true ? `Activar Planeaciones IA en ${esc.nombre}` : `Desactivar Planeaciones IA en ${esc.nombre}`}
                                             style={{
-                                                padding: "0.35rem 0.75rem",
-                                                borderRadius: "20px",
-                                                fontWeight: 800,
-                                                fontSize: "0.725rem",
+                                                background: "none",
                                                 border: "none",
-                                                cursor: (saving || readOnly) ? "not-allowed" : "pointer",
-                                                opacity: (saving || readOnly) ? 0.7 : 1,
-                                                background: permisosEsc.planeacionesDesactivado === true ? "#fee2e2" : "#f3e8ff",
-                                                color: permisosEsc.planeacionesDesactivado === true ? "#b91c1c" : "#7c3aed",
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: "0.35rem"
+                                                cursor: (saving || readOnly) ? "default" : "pointer",
+                                                padding: "4px"
                                             }}
                                         >
-                                            {permisosEsc.planeacionesDesactivado === true ? "🔴 Desactivado" : "🟣 Activo"}
+                                            {permisosEsc.planeacionesDesactivado === true
+                                                ? <ToggleLeft size={22} style={{ color: "#ef4444" }} />
+                                                : <ToggleRight size={22} style={{ color: "#10b981" }} />}
                                         </button>
                                     </td>
 
@@ -562,30 +552,22 @@ export default function ProgramasModulosPorEscuela({
                                     {programas.map((prog) => {
                                         const progActivo = !programasInactivos.includes(prog.id) && !programasInactivos.includes(prog.nombre);
                                         return (
-                                            <td key={prog.id} style={{ textAlign: "center", padding: "0.5rem" }}>
+                                            <td key={prog.id} style={{ textAlign: "center", padding: "0.375rem" }}>
                                                 <button
                                                     type="button"
                                                     disabled={saving || readOnly}
                                                     onClick={() => handleToggleProgramaEscuela(esc.id, prog.id, prog.nombre, !progActivo)}
-                                                    title={progActivo ? `Haga clic para desactivar ${prog.nombre} en ${esc.nombre}` : `Haga clic para activar ${prog.nombre} en ${esc.nombre}`}
+                                                    title={progActivo ? `Desactivar ${prog.nombre} en ${esc.nombre}` : `Activar ${prog.nombre} en ${esc.nombre}`}
                                                     style={{
-                                                        padding: "0.35rem 0.65rem",
-                                                        borderRadius: "20px",
-                                                        fontWeight: 800,
-                                                        fontSize: "0.7rem",
+                                                        background: "none",
                                                         border: "none",
-                                                        cursor: (saving || readOnly) ? "not-allowed" : "pointer",
-                                                        opacity: (saving || readOnly) ? 0.7 : 1,
-                                                        background: progActivo ? "#dcfce7" : "#fee2e2",
-                                                        color: progActivo ? "#15803d" : "#b91c1c",
-                                                        display: "inline-flex",
-                                                        alignItems: "center",
-                                                        gap: "0.25rem",
-                                                        minWidth: "85px",
-                                                        justifyContent: "center"
+                                                        cursor: (saving || readOnly) ? "default" : "pointer",
+                                                        padding: "4px"
                                                     }}
                                                 >
-                                                    {progActivo ? "✓ Activo" : "✕ Inactivo"}
+                                                    {progActivo
+                                                        ? <ToggleRight size={22} style={{ color: "#10b981" }} />
+                                                        : <ToggleLeft size={22} style={{ color: "#ef4444" }} />}
                                                 </button>
                                             </td>
                                         );

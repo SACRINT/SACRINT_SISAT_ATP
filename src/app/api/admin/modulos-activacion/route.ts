@@ -77,6 +77,68 @@ export async function GET() {
     }
 }
 
+export async function POST(req: NextRequest) {
+    try {
+        const session = await auth();
+        const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
+        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+
+        if (!session) {
+            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        }
+
+        const body = await req.json();
+        const { modulo, activo } = body as { modulo?: string; activo?: boolean };
+
+        if (!modulo || typeof activo !== "boolean") {
+            return NextResponse.json({ error: "Faltan parámetros obligatorios (modulo, activo)" }, { status: 400 });
+        }
+
+        if (modulo === "oficios") {
+            await prisma.adminSidebarConfig.upsert({
+                where: { id: "singleton" },
+                update: { showOficios: activo },
+                create: { id: "singleton", showOficios: activo }
+            });
+            await prisma.oficioConfig.upsert({
+                where: { tenantId },
+                update: { activo, visibleEnDirector: activo },
+                create: { tenantId, activo, visibleEnDirector: activo }
+            });
+        } else if (modulo === "sparh") {
+            await prisma.adminSidebarConfig.upsert({
+                where: { id: "singleton" },
+                update: { showSparh: activo },
+                create: { id: "singleton", showSparh: activo }
+            });
+            await prisma.plantillaCorteConfig.upsert({
+                where: { tenantId },
+                update: { activo, visibleEnDirector: activo },
+                create: { tenantId, activo, visibleEnDirector: activo }
+            });
+        } else if (modulo === "becas") {
+            await prisma.adminSidebarConfig.upsert({
+                where: { id: "singleton" },
+                update: { showBecas: activo },
+                create: { id: "singleton", showBecas: activo }
+            });
+        } else {
+            return NextResponse.json({ error: `Módulo desconocido: ${modulo}` }, { status: 400 });
+        }
+
+        return NextResponse.json({ ok: true, activo });
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Error al actualizar activación de módulo";
+        await registrarError("zona004", {
+            mensaje: msg,
+            ruta: "/api/admin/modulos-activacion",
+            metodo: "POST",
+            stack: err instanceof Error ? err.stack : undefined
+        });
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
+}
+
 export async function PATCH(req: NextRequest) {
     try {
         const session = await auth();

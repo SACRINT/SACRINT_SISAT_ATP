@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Edit2, Save, Trash2, X, FileText, Settings, AlignLeft, Layers, Bell, ToggleLeft, ToggleRight, Send } from "lucide-react";
+import { Plus, Edit2, Save, Trash2, X, FileText, Settings, AlignLeft, Layers, Bell, ToggleLeft, ToggleRight, Send, Loader2, CheckCircle2, Clock, Eye, EyeOff } from "lucide-react";
 
 interface PeriodoAdmin {
     id: string;
@@ -199,6 +199,27 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
         }
     };
 
+    const handleToggleActivo = async (id: string, currentVal: boolean) => {
+        setIsLoading(true);
+        try {
+            const res = await fetch(`/api/programas/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ activo: !currentVal })
+            });
+            if (!res.ok) throw new Error("Error al cambiar estado del programa");
+            const updated = await res.json();
+            setProgramas(prev => prev.map(p => p.id === id ? { ...p, activo: updated.activo } : p));
+            setMessage({ type: "success", text: `Programa ${updated.activo ? "activado" : "desactivado"}.` });
+            setTimeout(() => setMessage(null), 3000);
+            router.refresh();
+        } catch (error: any) {
+            setMessage({ type: "error", text: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleOpenSendModal = (progId: string, progNombre: string) => {
         setSendModalProg({ id: progId, nombre: progNombre });
         setSendStatuses(["NO_ENTREGADO", "REQUIERE_CORRECCION"]);
@@ -286,88 +307,157 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.5rem" }}>
-                {programas.sort((a, b) => a.orden - b.orden).map(prog => (
-                    <div key={prog.id} className="card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "1rem" }}>
-                        <div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                                <h3 style={{ margin: 0, fontSize: "1.125rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                    <FileText size={18} color="var(--primary)" />
-                                    {prog.nombre}
-                                </h3>
-                                {!readOnly && (
-                                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                                        <button
-                                            className="btn-icon"
-                                            onClick={() => handleOpenModal(prog)}
-                                            style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.25rem" }}
-                                            title="Editar Programa"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            className="btn-icon"
-                                            onClick={() => handleDelete(prog.id, prog.periodos?.length || 0)}
-                                            style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: "0.25rem" }}
-                                            title="Eliminar Programa"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                {programas.sort((a, b) => a.orden - b.orden).map(prog => {
+                    const activo = prog.activo !== false;
+                    const visible = prog.visibleEnDirector !== false;
+                    return (
+                    <div key={prog.id} className="card" style={{
+                        padding: 0, overflow: "hidden",
+                        borderLeft: `4px solid ${activo ? "#10b981" : "var(--border)"}`,
+                        opacity: activo ? 1 : 0.75,
+                        transition: "opacity 0.2s ease, border-color 0.2s ease",
+                    }}>
+                        <div style={{ padding: "1rem", borderBottom: "1px solid var(--border)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+                                    {/* Icon */}
+                                    <div style={{
+                                        width: "44px", height: "44px", borderRadius: "12px", flexShrink: 0,
+                                        background: activo ? "rgba(16,185,129,0.1)" : "var(--bg-secondary)",
+                                        color: activo ? "#10b981" : "var(--text-muted)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        transition: "background 0.2s, color 0.2s",
+                                    }}>
+                                        <FileText size={22} />
                                     </div>
-                                )}
-                            </div>
-                            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", minHeight: "2.5rem" }}>
-                                {prog.descripcion || <em style={{ color: "var(--border)" }}>Sin descripción</em>}
-                            </p>
-                        </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                            <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                <AlignLeft size={12} /> {prog.tipo}
-                            </span>
-                            <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                <Layers size={12} /> {prog.numArchivos} Documento(s) req.
-                            </span>
-                            <span style={{ fontSize: "0.75rem", background: prog.activo !== false ? "rgba(16,185,129,0.1)" : "var(--bg-secondary)", color: prog.activo !== false ? "#10b981" : "var(--text-muted)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)" }}>
-                                {prog.activo !== false ? "● Activo" : "○ Inactivo"}
-                            </span>
-                            <span style={{ fontSize: "0.75rem", background: prog.visibleEnDirector !== false ? "rgba(99,102,241,0.1)" : "var(--bg-secondary)", color: prog.visibleEnDirector !== false ? "#6366f1" : "var(--text-muted)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)" }}>
-                                {prog.visibleEnDirector !== false ? "Eye Director" : "Hidden Director"}
-                            </span>
-                            <span style={{ fontSize: "0.75rem", background: "var(--bg)", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid var(--border)" }}>
-                                Suben: {(prog.quienesPuedenSubir || ["director"]).join(", ")}
-                            </span>
-                            {prog.esParaSupervision && (
-                                <span style={{ fontSize: "0.75rem", background: "#fef3c7", color: "#d97706", padding: "0.25rem 0.5rem", borderRadius: "4px", border: "1px solid #fde68a", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                    Supervisión
-                                </span>
-                            )}
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: "0.9375rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{prog.nombre}</div>
+                                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.125rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                            {prog.descripcion || "Sin descripción"}
+                                        </div>
+                                    </div>
+                                </div>
 
-                            {!readOnly && (
-                                <div style={{ width: "100%", marginTop: "0.5rem", paddingTop: "0.75rem", borderTop: "1px dashed var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                        <button
-                                            onClick={() => handleToggleAuto(prog.id, prog.recordatorioAuto || false)}
-                                            disabled={isLoading}
-                                            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", color: prog.recordatorioAuto ? "var(--primary)" : "var(--text-muted)" }}
-                                            title="Activar o desactivar recordatorios diarios a las 8AM"
-                                        >
-                                            {prog.recordatorioAuto ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                                            <span style={{ fontSize: "0.75rem", fontWeight: prog.recordatorioAuto ? 600 : 400 }}>Auto-Reminders</span>
-                                        </button>
-                                    </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", flexShrink: 0 }}>
+                                    {!readOnly && (
+                                        <>
+                                            <button
+                                                className="btn-icon"
+                                                onClick={() => handleOpenModal(prog)}
+                                                style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "4px" }}
+                                                title="Editar Programa"
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button
+                                                className="btn-icon"
+                                                onClick={() => handleDelete(prog.id, prog.periodos?.length || 0)}
+                                                style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", padding: "4px" }}
+                                                title="Eliminar Programa"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </>
+                                    )}
+                                    {/* Toggle activo */}
                                     <button
-                                        className="btn btn-outline"
-                                        style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", display: "flex", alignItems: "center", gap: "0.25rem", borderColor: "var(--primary)", color: "var(--primary)" }}
-                                        onClick={() => handleOpenSendModal(prog.id, prog.nombre)}
-                                        disabled={isLoading}
-                                        title="Disparar correos manualmente eligiendo estados"
+                                        onClick={() => handleToggleActivo(prog.id, activo)}
+                                        disabled={readOnly || isLoading}
+                                        style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", padding: "4px" }}
+                                        title={activo ? "Desactivar programa" : "Activar programa"}
                                     >
-                                        <Send size={12} /> Recordatorio Manual
+                                        {isLoading
+                                            ? <Loader2 size={30} className="spin" style={{ color: "var(--text-muted)" }} />
+                                            : activo
+                                                ? <ToggleRight size={34} style={{ color: "#10b981" }} />
+                                                : <ToggleLeft size={34} style={{ color: "var(--text-muted)" }} />}
                                     </button>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* Status chips */}
+                            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
+                                <span style={{
+                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                    fontSize: "0.7rem", fontWeight: 700, padding: "0.125rem 0.5rem",
+                                    borderRadius: "9999px",
+                                    background: activo ? "rgba(16,185,129,0.1)" : "var(--bg-secondary)",
+                                    color: activo ? "#10b981" : "var(--text-muted)",
+                                }}>
+                                    {activo ? <CheckCircle2 size={11} /> : <Clock size={11} />}
+                                    {activo ? "Activo" : "Inactivo"}
+                                </span>
+                                <span style={{
+                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                    fontSize: "0.7rem", fontWeight: 600, padding: "0.125rem 0.5rem",
+                                    borderRadius: "9999px",
+                                    background: visible ? "rgba(99,102,241,0.1)" : "var(--bg-secondary)",
+                                    color: visible ? "#6366f1" : "var(--text-muted)",
+                                }}>
+                                    {visible ? <Eye size={11} /> : <EyeOff size={11} />}
+                                    {visible ? "Visible Director" : "Oculto Director"}
+                                </span>
+                                <span style={{
+                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                    fontSize: "0.7rem", fontWeight: 600, padding: "0.125rem 0.5rem",
+                                    borderRadius: "9999px", background: "var(--bg-secondary)",
+                                    color: "var(--text-muted)",
+                                }}>
+                                    <AlignLeft size={11} /> {prog.tipo}
+                                </span>
+                                <span style={{
+                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                    fontSize: "0.7rem", fontWeight: 600, padding: "0.125rem 0.5rem",
+                                    borderRadius: "9999px", background: "var(--bg-secondary)",
+                                    color: "var(--text-muted)",
+                                }}>
+                                    <Layers size={11} /> {prog.numArchivos} doc(s) req.
+                                </span>
+                                <span style={{
+                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                    fontSize: "0.7rem", fontWeight: 600, padding: "0.125rem 0.5rem",
+                                    borderRadius: "9999px", background: "var(--bg-secondary)",
+                                    color: "var(--text-muted)",
+                                }}>
+                                    Suben: {(prog.quienesPuedenSubir || ["director"]).join(", ")}
+                                </span>
+                                {prog.esParaSupervision && (
+                                    <span style={{
+                                        display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                        fontSize: "0.7rem", fontWeight: 700, padding: "0.125rem 0.5rem",
+                                        borderRadius: "9999px",
+                                        background: "#fef3c7", color: "#d97706",
+                                    }}>
+                                        Supervisión
+                                    </span>
+                                )}
+                            </div>
                         </div>
+
+                        {!readOnly && (
+                            <div style={{ padding: "0.75rem 1rem", background: "var(--bg-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                                <button
+                                    onClick={() => handleToggleAuto(prog.id, prog.recordatorioAuto || false)}
+                                    disabled={isLoading}
+                                    style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.375rem", color: prog.recordatorioAuto ? "var(--primary)" : "var(--text-muted)", fontSize: "0.75rem" }}
+                                    title="Activar o desactivar recordatorios diarios a las 8AM"
+                                >
+                                    {prog.recordatorioAuto ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                                    <span style={{ fontWeight: prog.recordatorioAuto ? 600 : 400 }}>Auto-Reminders</span>
+                                </button>
+                                <button
+                                    className="btn btn-outline"
+                                    style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", display: "flex", alignItems: "center", gap: "0.25rem", borderColor: "var(--primary)", color: "var(--primary)" }}
+                                    onClick={() => handleOpenSendModal(prog.id, prog.nombre)}
+                                    disabled={isLoading}
+                                    title="Disparar correos manualmente eligiendo estados"
+                                >
+                                    <Send size={12} /> Recordatorio Manual
+                                </button>
+                            </div>
+                        )}
                     </div>
-                ))}
+                );})}
                 {programas.length === 0 && (
                     <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem", color: "var(--text-muted)", background: "var(--bg-secondary)", borderRadius: "8px", border: "1px dashed var(--border)" }}>
                         No hay programas agregados. Crea tu primer programa para comenzar.
