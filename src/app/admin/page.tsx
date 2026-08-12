@@ -156,9 +156,14 @@ export default async function AdminPage() {
         showExpedientes: sidebarConfigRaw?.showExpedientes ?? true,
     };
 
-    // Calculate stats from ALL periods (admin sees inactive ones too)
-    const activeEntregas = programas.flatMap((p) =>
-        p.periodos.flatMap((per) => 
+    // Filtrar: solo programas que tienen periodos en el ciclo actual.
+    // Un programa sin PeriodoEntrega en este ciclo no debe aparecer en Gestión de
+    // Programas, Vista General ni Avance de Entregas de este ciclo.
+    const programasDelCiclo = programas.filter((p) => p.periodos.length > 0);
+
+    // Calculate stats only from programs that belong to this cycle
+    const activeEntregas = programasDelCiclo.flatMap((p) =>
+        p.periodos.flatMap((per) =>
             per.entregas.filter(e => !e.escuela.esDePrueba && !e.escuela.esSupervision)
         )
     );
@@ -181,7 +186,7 @@ export default async function AdminPage() {
 
     return (
         <AdminDashboard
-            programas={JSON.parse(JSON.stringify(programas))}
+            programas={JSON.parse(JSON.stringify(programasDelCiclo))}
             escuelas={JSON.parse(JSON.stringify(escuelasClient))}
             recursos={JSON.parse(JSON.stringify(recursos))}
             stats={stats}

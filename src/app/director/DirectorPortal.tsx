@@ -230,44 +230,19 @@ export default function DirectorPortal({
                                     </span>
                                 )}
                             </div>
-                            <select
-                                value={cicloId}
-                                onChange={async (e) => {
-                                    const selectedId = e.target.value;
-                                    try {
-                                        const res = await fetch("/api/ciclos/seleccionar", {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ cicloId: selectedId }),
-                                        });
-                                        if (res.ok) {
-                                            window.location.reload();
-                                        } else {
-                                            console.error("Error al seleccionar ciclo");
-                                        }
-                                    } catch (err) {
-                                        console.error(err);
-                                    }
-                                }}
-                                style={{
-                                    width: "100%",
-                                    padding: "0.25rem 0.375rem",
-                                    borderRadius: "6px",
-                                    border: "1px solid var(--border)",
-                                    background: "var(--bg-secondary, #f1f5f9)",
-                                    color: "var(--text)",
-                                    fontSize: "0.7rem",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                    outline: "none",
-                                }}
-                            >
-                                {todosCiclos.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.nombre} {c.activo ? "(Activo)" : ""}
-                                    </option>
-                                ))}
-                            </select>
+                            {/* El director solo ve el ciclo activo — no puede cambiarlo */}
+                            <div style={{
+                                width: "100%",
+                                padding: "0.25rem 0.375rem",
+                                borderRadius: "6px",
+                                border: "1px solid var(--border)",
+                                background: "var(--bg-secondary, #f1f5f9)",
+                                color: "var(--text)",
+                                fontSize: "0.7rem",
+                                fontWeight: 600,
+                            }}>
+                                {cicloObj?.nombre ?? ciclo}
+                            </div>
                         </div>
                     </div>
 

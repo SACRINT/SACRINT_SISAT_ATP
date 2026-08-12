@@ -68,8 +68,16 @@ export default function GestionCiclos({
                     // Modo gestión (ciclo activo): marcar los que YA tienen periodos
                     setSeleccionados(new Set(progs.filter((p) => p.tienePeriodos).map((p) => p.id)));
                 } else {
-                    // Modo activación (ciclo inactivo): pre-seleccionar los que AÚN NO tienen periodos
-                    setSeleccionados(new Set(progs.filter((p) => !p.tienePeriodos).map((p) => p.id)));
+                    // Modo activación (ciclo inactivo): si el ciclo YA fue configurado antes,
+                    // pre-seleccionar los que tienen periodos (respetar configuración previa).
+                    // Si el ciclo es nuevo (ninguno tiene periodos), no pre-seleccionar ninguno
+                    // para que el admin elija explícitamente.
+                    const yaConfigurado = progs.some((p) => p.tienePeriodos);
+                    if (yaConfigurado) {
+                        setSeleccionados(new Set(progs.filter((p) => p.tienePeriodos).map((p) => p.id)));
+                    } else {
+                        setSeleccionados(new Set()); // Ciclo nuevo: sin pre-selección
+                    }
                 }
             })
             .catch(() => setProgramasDisponibles([]))
@@ -441,16 +449,17 @@ export default function GestionCiclos({
                                                 </button>
                                             )}
 
-                                            {/* Botón Gestionar programas: solo en el ciclo ACTIVO */}
-                                            {c.activo && !readOnly && (
+                                            {/* Botón Gestionar programas: en el ciclo ACTIVO siempre,
+                                                y en ciclos INACTIVOS también (para ver/editar sin activar) */}
+                                            {!readOnly && (
                                                 <button
                                                     onClick={() => handleGestionarClick(c.id, c.nombre)}
                                                     disabled={guardando}
                                                     className="btn btn-outline"
                                                     style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
-                                                    title="Agregar o quitar programas del ciclo activo"
+                                                    title={c.activo ? "Agregar o quitar programas del ciclo activo" : "Ver o editar los programas de este ciclo (sin activarlo)"}
                                                 >
-                                                    <Settings size={12} /> Gestionar programas
+                                                    <Settings size={12} /> {c.activo ? "Gestionar programas" : "Ver programas"}
                                                 </button>
                                             )}
                                         </div>
@@ -544,13 +553,17 @@ export default function GestionCiclos({
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, fontSize: "1rem" }}>
                                     {modal.modoGestion
                                         ? <><Settings size={18} color="var(--primary)" /> Gestionar programas: {modal.nombreCiclo}</>
-                                        : <><Copy size={18} color="var(--primary)" /> Activar ciclo: {modal.nombreCiclo}</>
+                                        : programasDisponibles.some(p => p.tienePeriodos)
+                                            ? <><Settings size={18} color="var(--warning, #d97706)" /> Reconfigurar ciclo: {modal.nombreCiclo}</>
+                                            : <><Copy size={18} color="var(--primary)" /> Activar ciclo: {modal.nombreCiclo}</>
                                     }
                                 </div>
                                 <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.375rem" }}>
                                     {modal.modoGestion
                                         ? "Marcados = el programa está en este ciclo. Desmarcar lo elimina del ciclo (incluye periodos y entregas)."
-                                        : "Elige los programas del ciclo actual que deseas continuar usando. Se crearán periodos vacíos listos para recibir entregas."
+                                        : programasDisponibles.some(p => p.tienePeriodos)
+                                            ? "Este ciclo ya tiene programas configurados (marcados). Al activarlo se respetará la selección actual. Puedes agregar o quitar programas antes de confirmar."
+                                            : "Elige los programas que deseas incluir en este ciclo. Se crearán periodos vacíos listos para recibir entregas."
                                     }
                                 </p>
                             </div>
