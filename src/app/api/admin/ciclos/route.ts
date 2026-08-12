@@ -4,6 +4,98 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Punto 1: Helper compartido — crea periodos + entregas para un programa en
+// un ciclo. Idempotente: si ya existe PeriodoEntrega para (cicloId, programaId)
+// no hace nada (continue). Devuelve el número de periodos creados.
+// ─────────────────────────────────────────────────────────────────────────────
+async function crearPeriodosProgramaEnCiclo(
+    programaId: string,
+    cicloId: string,
+    mesesDelCiclo: number[],
+    escuelas: { id: string }[]
+): Promise<number> {
+    const programa = await prisma.programa.findUnique({
+        where: { id: programaId },
+        select: { tipo: true },
+    });
+    if (!programa) return 0;
+
+    // Idempotency: skip if already has a period in this cycle
+    const existente = await prisma.periodoEntrega.findFirst({
+        where: { cicloEscolarId: cicloId, programaId },
+    });
+    if (existente) return 0;
+
+    const tipo = programa.tipo;
+    let creados = 0;
+
+    if (tipo === "ANUAL") {
+        const periodo = await prisma.periodoEntrega.create({
+            data: { cicloEscolarId: cicloId, programaId, activo: false },
+        });
+        if (escuelas.length > 0) {
+            await prisma.entrega.createMany({
+                data: escuelas.map((e) => ({
+                    escuelaId: e.id,
+                    periodoEntregaId: periodo.id,
+                })),
+                skipDuplicates: true,
+            });
+        }
+        creados = 1;
+    } else if (tipo === "SEMESTRAL") {
+        for (const semestre of [1, 2]) {
+            const periodo = await prisma.periodoEntrega.create({
+                data: { cicloEscolarId: cicloId, programaId, semestre, activo: false },
+            });
+            if (escuelas.length > 0) {
+                await prisma.entrega.createMany({
+                    data: escuelas.map((e) => ({
+                        escuelaId: e.id,
+                        periodoEntregaId: periodo.id,
+                    })),
+                    skipDuplicates: true,
+                });
+            }
+            creados++;
+        }
+    } else if (tipo === "MENSUAL") {
+        for (const mes of mesesDelCiclo) {
+            const periodo = await prisma.periodoEntrega.create({
+                data: { cicloEscolarId: cicloId, programaId, mes, activo: false },
+            });
+            if (escuelas.length > 0) {
+                await prisma.entrega.createMany({
+                    data: escuelas.map((e) => ({
+                        escuelaId: e.id,
+                        periodoEntregaId: periodo.id,
+                    })),
+                    skipDuplicates: true,
+                });
+            }
+            creados++;
+        }
+    }
+
+    return creados;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: calcula el array de meses (1-12) para un rango de fechas
+// ─────────────────────────────────────────────────────────────────────────────
+function calcularMesesDelCiclo(inicio: Date, fin: Date): number[] {
+    const meses: number[] = [];
+    const cur = new Date(inicio);
+    cur.setDate(1);
+    const finCiclo = new Date(fin);
+    while (cur <= finCiclo) {
+        meses.push(cur.getMonth() + 1);
+        cur.setMonth(cur.getMonth() + 1);
+    }
+    return meses;
+}
+
 // GET - Listar todos los ciclos escolares (solo admins)
 export async function GET() {
     try {
@@ -41,10 +133,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Campos incompletos" }, { status: 400 });
         }
 
-        // Check if name already exists
-        const exists = await prisma.cicloEscolar.findUnique({
-            where: { nombre },
-        });
+        const exists = await prisma.cicloEscolar.findUnique({ where: { nombre } });
         if (exists) {
             return NextResponse.json({ error: "El ciclo escolar ya existe" }, { status: 400 });
         }
@@ -65,7 +154,14 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// PATCH - Activar un ciclo escolar específico y migrar programas seleccionados
+// ─────────────────────────────────────────────────────────────────────────────
+// Punto 3: PATCH extendido
+// Acepta:
+//   copiarProgramaIds?: string[]  → activa el ciclo + crea periodos para esos programas
+//   agregarProgramaIds?: string[] → agrega programas al ciclo (puede ser el activo)
+//   eliminarProgramaIds?: string[] → elimina periodos de esos programas en el ciclo
+// Si solo llegan agregarProgramaIds/eliminarProgramaIds NO cambia el flag activo.
+// ─────────────────────────────────────────────────────────────────────────────
 export async function PATCH(request: NextRequest) {
     try {
         const session = await auth();
@@ -75,122 +171,90 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
-        const { id, copiarProgramaIds } = await request.json();
+        const {
+            id,
+            copiarProgramaIds,
+            agregarProgramaIds,
+            eliminarProgramaIds,
+        }: {
+            id: string;
+            copiarProgramaIds?: string[];
+            agregarProgramaIds?: string[];
+            eliminarProgramaIds?: string[];
+        } = await request.json();
 
         if (!id) {
             return NextResponse.json({ error: "ID de ciclo no proporcionado" }, { status: 400 });
         }
 
-        // Verify cycle exists
-        const targetCiclo = await prisma.cicloEscolar.findUnique({
-            where: { id },
-        });
+        const targetCiclo = await prisma.cicloEscolar.findUnique({ where: { id } });
         if (!targetCiclo) {
             return NextResponse.json({ error: "El ciclo escolar no existe" }, { status: 404 });
         }
 
-        // Get the currently active cycle (before switching)
-        const cicloAnterior = await prisma.cicloEscolar.findFirst({
-            where: { activo: true },
-        });
+        const escuelas = await prisma.escuela.findMany({ select: { id: true } });
+        const mesesDelCiclo = calcularMesesDelCiclo(targetCiclo.inicio, targetCiclo.fin);
 
-        // ── Migration: copy selected programs to the new cycle ──────────────
+        let programasMigrados = 0;
+        let programasAgregados = 0;
+        let programasEliminados = 0;
+
+        // ── copiarProgramaIds: modo activación ────────────────────────────
         if (Array.isArray(copiarProgramaIds) && copiarProgramaIds.length > 0) {
-            const escuelas = await prisma.escuela.findMany({ select: { id: true } });
-
-            // Calculate months for the NEW cycle dynamically
-            const mesesDelCiclo: number[] = [];
-            const cur = new Date(targetCiclo.inicio);
-            cur.setDate(1);
-            const finCiclo = new Date(targetCiclo.fin);
-            while (cur <= finCiclo) {
-                mesesDelCiclo.push(cur.getMonth() + 1);
-                cur.setMonth(cur.getMonth() + 1);
-            }
-
-            for (const programaId of copiarProgramaIds) {
-                // Fetch program type
-                const programa = await prisma.programa.findUnique({
-                    where: { id: programaId },
-                    select: { tipo: true },
-                });
-                if (!programa) continue;
-
-                // Skip if PeriodoEntrega already exists for this program in the new cycle
-                const existente = await prisma.periodoEntrega.findFirst({
-                    where: { cicloEscolarId: id, programaId },
-                });
-                if (existente) continue;
-
-                const tipo = programa.tipo;
-
-                if (tipo === "ANUAL") {
-                    const periodo = await prisma.periodoEntrega.create({
-                        data: { cicloEscolarId: id, programaId, activo: false },
-                    });
-                    if (escuelas.length > 0) {
-                        await prisma.entrega.createMany({
-                            data: escuelas.map((e) => ({
-                                escuelaId: e.id,
-                                periodoEntregaId: periodo.id,
-                            })),
-                            skipDuplicates: true,
-                        });
-                    }
-                } else if (tipo === "SEMESTRAL") {
-                    for (const semestre of [1, 2]) {
-                        const periodo = await prisma.periodoEntrega.create({
-                            data: { cicloEscolarId: id, programaId, semestre, activo: false },
-                        });
-                        if (escuelas.length > 0) {
-                            await prisma.entrega.createMany({
-                                data: escuelas.map((e) => ({
-                                    escuelaId: e.id,
-                                    periodoEntregaId: periodo.id,
-                                })),
-                                skipDuplicates: true,
-                            });
-                        }
-                    }
-                } else if (tipo === "MENSUAL") {
-                    for (const mes of mesesDelCiclo) {
-                        const periodo = await prisma.periodoEntrega.create({
-                            data: { cicloEscolarId: id, programaId, mes, activo: false },
-                        });
-                        if (escuelas.length > 0) {
-                            await prisma.entrega.createMany({
-                                data: escuelas.map((e) => ({
-                                    escuelaId: e.id,
-                                    periodoEntregaId: periodo.id,
-                                })),
-                                skipDuplicates: true,
-                            });
-                        }
-                    }
-                }
+            for (const pid of copiarProgramaIds) {
+                const creados = await crearPeriodosProgramaEnCiclo(pid, id, mesesDelCiclo, escuelas);
+                if (creados > 0) programasMigrados++; // cuenta programas, no periodos
             }
         }
 
-        // ── Activate the new cycle, deactivate the rest ─────────────────────
-        await prisma.$transaction([
-            prisma.cicloEscolar.updateMany({
-                where: { id: { not: id } },
-                data: { activo: false },
-            }),
-            prisma.cicloEscolar.update({
-                where: { id },
-                data: { activo: true },
-            }),
-        ]);
+        // ── agregarProgramaIds: agregar al ciclo (sin activar) ────────────
+        if (Array.isArray(agregarProgramaIds) && agregarProgramaIds.length > 0) {
+            for (const pid of agregarProgramaIds) {
+                const creados = await crearPeriodosProgramaEnCiclo(pid, id, mesesDelCiclo, escuelas);
+                if (creados > 0) programasAgregados++; // cuenta programas, no periodos
+            }
+        }
+
+        // ── eliminarProgramaIds: borrar Entregas PRIMERO (FK restrict) ────
+        if (Array.isArray(eliminarProgramaIds) && eliminarProgramaIds.length > 0) {
+            for (const pid of eliminarProgramaIds) {
+                // 1. Borrar Entregas del ciclo+programa (cascada elimina archivos/correcciones/preRevision/chat)
+                await prisma.entrega.deleteMany({
+                    where: { periodoEntrega: { cicloEscolarId: id, programaId: pid } },
+                });
+                // 2. Borrar PeriodoEntrega (ahora sin FK viva)
+                await prisma.periodoEntrega.deleteMany({
+                    where: { cicloEscolarId: id, programaId: pid },
+                });
+            }
+            programasEliminados = eliminarProgramaIds.length; // cuenta programas
+        }
+
+        // ── Activar ciclo solo si viene copiarProgramaIds (modo activación) ─
+        if (Array.isArray(copiarProgramaIds)) {
+            await prisma.$transaction([
+                prisma.cicloEscolar.updateMany({
+                    where: { id: { not: id } },
+                    data: { activo: false },
+                }),
+                prisma.cicloEscolar.update({
+                    where: { id },
+                    data: { activo: true },
+                }),
+            ]);
+        }
 
         return NextResponse.json({
             success: true,
-            message: `Ciclo ${targetCiclo.nombre} activado`,
-            cicloAnteriorId: cicloAnterior?.id ?? null,
-            programasMigrados: Array.isArray(copiarProgramaIds) ? copiarProgramaIds.length : 0,
+            programasMigrados,
+            programasAgregados,
+            programasEliminados,
+            message: Array.isArray(copiarProgramaIds)
+                ? `Ciclo ${targetCiclo.nombre} activado`
+                : "Programas del ciclo actualizados",
         });
     } catch (error: unknown) {
-        console.error("Error activating ciclo:", error);
-        return NextResponse.json({ error: "Error al activar el ciclo escolar" }, { status: 500 });
+        console.error("Error updating ciclo:", error);
+        return NextResponse.json({ error: "Error al actualizar el ciclo escolar" }, { status: 500 });
     }
 }

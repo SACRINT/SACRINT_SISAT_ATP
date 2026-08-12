@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, PlusCircle, CheckCircle2, AlertTriangle, Play, X, Copy, Loader2, CheckSquare, Square } from "lucide-react";
+import { Calendar, PlusCircle, CheckCircle2, AlertTriangle, Play, X, Copy, Loader2, CheckSquare, Square, Settings } from "lucide-react";
 
 type Ciclo = {
     id: string;
@@ -16,7 +16,14 @@ type ProgramaResumen = {
     nombre: string;
     tipo: string;
     activo: boolean;
+    tienePeriodos: boolean;
 };
+
+type ModalState = {
+    cicloId: string;
+    nombreCiclo: string;
+    modoGestion: boolean; // false = activar ciclo inactivo, true = gestionar ciclo activo
+} | null;
 
 export default function GestionCiclos({
     todosCiclos: inicialCiclos,
@@ -34,28 +41,34 @@ export default function GestionCiclos({
     const [submitting, setSubmitting] = useState(false);
     const [activatingId, setActivatingId] = useState<string | null>(null);
 
-    // ── Migration modal state ──────────────────────────────────────────
-    const [migracionModal, setMigracionModal] = useState<{ cicloId: string; nombreCiclo: string } | null>(null);
+    // ── Modal state ──────────────────────────────────────────────────────
+    const [modal, setModal] = useState<ModalState>(null);
     const [programasDisponibles, setProgramasDisponibles] = useState<ProgramaResumen[]>([]);
     const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
     const [loadingProgramas, setLoadingProgramas] = useState(false);
-    const [migrando, setMigrando] = useState(false);
+    const [guardando, setGuardando] = useState(false);
 
-    // Load programs when the migration modal opens
+    // Punto 4: Fuente de datos corregida — usa el nuevo endpoint GET /api/admin/ciclos/[id]/programas
     useEffect(() => {
-        if (!migracionModal) return;
+        if (!modal) return;
         setLoadingProgramas(true);
-        fetch("/api/programas")
+        fetch(`/api/admin/ciclos/${modal.cicloId}/programas`)
             .then((r) => r.json())
-            .then((data: ProgramaResumen[]) => {
-                const activos = data.filter((p) => p.activo !== false);
-                setProgramasDisponibles(activos);
-                // Pre-select all active programs
-                setSeleccionados(new Set(activos.map((p) => p.id)));
+            .then((data: { programas: ProgramaResumen[] }) => {
+                const progs = data.programas ?? [];
+                setProgramasDisponibles(progs);
+
+                if (modal.modoGestion) {
+                    // Modo gestión (ciclo activo): marcar los que YA tienen periodos
+                    setSeleccionados(new Set(progs.filter((p) => p.tienePeriodos).map((p) => p.id)));
+                } else {
+                    // Modo activación (ciclo inactivo): pre-seleccionar los que AÚN NO tienen periodos
+                    setSeleccionados(new Set(progs.filter((p) => !p.tienePeriodos).map((p) => p.id)));
+                }
             })
             .catch(() => setProgramasDisponibles([]))
             .finally(() => setLoadingProgramas(false));
-    }, [migracionModal]);
+    }, [modal]);
 
     async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
@@ -94,9 +107,12 @@ export default function GestionCiclos({
         }
     }
 
-    // Opens migration modal instead of directly activating
     function handleActivarClick(cicloId: string, nombreCiclo: string) {
-        setMigracionModal({ cicloId, nombreCiclo });
+        setModal({ cicloId, nombreCiclo, modoGestion: false });
+    }
+
+    function handleGestionarClick(cicloId: string, nombreCiclo: string) {
+        setModal({ cicloId, nombreCiclo, modoGestion: true });
     }
 
     function handleTogglePrograma(id: string) {
@@ -116,11 +132,13 @@ export default function GestionCiclos({
         }
     }
 
+    // ── Modo activación (ciclo inactivo) ─────────────────────────────────
     async function handleConfirmarActivacion(conMigracion: boolean) {
-        if (!migracionModal) return;
-        const { cicloId, nombreCiclo } = migracionModal;
+        if (!modal) return;
+        const { cicloId, nombreCiclo } = modal;
 
-        setMigrando(true);
+        setGuardando(true);
+        setActivatingId(cicloId);
         onSetMessage(null);
 
         try {
@@ -135,12 +153,16 @@ export default function GestionCiclos({
             const data = await res.json();
 
             if (res.ok) {
-                const migMsg = conMigracion && data.programasMigrados > 0
-                    ? ` Se copiaron ${data.programasMigrados} programa(s) al nuevo ciclo.`
-                    : "";
-                onSetMessage({ type: "success", text: `Ciclo "${nombreCiclo}" activado.${migMsg} Recargando...` });
+                const migMsg =
+                    conMigracion && data.programasMigrados > 0
+                        ? ` Se copiaron ${data.programasMigrados} programa(s) al nuevo ciclo.`
+                        : "";
+                onSetMessage({
+                    type: "success",
+                    text: `Ciclo "${nombreCiclo}" activado.${migMsg} Recargando...`,
+                });
                 setCiclos((prev) => prev.map((c) => ({ ...c, activo: c.id === cicloId })));
-                setMigracionModal(null);
+                setModal(null);
                 setTimeout(() => window.location.reload(), 1800);
             } else {
                 onSetMessage({ type: "error", text: data.error || "Error al activar el ciclo escolar." });
@@ -149,8 +171,72 @@ export default function GestionCiclos({
             console.error("Error activating cycle:", error);
             onSetMessage({ type: "error", text: "Error de conexión con el servidor." });
         } finally {
-            setMigrando(false);
+            setGuardando(false);
             setActivatingId(null);
+        }
+    }
+
+    // ── Modo gestión (ciclo activo) ───────────────────────────────────────
+    async function handleConfirmarGestion() {
+        if (!modal) return;
+        const { cicloId, nombreCiclo } = modal;
+
+        // Calcular qué agregar y qué eliminar
+        const conPeriodosSet = new Set(programasDisponibles.filter((p) => p.tienePeriodos).map((p) => p.id));
+        const agregarProgramaIds = Array.from(seleccionados).filter((id) => !conPeriodosSet.has(id));
+        const eliminarProgramaIds = programasDisponibles
+            .filter((p) => p.tienePeriodos && !seleccionados.has(p.id))
+            .map((p) => p.id);
+
+        if (agregarProgramaIds.length === 0 && eliminarProgramaIds.length === 0) {
+            onSetMessage({ type: "success", text: "Sin cambios que aplicar." });
+            setModal(null);
+            return;
+        }
+
+        // Confirmar si hay eliminaciones
+        if (eliminarProgramaIds.length > 0) {
+            const nombres = programasDisponibles
+                .filter((p) => eliminarProgramaIds.includes(p.id))
+                .map((p) => p.nombre)
+                .join(", ");
+            const ok = window.confirm(
+                `Se eliminarán del ciclo "${nombreCiclo}" los periodos y entregas de: ${nombres}.\n` +
+                    "Los archivos cargados por las escuelas en este ciclo también se borrarán.\n\n¿Continuar?"
+            );
+            if (!ok) return;
+        }
+
+        setGuardando(true);
+        onSetMessage(null);
+
+        try {
+            const res = await fetch("/api/admin/ciclos", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: cicloId, agregarProgramaIds, eliminarProgramaIds }),
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                const partes: string[] = [];
+                if (data.programasAgregados > 0) partes.push(`${data.programasAgregados} programa(s) agregado(s)`);
+                if (data.programasEliminados > 0) partes.push(`${data.programasEliminados} programa(s) eliminado(s)`);
+                onSetMessage({
+                    type: "success",
+                    text: `Ciclo "${nombreCiclo}" actualizado: ${partes.join(", ")}. Recargando...`,
+                });
+                setModal(null);
+                setTimeout(() => window.location.reload(), 1800);
+            } else {
+                onSetMessage({ type: "error", text: data.error || "Error al actualizar el ciclo." });
+            }
+        } catch (error) {
+            console.error("Error managing cycle:", error);
+            onSetMessage({ type: "error", text: "Error de conexión con el servidor." });
+        } finally {
+            setGuardando(false);
         }
     }
 
@@ -165,7 +251,8 @@ export default function GestionCiclos({
             <div className="page-header" style={{ marginBottom: "2rem" }}>
                 <h1>Ciclos Escolares</h1>
                 <p style={{ color: "var(--text-secondary)" }}>
-                    Administra los periodos anuales de trabajo. Al activar un nuevo ciclo puedes elegir qué programas continúan, conservando el historial del ciclo anterior.
+                    Administra los periodos anuales de trabajo. Al activar un nuevo ciclo puedes elegir qué programas
+                    continúan, conservando el historial del ciclo anterior.
                 </p>
             </div>
 
@@ -286,14 +373,28 @@ export default function GestionCiclos({
                                         </span>
                                     </div>
 
+                                    {/* Botón Activar: solo en ciclos inactivos */}
                                     {!c.activo && !readOnly && (
                                         <button
                                             onClick={() => handleActivarClick(c.id, c.nombre)}
-                                            disabled={activatingId !== null || migrando}
+                                            disabled={activatingId !== null || guardando}
                                             className="btn btn-outline"
                                             style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
                                         >
                                             <Play size={12} /> Activar
+                                        </button>
+                                    )}
+
+                                    {/* Botón Gestionar programas: solo en el ciclo ACTIVO */}
+                                    {c.activo && !readOnly && (
+                                        <button
+                                            onClick={() => handleGestionarClick(c.id, c.nombre)}
+                                            disabled={guardando}
+                                            className="btn btn-outline"
+                                            style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                                            title="Agregar o quitar programas del ciclo activo"
+                                        >
+                                            <Settings size={12} /> Gestionar programas
                                         </button>
                                     )}
                                 </div>
@@ -312,6 +413,7 @@ export default function GestionCiclos({
                         <strong style={{ fontSize: "0.9375rem", display: "block", marginBottom: "0.25rem" }}>Notas sobre el funcionamiento multiciclo:</strong>
                         <ul style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.8125rem", lineHeight: 1.5 }}>
                             <li>Al activar un nuevo ciclo se te preguntará qué programas copiar. Los programas no seleccionados no aparecerán en el nuevo ciclo.</li>
+                            <li>En el ciclo activo puedes usar <strong>Gestionar programas</strong> para agregar o quitar programas en cualquier momento.</li>
                             <li>Supervisores y directores pueden alternar entre ciclos pasados desde el menú lateral para consultar históricos.</li>
                             <li>Los expedientes de docentes no se reinician; son datos del centro de trabajo permanentes.</li>
                         </ul>
@@ -319,8 +421,8 @@ export default function GestionCiclos({
                 </div>
             </div>
 
-            {/* ── MODAL DE MIGRACIÓN ──────────────────────────────────────────── */}
-            {migracionModal && (
+            {/* ── MODAL ──────────────────────────────────────────────────────────── */}
+            {modal && (
                 <div style={{
                     position: "fixed", inset: 0, zIndex: 1000,
                     background: "rgba(0,0,0,0.45)", display: "flex",
@@ -331,15 +433,20 @@ export default function GestionCiclos({
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem" }}>
                             <div>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, fontSize: "1rem" }}>
-                                    <Copy size={18} color="var(--primary)" />
-                                    Activar ciclo: {migracionModal.nombreCiclo}
+                                    {modal.modoGestion
+                                        ? <><Settings size={18} color="var(--primary)" /> Gestionar programas: {modal.nombreCiclo}</>
+                                        : <><Copy size={18} color="var(--primary)" /> Activar ciclo: {modal.nombreCiclo}</>
+                                    }
                                 </div>
                                 <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.375rem" }}>
-                                    Elige los programas del ciclo actual que deseas continuar usando. Se crearán periodos vacíos listos para recibir entregas.
+                                    {modal.modoGestion
+                                        ? "Marcados = el programa está en este ciclo. Desmarcar lo elimina del ciclo (incluye periodos y entregas)."
+                                        : "Elige los programas del ciclo actual que deseas continuar usando. Se crearán periodos vacíos listos para recibir entregas."
+                                    }
                                 </p>
                             </div>
                             <button
-                                onClick={() => setMigracionModal(null)}
+                                onClick={() => setModal(null)}
                                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}
                             >
                                 <X size={18} />
@@ -353,7 +460,7 @@ export default function GestionCiclos({
                             </div>
                         ) : programasDisponibles.length === 0 ? (
                             <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", padding: "0.5rem 0" }}>
-                                No hay programas activos en el ciclo actual. El nuevo ciclo iniciará vacío.
+                                No hay programas activos disponibles.
                             </p>
                         ) : (
                             <>
@@ -388,7 +495,12 @@ export default function GestionCiclos({
                                             />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</div>
-                                                <div style={{ fontSize: "0.71875rem", color: "var(--text-muted)" }}>{TIPO_LABEL[p.tipo] ?? p.tipo}</div>
+                                                <div style={{ fontSize: "0.71875rem", color: "var(--text-muted)", display: "flex", gap: "0.5rem" }}>
+                                                    <span>{TIPO_LABEL[p.tipo] ?? p.tipo}</span>
+                                                    {modal.modoGestion && p.tienePeriodos && (
+                                                        <span style={{ color: "var(--success, #16a34a)" }}>• En ciclo</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </label>
                                     ))}
@@ -397,28 +509,52 @@ export default function GestionCiclos({
                         )}
 
                         {/* Actions */}
-                        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                            <button
-                                className="btn btn-primary"
-                                disabled={migrando}
-                                onClick={() => handleConfirmarActivacion(true)}
-                                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.375rem" }}
-                            >
-                                {migrando
-                                    ? <><Loader2 size={14} className="spin" /> Activando...</>
-                                    : <><CheckCircle2 size={14} /> Activar con {seleccionados.size} programa(s)</>
-                                }
-                            </button>
-                            <button
-                                className="btn btn-outline"
-                                disabled={migrando}
-                                onClick={() => handleConfirmarActivacion(false)}
-                                style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem" }}
-                                title="El nuevo ciclo iniciará sin ningún programa asignado"
-                            >
-                                Iniciar vacío
-                            </button>
-                        </div>
+                        {modal.modoGestion ? (
+                            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                                <button
+                                    className="btn btn-primary"
+                                    disabled={guardando}
+                                    onClick={handleConfirmarGestion}
+                                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.375rem" }}
+                                >
+                                    {guardando
+                                        ? <><Loader2 size={14} className="spin" /> Guardando...</>
+                                        : <><CheckCircle2 size={14} /> Guardar cambios</>
+                                    }
+                                </button>
+                                <button
+                                    className="btn btn-outline"
+                                    disabled={guardando}
+                                    onClick={() => setModal(null)}
+                                    style={{ fontSize: "0.8125rem" }}
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                                <button
+                                    className="btn btn-primary"
+                                    disabled={guardando}
+                                    onClick={() => handleConfirmarActivacion(true)}
+                                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.375rem" }}
+                                >
+                                    {guardando
+                                        ? <><Loader2 size={14} className="spin" /> Activando...</>
+                                        : <><CheckCircle2 size={14} /> Activar con {seleccionados.size} programa(s)</>
+                                    }
+                                </button>
+                                <button
+                                    className="btn btn-outline"
+                                    disabled={guardando}
+                                    onClick={() => handleConfirmarActivacion(false)}
+                                    style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem" }}
+                                    title="El nuevo ciclo iniciará sin ningún programa asignado"
+                                >
+                                    Iniciar vacío
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

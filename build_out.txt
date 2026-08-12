@@ -1,0 +1,180 @@
+
+> centro-mando-atp@0.1.0 build
+> prisma generate && next build
+
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma\schema.prisma.
+
+✔ Generated Prisma Client (v7.4.1) to .\node_modules\@prisma\client in 393ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 10.7s
+  Running TypeScript ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/75) ...
+  Generating static pages using 11 workers (18/75) 
+  Generating static pages using 11 workers (37/75) 
+  Generating static pages using 11 workers (56/75) 
+✓ Generating static pages using 11 workers (75/75) in 320.7ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /admin
+├ ○ /admin/documentos
+├ ƒ /admin/horarios
+├ ƒ /api/admin/api-keys
+├ ƒ /api/admin/api-keys/[id]
+├ ƒ /api/admin/api-keys/probar
+├ ƒ /api/admin/auditoria/cuenta
+├ ƒ /api/admin/auditoria/hilos
+├ ƒ /api/admin/auditoria/importar-planes
+├ ƒ /api/admin/auditoria/ingestar-local
+├ ƒ /api/admin/auditoria/mensajes
+├ ƒ /api/admin/auditoria/modulos/[id]
+├ ƒ /api/admin/auditoria/planes
+├ ƒ /api/admin/autoridades-config
+├ ƒ /api/admin/capems
+├ ƒ /api/admin/capems/[id]
+├ ƒ /api/admin/capems/reorder
+├ ƒ /api/admin/ciclos
+├ ƒ /api/admin/ciclos/[id]/programas
+├ ƒ /api/admin/directores
+├ ƒ /api/admin/documentos/generar
+├ ƒ /api/admin/documentos/generar-masivo
+├ ƒ /api/admin/documentos/plantillas
+├ ƒ /api/admin/documentos/plantillas/[id]
+├ ƒ /api/admin/encuentro-paec-config
+├ ƒ /api/admin/encuentro-paec-inscripciones
+├ ƒ /api/admin/entregas/[id]/exportar-revision
+├ ƒ /api/admin/enviar-correo-global
+├ ƒ /api/admin/errores
+├ ƒ /api/admin/escuelas
+├ ƒ /api/admin/escuelas/masivo-permisos
+├ ƒ /api/admin/eventos-config
+├ ƒ /api/admin/eventos-disciplinas
+├ ƒ /api/admin/exportar-excel-eventos
+├ ƒ /api/admin/fichas
+├ ƒ /api/admin/fichas/[id]
+├ ƒ /api/admin/fichas/reorder
+├ ƒ /api/admin/horarios/config
+├ ƒ /api/admin/horarios/reset-stats
+├ ƒ /api/admin/modulos-activacion
+├ ƒ /api/admin/modulos-fechas
+├ ƒ /api/admin/oficio-dictamen
+├ ƒ /api/admin/oficios
+├ ƒ /api/admin/oficios/[id]
+├ ƒ /api/admin/oficios/[id]/acusar
+├ ƒ /api/admin/oficios/[id]/distribuir
+├ ƒ /api/admin/oficios/config
+├ ƒ /api/admin/oficios/recordatorios
+├ ƒ /api/admin/oficios/upload
+├ ƒ /api/admin/olimpiada-config
+├ ƒ /api/admin/olimpiada-inscripciones
+├ ƒ /api/admin/planeaciones
+├ ƒ /api/admin/planeaciones-config
+├ ƒ /api/admin/plantillas
+├ ƒ /api/admin/plantillas/consolidar
+├ ƒ /api/admin/plantillas/upload
+├ ƒ /api/admin/pre-revision-config
+├ ƒ /api/admin/prompts
+├ ƒ /api/admin/prompts/[id]
+├ ƒ /api/admin/prompts/[id]/reset
+├ ƒ /api/admin/ranking
+├ ƒ /api/admin/reporte-cumplimiento
+├ ƒ /api/admin/reportes-nivel
+├ ƒ /api/admin/reportes-nivel/acoso-casos
+├ ƒ /api/admin/reportes-nivel/plantillas
+├ ƒ /api/admin/reportes/resumen-semanal
+├ ƒ /api/admin/sidebar-config
+├ ƒ /api/admin/valida-ia
+├ ƒ /api/archivos/[id]
+├ ƒ /api/atps
+├ ƒ /api/atps/[id]
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/buscar
+├ ƒ /api/capems/config
+├ ƒ /api/capems/registros
+├ ƒ /api/capems/registros/[id]
+├ ƒ /api/capems/registros/descargar
+├ ƒ /api/ciclos/anuncio
+├ ƒ /api/ciclos/seleccionar
+├ ƒ /api/circular05/config
+├ ƒ /api/circular05/descargas
+├ ƒ /api/circular05/disciplinas
+├ ƒ /api/circular05/generar
+├ ƒ /api/cron/recordatorios
+├ ƒ /api/director/configuracion-api
+├ ƒ /api/director/documentos/generar
+├ ƒ /api/director/documentos/plantillas
+├ ƒ /api/director/planeaciones
+├ ƒ /api/director/planeaciones/[id]
+├ ƒ /api/director/planeaciones/asignaciones
+├ ƒ /api/director/probar-api
+├ ƒ /api/download
+├ ƒ /api/encuentro-paec
+├ ƒ /api/entregas/[id]/chat
+├ ƒ /api/entregas/[id]/correcciones
+├ ƒ /api/entregas/[id]/estado
+├ ƒ /api/entregas/[id]/pre-revision
+├ ƒ /api/escuelas
+├ ƒ /api/escuelas/[id]
+├ ƒ /api/escuelas/[id]/configuracion
+├ ƒ /api/escuelas/[id]/grupos-config
+├ ƒ /api/escuelas/[id]/mapa-curricular
+├ ƒ /api/expedientes/config
+├ ƒ /api/expedientes/descargar
+├ ƒ /api/expedientes/documentos
+├ ƒ /api/expedientes/documentos/[id]
+├ ƒ /api/expedientes/personal
+├ ƒ /api/expedientes/personal/[id]
+├ ƒ /api/horarios/catalogos
+├ ƒ /api/horarios/chat
+├ ƒ /api/horarios/configuracion
+├ ƒ /api/horarios/generar
+├ ƒ /api/horarios/guardar
+├ ƒ /api/inscripciones-eventos
+├ ƒ /api/mantenimiento-status
+├ ƒ /api/olimpiada
+├ ƒ /api/periodos/[id]/activar
+├ ƒ /api/periodos/[id]/estado
+├ ƒ /api/periodos/[id]/fecha
+├ ƒ /api/programas
+├ ƒ /api/programas/[id]
+├ ƒ /api/programas/[id]/toggle-recordatorio
+├ ƒ /api/programas/extraordinarios
+├ ƒ /api/recordatorios
+├ ƒ /api/recordatorios/individual
+├ ƒ /api/recursos
+├ ƒ /api/recursos/[id]
+├ ƒ /api/restore-cloudinary
+├ ƒ /api/sign-cloudinary
+├ ƒ /api/status
+├ ƒ /api/tramites/chat
+├ ƒ /api/tramites/normativas
+├ ƒ /api/tramites/normativas/extraer-texto
+├ ƒ /api/tramites/normativas/generar-descripcion
+├ ƒ /api/upload
+├ ƒ /api/upload/confirm
+├ ○ /apple-icon.png
+├ ƒ /director
+├ ƒ /director/horarios
+├ ○ /icon.png
+├ ○ /login
+├ ○ /manifest.webmanifest
+├ ○ /mantenimiento
+├ ƒ /supervision
+└ ƒ /validar-documento
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
