@@ -235,9 +235,9 @@ export default function GestionFechas({
                                     </div>
                                 );
                             })}
-                            {prog.periodos.filter((p: any) => p.activo).length === 0 && (
+                            {prog.periodos.length === 0 && (
                                 <div style={{ padding: "1rem", color: "var(--text-muted)", fontSize: "0.875rem", fontStyle: "italic" }}>
-                                    No hay periodos activos para este programa.
+                                    Este programa no tiene periodos en este ciclo.
                                 </div>
                             )}
                         </div>
