@@ -263,10 +263,12 @@ export default function ProgramasModulosPorEscuela({
             {/* Banner Informativo */}
             <div style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)", border: "1px solid #bfdbfe", padding: "1.25rem", borderRadius: "12px" }}>
                 <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <Settings2 style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Matriz de Activación de Módulos y Programas por Escuela
+                    <Settings2 style={{ width: "20px", height: "20px", color: "#2563eb" }} /> Excepciones por Escuela
                 </h3>
                 <p style={{ fontSize: "0.78125rem", color: "#475569", margin: "0.25rem 0 0" }}>
-                    Active o desactive funciones específicas para cada escuela o use las acciones en el encabezado de cada columna para activar/desactivar masivamente a TODAS las escuelas.
+                    Esta matriz configura <strong>excepciones individuales</strong> sobre los programas o módulos de IA para cada escuela.
+                    El toggle <strong>global</strong> de cada programa (activo/inactivo para todos) se gestiona en la pestaña <strong>Programas y Módulos</strong>.
+                    Aquí solo desactivas o reactivitas algo para una escuela específica sin afectar a las demás.
                 </p>
             </div>
 

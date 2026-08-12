@@ -39,11 +39,17 @@ export async function POST(request: NextRequest) {
         const cicloActivo = await prisma.cicloEscolar.findFirst({ where: { activo: true } });
         const escuelas = await prisma.escuela.findMany();
 
+
         if (cicloActivo && escuelas.length > 0) {
-            const MESES_CICLO = [
-                { mes: 8, año: 2025 }, { mes: 9, año: 2025 }, { mes: 10, año: 2025 }, { mes: 11, año: 2025 }, { mes: 12, año: 2025 },
-                { mes: 1, año: 2026 }, { mes: 2, año: 2026 }, { mes: 3, año: 2026 }, { mes: 4, año: 2026 }, { mes: 5, año: 2026 }, { mes: 6, año: 2026 }, { mes: 7, año: 2026 }
-            ];
+            // Calculate months dynamically from the active cycle's date range
+            const mesesDelCiclo: number[] = [];
+            const cur = new Date(cicloActivo.inicio);
+            cur.setDate(1);
+            const finCiclo = new Date(cicloActivo.fin);
+            while (cur <= finCiclo) {
+                mesesDelCiclo.push(cur.getMonth() + 1); // 1-12
+                cur.setMonth(cur.getMonth() + 1);
+            }
 
             if (tipo === "ANUAL") {
                 const periodo = await prisma.periodoEntrega.create({
@@ -62,7 +68,7 @@ export async function POST(request: NextRequest) {
                     }
                 }
             } else if (tipo === "MENSUAL") {
-                for (const { mes } of MESES_CICLO) {
+                for (const mes of mesesDelCiclo) {
                     const periodo = await prisma.periodoEntrega.create({
                         data: { cicloEscolarId: cicloActivo.id, programaId: newPrograma.id, mes, activo: false }
                     });
@@ -72,6 +78,7 @@ export async function POST(request: NextRequest) {
                 }
             }
         }
+
 
         // Re-fetch the complete programa with periods so frontend gets accurate data
         const completePrograma = await prisma.programa.findUnique({

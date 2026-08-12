@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar, PlusCircle, CheckCircle2, AlertTriangle, Play } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, PlusCircle, CheckCircle2, AlertTriangle, Play, X, Copy, Loader2, CheckSquare, Square } from "lucide-react";
 
 type Ciclo = {
     id: string;
@@ -9,6 +9,13 @@ type Ciclo = {
     activo: boolean;
     inicio: string;
     fin: string;
+};
+
+type ProgramaResumen = {
+    id: string;
+    nombre: string;
+    tipo: string;
+    activo: boolean;
 };
 
 export default function GestionCiclos({
@@ -26,6 +33,29 @@ export default function GestionCiclos({
     const [fin, setFin] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [activatingId, setActivatingId] = useState<string | null>(null);
+
+    // ── Migration modal state ──────────────────────────────────────────
+    const [migracionModal, setMigracionModal] = useState<{ cicloId: string; nombreCiclo: string } | null>(null);
+    const [programasDisponibles, setProgramasDisponibles] = useState<ProgramaResumen[]>([]);
+    const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+    const [loadingProgramas, setLoadingProgramas] = useState(false);
+    const [migrando, setMigrando] = useState(false);
+
+    // Load programs when the migration modal opens
+    useEffect(() => {
+        if (!migracionModal) return;
+        setLoadingProgramas(true);
+        fetch("/api/programas")
+            .then((r) => r.json())
+            .then((data: ProgramaResumen[]) => {
+                const activos = data.filter((p) => p.activo !== false);
+                setProgramasDisponibles(activos);
+                // Pre-select all active programs
+                setSeleccionados(new Set(activos.map((p) => p.id)));
+            })
+            .catch(() => setProgramasDisponibles([]))
+            .finally(() => setLoadingProgramas(false));
+    }, [migracionModal]);
 
     async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
@@ -52,7 +82,6 @@ export default function GestionCiclos({
                 setNombre("");
                 setInicio("");
                 setFin("");
-                // Reload after a delay to sync the sidebar dropdown
                 setTimeout(() => window.location.reload(), 2000);
             } else {
                 onSetMessage({ type: "error", text: data.error || "Error al crear el ciclo escolar." });
@@ -65,34 +94,54 @@ export default function GestionCiclos({
         }
     }
 
-    async function handleActivar(id: string, nombreCiclo: string) {
-        if (!confirm(`¿Estás seguro de activar el ciclo escolar "${nombreCiclo}"? Esto desactivará el ciclo actual.`)) {
-            return;
-        }
+    // Opens migration modal instead of directly activating
+    function handleActivarClick(cicloId: string, nombreCiclo: string) {
+        setMigracionModal({ cicloId, nombreCiclo });
+    }
 
-        setActivatingId(id);
+    function handleTogglePrograma(id: string) {
+        setSeleccionados((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }
+
+    function handleSeleccionarTodos() {
+        if (seleccionados.size === programasDisponibles.length) {
+            setSeleccionados(new Set());
+        } else {
+            setSeleccionados(new Set(programasDisponibles.map((p) => p.id)));
+        }
+    }
+
+    async function handleConfirmarActivacion(conMigracion: boolean) {
+        if (!migracionModal) return;
+        const { cicloId, nombreCiclo } = migracionModal;
+
+        setMigrando(true);
         onSetMessage(null);
 
         try {
+            const copiarProgramaIds = conMigracion ? Array.from(seleccionados) : [];
+
             const res = await fetch("/api/admin/ciclos", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id }),
+                body: JSON.stringify({ id: cicloId, copiarProgramaIds }),
             });
 
             const data = await res.json();
 
             if (res.ok) {
-                onSetMessage({ type: "success", text: `Ciclo escolar "${nombreCiclo}" activado con éxito. Recargando plataforma...` });
-                // Update local state
-                setCiclos((prev) =>
-                    prev.map((c) => ({
-                        ...c,
-                        activo: c.id === id,
-                    }))
-                );
-                // Reload to reset the whole app state to the new active cycle
-                setTimeout(() => window.location.reload(), 1500);
+                const migMsg = conMigracion && data.programasMigrados > 0
+                    ? ` Se copiaron ${data.programasMigrados} programa(s) al nuevo ciclo.`
+                    : "";
+                onSetMessage({ type: "success", text: `Ciclo "${nombreCiclo}" activado.${migMsg} Recargando...` });
+                setCiclos((prev) => prev.map((c) => ({ ...c, activo: c.id === cicloId })));
+                setMigracionModal(null);
+                setTimeout(() => window.location.reload(), 1800);
             } else {
                 onSetMessage({ type: "error", text: data.error || "Error al activar el ciclo escolar." });
             }
@@ -100,21 +149,28 @@ export default function GestionCiclos({
             console.error("Error activating cycle:", error);
             onSetMessage({ type: "error", text: "Error de conexión con el servidor." });
         } finally {
+            setMigrando(false);
             setActivatingId(null);
         }
     }
+
+    const TIPO_LABEL: Record<string, string> = {
+        ANUAL: "Anual",
+        SEMESTRAL: "Semestral",
+        MENSUAL: "Mensual",
+    };
 
     return (
         <div className="fade-in">
             <div className="page-header" style={{ marginBottom: "2rem" }}>
                 <h1>Ciclos Escolares</h1>
                 <p style={{ color: "var(--text-secondary)" }}>
-                    Administra los periodos anuales de trabajo de la supervisión. Crear un nuevo ciclo te permitirá iniciar entregas limpias preservando el historial del ciclo anterior.
+                    Administra los periodos anuales de trabajo. Al activar un nuevo ciclo puedes elegir qué programas continúan, conservando el historial del ciclo anterior.
                 </p>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem", alignItems: "start" }}>
-                
+
                 {!readOnly && (
                     <div className="card">
                         <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "1rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -187,8 +243,8 @@ export default function GestionCiclos({
 
                     <div style={{ display: "flex", flexDirection: "column" }}>
                         {ciclos.map((c) => {
-                            const dateInicio = new Date(c.inicio).toLocaleDateString("es-MX", { day: '2-digit', month: 'short', year: 'numeric' });
-                            const dateFin = new Date(c.fin).toLocaleDateString("es-MX", { day: '2-digit', month: 'short', year: 'numeric' });
+                            const dateInicio = new Date(c.inicio).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+                            const dateFin = new Date(c.fin).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 
                             return (
                                 <div
@@ -207,29 +263,19 @@ export default function GestionCiclos({
                                             <strong style={{ fontSize: "0.9375rem", color: "var(--text)" }}>{c.nombre}</strong>
                                             {c.activo ? (
                                                 <span style={{
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    gap: "0.25rem",
-                                                    fontSize: "0.65rem",
-                                                    fontWeight: 700,
-                                                    color: "var(--success, #16a34a)",
-                                                    background: "var(--success-bg, #dcfce7)",
-                                                    padding: "2px 8px",
-                                                    borderRadius: "12px"
+                                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                                    fontSize: "0.65rem", fontWeight: 700,
+                                                    color: "var(--success, #16a34a)", background: "var(--success-bg, #dcfce7)",
+                                                    padding: "2px 8px", borderRadius: "12px"
                                                 }}>
                                                     <CheckCircle2 size={10} /> ACTIVO
                                                 </span>
                                             ) : (
                                                 <span style={{
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    gap: "0.25rem",
-                                                    fontSize: "0.65rem",
-                                                    fontWeight: 700,
-                                                    color: "var(--text-muted, #64748b)",
-                                                    background: "var(--bg-secondary, #f1f5f9)",
-                                                    padding: "2px 8px",
-                                                    borderRadius: "12px"
+                                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                                    fontSize: "0.65rem", fontWeight: 700,
+                                                    color: "var(--text-muted, #64748b)", background: "var(--bg-secondary, #f1f5f9)",
+                                                    padding: "2px 8px", borderRadius: "12px"
                                                 }}>
                                                     INACTIVO (Lectura)
                                                 </span>
@@ -242,17 +288,10 @@ export default function GestionCiclos({
 
                                     {!c.activo && !readOnly && (
                                         <button
-                                            onClick={() => handleActivar(c.id, c.nombre)}
-                                            disabled={activatingId !== null}
+                                            onClick={() => handleActivarClick(c.id, c.nombre)}
+                                            disabled={activatingId !== null || migrando}
                                             className="btn btn-outline"
-                                            style={{
-                                                padding: "0.375rem 0.75rem",
-                                                fontSize: "0.75rem",
-                                                minHeight: "auto",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "0.25rem"
-                                            }}
+                                            style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
                                         >
                                             <Play size={12} /> Activar
                                         </button>
@@ -265,20 +304,124 @@ export default function GestionCiclos({
 
             </div>
 
-            {/* AVISO IMPORTANTE */}
+            {/* AVISO */}
             <div className="card" style={{ marginTop: "1.5rem", background: "#fef3c7", border: "1px solid #fde68a", color: "#92400e" }}>
                 <div style={{ display: "flex", gap: "0.75rem" }}>
                     <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: "2px" }} />
                     <div>
                         <strong style={{ fontSize: "0.9375rem", display: "block", marginBottom: "0.25rem" }}>Notas sobre el funcionamiento multiciclo:</strong>
                         <ul style={{ margin: 0, paddingLeft: "1.25rem", fontSize: "0.8125rem", lineHeight: 1.5 }}>
-                            <li>Al activar un nuevo ciclo, el avance escolar por escuela e inscripción en programas se iniciará vacío.</li>
-                            <li>Tanto supervisores como directores de escuela podrán alternar entre ciclos pasados mediante el menú lateral para consultar, revisar o descargar archivos históricos.</li>
-                            <li>Los expedientes de docentes y personal no se reinician, ya que son datos del centro de trabajo que permanecen vigentes.</li>
+                            <li>Al activar un nuevo ciclo se te preguntará qué programas copiar. Los programas no seleccionados no aparecerán en el nuevo ciclo.</li>
+                            <li>Supervisores y directores pueden alternar entre ciclos pasados desde el menú lateral para consultar históricos.</li>
+                            <li>Los expedientes de docentes no se reinician; son datos del centro de trabajo permanentes.</li>
                         </ul>
                     </div>
                 </div>
             </div>
+
+            {/* ── MODAL DE MIGRACIÓN ──────────────────────────────────────────── */}
+            {migracionModal && (
+                <div style={{
+                    position: "fixed", inset: 0, zIndex: 1000,
+                    background: "rgba(0,0,0,0.45)", display: "flex",
+                    alignItems: "center", justifyContent: "center", padding: "1rem"
+                }}>
+                    <div className="card" style={{ width: "100%", maxWidth: "520px", maxHeight: "90vh", overflow: "auto", padding: "1.5rem", position: "relative" }}>
+                        {/* Header */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem" }}>
+                            <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, fontSize: "1rem" }}>
+                                    <Copy size={18} color="var(--primary)" />
+                                    Activar ciclo: {migracionModal.nombreCiclo}
+                                </div>
+                                <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.375rem" }}>
+                                    Elige los programas del ciclo actual que deseas continuar usando. Se crearán periodos vacíos listos para recibir entregas.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setMigracionModal(null)}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Program list */}
+                        {loadingProgramas ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text-muted)", padding: "1rem 0" }}>
+                                <Loader2 size={16} className="spin" /> Cargando programas...
+                            </div>
+                        ) : programasDisponibles.length === 0 ? (
+                            <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", padding: "0.5rem 0" }}>
+                                No hay programas activos en el ciclo actual. El nuevo ciclo iniciará vacío.
+                            </p>
+                        ) : (
+                            <>
+                                {/* Select all row */}
+                                <button
+                                    onClick={handleSeleccionarTodos}
+                                    style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8125rem", color: "var(--primary)", fontWeight: 600, padding: "0 0 0.75rem 0" }}
+                                >
+                                    {seleccionados.size === programasDisponibles.length
+                                        ? <><CheckSquare size={15} /> Deseleccionar todos</>
+                                        : <><Square size={15} /> Seleccionar todos</>
+                                    }
+                                </button>
+
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", marginBottom: "1.25rem" }}>
+                                    {programasDisponibles.map((p) => (
+                                        <label
+                                            key={p.id}
+                                            style={{
+                                                display: "flex", alignItems: "center", gap: "0.625rem",
+                                                padding: "0.5rem 0.75rem", borderRadius: "8px", cursor: "pointer",
+                                                background: seleccionados.has(p.id) ? "var(--primary-bg, #eff6ff)" : "var(--bg-secondary)",
+                                                border: `1px solid ${seleccionados.has(p.id) ? "var(--primary, #3b82f6)" : "var(--border)"}`,
+                                                transition: "background 0.15s, border-color 0.15s",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={seleccionados.has(p.id)}
+                                                onChange={() => handleTogglePrograma(p.id)}
+                                                style={{ accentColor: "var(--primary)", width: "15px", height: "15px" }}
+                                            />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</div>
+                                                <div style={{ fontSize: "0.71875rem", color: "var(--text-muted)" }}>{TIPO_LABEL[p.tipo] ?? p.tipo}</div>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+
+                        {/* Actions */}
+                        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                            <button
+                                className="btn btn-primary"
+                                disabled={migrando}
+                                onClick={() => handleConfirmarActivacion(true)}
+                                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.375rem" }}
+                            >
+                                {migrando
+                                    ? <><Loader2 size={14} className="spin" /> Activando...</>
+                                    : <><CheckCircle2 size={14} /> Activar con {seleccionados.size} programa(s)</>
+                                }
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                disabled={migrando}
+                                onClick={() => handleConfirmarActivacion(false)}
+                                style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem" }}
+                                title="El nuevo ciclo iniciará sin ningún programa asignado"
+                            >
+                                Iniciar vacío
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

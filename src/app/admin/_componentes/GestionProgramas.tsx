@@ -287,10 +287,12 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
             <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "10px", padding: "0.85rem 1.25rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
                     <div style={{ fontWeight: 800, fontSize: "0.875rem", color: "#1d4ed8", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Settings size={18} /> Control de Activación y Permisos
+                        <Settings size={18} /> Control Global de Programas
                     </div>
                     <div style={{ fontSize: "0.78125rem", color: "#1e40af", marginTop: "0.25rem" }}>
-                        Todos los nuevos programas creados aparecen disponibles automáticamente. Si deseas desactivar un programa específico para una sola escuela, usa la pestaña <strong>"⚙️ Programas y Módulos por Escuela"</strong>. Para permisos de IA, ve a <strong>"🤖 Permisos de Herramientas de IA"</strong>.
+                        El toggle de esta pantalla activa o desactiva un programa <strong>para todas las escuelas a la vez</strong>.
+                        Para desactivar un programa solo en una escuela específica, usa la pestaña <strong>"⚙️ Programas y Módulos por Escuela"</strong>.
+                        Para permisos de IA, ve a <strong>"🤖 Permisos de Herramientas de IA"</strong>.
                     </div>
                 </div>
                 {onGoToPermisosIA && (
