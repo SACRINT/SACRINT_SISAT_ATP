@@ -580,16 +580,16 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
                                 </div>
                             )}
 
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", background: "var(--bg-secondary)", padding: "0.75rem", borderRadius: "8px" }}>
-                                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer" }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.activo}
-                                        onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
-                                        disabled={isLoading}
-                                    />
-                                    Programa Activo
-                                </label>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem", background: "var(--bg-secondary)", padding: "0.75rem", borderRadius: "8px" }}>
+                                {/* Nota: Programa.activo es global y NO controla la visibilidad por ciclo.
+                                    La activación por ciclo se gestiona en "Fechas y Entregas de Programas"
+                                    via el toggle de cada PeriodoEntrega. */}
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", padding: "0.5rem 0.625rem", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: "6px", fontSize: "0.75rem", color: "#92400e", lineHeight: 1.4 }}>
+                                    <span style={{ flexShrink: 0, marginTop: "0.05rem" }}>ℹ️</span>
+                                    <span>
+                                        <strong>Activación por ciclo</strong>: para que los directores vean u oculten este programa, usa los toggles en <em>Fechas y Entregas de Programas</em>. Cada ciclo escolar tiene sus propios periodos independientes.
+                                    </span>
+                                </div>
                                 <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer" }}>
                                     <input
                                         type="checkbox"
@@ -597,7 +597,7 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
                                         onChange={(e) => setFormData({ ...formData, visibleEnDirector: e.target.checked })}
                                         disabled={isLoading}
                                     />
-                                    Visible en Director
+                                    Visible en Director (nombre en el listado del portal)
                                 </label>
                             </div>
 

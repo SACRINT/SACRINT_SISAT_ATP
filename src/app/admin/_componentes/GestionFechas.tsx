@@ -6,9 +6,11 @@ import { Calendar, PlusCircle, Save, X, RefreshCw, Trophy } from "lucide-react";
 export default function GestionFechas({
     programas,
     readOnly = false,
+    cicloNombre,
 }: {
     programas: any[];
     readOnly?: boolean;
+    cicloNombre?: string;
 }) {
     const [fechas, setFechas] = useState<Record<string, string>>({});
     const [savingPeriodoId, setSavingPeriodoId] = useState<string | null>(null);
@@ -151,8 +153,18 @@ export default function GestionFechas({
             <div className="page-header" style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
                     <h1>Fechas y Entregas</h1>
-                    <p style={{ color: "var(--text-secondary)" }}>
+                    <p style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                         Configura los días límite de entrega y crea comisiones extraordinarias.
+                        {cicloNombre && (
+                            <span style={{
+                                display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)",
+                                color: "#1d4ed8", borderRadius: "9999px",
+                                fontSize: "0.7rem", fontWeight: 700, padding: "0.1rem 0.55rem",
+                            }}>
+                                📅 {cicloNombre}
+                            </span>
+                        )}
                     </p>
                 </div>
                 {!readOnly && (

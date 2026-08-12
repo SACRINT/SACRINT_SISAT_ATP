@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, PlusCircle, CheckCircle2, AlertTriangle, Play, X, Copy, Loader2, CheckSquare, Square, Settings } from "lucide-react";
+import { Calendar, PlusCircle, CheckCircle2, AlertTriangle, Play, X, Copy, Loader2, CheckSquare, Square, Settings, Pencil, Save } from "lucide-react";
 
 type Ciclo = {
     id: string;
@@ -47,6 +47,12 @@ export default function GestionCiclos({
     const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
     const [loadingProgramas, setLoadingProgramas] = useState(false);
     const [guardando, setGuardando] = useState(false);
+
+    // ── Estado edición inline de fechas ──────────────────────────────────
+    const [editandoId, setEditandoId] = useState<string | null>(null);
+    const [editInicio, setEditInicio] = useState("");
+    const [editFin, setEditFin] = useState("");
+    const [guardandoFechas, setGuardandoFechas] = useState(false);
 
     // Punto 4: Fuente de datos corregida — usa el nuevo endpoint GET /api/admin/ciclos/[id]/programas
     useEffect(() => {
@@ -113,6 +119,44 @@ export default function GestionCiclos({
 
     function handleGestionarClick(cicloId: string, nombreCiclo: string) {
         setModal({ cicloId, nombreCiclo, modoGestion: true });
+    }
+
+    function handleEditarClick(ciclo: Ciclo) {
+        setEditandoId(ciclo.id);
+        // Convertir fecha ISO a yyyy-MM-dd para input[type=date]
+        setEditInicio(ciclo.inicio.slice(0, 10));
+        setEditFin(ciclo.fin.slice(0, 10));
+    }
+
+    async function handleGuardarFechas(cicloId: string, nombreCiclo: string) {
+        if (!editInicio || !editFin) return;
+        setGuardandoFechas(true);
+        onSetMessage(null);
+        try {
+            const res = await fetch("/api/admin/ciclos", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: cicloId, inicio: editInicio, fin: editFin }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setCiclos((prev) =>
+                    prev.map((c) =>
+                        c.id === cicloId
+                            ? { ...c, inicio: data.ciclo.inicio, fin: data.ciclo.fin }
+                            : c
+                    )
+                );
+                onSetMessage({ type: "success", text: `Fechas del ciclo "${nombreCiclo}" actualizadas.` });
+                setEditandoId(null);
+            } else {
+                onSetMessage({ type: "error", text: data.error || "Error al actualizar las fechas." });
+            }
+        } catch {
+            onSetMessage({ type: "error", text: "Error de conexión con el servidor." });
+        } finally {
+            setGuardandoFechas(false);
+        }
     }
 
     function handleTogglePrograma(id: string) {
@@ -337,65 +381,130 @@ export default function GestionCiclos({
                                 <div
                                     key={c.id}
                                     style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
                                         padding: "1rem",
                                         borderBottom: "1px solid var(--border)",
                                         background: c.activo ? "var(--primary-bg, #eff6ff)" : "transparent",
                                     }}
                                 >
-                                    <div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                            <strong style={{ fontSize: "0.9375rem", color: "var(--text)" }}>{c.nombre}</strong>
-                                            {c.activo ? (
-                                                <span style={{
-                                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
-                                                    fontSize: "0.65rem", fontWeight: 700,
-                                                    color: "var(--success, #16a34a)", background: "var(--success-bg, #dcfce7)",
-                                                    padding: "2px 8px", borderRadius: "12px"
-                                                }}>
-                                                    <CheckCircle2 size={10} /> ACTIVO
-                                                </span>
-                                            ) : (
-                                                <span style={{
-                                                    display: "inline-flex", alignItems: "center", gap: "0.25rem",
-                                                    fontSize: "0.65rem", fontWeight: 700,
-                                                    color: "var(--text-muted, #64748b)", background: "var(--bg-secondary, #f1f5f9)",
-                                                    padding: "2px 8px", borderRadius: "12px"
-                                                }}>
-                                                    INACTIVO (Lectura)
-                                                </span>
+                                    {/* Fila principal */}
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                <strong style={{ fontSize: "0.9375rem", color: "var(--text)" }}>{c.nombre}</strong>
+                                                {c.activo ? (
+                                                    <span style={{
+                                                        display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                                        fontSize: "0.65rem", fontWeight: 700,
+                                                        color: "var(--success, #16a34a)", background: "var(--success-bg, #dcfce7)",
+                                                        padding: "2px 8px", borderRadius: "12px"
+                                                    }}>
+                                                        <CheckCircle2 size={10} /> ACTIVO
+                                                    </span>
+                                                ) : (
+                                                    <span style={{
+                                                        display: "inline-flex", alignItems: "center", gap: "0.25rem",
+                                                        fontSize: "0.65rem", fontWeight: 700,
+                                                        color: "var(--text-muted, #64748b)", background: "var(--bg-secondary, #f1f5f9)",
+                                                        padding: "2px 8px", borderRadius: "12px"
+                                                    }}>
+                                                        INACTIVO (Lectura)
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginTop: "0.25rem" }}>
+                                                Rango: {dateInicio} - {dateFin}
+                                            </span>
+                                        </div>
+
+                                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                                            {/* Botón editar fechas: siempre visible si no readOnly */}
+                                            {!readOnly && editandoId !== c.id && (
+                                                <button
+                                                    onClick={() => handleEditarClick(c)}
+                                                    className="btn btn-outline"
+                                                    style={{ padding: "0.375rem 0.5rem", fontSize: "0.75rem", minHeight: "auto" }}
+                                                    title="Editar fechas del ciclo"
+                                                >
+                                                    <Pencil size={12} />
+                                                </button>
+                                            )}
+
+                                            {/* Botón Activar: solo en ciclos inactivos */}
+                                            {!c.activo && !readOnly && (
+                                                <button
+                                                    onClick={() => handleActivarClick(c.id, c.nombre)}
+                                                    disabled={activatingId !== null || guardando}
+                                                    className="btn btn-outline"
+                                                    style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                                                >
+                                                    <Play size={12} /> Activar
+                                                </button>
+                                            )}
+
+                                            {/* Botón Gestionar programas: solo en el ciclo ACTIVO */}
+                                            {c.activo && !readOnly && (
+                                                <button
+                                                    onClick={() => handleGestionarClick(c.id, c.nombre)}
+                                                    disabled={guardando}
+                                                    className="btn btn-outline"
+                                                    style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                                                    title="Agregar o quitar programas del ciclo activo"
+                                                >
+                                                    <Settings size={12} /> Gestionar programas
+                                                </button>
                                             )}
                                         </div>
-                                        <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginTop: "0.25rem" }}>
-                                            Rango: {dateInicio} - {dateFin}
-                                        </span>
                                     </div>
 
-                                    {/* Botón Activar: solo en ciclos inactivos */}
-                                    {!c.activo && !readOnly && (
-                                        <button
-                                            onClick={() => handleActivarClick(c.id, c.nombre)}
-                                            disabled={activatingId !== null || guardando}
-                                            className="btn btn-outline"
-                                            style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
-                                        >
-                                            <Play size={12} /> Activar
-                                        </button>
-                                    )}
-
-                                    {/* Botón Gestionar programas: solo en el ciclo ACTIVO */}
-                                    {c.activo && !readOnly && (
-                                        <button
-                                            onClick={() => handleGestionarClick(c.id, c.nombre)}
-                                            disabled={guardando}
-                                            className="btn btn-outline"
-                                            style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
-                                            title="Agregar o quitar programas del ciclo activo"
-                                        >
-                                            <Settings size={12} /> Gestionar programas
-                                        </button>
+                                    {/* Formulario inline de edición de fechas */}
+                                    {editandoId === c.id && !readOnly && (
+                                        <div style={{
+                                            marginTop: "0.75rem",
+                                            padding: "0.75rem",
+                                            background: "var(--bg-secondary, #f8fafc)",
+                                            borderRadius: "8px",
+                                            border: "1px solid var(--border)",
+                                            display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "flex-end"
+                                        }}>
+                                            <div>
+                                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Fecha de inicio</label>
+                                                <input
+                                                    type="date"
+                                                    className="input"
+                                                    value={editInicio}
+                                                    onChange={(e) => setEditInicio(e.target.value)}
+                                                    style={{ fontSize: "0.8125rem", padding: "0.375rem 0.5rem" }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.25rem" }}>Fecha de fin</label>
+                                                <input
+                                                    type="date"
+                                                    className="input"
+                                                    value={editFin}
+                                                    onChange={(e) => setEditFin(e.target.value)}
+                                                    style={{ fontSize: "0.8125rem", padding: "0.375rem 0.5rem" }}
+                                                />
+                                            </div>
+                                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                                                <button
+                                                    onClick={() => handleGuardarFechas(c.id, c.nombre)}
+                                                    disabled={guardandoFechas}
+                                                    className="btn btn-primary"
+                                                    style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem", minHeight: "auto", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                                                >
+                                                    {guardandoFechas ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                                    {guardandoFechas ? "Guardando..." : "Guardar"}
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditandoId(null)}
+                                                    className="btn btn-outline"
+                                                    style={{ padding: "0.375rem 0.5rem", fontSize: "0.75rem", minHeight: "auto" }}
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             );

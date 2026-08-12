@@ -32,7 +32,7 @@ async function crearPeriodosProgramaEnCiclo(
 
     if (tipo === "ANUAL") {
         const periodo = await prisma.periodoEntrega.create({
-            data: { cicloEscolarId: cicloId, programaId, activo: false },
+            data: { cicloEscolarId: cicloId, programaId, activo: true },
         });
         if (escuelas.length > 0) {
             await prisma.entrega.createMany({
@@ -47,7 +47,7 @@ async function crearPeriodosProgramaEnCiclo(
     } else if (tipo === "SEMESTRAL") {
         for (const semestre of [1, 2]) {
             const periodo = await prisma.periodoEntrega.create({
-                data: { cicloEscolarId: cicloId, programaId, semestre, activo: false },
+                data: { cicloEscolarId: cicloId, programaId, semestre, activo: true },
             });
             if (escuelas.length > 0) {
                 await prisma.entrega.createMany({
@@ -63,7 +63,7 @@ async function crearPeriodosProgramaEnCiclo(
     } else if (tipo === "MENSUAL") {
         for (const mes of mesesDelCiclo) {
             const periodo = await prisma.periodoEntrega.create({
-                data: { cicloEscolarId: cicloId, programaId, mes, activo: false },
+                data: { cicloEscolarId: cicloId, programaId, mes, activo: true },
             });
             if (escuelas.length > 0) {
                 await prisma.entrega.createMany({
@@ -256,5 +256,45 @@ export async function PATCH(request: NextRequest) {
     } catch (error: unknown) {
         console.error("Error updating ciclo:", error);
         return NextResponse.json({ error: "Error al actualizar el ciclo escolar" }, { status: 500 });
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT - Editar fechas de un ciclo existente (inicio y fin)
+// Body: { id: string, inicio: string, fin: string }
+// ─────────────────────────────────────────────────────────────────────────────
+export async function PUT(request: NextRequest) {
+    try {
+        const session = await auth();
+        const user = session?.user as { role?: string } | undefined;
+        if (!session || user?.role !== "admin") {
+            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        }
+
+        const { id, inicio, fin }: { id: string; inicio: string; fin: string } = await request.json();
+
+        if (!id || !inicio || !fin) {
+            return NextResponse.json({ error: "Campos incompletos" }, { status: 400 });
+        }
+
+        const inicioDate = new Date(inicio);
+        const finDate = new Date(fin);
+
+        if (inicioDate >= finDate) {
+            return NextResponse.json(
+                { error: "La fecha de inicio debe ser anterior a la fecha de fin" },
+                { status: 400 }
+            );
+        }
+
+        const cicloActualizado = await prisma.cicloEscolar.update({
+            where: { id },
+            data: { inicio: inicioDate, fin: finDate },
+        });
+
+        return NextResponse.json({ success: true, ciclo: cicloActualizado });
+    } catch (error: unknown) {
+        console.error("Error updating ciclo dates:", error);
+        return NextResponse.json({ error: "Error al actualizar las fechas del ciclo" }, { status: 500 });
     }
 }

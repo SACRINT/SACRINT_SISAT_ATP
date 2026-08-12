@@ -1275,6 +1275,7 @@ export default function AdminDashboard({
                     <GestionFechas 
                         programas={programas} 
                         readOnly={!hasAccess("fechas", "write")}
+                        cicloNombre={cicloObj?.nombre}
                     />
                 )}
                 {/* ========= VISTA: GESTIÓN DE CICLOS ESCOLARES ========= */}
