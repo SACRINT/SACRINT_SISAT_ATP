@@ -24,6 +24,7 @@ interface ModuloInfo {
     showSidebarChip?: boolean; // false oculta el chip de visibilidad en menú (default true)
     dataEndpoint?: string;     // Optional: GET for count of inscriptions/entries
     countLabel?: string;       // Label shown with count
+    configMethod?: "POST" | "PATCH"; // Method for toggle/save endpoints
 }
 
 interface SidebarConfig {
@@ -56,6 +57,7 @@ const MODULOS: ModuloInfo[] = [
         icon: <Trophy size={22} />,
         color: "#f59e0b",
         configEndpoint: "/api/admin/eventos-config",
+        configMethod: "PATCH",
         dataEndpoint: "/api/admin/eventos-config",
         countLabel: "escuelas inscritas",
     },
@@ -66,6 +68,7 @@ const MODULOS: ModuloInfo[] = [
         icon: <FileText size={22} />,
         color: "#6366f1",
         configEndpoint: "/api/circular05/config",
+        configMethod: "PATCH",
         dataEndpoint: "/api/circular05/descargas",
         countLabel: "descargas realizadas",
     },
@@ -106,6 +109,7 @@ const MODULOS: ModuloInfo[] = [
         icon: <Users size={22} />,
         color: "#3b82f6",
         configEndpoint: "/api/expedientes/config",
+        configMethod: "PATCH",
         dataEndpoint: "/api/expedientes/personal",
         countLabel: "personas registradas",
     },
@@ -253,8 +257,9 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
         setStates(prev => ({ ...prev, [modulo.key]: { ...prev[modulo.key], toggling: true, error: null } }));
 
         try {
+            const method = modulo.configMethod || "POST";
             const res = await fetch(modulo.configEndpoint, {
-                method: "POST",
+                method: method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     activo: !current.activo,
@@ -288,8 +293,9 @@ export default function PanelModulos({ sidebarConfig, readOnly = false }: { side
         setStates(prev => ({ ...prev, [modulo.key]: { ...prev[modulo.key], savingFecha: true, error: null } }));
 
         try {
+            const method = modulo.configMethod || "POST";
             const res = await fetch(modulo.configEndpoint, {
-                method: "POST",
+                method: method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     fechaLimite: fechaInput ? new Date(fechaInput).toISOString() : null,

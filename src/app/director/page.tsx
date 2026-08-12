@@ -45,7 +45,6 @@ export default async function DirectorPage() {
             escuelaId: escuela.id,
             periodoEntrega: {
                 cicloEscolarId: ciclo.id,
-                activo: true,
             },
         },
         include: {

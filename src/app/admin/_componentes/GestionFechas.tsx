@@ -194,7 +194,7 @@ export default function GestionFechas({
                             </span>
                         </div>
                         <div>
-                            {prog.periodos.filter((p: any) => p.activo).map((periodo: any) => {
+                            {prog.periodos.map((periodo: any) => {
                                 const initialVal = formatDateForInput(periodo.fechaLimite);
                                 const currentVal = fechas[periodo.id] !== undefined ? fechas[periodo.id] : initialVal;
                                 const isDirty = currentVal !== initialVal;
