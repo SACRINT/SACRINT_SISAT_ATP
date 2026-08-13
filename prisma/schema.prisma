@@ -107,6 +107,7 @@ model CicloEscolar {
   fin    DateTime // 2026-07-31
   activo Boolean  @default(true)
   anuncioGlobal String?
+  evaluarSoloActivosRanking Boolean @default(false)
 
   periodos PeriodoEntrega[]
   capems   Capem[]

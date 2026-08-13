@@ -140,6 +140,24 @@ export async function POST(req: NextRequest) {
                 update: { activo, visibleEnDirector: activo },
                 create: { tenantId, activo, visibleEnDirector: activo }
             });
+        } else if (modulo === "cte") {
+            await prisma.adminSidebarConfig.upsert({
+                where: { id: "singleton" },
+                update: { showCte: activo },
+                create: { id: "singleton", showCte: activo }
+            });
+        } else if (modulo === "usicamm") {
+            await prisma.adminSidebarConfig.upsert({
+                where: { id: "singleton" },
+                update: { showUsicamm: activo },
+                create: { id: "singleton", showUsicamm: activo }
+            });
+        } else if (modulo === "comites") {
+            await prisma.adminSidebarConfig.upsert({
+                where: { id: "singleton" },
+                update: { showComites: activo },
+                create: { id: "singleton", showComites: activo }
+            });
         } else {
             return NextResponse.json({ error: `Módulo desconocido: ${modulo}` }, { status: 400 });
         }

@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 400 });
         }
 
+        const evaluarSoloActivos = (cicloActivo as any).evaluarSoloActivosRanking ?? false;
+
         // Obtener configuración de SPARH para verificar si el módulo está activo
         const sparhConfig = await prisma.plantillaCorteConfig.findUnique({
             where: { tenantId: "zona004" }
@@ -66,17 +68,45 @@ export async function GET(req: NextRequest) {
             }
         });
 
+        // Si la opción "evaluarSoloActivos" está encendida:
+        // Un programa/periodo se considera requerido únicamente si:
+        // A) periodo.activo === true y tiene una fechaLimite configurada por el admin.
+        // O B) al menos una escuela en la zona ya ha subido una entrega para ese periodo (estado != NO_ENTREGADO / PENDIENTE).
+        const periodosQueTienenEntregasEnZona = new Set<string>();
+        if (evaluarSoloActivos) {
+            for (const esc of escuelas) {
+                for (const e of esc.entregas || []) {
+                    if (["APROBADO", "ENTREGADO_FISICO", "EN_REVISION", "REQUIERE_CORRECCION"].includes(e.estado)) {
+                        periodosQueTienenEntregasEnZona.add(e.periodoEntregaId);
+                    }
+                }
+            }
+        }
+
         const ranking = escuelas.map((esc: any) => {
             const entregas: any[] = esc.entregas || [];
 
-            // Evaluar todas las entregas del ciclo escolar excepto:
-            // 1. Las EXENTAS
-            // 2. Las de programas que NO son para directores (quienesPuedenSubir no incluye "director")
+            // Evaluar entregas del ciclo escolar
             const entregasRequeridas = entregas.filter((e: any) => {
                 if (e.estado === "EXENTO") return false;
+
                 const quienes: string[] = e.periodoEntrega?.programa?.quienesPuedenSubir ?? [];
-                // Si el programa especifica quiénes suben y no incluye "director", excluirlo del ranking de directores
+                // Si el programa no incluye "director", excluirlo
                 if (quienes.length > 0 && !quienes.includes("director")) return false;
+
+                // Si el modo "Solo Activos" está encendido:
+                if (evaluarSoloActivos) {
+                    const per = e.periodoEntrega;
+                    const tieneFechaLimite = per?.fechaLimite !== null && per?.fechaLimite !== undefined;
+                    const tieneEntregaEnZona = periodosQueTienenEntregasEnZona.has(e.periodoEntregaId);
+                    const estaActivo = per?.activo !== false;
+
+                    // Si NO está activo, ni tiene fecha límite, ni nadie en la zona ha subido nada -> Se ignora del ranking
+                    if (!estaActivo || (!tieneFechaLimite && !tieneEntregaEnZona)) {
+                        return false;
+                    }
+                }
+
                 return true;
             });
             
@@ -91,7 +121,11 @@ export async function GET(req: NextRequest) {
             let sparhPendienteCorreccion = false;
             let sparhNoEntregada = false;
 
-            if (sparhActivo) {
+            const sparhTieneFecha = sparhConfig?.fechaCorteOficial !== null && sparhConfig?.fechaCorteOficial !== undefined;
+            const sparhTieneRegistros = plantillasSparh.length > 0;
+            const incluirSparh = sparhActivo && (!evaluarSoloActivos || sparhTieneFecha || sparhTieneRegistros);
+
+            if (incluirSparh) {
                 totalRequeridas += 1;
                 const regSparh = plantillasMap.get(esc.id) || plantillasMap.get(esc.cct);
                 if (regSparh) {
@@ -134,16 +168,17 @@ export async function GET(req: NextRequest) {
             ).length + (sparhNoEntregada ? 1 : 0);
             
             // Check if all were on time (fechaSubida <= fechaLimite)
-            const todasAprobadasYATiempo = (entregasRequeridas.length > 0 || sparhActivo) &&
+            const todasAprobadasYATiempo = (entregasRequeridas.length > 0 || incluirSparh) &&
                 entregasRequeridas.every((e: any) => {
                     const esAprobada = ["APROBADO", "ENTREGADO_FISICO"].includes(e.estado);
                     if (!esAprobada) return false;
                     if (!e.fechaSubida) return false;
+                    if (!e.periodoEntrega?.fechaLimite) return true;
                     
                     const limite = new Date(e.periodoEntrega.fechaLimite);
                     limite.setHours(23, 59, 59, 999);
                     return new Date(e.fechaSubida) <= limite;
-                }) && (!sparhActivo || sparhATiempo);
+                }) && (!incluirSparh || sparhATiempo);
 
             const cumplimiento = totalRequeridas > 0 ? (aprobadas.length / totalRequeridas) * 100 : 0;
             const entregadasPorcentaje = totalRequeridas > 0 ? (entregadas.length / totalRequeridas) * 100 : 0;
@@ -170,39 +205,75 @@ export async function GET(req: NextRequest) {
                 cumplimiento,
                 entregadasPorcentaje,
                 medalla,
-                // Campos adicionales para distinguir la naturaleza del incumplimiento
-                docsConCorreccionesPendientes, // TIPO A: entregó pero no corrigió
-                docsNoEntregados               // TIPO B: nunca entregó (más grave)
+                docsConCorreccionesPendientes,
+                docsNoEntregados
             };
         });
 
         ranking.sort((a, b) => {
-            // 1. Por medalla: ORO > PLATA > BRONCE > NINGUNA
             if (a.medalla !== b.medalla) {
                 const map: Record<string, number> = { "ORO": 4, "PLATA": 3, "BRONCE": 2, "NINGUNA": 1 };
                 return map[b.medalla] - map[a.medalla];
             }
-            // 2. Por cumplimiento descendente
             if (b.cumplimiento !== a.cumplimiento) {
                 return b.cumplimiento - a.cumplimiento;
             }
-            // 3. Mismo cumplimiento: TIPO B (nunca entregó) es más grave → posición más baja en ranking
-            //    Menos docsNoEntregados = mejor posición
             if (a.docsNoEntregados !== b.docsNoEntregados) {
                 return a.docsNoEntregados - b.docsNoEntregados;
             }
-            // 4. Mismo tipo B: menos correcciones pendientes (TIPO A) = mejor posición
             if (a.docsConCorreccionesPendientes !== b.docsConCorreccionesPendientes) {
                 return a.docsConCorreccionesPendientes - b.docsConCorreccionesPendientes;
             }
-            // 5. Alfabético
             return a.nombre.localeCompare(b.nombre);
         });
 
-        return NextResponse.json(ranking);
+        return NextResponse.json({
+            ranking,
+            evaluarSoloActivosRanking: evaluarSoloActivos,
+            cicloId: cicloActivo.id,
+            cicloNombre: cicloActivo.nombre,
+        });
 
     } catch (error) {
         console.error("Error generating ranking:", error);
         return NextResponse.json({ error: "Error al generar ranking" }, { status: 500 });
+    }
+}
+
+// POST endpoint para alternar el filtro de solo programas activos en el ranking para este ciclo
+export async function POST(req: NextRequest) {
+    const session = await auth();
+    const role = (session?.user as any)?.role;
+    if (!session || !["admin", "supervision"].includes(role)) {
+        return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    try {
+        const body = await req.json();
+        const { cicloId, evaluarSoloActivosRanking } = body as { cicloId?: string; evaluarSoloActivosRanking?: boolean };
+
+        let cicloIdUsar = cicloId;
+        if (!cicloIdUsar) {
+            const ciclo = await obtenerCicloActual();
+            cicloIdUsar = ciclo?.id;
+        }
+
+        if (!cicloIdUsar || typeof evaluarSoloActivosRanking !== "boolean") {
+            return NextResponse.json({ error: "Faltan parámetros (cicloId, evaluarSoloActivosRanking)" }, { status: 400 });
+        }
+
+        const actualizado = await prisma.cicloEscolar.update({
+            where: { id: cicloIdUsar },
+            data: { evaluarSoloActivosRanking } as any,
+        });
+
+        return NextResponse.json({
+            ok: true,
+            cicloId: actualizado.id,
+            evaluarSoloActivosRanking: (actualizado as any).evaluarSoloActivosRanking,
+        });
+    } catch (error) {
+        console.error("Error updating ranking mode:", error);
+        return NextResponse.json({ error: "Error al actualizar modo de ranking" }, { status: 500 });
     }
 }

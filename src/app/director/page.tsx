@@ -145,6 +145,9 @@ export default async function DirectorPage() {
     const isOficiosActive = (oficiosConfig?.activo ?? true) && (sidebarConfig?.showOficios ?? true);
     const isSparhActive = (sparhConfig?.activo ?? true) && (sidebarConfig?.showSparh ?? true);
     const isBecasActive = (sidebarConfig?.showBecas ?? true);
+    const isCteActive = (sidebarConfig?.showCte ?? true);
+    const isUsicammActive = (sidebarConfig?.showUsicamm ?? true);
+    const isComitesActive = (sidebarConfig?.showComites ?? true);
     const isEstadistica911Active = (estadistica911Config?.activo ?? true) && (estadistica911Config?.visibleEnDirector ?? true) && (sidebarConfig?.showEstadistica911 ?? true);
     const isPlaneacionesActive = escuela.esDePrueba || (planeacionesConfig ? planeacionesConfig.modoSinRestricciones : true)
         ? true
@@ -172,6 +175,9 @@ export default async function DirectorPage() {
             isOficiosActive={isOficiosActive}
             isSparhActive={isSparhActive}
             isBecasActive={isBecasActive}
+            isCteActive={isCteActive}
+            isUsicammActive={isUsicammActive}
+            isComitesActive={isComitesActive}
             isEstadistica911Active={isEstadistica911Active}
         />
     );

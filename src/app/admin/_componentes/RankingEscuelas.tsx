@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Trophy, Medal, AlertCircle, Download, Loader2, RotateCw } from "lucide-react";
+import { Trophy, Medal, AlertCircle, Download, Loader2, RotateCw, ToggleLeft, ToggleRight } from "lucide-react";
 import {
     Document, Packer, Paragraph, TextRun,
     Table, TableRow, TableCell,
@@ -39,6 +39,9 @@ export default function RankingEscuelas({ cicloNombre, cicloId, isDirector = fal
     const [generatingReport, setGeneratingReport] = useState(false);
     const [reportError, setReportError] = useState<string | null>(null);
 
+    const [evaluarSoloActivos, setEvaluarSoloActivos] = useState(false);
+    const [togglingModo, setTogglingModo] = useState(false);
+
     const fetchRanking = useCallback((isManual = false) => {
         if (isManual) setRefreshing(true);
         const queryParams = new URLSearchParams();
@@ -49,7 +52,12 @@ export default function RankingEscuelas({ cicloNombre, cicloId, isDirector = fal
             .then(r => r.json())
             .then(data => {
                 if (data.error) throw new Error(data.error);
-                setRanking(data);
+                if (data.ranking) {
+                    setRanking(data.ranking);
+                    setEvaluarSoloActivos(!!data.evaluarSoloActivosRanking);
+                } else {
+                    setRanking(data);
+                }
                 setLoading(false);
                 setRefreshing(false);
             })
@@ -59,6 +67,26 @@ export default function RankingEscuelas({ cicloNombre, cicloId, isDirector = fal
                 setRefreshing(false);
             });
     }, [cicloId]);
+
+    const handleToggleModoActivos = async () => {
+        setTogglingModo(true);
+        try {
+            const res = await fetch("/api/admin/ranking", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cicloId, evaluarSoloActivosRanking: !evaluarSoloActivos }),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                setEvaluarSoloActivos(data.evaluarSoloActivosRanking);
+                fetchRanking(true);
+            }
+        } catch (err) {
+            console.error("Error al cambiar filtro inteligente de ranking:", err);
+        } finally {
+            setTogglingModo(false);
+        }
+    };
 
     useEffect(() => {
         fetchRanking();
@@ -143,6 +171,30 @@ export default function RankingEscuelas({ cicloNombre, cicloId, isDirector = fal
                     </p>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    {!isDirector && (
+                        <button
+                            onClick={handleToggleModoActivos}
+                            disabled={togglingModo}
+                            title="Modo Inteligente: Si se activa, solo evalúa programas con fecha límite o entregas registradas en la zona"
+                            style={{
+                                padding: "0.5rem 1rem",
+                                background: evaluarSoloActivos ? "rgba(16, 185, 129, 0.15)" : "var(--bg-secondary)",
+                                color: evaluarSoloActivos ? "#10b981" : "var(--text-muted)",
+                                border: `1px solid ${evaluarSoloActivos ? "#10b981" : "var(--border)"}`,
+                                borderRadius: "8px",
+                                fontWeight: 600,
+                                cursor: togglingModo ? "wait" : "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.5rem",
+                                fontSize: "0.8125rem"
+                            }}
+                        >
+                            {togglingModo ? <Loader2 size={16} className="spin" /> : (evaluarSoloActivos ? <ToggleRight size={20} color="#10b981" /> : <ToggleLeft size={20} />)}
+                            {evaluarSoloActivos ? "Solo Requeridos (Activos)" : "Evaluar Todos los Programas"}
+                        </button>
+                    )}
+
                     <button
                         onClick={() => fetchRanking(true)}
                         disabled={refreshing}
