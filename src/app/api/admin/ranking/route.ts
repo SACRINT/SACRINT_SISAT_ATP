@@ -71,10 +71,9 @@ export async function GET(req: NextRequest) {
             const permisos: any = esc.permisos || {};
             const programasInactivos: string[] = permisos.programasInactivos || [];
 
-            // Excluir entregas de periodos o programas inactivos para la escuela
+            // Excluir únicamente entregas en estado EXENTO o de programas inactivos por excepción para la escuela
             const entregasRequeridas = entregas.filter((e: any) => {
                 if (e.estado === "EXENTO") return false;
-                if (e.periodoEntrega?.activo === false) return false;
                 if (e.periodoEntrega?.programaId && programasInactivos.includes(e.periodoEntrega.programaId)) return false;
                 if (e.periodoEntrega?.programa?.nombre && programasInactivos.includes(e.periodoEntrega.programa.nombre)) return false;
                 return true;
@@ -145,16 +144,18 @@ export async function GET(req: NextRequest) {
                     return new Date(e.fechaSubida) <= limite;
                 }) && (!sparhActivo || sparhATiempo);
 
-            const cumplimiento = totalRequeridas > 0 ? (aprobadas.length / totalRequeridas) * 100 : 100;
-            const entregadasPorcentaje = totalRequeridas > 0 ? (entregadas.length / totalRequeridas) * 100 : 100;
+            const cumplimiento = totalRequeridas > 0 ? (aprobadas.length / totalRequeridas) * 100 : 0;
+            const entregadasPorcentaje = totalRequeridas > 0 ? (entregadas.length / totalRequeridas) * 100 : 0;
             
             let medalla = "NINGUNA";
-            if (cumplimiento === 100 && todasAprobadasYATiempo) {
-                medalla = "ORO";
-            } else if (cumplimiento === 100) {
-                medalla = "PLATA";
-            } else if (cumplimiento >= 80) {
-                medalla = "BRONCE";
+            if (totalRequeridas > 0) {
+                if (cumplimiento === 100 && todasAprobadasYATiempo) {
+                    medalla = "ORO";
+                } else if (cumplimiento === 100) {
+                    medalla = "PLATA";
+                } else if (cumplimiento >= 80) {
+                    medalla = "BRONCE";
+                }
             }
 
             return {

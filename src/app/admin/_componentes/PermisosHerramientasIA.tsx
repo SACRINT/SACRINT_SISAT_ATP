@@ -436,13 +436,13 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
             </div>
 
             {/* 🧠 Autogestión de IA para Directores */}
-            <div className="card" style={{ borderLeft: `4px solid ${aiActivo ? "var(--primary)" : "var(--border)"}`, transition: "border-color 0.2s ease", display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "700px" }}>
+            <div className="card" style={{ width: "100%", borderLeft: `4px solid ${aiActivo ? "#10b981" : "var(--border)"}`, transition: "border-color 0.2s ease", display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
                     <div style={{ display: "flex", gap: "0.75rem" }}>
                         <div style={{
                             width: "44px", height: "44px", borderRadius: "12px", flexShrink: 0,
-                            background: aiActivo ? "rgba(37, 99, 235, 0.1)" : "var(--bg-secondary)",
-                            color: aiActivo ? "var(--primary)" : "var(--text-muted)",
+                            background: aiActivo ? "rgba(16, 185, 129, 0.1)" : "var(--bg-secondary)",
+                            color: aiActivo ? "#10b981" : "var(--text-muted)",
                             display: "flex", alignItems: "center", justifyContent: "center"
                         }}>
                             <Brain size={22} />
@@ -461,15 +461,15 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                     <button
                         onClick={handleToggleAI}
                         disabled={readOnly || aiToggling}
-                        style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", padding: "4px", flexShrink: 0 }}
+                        style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", padding: "4px", flexShrink: 0, display: "inline-flex", alignItems: "center" }}
                         title={aiActivo ? "Desactivar para directores" : "Activar para directores"}
                     >
                         {aiToggling ? (
                             <Loader2 size={30} className="spin" style={{ color: "var(--text-muted)" }} />
                         ) : aiActivo ? (
-                            <ToggleRight size={34} style={{ color: "var(--primary)" }} />
+                            <ToggleRight size={34} style={{ color: "#10b981" }} />
                         ) : (
-                            <ToggleLeft size={34} style={{ color: "var(--text-muted)" }} />
+                            <ToggleLeft size={34} style={{ color: "#ef4444" }} />
                         )}
                     </button>
                 </div>
