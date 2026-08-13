@@ -108,7 +108,18 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                 body: JSON.stringify(newConfig),
             });
             if (res.ok) {
-                toast.success("Configuración de Planeaciones IA guardada");
+                // Si cambió activoGlobal, propagar a todas las escuelas
+                if ("activoGlobal" in updates) {
+                    const accion = newConfig.activoGlobal ? "ACTIVAR_TODOS" : "DESACTIVAR_TODOS";
+                    await fetch("/api/admin/escuelas/masivo-permisos", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ tipo: "PLANEACIONES_IA", accion }),
+                    });
+                    toast.success(`Planeaciones IA ${newConfig.activoGlobal ? "activadas" : "desactivadas"} globalmente y para todas las escuelas`);
+                } else {
+                    toast.success("Configuración de Planeaciones IA guardada");
+                }
             } else {
                 toast.error("Error al guardar configuración");
                 await cargarDatos();
@@ -134,7 +145,18 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                 body: JSON.stringify(newConfig),
             });
             if (res.ok) {
-                toast.success("Configuración de Horarios IA guardada");
+                // Si cambió activoGlobalHorarios, propagar a todas las escuelas
+                if ("activoGlobalHorarios" in updates) {
+                    const accion = newConfig.activoGlobalHorarios ? "ACTIVAR_TODOS" : "DESACTIVAR_TODOS";
+                    await fetch("/api/admin/escuelas/masivo-permisos", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ tipo: "HORARIOS_IA", accion }),
+                    });
+                    toast.success(`Horarios IA ${newConfig.activoGlobalHorarios ? "activados" : "desactivados"} globalmente y para todas las escuelas`);
+                } else {
+                    toast.success("Configuración de Horarios IA guardada");
+                }
             } else {
                 toast.error("Error al guardar configuración de Horarios");
                 await cargarDatos();

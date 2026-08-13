@@ -199,7 +199,7 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
         }
     };
 
-    const handleToggleActivo = async (id: string, currentVal: boolean) => {
+    const handleToggleActivo = async (id: string, currentVal: boolean, nombre: string) => {
         setIsLoading(true);
         try {
             const res = await fetch(`/api/programas/${id}`, {
@@ -209,9 +209,28 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
             });
             if (!res.ok) throw new Error("Error al cambiar estado del programa");
             const updated = await res.json();
-            setProgramas(prev => prev.map(p => p.id === id ? { ...p, activo: updated.activo } : p));
-            setMessage({ type: "success", text: `Programa ${updated.activo ? "activado" : "desactivado"}.` });
-            setTimeout(() => setMessage(null), 3000);
+            const nuevoActivo: boolean = updated.activo;
+            setProgramas(prev => prev.map(p => p.id === id ? { ...p, activo: nuevoActivo } : p));
+
+            // Propagar el cambio a todas las escuelas (programasInactivos por escuela)
+            try {
+                const accion = nuevoActivo ? "ACTIVAR_TODOS" : "DESACTIVAR_TODOS";
+                const masRes = await fetch("/api/admin/escuelas/masivo-permisos", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ tipo: "PROGRAMA", accion, programaId: id, programaNombre: nombre })
+                });
+                const masData = await masRes.json();
+                if (masData.success) {
+                    setMessage({ type: "success", text: `Programa ${nuevoActivo ? "activado" : "desactivado"} y sincronizado con todas las escuelas.` });
+                } else {
+                    setMessage({ type: "success", text: `Programa ${nuevoActivo ? "activado" : "desactivado"}. (Advertencia: no se pudo sincronizar escuelas)` });
+                }
+            } catch {
+                setMessage({ type: "success", text: `Programa ${nuevoActivo ? "activado" : "desactivado"}. (Advertencia: no se pudo sincronizar escuelas)` });
+            }
+
+            setTimeout(() => setMessage(null), 4000);
             router.refresh();
         } catch (error: any) {
             setMessage({ type: "error", text: error.message });
@@ -219,6 +238,7 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
             setIsLoading(false);
         }
     };
+
 
     const handleOpenSendModal = (progId: string, progNombre: string) => {
         setSendModalProg({ id: progId, nombre: progNombre });
@@ -363,7 +383,7 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
                                     )}
                                     {/* Toggle activo */}
                                     <button
-                                        onClick={() => handleToggleActivo(prog.id, activo)}
+                                        onClick={() => handleToggleActivo(prog.id, activo, prog.nombre)}
                                         disabled={readOnly || isLoading}
                                         style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", padding: "4px" }}
                                         title={activo ? "Desactivar programa" : "Activar programa"}

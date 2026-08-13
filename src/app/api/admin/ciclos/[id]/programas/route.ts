@@ -27,9 +27,10 @@ export async function GET(
             return NextResponse.json({ error: "Ciclo escolar no encontrado" }, { status: 404 });
         }
 
-        // Obtener todos los programas globalmente activos
+        // Obtener TODOS los programas (activos e inactivos globalmente)
+        // El admin debe poder incluir cualquier programa en un ciclo,
+        // independientemente de su estado global.
         const programas = await prisma.programa.findMany({
-            where: { activo: true },
             orderBy: { orden: "asc" },
             select: { id: true, nombre: true, tipo: true, activo: true },
         });

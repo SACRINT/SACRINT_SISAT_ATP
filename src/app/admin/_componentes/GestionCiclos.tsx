@@ -582,7 +582,7 @@ export default function GestionCiclos({
                             </div>
                         ) : programasDisponibles.length === 0 ? (
                             <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", padding: "0.5rem 0" }}>
-                                No hay programas activos disponibles.
+                                No hay programas disponibles.
                             </p>
                         ) : (
                             <>
@@ -616,7 +616,22 @@ export default function GestionCiclos({
                                                 style={{ accentColor: "var(--primary)", width: "15px", height: "15px" }}
                                             />
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</div>
+                                                <div style={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                    {p.nombre}
+                                                    {!p.activo && (
+                                                        <span style={{
+                                                            marginLeft: "0.5rem",
+                                                            fontSize: "0.6rem",
+                                                            fontWeight: 700,
+                                                            color: "#92400e",
+                                                            background: "#fef3c7",
+                                                            border: "1px solid #fde68a",
+                                                            padding: "1px 5px",
+                                                            borderRadius: "4px",
+                                                            verticalAlign: "middle",
+                                                        }}>⚠️ INACTIVO GLOBAL</span>
+                                                    )}
+                                                </div>
                                                 <div style={{ fontSize: "0.71875rem", color: "var(--text-muted)", display: "flex", gap: "0.5rem" }}>
                                                     <span>{TIPO_LABEL[p.tipo] ?? p.tipo}</span>
                                                     {modal.modoGestion && p.tienePeriodos && (
