@@ -89,6 +89,15 @@ model Escuela {
 
   // ─── Revisión de Planeaciones con IA ───
   planeaciones PlaneacionDidactica[]
+
+  // ─── Auditoría Estadística 911 / SICEP ───
+  estadistica911Registros Estadistica911Registro[]
+
+  // ─── Acompañamiento CTE ───
+  cteProductos CteProductoEscuela[]
+
+  // ─── Comités de Convivencia y Seguridad ───
+  comiteRegistros ComiteEscolarRegistro[]
 }
 
 model CicloEscolar {
@@ -106,6 +115,7 @@ model CicloEscolar {
   inscripcionesPAEC        InscripcionEncuentroPAEC[]
   descargasCircular05      Circular05Descarga[]
   horariosGenerados        HorarioGenerado[]
+  estadistica911Registros  Estadistica911Registro[]
 }
 
 model Programa {
@@ -358,7 +368,11 @@ model AdminSidebarConfig {
   showExpedientes Boolean @default(true)
   showOficios     Boolean @default(true)
   showSparh       Boolean @default(true)
-  showBecas       Boolean @default(true)
+  showBecas          Boolean @default(true)
+  showEstadistica911 Boolean @default(true)
+  showCte            Boolean @default(true)
+  showUsicamm        Boolean @default(true)
+  showComites        Boolean @default(true)
 }
 
 // ─── Autoridades Educativas (Constancias) ────────
@@ -1510,4 +1524,281 @@ model PlantillaCorteConfig {
   @@index([tenantId])
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ─── ATP-MOD-03: Auditoría y Validación Estadística 911 / SICEP ───────────────
+// ══════════════════════════════════════════════════════════════════════════════
 
+enum EstadoEstadistica911 {
+  PENDIENTE
+  CON_INCONSISTENCIAS
+  VALIDADO
+  ENTREGADO_A_CORDE
+}
+
+/// Configuración de corte y periodos para Estadística 911 por tenant
+model EstadisticaPeriodoConfig {
+  id                String    @id @default(cuid())
+  tenantId          String    @unique
+  cicloEscolarId    String?
+  tipoCorte         String    @default("INICIO_DE_CURSOS") // "INICIO_DE_CURSOS" | "FIN_DE_CURSOS"
+  fechaLimite       DateTime?
+  activo            Boolean   @default(true)
+  visibleEnDirector Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+/// Registro de entrega y validación de formato 911.8 por escuela
+model Estadistica911Registro {
+  id                  String                    @id @default(cuid())
+  tenantId            String
+  cicloEscolarId      String
+  escuelaId           String
+  escuelaCCT          String
+  tipoCorte           String                    @default("INICIO_DE_CURSOS") // "INICIO_DE_CURSOS" | "FIN_DE_CURSOS"
+  archivoUrl          String?
+  archivoNombre       String?
+  sha256Hash          String?
+  tamanoBytes         Int?
+  
+  // Totales consolidados de la escuela
+  totalHombres        Int                       @default(0)
+  totalMujeres        Int                       @default(0)
+  totalAlumnos        Int                       @default(0)
+  totalGrupos         Int                       @default(0)
+  totalDocentes       Int                       @default(0)
+  totalAprobados      Int                       @default(0)
+  totalReprobados     Int                       @default(0)
+  totalEgresados      Int                       @default(0)
+  totalDesercion      Int                       @default(0)
+
+  // Estado del flujo de validación y control
+  estado              EstadoEstadistica911      @default(PENDIENTE) // PENDIENTE, CON_INCONSISTENCIAS, VALIDADO, ENTREGADO_A_CORDE
+  inconsistenciasJson Json?                     // Arreglo de discrepancias aritméticas detectadas
+  notasAtp            String?                   @db.Text
+
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  escuela             Escuela                   @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  cicloEscolar        CicloEscolar              @relation(fields: [cicloEscolarId], references: [id], onDelete: Cascade)
+  detalles            EstadisticaDetalleGrado[]
+  crucesSicep         EstadisticaCruceSicep[]
+
+  @@unique([tenantId, cicloEscolarId, escuelaId, tipoCorte])
+  @@index([tenantId])
+  @@index([cicloEscolarId])
+  @@index([escuelaId])
+  @@index([tenantId, estado])
+}
+
+/// Desglose de matrícula por semestre (1º a 6º) y distribución por edades
+model EstadisticaDetalleGrado {
+  id                  String                 @id @default(cuid())
+  tenantId            String
+  registroId          String
+  semestreGrado       Int                    // 1 a 6
+  hombres             Int                    @default(0)
+  mujeres             Int                    @default(0)
+  total               Int                    @default(0)
+  grupos              Int                    @default(0)
+  desgloseEdades      Json?                  // {"14": {"h": 5, "m": 6}, "15": ...}
+  createdAt           DateTime               @default(now())
+
+  registro            Estadistica911Registro @relation(fields: [registroId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([registroId])
+  @@index([registroId, semestreGrado])
+}
+
+/// Cruce de consistencia entre formato 911 y matrícula reportada en SICEP
+model EstadisticaCruceSicep {
+  id                  String                 @id @default(cuid())
+  tenantId            String
+  registroId          String
+  matriculaSicepTotal Int                    @default(0)
+  matricula911Total   Int                    @default(0)
+  diferencia          Int                    @default(0)
+  discrepancias       Json?                  // Lista de alumnos o grupos con discordancia
+  createdAt           DateTime               @default(now())
+
+  registro            Estadistica911Registro @relation(fields: [registroId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([registroId])
+}
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATP-MOD-06: Acompañamiento a Consejos Técnicos Escolares (CTE)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TipoFaseCte {
+  INTENSIVA
+  ORDINARIA
+}
+
+/// Configuración global de una sesión de CTE (administrada por el ATP)
+model CteSesionConfig {
+  id          String      @id @default(cuid())
+  tenantId    String      @default("zona004")
+  numero      Int         // Número de sesión (1, 2, 3...)
+  fase        TipoFaseCte @default(ORDINARIA)
+  descripcion String?
+  fechaSesion DateTime?
+  fechaLimite DateTime?   // Fecha límite de entrega del producto
+  guiaUrl     String?     // Enlace a la guía de trabajo oficial
+  activo      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  productos   CteProductoEscuela[]
+
+  @@unique([tenantId, numero, fase])
+  @@index([tenantId])
+}
+
+/// Producto/acta entregado por una escuela en una sesión de CTE
+model CteProductoEscuela {
+  id          String    @id @default(cuid())
+  tenantId    String    @default("zona004")
+  sesionId    String
+  escuelaId   String
+  cicloId     String?
+  nombreArchivo String?
+  sha256Hash  String?                         // Integridad — sin guardar contenido
+  estado      String    @default("PENDIENTE") // PENDIENTE | ENTREGADO | REVISADO | OBSERVACIONES
+  notasAtp    String?   @db.Text
+  compromisos Json?                           // JSON estructurado con compromisos extraídos por IA
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sesion      CteSesionConfig @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  escuela     Escuela         @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sesionId, escuelaId])
+  @@index([tenantId])
+  @@index([sesionId])
+  @@index([escuelaId])
+}
+
+/// Compromiso zonal consolidado extraído por IA de los productos de CTE
+model CteCompromisoZonal {
+  id          String    @id @default(cuid())
+  tenantId    String    @default("zona004")
+  sesionId    String
+  texto       String    @db.Text
+  categoria   String?   // Eje temático del CTE
+  prioridad   Int       @default(1)
+  resuelto    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([sesionId])
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATP-MOD-04: Convocatorias y Dictaminación USICAMM
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Convocatoria USICAMM publicada por la supervisión para difusión a directores
+model ConvocatoriaUsicamm {
+  id               String    @id @default(cuid())
+  tenantId         String    @default("zona004")
+  titulo           String
+  descripcion      String?   @db.Text
+  tipo             String    @default("CONCURSO") // CONCURSO | PROMOCION | ACTUALIZACION | OTRO
+  archivoNombre    String?
+  archivoUrl       String?
+  sha256Hash       String?
+  fechaPublicacion DateTime  @default(now())
+  fechaVigencia    DateTime?
+  convocatoriaUrl  String?   // URL oficial de la convocatoria SEP/USICAMM
+  activo           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, activo])
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATP-MOD-07: Comités de Convivencia Escolar y Seguridad
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EstadoComite {
+  ACTIVO
+  PENDIENTE_INTEGRACION
+  REQUIERE_ACTUALIZACION
+  INACTIVO
+}
+
+/// Registro del Comité de Convivencia y Seguridad de una escuela
+model ComiteEscolarRegistro {
+  id            String       @id @default(cuid())
+  tenantId      String       @default("zona004")
+  escuelaId     String
+  cicloId       String?
+  estado        EstadoComite @default(PENDIENTE_INTEGRACION)
+  integrantes   Json?        // Metadatos del acta de integración (sin nombres sensibles)
+  fechaIntegracion DateTime?
+  notasAtp      String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  escuela       Escuela      @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+  actas         ComiteActaEvidencia[]
+
+  @@unique([tenantId, escuelaId, cicloId])
+  @@index([tenantId])
+  @@index([escuelaId])
+}
+
+/// Acta o evidencia fotográfica de una reunión del comité
+model ComiteActaEvidencia {
+  id            String    @id @default(cuid())
+  tenantId      String    @default("zona004")
+  comiteId      String
+  tipoDocumento String    @default("ACTA") // ACTA | FOTOGRAFIA | INFORME | OTRO
+  nombreArchivo String?
+  sha256Hash    String?
+  fechaDocumento DateTime?
+  observaciones String?   @db.Text
+  createdAt     DateTime  @default(now())
+
+  comite        ComiteEscolarRegistro @relation(fields: [comiteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([comiteId])
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATP-MOD-05: Becas Benito Juárez — Solo Difusión de Convocatorias
+// PROHIBICIÓN ESTRICTA: NO almacenar padrones, folios SUBES, datos bancarios
+// ni ningún dato personal de becarios. Solo documentos públicos informativos.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Convocatoria o documento informativo de Becas Benito Juárez para difusión
+model BecaConvocatoriaInformativa {
+  id               String    @id @default(cuid())
+  tenantId         String    @default("zona004")
+  titulo           String
+  descripcion      String?   @db.Text
+  archivoNombre    String?
+  archivoUrl       String?
+  fechaPublicacion DateTime  @default(now())
+  fechaVigencia    DateTime?
+  activo           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, activo])
+}

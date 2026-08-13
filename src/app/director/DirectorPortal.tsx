@@ -38,10 +38,11 @@ import AjustesApiPanel from "./_componentes/AjustesApiPanel";
 import DocumentosPanel from "./_componentes/DocumentosPanel";
 import RankingEscuelas from "../admin/_componentes/RankingEscuelas";
 import GestionPlaneaciones from "./_componentes/planeaciones/GestionPlaneaciones";
+import Estadistica911Director from "./_componentes/Estadistica911Director";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
-type TabType = "entregas" | "ranking" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "configuracion" | "planeaciones";
+type TabType = "entregas" | "ranking" | "recursos" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "configuracion" | "planeaciones" | "estadistica-911";
 
 export default function DirectorPortal({
     escuela,
@@ -64,6 +65,7 @@ export default function DirectorPortal({
     isOficiosActive = true,
     isSparhActive = true,
     isBecasActive = true,
+    isEstadistica911Active = true,
 }: {
     escuela: { id: string; cct: string; nombre: string; localidad: string; director?: string | null; municipio?: string | null; zonaEscolar?: string | null; codigoPostal?: string | null; geminiApiKey?: string | null; permisos?: any };
     programas: ProgramaGroup[];
@@ -85,6 +87,7 @@ export default function DirectorPortal({
     isOficiosActive?: boolean;
     isSparhActive?: boolean;
     isBecasActive?: boolean;
+    isEstadistica911Active?: boolean;
 }) {
     const [tab, setTab] = useState<TabType>("entregas");
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -145,6 +148,7 @@ export default function DirectorPortal({
 
     // Count active special modules
     const specialModules: { key: TabType; label: string; icon: React.ReactNode; active: boolean }[] = [
+        { key: "estadistica-911", label: "Estadística 911", icon: <BarChart3 size={17} />, active: isEstadistica911Active },
         { key: "eventos", label: "Eventos Culturales", icon: <Trophy size={17} />, active: isEventosActive },
         { key: "circular05", label: "Circular 03", icon: <FileText size={17} />, active: isCircularActive },
         { key: "olimpiada", label: "Olimpiada Matemáticas", icon: <GraduationCap size={17} />, active: isOlimpiadaActive },
@@ -159,6 +163,7 @@ export default function DirectorPortal({
         entregas: "Mis Entregas",
         ranking: "Ranking Escuelas",
         recursos: "Recursos",
+        "estadistica-911": "Estadística 911 / SICEP",
         eventos: "Eventos Culturales",
         circular05: "Circular 03",
         olimpiada: "Olimpiada Matemáticas",
@@ -531,6 +536,10 @@ export default function DirectorPortal({
 
                 {tab === "planeaciones" && isPlaneacionesActive && (
                     <GestionPlaneaciones escuela={escuela} />
+                )}
+
+                {tab === "estadistica-911" && isEstadistica911Active && (
+                    <Estadistica911Director escuela={escuela} />
                 )}
 
                 {tab === "configuracion" && (

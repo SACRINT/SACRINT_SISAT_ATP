@@ -122,7 +122,7 @@ export default async function DirectorPage() {
     );
 
     // Fetch configs globales para los tabs
-    const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig, planeacionesConfig, oficiosConfig, sparhConfig] = await Promise.all([
+    const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig, planeacionesConfig, oficiosConfig, sparhConfig, estadistica911Config] = await Promise.all([
         prisma.adminSidebarConfig.findUnique({ where: { id: "singleton" } }),
         prisma.eventosConfig.findUnique({ where: { id: "singleton" } }),
         prisma.circular05Config.findUnique({ where: { id: "singleton" } }),
@@ -133,6 +133,7 @@ export default async function DirectorPage() {
         prisma.planeacionesConfig.findUnique({ where: { id: "singleton" } }),
         prisma.oficioConfig.findUnique({ where: { tenantId: "zona004" } }),
         prisma.plantillaCorteConfig.findUnique({ where: { tenantId: "zona004" } }),
+        prisma.estadisticaPeriodoConfig.findUnique({ where: { tenantId: "zona004" } }).catch(() => null),
     ]);
 
     const isEventosActive = (eventosConfig?.activo ?? false) && (sidebarConfig?.showEventos ?? true);
@@ -144,6 +145,7 @@ export default async function DirectorPage() {
     const isOficiosActive = (oficiosConfig?.activo ?? true) && (sidebarConfig?.showOficios ?? true);
     const isSparhActive = (sparhConfig?.activo ?? true) && (sidebarConfig?.showSparh ?? true);
     const isBecasActive = (sidebarConfig?.showBecas ?? true);
+    const isEstadistica911Active = (estadistica911Config?.activo ?? true) && (estadistica911Config?.visibleEnDirector ?? true) && (sidebarConfig?.showEstadistica911 ?? true);
     const isPlaneacionesActive = escuela.esDePrueba || (planeacionesConfig ? planeacionesConfig.modoSinRestricciones : true)
         ? true
         : (planeacionesConfig ? planeacionesConfig.activoGlobal : true) && permisosEscuela.planeacionesDesactivado !== true;
@@ -170,6 +172,7 @@ export default async function DirectorPage() {
             isOficiosActive={isOficiosActive}
             isSparhActive={isSparhActive}
             isBecasActive={isBecasActive}
+            isEstadistica911Active={isEstadistica911Active}
         />
     );
 }

@@ -74,7 +74,12 @@ import AuditoriaInteligentePanel from "./_componentes/AuditoriaInteligentePanel"
 import OficiosPanel from "./_componentes/OficiosPanel";
 import ErroresServidorPanel from "./_componentes/ErroresServidorPanel";
 import PlantillasSparhPanel from "./_componentes/PlantillasSparhPanel";
-import { FileSpreadsheet } from "lucide-react";
+import Estadistica911Panel from "./_componentes/Estadistica911Panel";
+import CteSesionesPanel from "./_componentes/CteSesionesPanel";
+import UsicammPanel from "./_componentes/UsicammPanel";
+import ComitesPanel from "./_componentes/ComitesPanel";
+import BecasPanel from "./_componentes/BecasPanel";
+import { FileSpreadsheet, Award } from "lucide-react";
 
 // Componentes exclusivos para Supervisor
 import EntregasListado from "../director/_componentes/EntregasListado";
@@ -127,9 +132,10 @@ export default function AdminDashboard({
         showPAEC: boolean;
         showCapems: boolean;
         showExpedientes: boolean;
+        showEstadistica911?: boolean;
     };
 }) {
-    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia" | "auditoria-inteligente" | "oficios" | "plantillas-sparh" | "errores">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
+    const [vista, setVista] = useState<"general" | "avances" | "ranking" | "escuelas" | "programas" | "gestion-escuelas" | "gestion-programas" | "gestion-fechas" | "recursos" | "gestion-atps" | "eventos" | "circular05" | "olimpiada" | "paec" | "capems" | "expedientes" | "documentos" | "normativas" | "gestion-ciclos" | "herramientas-ia" | "reportes-nivel" | "mis-entregas" | "ajustes-api" | "mis-expedientes" | "planeaciones-ia" | "auditoria-inteligente" | "oficios" | "plantillas-sparh" | "estadistica-911" | "errores" | "cte" | "usicamm" | "comites" | "becas">(dbRole === "SUPERVISION" && supervisionEscuela ? "mis-entregas" : "general");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({
         monitoreo: true,
@@ -149,6 +155,11 @@ export default function AdminDashboard({
             case "auditoria-inteligente": return "auditoria_atp";
             case "oficios": return "auditoria_atp";
             case "plantillas-sparh": return "auditoria_atp";
+            case "estadistica-911": return "auditoria_atp";
+            case "cte": return "auditoria_atp";
+            case "usicamm": return "auditoria_atp";
+            case "comites": return "auditoria_atp";
+            case "becas": return "auditoria_atp";
             case "gestion-escuelas": return "escuelas";
             case "gestion-programas": return "programas";
             case "gestion-fechas": return "periodos";
@@ -876,6 +887,26 @@ export default function AdminDashboard({
                                         <FileSpreadsheet size={17} />
                                         <span>Plantillas SPARH</span>
                                     </button>
+                                    <button className={`sidebar-link ${vista === "estadistica-911" ? "active" : ""}`} onClick={() => navigate("estadistica-911")}>
+                                        <BarChart3 size={17} />
+                                        <span>Estadística 911</span>
+                                    </button>
+                                    <button className={`sidebar-link ${vista === "cte" ? "active" : ""}`} onClick={() => navigate("cte")}>
+                                        <GraduationCap size={17} />
+                                        <span>Acompañamiento CTE</span>
+                                    </button>
+                                    <button className={`sidebar-link ${vista === "usicamm" ? "active" : ""}`} onClick={() => navigate("usicamm")}>
+                                        <Award size={17} />
+                                        <span>Convocatorias USICAMM</span>
+                                    </button>
+                                    <button className={`sidebar-link ${vista === "comites" ? "active" : ""}`} onClick={() => navigate("comites")}>
+                                        <ShieldCheck size={17} />
+                                        <span>Comités Escolares</span>
+                                    </button>
+                                    <button className={`sidebar-link ${vista === "becas" ? "active" : ""}`} onClick={() => navigate("becas")}>
+                                        <BookMarked size={17} />
+                                        <span>Difusión de Becas</span>
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -1545,6 +1576,31 @@ export default function AdminDashboard({
                 {/* ========= VISTA: PLANTILLAS SPARH / CENSUS (ATP-MOD-02) ========= */}
                 {vista === "plantillas-sparh" && (
                     <PlantillasSparhPanel readOnly={!hasAccess("auditoria_atp", "write")} />
+                )}
+
+                {/* ========= VISTA: ESTADÍSTICA 911 / SICEP (ATP-MOD-03) ========= */}
+                {vista === "estadistica-911" && (
+                    <Estadistica911Panel readOnly={!hasAccess("auditoria_atp", "write")} />
+                )}
+
+                {/* ========= VISTA: ACOMPAÑAMIENTO CTE (ATP-MOD-04) ========= */}
+                {vista === "cte" && (
+                    <CteSesionesPanel readOnly={!hasAccess("auditoria_atp", "write")} />
+                )}
+
+                {/* ========= VISTA: CONVOCATORIAS USICAMM (ATP-MOD-06) ========= */}
+                {vista === "usicamm" && (
+                    <UsicammPanel readOnly={!hasAccess("auditoria_atp", "write")} />
+                )}
+
+                {/* ========= VISTA: COMITÉS ESCOLARES (ATP-MOD-07) ========= */}
+                {vista === "comites" && (
+                    <ComitesPanel readOnly={!hasAccess("auditoria_atp", "write")} />
+                )}
+
+                {/* ========= VISTA: DIFUSIÓN DE BECAS (ATP-MOD-05) ========= */}
+                {vista === "becas" && (
+                    <BecasPanel readOnly={!hasAccess("auditoria_atp", "write")} />
                 )}
 
                 {/* ========= VISTA: ERRORES DEL SERVIDOR (P4) ========= */}

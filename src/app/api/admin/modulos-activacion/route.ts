@@ -19,6 +19,7 @@ export async function GET() {
             sidebarConfig,
             oficiosConfig,
             sparhConfig,
+            estadistica911Config,
             eventosConfig,
             circularConfig,
             olimpiadaConfig,
@@ -42,6 +43,11 @@ export async function GET() {
                 update: {},
                 create: { tenantId }
             }),
+            prisma.estadisticaPeriodoConfig.upsert({
+                where: { tenantId },
+                update: {},
+                create: { tenantId }
+            }),
             prisma.eventosConfig.findUnique({ where: { id: "singleton" } }),
             prisma.circular05Config.findUnique({ where: { id: "singleton" } }),
             prisma.olimpiadaConfig.findUnique({ where: { id: "singleton" } }),
@@ -57,6 +63,7 @@ export async function GET() {
             sidebarConfig,
             oficiosConfig,
             sparhConfig,
+            estadistica911Config,
             eventosConfig,
             circularConfig,
             olimpiadaConfig,
@@ -121,6 +128,17 @@ export async function POST(req: NextRequest) {
                 where: { id: "singleton" },
                 update: { showBecas: activo },
                 create: { id: "singleton", showBecas: activo }
+            });
+        } else if (modulo === "estadistica911" || modulo === "911") {
+            await prisma.adminSidebarConfig.upsert({
+                where: { id: "singleton" },
+                update: { showEstadistica911: activo },
+                create: { id: "singleton", showEstadistica911: activo }
+            });
+            await prisma.estadisticaPeriodoConfig.upsert({
+                where: { tenantId },
+                update: { activo, visibleEnDirector: activo },
+                create: { tenantId, activo, visibleEnDirector: activo }
             });
         } else {
             return NextResponse.json({ error: `Módulo desconocido: ${modulo}` }, { status: 400 });
@@ -188,6 +206,22 @@ export async function PATCH(req: NextRequest) {
                     tenantId,
                     activo: body.sparhConfig.activo ?? true,
                     visibleEnDirector: body.sparhConfig.visibleEnDirector ?? true
+                }
+            });
+        }
+
+        // 3.5. Estadística 911 Config
+        if (body.estadistica911Config) {
+            await prisma.estadisticaPeriodoConfig.upsert({
+                where: { tenantId },
+                update: {
+                    activo: body.estadistica911Config.activo,
+                    visibleEnDirector: body.estadistica911Config.visibleEnDirector
+                },
+                create: {
+                    tenantId,
+                    activo: body.estadistica911Config.activo ?? true,
+                    visibleEnDirector: body.estadistica911Config.visibleEnDirector ?? true
                 }
             });
         }

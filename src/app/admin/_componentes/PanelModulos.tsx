@@ -5,7 +5,7 @@ import {
     Trophy, FileText, GraduationCap, Lightbulb, BookMarked,
     Users, ToggleLeft, ToggleRight, Loader2, RefreshCw,
     Calendar, CheckCircle2, Clock, Eye, EyeOff, Settings2,
-    AlertCircle,
+    AlertCircle, BarChart3,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -35,6 +35,7 @@ interface SidebarConfig {
     showCapems: boolean;
     showExpedientes: boolean;
     showRecursos: boolean;
+    showEstadistica911?: boolean;
 }
 
 interface ModuloState {
@@ -146,6 +147,18 @@ const MODULOS: ModuloInfo[] = [
         configEndpoint: "/api/admin/modulos-activacion",
         configPath: "sidebarConfig.showBecas",
         configModule: "becas",
+        allowFecha: false,
+        showSidebarChip: false,
+    },
+    {
+        key: "showEstadistica911",
+        nombre: "Estadística 911 / SICEP",
+        descripcion: "Auditoría y validación aritmética de formatos oficiales 911.8 de inicio y fin de cursos.",
+        icon: <BarChart3 size={22} />,
+        color: "#059669",
+        configEndpoint: "/api/admin/modulos-activacion",
+        configPath: "estadistica911Config.activo",
+        configModule: "estadistica911",
         allowFecha: false,
         showSidebarChip: false,
     },
