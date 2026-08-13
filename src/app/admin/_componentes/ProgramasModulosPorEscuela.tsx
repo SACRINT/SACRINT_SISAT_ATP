@@ -19,6 +19,7 @@ interface ProgramasModulosPorEscuelaProps {
     escuelas?: Escuela[];
     inicialEscuelas?: Escuela[];
     programas: ProgramaAdmin[];
+    cicloId?: string;
     readOnly?: boolean;
 }
 
@@ -26,12 +27,19 @@ export default function ProgramasModulosPorEscuela({
     escuelas: escuelasProp,
     inicialEscuelas, 
     programas,
+    cicloId,
     readOnly = false
 }: ProgramasModulosPorEscuelaProps) {
     const router = useRouter();
     const listadoInicial = escuelasProp || inicialEscuelas || [];
     const [escuelas, setEscuelas] = useState<Escuela[]>(listadoInicial);
     const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (escuelasProp && escuelasProp.length > 0) {
+            setEscuelas(escuelasProp);
+        }
+    }, [escuelasProp]);
 
     useEffect(() => {
         (async () => {
@@ -204,7 +212,7 @@ export default function ProgramasModulosPorEscuela({
             const res = await fetch("/api/admin/escuelas/masivo-permisos", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tipo, accion, programaId, programaNombre })
+                body: JSON.stringify({ tipo, accion, programaId, programaNombre, cicloId })
             });
             const data = await res.json();
             if (data.success) {

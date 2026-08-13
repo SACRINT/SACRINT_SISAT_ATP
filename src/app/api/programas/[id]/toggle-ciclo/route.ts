@@ -145,6 +145,28 @@ export async function PUT(
             }
         }
 
+        // Sincronizar escuelas: actualizar excepciones globales para que la matriz por escuela quede sincronizada
+        const todasEscuelas = await prisma.escuela.findMany({ select: { id: true, permisos: true } });
+        const updatesEscuelas = todasEscuelas.map((esc) => {
+            const permisos = (esc.permisos as any) || {};
+            let inactivos: string[] = Array.isArray(permisos.programasInactivos) ? [...permisos.programasInactivos] : [];
+            if (programa.nombre) {
+                inactivos = inactivos.filter((p: string) => p !== programa.nombre);
+            }
+            if (activo) {
+                inactivos = inactivos.filter((p: string) => p !== programaId);
+            } else {
+                if (!inactivos.includes(programaId)) {
+                    inactivos.push(programaId);
+                }
+            }
+            return prisma.escuela.update({
+                where: { id: esc.id },
+                data: { permisos: { ...permisos, programasInactivos: inactivos } }
+            });
+        });
+        await Promise.all(updatesEscuelas);
+
         // Obtener el estado actualizado de los periodos de este ciclo
         const periodosActualizados = await prisma.periodoEntrega.findMany({
             where: {

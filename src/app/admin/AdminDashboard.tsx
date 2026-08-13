@@ -1363,6 +1363,7 @@ export default function AdminDashboard({
                                     permisos: e.permisos
                                 }))}
                                 programas={programas}
+                                cicloId={cicloId}
                                 readOnly={!hasAccess("escuelas", "write")}
                             />
                         )}

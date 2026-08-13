@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { obtenerCicloActual } from "@/lib/ciclo";
+
+function calcularMesesDelCiclo(inicio: Date, fin: Date): number[] {
+  const meses: number[] = [];
+  const cur = new Date(inicio);
+  cur.setDate(1);
+  const finCiclo = new Date(fin);
+  while (cur <= finCiclo) {
+    meses.push(cur.getMonth() + 1);
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return meses;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +24,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { tipo, accion, programaId, programaNombre } = body;
+    const { tipo, accion, programaId, programaNombre, cicloId } = body;
 
     // Obtener todas las escuelas registradas
     const escuelas = await prisma.escuela.findMany();
@@ -158,6 +172,7 @@ export async function POST(req: NextRequest) {
       const esDesactivar = accion === "DESACTIVAR_TODOS";
       const activoGlobal = accion === "ACTIVAR_TODOS";
 
+      // 1. Actualizar permisos de excepciones en todas las escuelas
       const updates: Promise<any>[] = [
         ...escuelas.map((esc) => {
           const permisosActuales = (esc.permisos as any) || {};
@@ -185,20 +200,138 @@ export async function POST(req: NextRequest) {
         })
       ];
 
-      if (programaId) {
-        updates.push(
-          prisma.programa.update({
-            where: { id: programaId },
-            data: { activo: activoGlobal },
-          }).catch((err) => console.warn(`[masivo-permisos] Warning al actualizar Programa ${programaId}:`, err))
-        );
+      // 2. Sincronizar también los PeriodoEntrega del ciclo escolar correspondiente
+      let cicloTarget = null;
+      if (cicloId) {
+        cicloTarget = await prisma.cicloEscolar.findUnique({ where: { id: cicloId } });
+      }
+      if (!cicloTarget) {
+        cicloTarget = await obtenerCicloActual();
+      }
+
+      if (cicloTarget && programaId) {
+        const periodosExistentes = await prisma.periodoEntrega.findMany({
+          where: {
+            cicloEscolarId: cicloTarget.id,
+            programaId: programaId,
+          },
+        });
+
+        if (activoGlobal) {
+          if (periodosExistentes.length > 0) {
+            updates.push(
+              prisma.periodoEntrega.updateMany({
+                where: {
+                  cicloEscolarId: cicloTarget.id,
+                  programaId: programaId,
+                },
+                data: { activo: true },
+              })
+            );
+          } else {
+            // Generar periodos iniciales para este ciclo
+            const prog = await prisma.programa.findUnique({ where: { id: programaId } });
+            if (prog) {
+              const tipoProg = prog.tipo;
+              const escuelasIds = escuelas.map((e) => e.id);
+
+              if (tipoProg === "ANUAL") {
+                updates.push(
+                  (async () => {
+                    const periodo = await prisma.periodoEntrega.create({
+                      data: {
+                        cicloEscolarId: cicloTarget!.id,
+                        programaId: programaId,
+                        activo: true,
+                      },
+                    });
+                    if (escuelasIds.length > 0) {
+                      await prisma.entrega.createMany({
+                        data: escuelasIds.map((escuelaId) => ({
+                          escuelaId,
+                          periodoEntregaId: periodo.id,
+                        })),
+                        skipDuplicates: true,
+                      });
+                    }
+                  })()
+                );
+              } else if (tipoProg === "SEMESTRAL") {
+                for (const semestre of [1, 2]) {
+                  updates.push(
+                    (async () => {
+                      const periodo = await prisma.periodoEntrega.create({
+                        data: {
+                          cicloEscolarId: cicloTarget!.id,
+                          programaId: programaId,
+                          semestre,
+                          activo: true,
+                        },
+                      });
+                      if (escuelasIds.length > 0) {
+                        await prisma.entrega.createMany({
+                          data: escuelasIds.map((escuelaId) => ({
+                            escuelaId,
+                            periodoEntregaId: periodo.id,
+                          })),
+                          skipDuplicates: true,
+                        });
+                      }
+                    })()
+                  );
+                }
+              } else if (tipoProg === "MENSUAL") {
+                const meses = calcularMesesDelCiclo(cicloTarget.inicio, cicloTarget.fin);
+                for (const mes of meses) {
+                  updates.push(
+                    (async () => {
+                      const periodo = await prisma.periodoEntrega.create({
+                        data: {
+                          cicloEscolarId: cicloTarget!.id,
+                          programaId: programaId,
+                          mes,
+                          activo: true,
+                        },
+                      });
+                      if (escuelasIds.length > 0) {
+                        await prisma.entrega.createMany({
+                          data: escuelasIds.map((escuelaId) => ({
+                            escuelaId,
+                            periodoEntregaId: periodo.id,
+                          })),
+                          skipDuplicates: true,
+                        });
+                      }
+                    })()
+                  );
+                }
+              }
+            }
+          }
+        } else {
+          // Desactivar en el ciclo correspondiente
+          if (periodosExistentes.length > 0) {
+            updates.push(
+              prisma.periodoEntrega.updateMany({
+                where: {
+                  cicloEscolarId: cicloTarget.id,
+                  programaId: programaId,
+                },
+                data: { activo: false },
+              })
+            );
+          }
+        }
       }
 
       await Promise.all(updates);
 
+      revalidatePath("/admin");
+      revalidatePath("/director");
+
       return NextResponse.json({
         success: true,
-        message: `Programa "${programaNombre || programaId}" ${esDesactivar ? "desactivado" : "activado"} globalmente y para TODAS las escuelas.`,
+        message: `Programa "${programaNombre || programaId}" ${esDesactivar ? "desactivado" : "activado"} para todas las escuelas y sincronizado con el ciclo ${cicloTarget?.nombre || ""}.`,
       });
     }
 
