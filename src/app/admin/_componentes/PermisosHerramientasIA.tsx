@@ -265,19 +265,44 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                         </p>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
 
-                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
+                            <div style={{
+                                display: "flex", alignItems: "center", justifyContent: "space-between",
+                                padding: "1rem", borderRadius: "8px",
+                                border: `1px solid ${configPlaneaciones.activoGlobal ? "#16a34a" : "#dc2626"}`,
+                                background: configPlaneaciones.activoGlobal ? "rgba(22,163,74,0.07)" : "rgba(220,38,38,0.07)",
+                                transition: "all 0.25s ease",
+                            }}>
                                 <div>
-                                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>🟢 Módulo activo (global)</div>
+                                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>
+                                        {configPlaneaciones.activoGlobal ? "🟢" : "🔴"} Módulo activo (global)
+                                    </div>
                                     <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Si está desactivado, ninguna escuela puede usar la revisión de planeaciones.</div>
                                 </div>
-                                <input
-                                    type="checkbox"
-                                    checked={configPlaneaciones.activoGlobal}
-                                    onChange={e => handlePlaneacionesChange({ activoGlobal: e.target.checked })}
+                                <button
+                                    onClick={() => !readOnly && !savingPlaneaciones && handlePlaneacionesChange({ activoGlobal: !configPlaneaciones.activoGlobal })}
                                     disabled={readOnly || savingPlaneaciones}
-                                    style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
-                                />
-                            </label>
+                                    title={configPlaneaciones.activoGlobal ? "Haz clic para desactivar" : "Haz clic para activar"}
+                                    style={{
+                                        display: "flex", alignItems: "center", gap: "0.4rem",
+                                        padding: "0.45rem 1.1rem", borderRadius: "20px",
+                                        border: "none",
+                                        cursor: readOnly || savingPlaneaciones ? "default" : "pointer",
+                                        fontWeight: 700, fontSize: "0.8rem",
+                                        background: configPlaneaciones.activoGlobal ? "#16a34a" : "#dc2626",
+                                        color: "#fff",
+                                        transition: "background 0.25s ease",
+                                        minWidth: "110px", justifyContent: "center",
+                                        opacity: readOnly ? 0.6 : 1,
+                                    }}
+                                >
+                                    {savingPlaneaciones
+                                        ? <Loader2 size={15} className="spin" />
+                                        : configPlaneaciones.activoGlobal
+                                            ? <><ToggleRight size={17} /> ACTIVO</>
+                                            : <><ToggleLeft size={17} /> INACTIVO</>
+                                    }
+                                </button>
+                            </div>
 
                         </div>
                     </>
@@ -294,19 +319,44 @@ export default function PermisosHerramientasIA({ escuelas, readOnly }: PermisosH
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
 
-                    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: readOnly ? "default" : "pointer" }}>
+                    <div style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "1rem", borderRadius: "8px",
+                        border: `1px solid ${configHorarios.activoGlobalHorarios ? "#16a34a" : "#dc2626"}`,
+                        background: configHorarios.activoGlobalHorarios ? "rgba(22,163,74,0.07)" : "rgba(220,38,38,0.07)",
+                        transition: "all 0.25s ease",
+                    }}>
                         <div>
-                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>🟢 Módulo activo (global)</div>
+                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text)" }}>
+                                {configHorarios.activoGlobalHorarios ? "🟢" : "🔴"} Módulo activo (global)
+                            </div>
                             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Si está desactivado, ninguna escuela puede usar el generador de horarios.</div>
                         </div>
-                        <input
-                            type="checkbox"
-                            checked={configHorarios.activoGlobalHorarios}
-                            onChange={e => handleHorariosChange({ activoGlobalHorarios: e.target.checked })}
+                        <button
+                            onClick={() => !readOnly && !savingHorarios && handleHorariosChange({ activoGlobalHorarios: !configHorarios.activoGlobalHorarios })}
                             disabled={readOnly || savingHorarios}
-                            style={{ width: "18px", height: "18px", cursor: readOnly ? "default" : "pointer" }}
-                        />
-                    </label>
+                            title={configHorarios.activoGlobalHorarios ? "Haz clic para desactivar" : "Haz clic para activar"}
+                            style={{
+                                display: "flex", alignItems: "center", gap: "0.4rem",
+                                padding: "0.45rem 1.1rem", borderRadius: "20px",
+                                border: "none",
+                                cursor: readOnly || savingHorarios ? "default" : "pointer",
+                                fontWeight: 700, fontSize: "0.8rem",
+                                background: configHorarios.activoGlobalHorarios ? "#16a34a" : "#dc2626",
+                                color: "#fff",
+                                transition: "background 0.25s ease",
+                                minWidth: "110px", justifyContent: "center",
+                                opacity: readOnly ? 0.6 : 1,
+                            }}
+                        >
+                            {savingHorarios
+                                ? <Loader2 size={15} className="spin" />
+                                : configHorarios.activoGlobalHorarios
+                                    ? <><ToggleRight size={17} /> ACTIVO</>
+                                    : <><ToggleLeft size={17} /> INACTIVO</>
+                            }
+                        </button>
+                    </div>
 
                 </div>
             </div>
