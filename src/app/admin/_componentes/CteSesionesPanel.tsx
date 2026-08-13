@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-    Users, BookOpen, CheckCircle2, Clock, AlertTriangle,
+    BookOpen, CheckCircle2, Clock, AlertTriangle,
     ChevronDown, ChevronUp, Plus, Settings, RefreshCw,
     FileText, Calendar, GraduationCap, Loader2, X, Save,
+    Users,
 } from "lucide-react";
 
 interface Escuela {
@@ -34,11 +35,11 @@ interface Sesion {
     productos: Producto[];
 }
 
-const ESTADO_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-    PENDIENTE:      { label: "Pendiente",    color: "bg-gray-700 text-gray-200",    icon: <Clock size={12} /> },
-    ENTREGADO:      { label: "Entregado",    color: "bg-blue-900 text-blue-200",    icon: <FileText size={12} /> },
-    REVISADO:       { label: "Revisado ✓",   color: "bg-green-900 text-green-200",  icon: <CheckCircle2 size={12} /> },
-    OBSERVACIONES:  { label: "Observaciones",color: "bg-yellow-900 text-yellow-200",icon: <AlertTriangle size={12} /> },
+const ESTADO_LABELS: Record<string, { label: string; bg: string; color: string; icon: React.ReactNode }> = {
+    PENDIENTE:      { label: "Pendiente",     bg: "rgba(107, 114, 128, 0.15)", color: "#9ca3af", icon: <Clock size={12} /> },
+    ENTREGADO:      { label: "Entregado",     bg: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", icon: <FileText size={12} /> },
+    REVISADO:       { label: "Revisado ✓",    bg: "rgba(16, 185, 129, 0.15)", color: "#10b981", icon: <CheckCircle2 size={12} /> },
+    OBSERVACIONES:  { label: "Observaciones", bg: "rgba(245, 158, 11, 0.15)", color: "#f59e0b", icon: <AlertTriangle size={12} /> },
 };
 
 export default function CteSesionesPanel({ readOnly = false }: { readOnly?: boolean }) {
@@ -121,12 +122,14 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
     };
 
     const guardarNotas = async (productoId: string) => {
+        const notas = notasEdicion[productoId];
+        if (notas === undefined) return;
         setSavingNotas(prev => ({ ...prev, [productoId]: true }));
         try {
             await fetch(`/api/admin/cte/${productoId}/estado`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ notasAtp: notasEdicion[productoId] ?? "" }),
+                body: JSON.stringify({ notasAtp: notas }),
             });
             await cargar();
         } catch { /* silencio */ } finally {
@@ -151,30 +154,30 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
     };
 
     if (loading) return (
-        <div className="flex items-center justify-center h-64">
-            <Loader2 className="animate-spin text-indigo-400" size={36} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "300px", color: "var(--text-muted)" }}>
+            <Loader2 size={36} className="spin" style={{ color: "var(--primary)" }} />
         </div>
     );
 
     return (
-        <div className="space-y-6">
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             {/* Header */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                        <GraduationCap className="text-indigo-400" size={28} />
+                    <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text)" }}>
+                        <GraduationCap style={{ color: "var(--primary)" }} size={28} />
                         Acompañamiento CTE
                     </h2>
-                    <p className="text-gray-400 text-sm mt-1">
+                    <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
                         Repositorio de productos de Consejos Técnicos Escolares — Zona 004
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={cargar} className="btn-secondary flex items-center gap-2">
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                    <button className="btn btn-outline" onClick={cargar} style={{ fontSize: "0.8125rem" }}>
                         <RefreshCw size={15} /> Actualizar
                     </button>
                     {!readOnly && (
-                        <button onClick={() => setShowFormSesion(true)} className="btn-primary flex items-center gap-2">
+                        <button className="btn btn-primary" onClick={() => setShowFormSesion(true)} style={{ fontSize: "0.8125rem" }}>
                             <Plus size={15} /> Nueva Sesión
                         </button>
                     )}
@@ -182,69 +185,73 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
             </div>
 
             {error && (
-                <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 flex items-center gap-2">
+                <div className="alert alert-error">
                     <AlertTriangle size={16} /> {error}
                 </div>
             )}
 
             {/* Modal nueva sesión */}
             {showFormSesion && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
-                        <div className="flex items-center justify-between mb-5">
-                            <h3 className="text-white font-semibold text-lg flex items-center gap-2">
-                                <Settings size={18} className="text-indigo-400" /> Configurar Sesión CTE
+                <div style={{
+                    position: "fixed", inset: 0, zIndex: 1000,
+                    background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(4px)",
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem"
+                }}>
+                    <div className="card" style={{ width: "100%", maxWidth: "520px", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Settings size={18} style={{ color: "var(--primary)" }} /> Configurar Sesión CTE
                             </h3>
-                            <button onClick={() => setShowFormSesion(false)} className="text-gray-400 hover:text-white">
+                            <button onClick={() => setShowFormSesion(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                                 <div>
-                                    <label className="form-label">Número de Sesión *</label>
-                                    <input type="number" min="1" className="form-input" value={formSesion.numero}
-                                        onChange={e => setFormSesion(f => ({ ...f, numero: e.target.value }))} placeholder="1" />
+                                    <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Número de Sesión *</label>
+                                    <input type="number" min="1" className="form-control" value={formSesion.numero}
+                                        onChange={e => setFormSesion(f => ({ ...f, numero: e.target.value }))} placeholder="1" style={{ width: "100%" }} />
                                 </div>
                                 <div>
-                                    <label className="form-label">Fase *</label>
-                                    <select className="form-input" value={formSesion.fase}
-                                        onChange={e => setFormSesion(f => ({ ...f, fase: e.target.value }))}>
+                                    <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Fase *</label>
+                                    <select className="form-control" value={formSesion.fase}
+                                        onChange={e => setFormSesion(f => ({ ...f, fase: e.target.value as any }))} style={{ width: "100%" }}>
                                         <option value="ORDINARIA">Ordinaria</option>
                                         <option value="INTENSIVA">Intensiva</option>
                                     </select>
                                 </div>
                             </div>
                             <div>
-                                <label className="form-label">Descripción / Tema</label>
-                                <input className="form-input" value={formSesion.descripcion}
+                                <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Descripción / Tema</label>
+                                <input className="form-control" value={formSesion.descripcion}
                                     onChange={e => setFormSesion(f => ({ ...f, descripcion: e.target.value }))}
-                                    placeholder="Ruta de mejora, Plan anual..." />
+                                    placeholder="Ruta de mejora, Plan anual..." style={{ width: "100%" }} />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                                 <div>
-                                    <label className="form-label">Fecha de Sesión</label>
-                                    <input type="date" className="form-input" value={formSesion.fechaSesion}
-                                        onChange={e => setFormSesion(f => ({ ...f, fechaSesion: e.target.value }))} />
+                                    <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Fecha de Sesión</label>
+                                    <input type="date" className="form-control" value={formSesion.fechaSesion}
+                                        onChange={e => setFormSesion(f => ({ ...f, fechaSesion: e.target.value }))} style={{ width: "100%" }} />
                                 </div>
                                 <div>
-                                    <label className="form-label">Fecha Límite Entrega</label>
-                                    <input type="date" className="form-input" value={formSesion.fechaLimite}
-                                        onChange={e => setFormSesion(f => ({ ...f, fechaLimite: e.target.value }))} />
+                                    <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Fecha Límite Entrega</label>
+                                    <input type="date" className="form-control" value={formSesion.fechaLimite}
+                                        onChange={e => setFormSesion(f => ({ ...f, fechaLimite: e.target.value }))} style={{ width: "100%" }} />
                                 </div>
                             </div>
                             <div>
-                                <label className="form-label">URL Guía Oficial</label>
-                                <input type="url" className="form-input" value={formSesion.guiaUrl}
+                                <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>URL Guía Oficial</label>
+                                <input type="url" className="form-control" value={formSesion.guiaUrl}
                                     onChange={e => setFormSesion(f => ({ ...f, guiaUrl: e.target.value }))}
-                                    placeholder="https://..." />
+                                    placeholder="https://..." style={{ width: "100%" }} />
                             </div>
                         </div>
-                        <div className="flex gap-2 mt-6">
-                            <button onClick={() => setShowFormSesion(false)} className="btn-secondary flex-1">Cancelar</button>
+                        <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
+                            <button onClick={() => setShowFormSesion(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
                             <button onClick={crearSesion} disabled={saving || !formSesion.numero}
-                                className="btn-primary flex-1 flex items-center justify-center gap-2">
-                                {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                                className="btn btn-primary" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+                                {saving ? <Loader2 size={15} className="spin" /> : <Save size={15} />}
                                 Guardar Sesión
                             </button>
                         </div>
@@ -254,121 +261,145 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
 
             {/* Tarjetas de sesiones */}
             {sesiones.length === 0 ? (
-                <div className="bg-gray-900/50 border border-gray-700/50 rounded-xl p-12 text-center">
-                    <GraduationCap className="mx-auto text-gray-600 mb-3" size={40} />
-                    <p className="text-gray-400 font-medium">No hay sesiones de CTE configuradas</p>
-                    <p className="text-gray-500 text-sm mt-1">Crea la primera sesión con el botón "Nueva Sesión"</p>
+                <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem", color: "var(--text-muted)" }}>
+                    <GraduationCap size={44} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem", color: "var(--text)" }}>No hay sesiones de CTE configuradas</p>
+                    <p style={{ margin: "0.5rem 0 0", fontSize: "0.875rem" }}>Crea la primera sesión con el botón "Nueva Sesión"</p>
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {sesiones.map(sesion => {
                         const res = resumenSesion(sesion);
                         const expandida = sesionExpandida === sesion.id;
                         const pct = res.total > 0 ? Math.round((res.entregados / res.total) * 100) : 0;
                         return (
-                            <div key={sesion.id} className="bg-gray-900/60 border border-gray-700/50 rounded-xl overflow-hidden">
+                            <div key={sesion.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
                                 {/* Cabecera de sesión */}
-                                <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-800/40 transition-colors"
-                                    onClick={() => setSesionExpandida(expandida ? null : sesion.id)}>
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
-                                            <span className="text-indigo-300 font-bold text-sm">{sesion.numero}</span>
+                                <div
+                                    style={{
+                                        padding: "1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between",
+                                        cursor: "pointer", background: "var(--bg-card)", transition: "background 0.2s ease"
+                                    }}
+                                    onClick={() => setSesionExpandida(expandida ? null : sesion.id)}
+                                >
+                                    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                                        <div style={{
+                                            width: "42px", height: "42px", borderRadius: "10px",
+                                            background: "rgba(37, 99, 235, 0.1)", color: "var(--primary)",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            fontWeight: 800, fontSize: "1rem"
+                                        }}>
+                                            {sesion.numero}
                                         </div>
                                         <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-white font-semibold">
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                <span style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text)" }}>
                                                     Sesión {sesion.numero} — {sesion.fase === "INTENSIVA" ? "Fase Intensiva" : "Fase Ordinaria"}
                                                 </span>
-                                                <span className={`text-xs px-2 py-0.5 rounded-full ${sesion.fase === "INTENSIVA" ? "bg-purple-900/50 text-purple-300" : "bg-blue-900/50 text-blue-300"}`}>
+                                                <span style={{
+                                                    fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: "12px",
+                                                    background: sesion.fase === "INTENSIVA" ? "rgba(124, 58, 237, 0.15)" : "rgba(37, 99, 235, 0.15)",
+                                                    color: sesion.fase === "INTENSIVA" ? "#7c3aed" : "var(--primary)",
+                                                    textTransform: "uppercase"
+                                                }}>
                                                     {sesion.fase}
                                                 </span>
                                             </div>
-                                            {sesion.descripcion && <p className="text-gray-400 text-sm mt-0.5">{sesion.descripcion}</p>}
-                                            <div className="flex items-center gap-4 mt-1">
+                                            {sesion.descripcion && <p style={{ margin: "0.2rem 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>{sesion.descripcion}</p>}
+                                            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.35rem" }}>
                                                 {sesion.fechaSesion && (
-                                                    <span className="text-gray-500 text-xs flex items-center gap-1">
-                                                        <Calendar size={11} /> {new Date(sesion.fechaSesion).toLocaleDateString("es-MX")}
+                                                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                        <Calendar size={12} /> {new Date(sesion.fechaSesion).toLocaleDateString("es-MX")}
                                                     </span>
                                                 )}
                                                 {sesion.fechaLimite && (
-                                                    <span className="text-gray-500 text-xs flex items-center gap-1">
-                                                        <Clock size={11} /> Límite: {new Date(sesion.fechaLimite).toLocaleDateString("es-MX")}
+                                                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                        <Clock size={12} /> Límite: {new Date(sesion.fechaLimite).toLocaleDateString("es-MX")}
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-6">
+                                    <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                                         {/* KPIs compactos */}
-                                        <div className="hidden md:flex items-center gap-4">
-                                            <div className="text-center">
-                                                <div className="text-lg font-bold text-white">{pct}%</div>
-                                                <div className="text-xs text-gray-400">Entregados</div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
+                                            <div style={{ textAlign: "center" }}>
+                                                <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text)" }}>{pct}%</div>
+                                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Entregados</div>
                                             </div>
-                                            <div className="text-center">
-                                                <div className="text-lg font-bold text-green-400">{res.revisados}</div>
-                                                <div className="text-xs text-gray-400">Revisados</div>
+                                            <div style={{ textAlign: "center" }}>
+                                                <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#10b981" }}>{res.revisados}</div>
+                                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Revisados</div>
                                             </div>
-                                            <div className="text-center">
-                                                <div className="text-lg font-bold text-yellow-400">{res.conObs}</div>
-                                                <div className="text-xs text-gray-400">Obs.</div>
+                                            <div style={{ textAlign: "center" }}>
+                                                <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#f59e0b" }}>{res.conObs}</div>
+                                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Obs.</div>
                                             </div>
-                                            <div className="text-center">
-                                                <div className="text-lg font-bold text-gray-400">{res.pendientes}</div>
-                                                <div className="text-xs text-gray-400">Pendientes</div>
+                                            <div style={{ textAlign: "center" }}>
+                                                <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-muted)" }}>{res.pendientes}</div>
+                                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Pendientes</div>
                                             </div>
                                         </div>
-                                        <div className="text-gray-400">
-                                            {expandida ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                        <div style={{ color: "var(--text-muted)" }}>
+                                            {expandida ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Barra de progreso */}
-                                <div className="h-1 bg-gray-800">
-                                    <div className={`h-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : pct > 50 ? "bg-blue-500" : "bg-yellow-500"}`}
-                                        style={{ width: `${pct}%` }} />
+                                <div style={{ height: "4px", background: "var(--border)" }}>
+                                    <div style={{
+                                        height: "100%", transition: "width 0.4s ease",
+                                        background: pct === 100 ? "#10b981" : pct > 50 ? "#3b82f6" : "#f59e0b",
+                                        width: `${pct}%`
+                                    }} />
                                 </div>
 
                                 {/* Tabla de escuelas — expandible */}
                                 {expandida && (
-                                    <div className="p-4">
+                                    <div style={{ padding: "1.25rem", background: "var(--bg-secondary)", borderTop: "1px solid var(--border)" }}>
                                         {sesion.guiaUrl && (
                                             <a href={sesion.guiaUrl} target="_blank" rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 text-sm mb-4">
+                                                className="btn btn-outline"
+                                                style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem", marginBottom: "1rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
                                                 <BookOpen size={14} /> Ver Guía Oficial de Trabajo
                                             </a>
                                         )}
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
+                                        <div style={{ overflowX: "auto" }}>
+                                            <table className="table" style={{ width: "100%", fontSize: "0.85rem" }}>
                                                 <thead>
-                                                    <tr className="text-gray-400 border-b border-gray-700/50">
-                                                        <th className="text-left py-2 px-3 font-medium">CCT</th>
-                                                        <th className="text-left py-2 px-3 font-medium">Plantel</th>
-                                                        <th className="text-center py-2 px-3 font-medium">Estado</th>
-                                                        {!readOnly && <th className="text-left py-2 px-3 font-medium">Notas ATP</th>}
-                                                        {!readOnly && <th className="text-center py-2 px-3 font-medium">Acción</th>}
+                                                    <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                                                        <th style={{ textAlign: "left", padding: "0.6rem 0.75rem" }}>CCT</th>
+                                                        <th style={{ textAlign: "left", padding: "0.6rem 0.75rem" }}>Plantel</th>
+                                                        <th style={{ textAlign: "center", padding: "0.6rem 0.75rem" }}>Estado</th>
+                                                        {!readOnly && <th style={{ textAlign: "left", padding: "0.6rem 0.75rem" }}>Notas ATP</th>}
+                                                        {!readOnly && <th style={{ textAlign: "center", padding: "0.6rem 0.75rem" }}>Acción</th>}
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-gray-700/30">
+                                                <tbody>
                                                     {escuelasEnSesion(sesion).map(({ escuela, producto }) => {
                                                         const est = producto?.estado ?? "PENDIENTE";
                                                         const badge = ESTADO_LABELS[est] ?? ESTADO_LABELS.PENDIENTE;
                                                         return (
-                                                            <tr key={escuela.id} className="hover:bg-gray-800/30 transition-colors">
-                                                                <td className="py-2 px-3 text-gray-300 font-mono text-xs">{escuela.cct}</td>
-                                                                <td className="py-2 px-3 text-white">{escuela.nombre}</td>
-                                                                <td className="py-2 px-3 text-center">
-                                                                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${badge.color}`}>
+                                                            <tr key={escuela.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                                <td style={{ padding: "0.6rem 0.75rem", fontFamily: "monospace", fontSize: "0.8rem", color: "var(--text-secondary)" }}>{escuela.cct}</td>
+                                                                <td style={{ padding: "0.6rem 0.75rem", fontWeight: 600, color: "var(--text)" }}>{escuela.nombre}</td>
+                                                                <td style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>
+                                                                    <span style={{
+                                                                        display: "inline-flex", alignItems: "center", gap: "0.3rem",
+                                                                        padding: "0.25rem 0.6rem", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 600,
+                                                                        background: badge.bg, color: badge.color
+                                                                    }}>
                                                                         {badge.icon} {badge.label}
                                                                     </span>
                                                                 </td>
                                                                 {!readOnly && (
-                                                                    <td className="py-2 px-3">
+                                                                    <td style={{ padding: "0.6rem 0.75rem" }}>
                                                                         {producto && (
-                                                                            <div className="flex gap-1">
+                                                                            <div style={{ display: "flex", gap: "0.4rem" }}>
                                                                                 <input
-                                                                                    className="form-input text-xs py-1 px-2"
+                                                                                    className="form-control"
+                                                                                    style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
                                                                                     placeholder="Notas..."
                                                                                     value={notasEdicion[producto.id] ?? producto.notasAtp ?? ""}
                                                                                     onChange={e => setNotasEdicion(prev => ({ ...prev, [producto.id]: e.target.value }))}
@@ -376,19 +407,21 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                                                                 <button
                                                                                     onClick={() => guardarNotas(producto.id)}
                                                                                     disabled={savingNotas[producto.id]}
-                                                                                    className="btn-secondary text-xs py-1 px-2 flex items-center gap-1"
+                                                                                    className="btn btn-outline"
+                                                                                    style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
                                                                                 >
-                                                                                    {savingNotas[producto.id] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                                                                    {savingNotas[producto.id] ? <Loader2 size={12} className="spin" /> : <Save size={12} />}
                                                                                 </button>
                                                                             </div>
                                                                         )}
                                                                     </td>
                                                                 )}
                                                                 {!readOnly && (
-                                                                    <td className="py-2 px-3 text-center">
+                                                                    <td style={{ padding: "0.6rem 0.75rem", textAlign: "center" }}>
                                                                         {producto && (
                                                                             <select
-                                                                                className="form-input text-xs py-1 px-2"
+                                                                                className="form-control"
+                                                                                style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
                                                                                 value={est}
                                                                                 onChange={e => actualizarEstado(producto.id, e.target.value)}
                                                                             >
@@ -406,11 +439,11 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                                 </tbody>
                                             </table>
                                         </div>
-                                        <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
-                                            <span className="flex items-center gap-1"><Users size={12} />{escuelas.length} planteles</span>
-                                            <span className="flex items-center gap-1 text-green-400"><CheckCircle2 size={12} />{res.revisados} revisados</span>
-                                            <span className="flex items-center gap-1 text-yellow-400"><AlertTriangle size={12} />{res.conObs} con observaciones</span>
-                                            <span className="flex items-center gap-1 text-gray-400"><Clock size={12} />{res.pendientes} pendientes</span>
+                                        <div style={{ marginTop: "1rem", display: "flex", alignItems: "center", gap: "1rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                            <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Users size={12} />{escuelas.length} planteles</span>
+                                            <span style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "#10b981" }}><CheckCircle2 size={12} />{res.revisados} revisados</span>
+                                            <span style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "#f59e0b" }}><AlertTriangle size={12} />{res.conObs} con observaciones</span>
+                                            <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Clock size={12} />{res.pendientes} pendientes</span>
                                         </div>
                                     </div>
                                 )}

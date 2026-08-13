@@ -32,11 +32,11 @@ interface Comite {
     actas: Acta[];
 }
 
-const ESTADO_INFO: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-    ACTIVO:                  { label: "Activo ✓",            color: "bg-green-900/50 text-green-300",  icon: <CheckCircle2 size={12}/> },
-    PENDIENTE_INTEGRACION:   { label: "Pendiente integración",color: "bg-yellow-900/50 text-yellow-300",icon: <Clock size={12}/> },
-    REQUIERE_ACTUALIZACION:  { label: "Requiere actualización",color:"bg-orange-900/50 text-orange-300",icon: <AlertTriangle size={12}/> },
-    INACTIVO:                { label: "Inactivo",             color: "bg-gray-700/50 text-gray-400",   icon: <X size={12}/> },
+const ESTADO_INFO: Record<string, { label: string; bg: string; color: string; icon: React.ReactNode }> = {
+    ACTIVO:                  { label: "Activo ✓",             bg: "rgba(16, 185, 129, 0.15)", color: "#10b981", icon: <CheckCircle2 size={12}/> },
+    PENDIENTE_INTEGRACION:   { label: "Pendiente integración", bg: "rgba(245, 158, 11, 0.15)", color: "#f59e0b", icon: <Clock size={12}/> },
+    REQUIERE_ACTUALIZACION:  { label: "Requiere actualización", bg: "rgba(249, 115, 22, 0.15)", color: "#f97316", icon: <AlertTriangle size={12}/> },
+    INACTIVO:                { label: "Inactivo",              bg: "rgba(107, 114, 128, 0.15)", color: "#6b7280", icon: <X size={12}/> },
 };
 
 export default function ComitesPanel({ readOnly = false }: { readOnly?: boolean }) {
@@ -66,11 +66,9 @@ export default function ComitesPanel({ readOnly = false }: { readOnly?: boolean 
 
     useEffect(() => { cargar(); }, [cargar]);
 
-    // Escuelas SIN comité registrado
     const comiteIds = new Set(comites.map(c => c.escuelaId));
     const escuelasSinComite = escuelas.filter(e => !comiteIds.has(e.id));
 
-    // KPIs globales
     const total = escuelas.length;
     const activos = comites.filter(c => c.estado === "ACTIVO").length;
     const pendientes = comites.filter(c => c.estado === "PENDIENTE_INTEGRACION").length + escuelasSinComite.length;
@@ -91,63 +89,71 @@ export default function ComitesPanel({ readOnly = false }: { readOnly?: boolean 
     };
 
     if (loading) return (
-        <div className="flex items-center justify-center h-64">
-            <Loader2 className="animate-spin text-indigo-400" size={36} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "300px", color: "var(--text-muted)" }}>
+            <Loader2 size={36} className="spin" style={{ color: "var(--primary)" }} />
         </div>
     );
 
     return (
-        <div className="space-y-6">
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             {/* Header */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                        <ShieldCheck className="text-emerald-400" size={28} />
+                    <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text)" }}>
+                        <ShieldCheck style={{ color: "#10b981" }} size={28} />
                         Comités de Convivencia y Seguridad
                     </h2>
-                    <p className="text-gray-400 text-sm mt-1">
+                    <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
                         Directorio zonal de comités escolares — Zona 004
                     </p>
                 </div>
-                <button onClick={cargar} className="btn-secondary flex items-center gap-2">
+                <button className="btn btn-outline" onClick={cargar} style={{ fontSize: "0.8125rem" }}>
                     <RefreshCw size={15} /> Actualizar
                 </button>
             </div>
 
             {error && (
-                <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 flex items-center gap-2">
+                <div className="alert alert-error">
                     <AlertTriangle size={16} /> {error}
                 </div>
             )}
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                    { label: "Total Planteles", value: total, color: "text-white", bg: "bg-gray-800/60" },
-                    { label: "Comités Activos", value: activos, color: "text-green-400", bg: "bg-green-900/20 border-green-700/30" },
-                    { label: "Pendientes", value: pendientes, color: "text-yellow-400", bg: "bg-yellow-900/20 border-yellow-700/30" },
-                    { label: "Req. Actualización", value: reqActualizacion, color: "text-orange-400", bg: "bg-orange-900/20 border-orange-700/30" },
-                ].map(kpi => (
-                    <div key={kpi.label} className={`${kpi.bg} border border-gray-700/30 rounded-xl p-4 text-center`}>
-                        <div className={`text-3xl font-bold ${kpi.color}`}>{kpi.value}</div>
-                        <div className="text-gray-400 text-xs mt-1">{kpi.label}</div>
-                    </div>
-                ))}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                <div className="card" style={{ textAlign: "center", padding: "1.25rem" }}>
+                    <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--text)" }}>{total}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.2rem" }}>Total Planteles</div>
+                </div>
+                <div className="card" style={{ textAlign: "center", padding: "1.25rem" }}>
+                    <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#10b981" }}>{activos}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.2rem" }}>Comités Activos</div>
+                </div>
+                <div className="card" style={{ textAlign: "center", padding: "1.25rem" }}>
+                    <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#f59e0b" }}>{pendientes}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.2rem" }}>Pendientes</div>
+                </div>
+                <div className="card" style={{ textAlign: "center", padding: "1.25rem" }}>
+                    <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#f97316" }}>{reqActualizacion}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.2rem" }}>Req. Actualización</div>
+                </div>
             </div>
 
             {/* Escuelas sin comité */}
             {escuelasSinComite.length > 0 && !readOnly && (
-                <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-xl p-4">
-                    <h3 className="text-yellow-300 font-semibold text-sm flex items-center gap-2 mb-3">
-                        <AlertTriangle size={15} /> {escuelasSinComite.length} plantel(es) sin comité registrado
+                <div className="card" style={{ borderLeft: "4px solid #f59e0b" }}>
+                    <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "#f59e0b", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <AlertTriangle size={16} /> {escuelasSinComite.length} plantel(es) sin comité registrado
                     </h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                         {escuelasSinComite.map(esc => (
-                            <button key={esc.id}
+                            <button
+                                key={esc.id}
                                 onClick={() => actualizarComite(esc.id, "PENDIENTE_INTEGRACION")}
                                 disabled={saving[esc.id]}
-                                className="text-xs px-3 py-1.5 bg-yellow-900/40 border border-yellow-700/50 text-yellow-300 rounded-lg hover:bg-yellow-900/60 transition-colors flex items-center gap-1">
-                                {saving[esc.id] ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                                className="btn btn-outline"
+                                style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem", display: "flex", alignItems: "center", gap: "0.3rem" }}
+                            >
+                                {saving[esc.id] ? <Loader2 size={12} className="spin" /> : <Plus size={12} />}
                                 Registrar {esc.cct}
                             </button>
                         ))}
@@ -155,54 +161,70 @@ export default function ComitesPanel({ readOnly = false }: { readOnly?: boolean 
                 </div>
             )}
 
-            {/* Tabla de comités */}
-            <div className="space-y-2">
+            {/* Lista de comités */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {comites.map(comite => {
                     const info = ESTADO_INFO[comite.estado] ?? ESTADO_INFO.PENDIENTE_INTEGRACION;
                     const expand = expandido === comite.id;
                     return (
-                        <div key={comite.id} className="bg-gray-900/60 border border-gray-700/50 rounded-xl overflow-hidden">
-                            <div className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-800/40 transition-colors"
-                                onClick={() => setExpandido(expand ? null : comite.id)}>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                        <ShieldCheck size={14} className="text-emerald-400" />
+                        <div key={comite.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                            <div
+                                style={{
+                                    padding: "1rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between",
+                                    cursor: "pointer", background: "var(--bg-card)", flexWrap: "wrap", gap: "0.75rem"
+                                }}
+                                onClick={() => setExpandido(expand ? null : comite.id)}
+                            >
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                    <div style={{
+                                        width: "36px", height: "36px", borderRadius: "8px",
+                                        background: "rgba(16, 185, 129, 0.1)", color: "#10b981",
+                                        display: "flex", alignItems: "center", justifyContent: "center"
+                                    }}>
+                                        <ShieldCheck size={18} />
                                     </div>
                                     <div>
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-white font-medium text-sm">{comite.escuela.nombre}</span>
-                                            <span className="text-gray-500 font-mono text-xs">{comite.escuela.cct}</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                            <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text)" }}>{comite.escuela.nombre}</span>
+                                            <span style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "var(--text-muted)" }}>{comite.escuela.cct}</span>
                                         </div>
                                         {comite.fechaIntegracion && (
-                                            <span className="text-gray-500 text-xs">
+                                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                                                 Integrado: {new Date(comite.fechaIntegracion).toLocaleDateString("es-MX")}
                                             </span>
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${info.color}`}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                                    <span style={{
+                                        display: "inline-flex", alignItems: "center", gap: "0.3rem",
+                                        padding: "0.25rem 0.6rem", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 600,
+                                        background: info.bg, color: info.color
+                                    }}>
                                         {info.icon} {info.label}
                                     </span>
                                     {comite.actas.length > 0 && (
-                                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
                                             <FileText size={12} /> {comite.actas.length} acta(s)
                                         </span>
                                     )}
-                                    <span className="text-gray-500">
-                                        {expand ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                    <span style={{ color: "var(--text-muted)" }}>
+                                        {expand ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                     </span>
                                 </div>
                             </div>
 
                             {expand && !readOnly && (
-                                <div className="p-4 border-t border-gray-700/40 space-y-3">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div style={{ padding: "1.25rem", background: "var(--bg-secondary)", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                                         <div>
-                                            <label className="form-label">Estado del Comité</label>
-                                            <select className="form-input"
+                                            <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Estado del Comité</label>
+                                            <select
+                                                className="form-control"
+                                                style={{ width: "100%" }}
                                                 defaultValue={comite.estado}
-                                                onChange={e => actualizarComite(comite.escuelaId, e.target.value, notasEdicion[comite.id] ?? comite.notasAtp ?? "")}>
+                                                onChange={e => actualizarComite(comite.escuelaId, e.target.value, notasEdicion[comite.id] ?? comite.notasAtp ?? "")}
+                                            >
                                                 <option value="ACTIVO">Activo</option>
                                                 <option value="PENDIENTE_INTEGRACION">Pendiente integración</option>
                                                 <option value="REQUIERE_ACTUALIZACION">Requiere actualización</option>
@@ -210,31 +232,36 @@ export default function ComitesPanel({ readOnly = false }: { readOnly?: boolean 
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="form-label">Notas del ATP</label>
-                                            <div className="flex gap-2">
-                                                <input className="form-input"
+                                            <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Notas del ATP</label>
+                                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                                                <input
+                                                    className="form-control"
+                                                    style={{ flex: 1 }}
                                                     value={notasEdicion[comite.id] ?? comite.notasAtp ?? ""}
                                                     onChange={e => setNotasEdicion(prev => ({ ...prev, [comite.id]: e.target.value }))}
-                                                    placeholder="Observaciones..." />
+                                                    placeholder="Observaciones..."
+                                                />
                                                 <button
                                                     onClick={() => actualizarComite(comite.escuelaId, comite.estado, notasEdicion[comite.id] ?? "")}
                                                     disabled={saving[comite.escuelaId]}
-                                                    className="btn-secondary px-3 flex items-center">
-                                                    {saving[comite.escuelaId] ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                                    className="btn btn-outline"
+                                                    style={{ padding: "0.4rem 0.75rem" }}
+                                                >
+                                                    {saving[comite.escuelaId] ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
                                                 </button>
                                             </div>
                                         </div>
                                     </div>
                                     {comite.actas.length > 0 && (
                                         <div>
-                                            <p className="text-gray-400 text-xs font-medium mb-2">Actas registradas:</p>
-                                            <div className="space-y-1">
+                                            <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)" }}>Actas registradas:</p>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
                                                 {comite.actas.map(acta => (
-                                                    <div key={acta.id} className="flex items-center gap-2 text-xs text-gray-300">
-                                                        <FileText size={12} className="text-gray-500" />
+                                                    <div key={acta.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                                        <FileText size={12} style={{ color: "var(--text-muted)" }} />
                                                         <span>{acta.nombreArchivo ?? acta.tipoDocumento}</span>
                                                         {acta.fechaDocumento && (
-                                                            <span className="text-gray-500">
+                                                            <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
                                                                 — {new Date(acta.fechaDocumento).toLocaleDateString("es-MX")}
                                                             </span>
                                                         )}
@@ -251,9 +278,9 @@ export default function ComitesPanel({ readOnly = false }: { readOnly?: boolean 
             </div>
 
             {comites.length === 0 && escuelasSinComite.length === 0 && (
-                <div className="bg-gray-900/50 border border-gray-700/50 rounded-xl p-12 text-center">
-                    <Users className="mx-auto text-gray-600 mb-3" size={40} />
-                    <p className="text-gray-400">No hay planteles registrados</p>
+                <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem", color: "var(--text-muted)" }}>
+                    <Users size={40} style={{ margin: "0 auto 0.75rem", opacity: 0.5 }} />
+                    <p style={{ margin: 0 }}>No hay planteles registrados</p>
                 </div>
             )}
         </div>

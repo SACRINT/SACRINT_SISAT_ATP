@@ -19,11 +19,11 @@ interface Convocatoria {
     activo: boolean;
 }
 
-const TIPO_LABELS: Record<string, { label: string; color: string }> = {
-    CONCURSO:      { label: "Concurso de Oposición", color: "bg-purple-900/60 text-purple-300" },
-    PROMOCION:     { label: "Promoción",              color: "bg-blue-900/60 text-blue-300" },
-    ACTUALIZACION: { label: "Actualización",          color: "bg-teal-900/60 text-teal-300" },
-    OTRO:          { label: "Otro",                   color: "bg-gray-700/60 text-gray-300" },
+const TIPO_LABELS: Record<string, { label: string; bg: string; color: string }> = {
+    CONCURSO:      { label: "Concurso de Oposición", bg: "rgba(124, 58, 237, 0.15)", color: "#7c3aed" },
+    PROMOCION:     { label: "Promoción",              bg: "rgba(37, 99, 235, 0.15)", color: "#2563eb" },
+    ACTUALIZACION: { label: "Actualización",          bg: "rgba(16, 185, 129, 0.15)", color: "#10b981" },
+    OTRO:          { label: "Otro",                   bg: "rgba(107, 114, 128, 0.15)", color: "#6b7280" },
 };
 
 const FORM_VACIO = { titulo: "", descripcion: "", tipo: "CONCURSO", fechaVigencia: "", convocatoriaUrl: "" };
@@ -122,30 +122,30 @@ export default function UsicammPanel({ readOnly = false }: { readOnly?: boolean 
     );
 
     if (loading) return (
-        <div className="flex items-center justify-center h-64">
-            <Loader2 className="animate-spin text-indigo-400" size={36} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "300px", color: "var(--text-muted)" }}>
+            <Loader2 size={36} className="spin" style={{ color: "var(--primary)" }} />
         </div>
     );
 
     return (
-        <div className="space-y-6">
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             {/* Header */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                        <Award className="text-yellow-400" size={28} />
+                    <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text)" }}>
+                        <Award style={{ color: "#f59e0b" }} size={28} />
                         Convocatorias USICAMM
                     </h2>
-                    <p className="text-gray-400 text-sm mt-1">
+                    <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
                         Difusión de concursos de oposición, promoción y actualización docente
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={cargar} className="btn-secondary flex items-center gap-2">
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                    <button className="btn btn-outline" onClick={cargar} style={{ fontSize: "0.8125rem" }}>
                         <RefreshCw size={15} /> Actualizar
                     </button>
                     {!readOnly && (
-                        <button onClick={abrirNueva} className="btn-primary flex items-center gap-2">
+                        <button className="btn btn-primary" onClick={abrirNueva} style={{ fontSize: "0.8125rem" }}>
                             <Plus size={15} /> Nueva Convocatoria
                         </button>
                     )}
@@ -153,42 +153,51 @@ export default function UsicammPanel({ readOnly = false }: { readOnly?: boolean 
             </div>
 
             {error && (
-                <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-3 flex items-center gap-2">
+                <div className="alert alert-error">
                     <AlertTriangle size={16} /> {error}
                 </div>
             )}
 
             {/* Buscador */}
-            <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input className="form-input pl-9" placeholder="Buscar convocatorias..." value={busqueda}
-                    onChange={e => setBusqueda(e.target.value)} />
+            <div style={{ position: "relative" }}>
+                <Search size={16} style={{ position: "absolute", left: "0.875rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                <input
+                    className="form-control"
+                    placeholder="Buscar convocatorias por título o descripción..."
+                    value={busqueda}
+                    onChange={e => setBusqueda(e.target.value)}
+                    style={{ paddingLeft: "2.5rem", width: "100%" }}
+                />
             </div>
 
             {/* Modal crear/editar */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
-                        <div className="flex items-center justify-between mb-5">
-                            <h3 className="text-white font-semibold text-lg flex items-center gap-2">
-                                <Award size={18} className="text-yellow-400" />
+                <div style={{
+                    position: "fixed", inset: 0, zIndex: 1000,
+                    background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(4px)",
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem"
+                }}>
+                    <div className="card" style={{ width: "100%", maxWidth: "520px", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Award size={18} style={{ color: "#f59e0b" }} />
                                 {editando ? "Editar Convocatoria" : "Nueva Convocatoria USICAMM"}
                             </h3>
-                            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white">
+                            <button onClick={() => setShowForm(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="space-y-4">
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                             <div>
-                                <label className="form-label">Título *</label>
-                                <input className="form-input" value={form.titulo}
+                                <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Título *</label>
+                                <input className="form-control" value={form.titulo}
                                     onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
-                                    placeholder="Concurso de Oposición 2025-2026..." />
+                                    placeholder="Concurso de Oposición 2025-2026..." style={{ width: "100%" }} />
                             </div>
                             <div>
-                                <label className="form-label">Tipo de Convocatoria</label>
-                                <select className="form-input" value={form.tipo}
-                                    onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}>
+                                <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Tipo de Convocatoria</label>
+                                <select className="form-control" value={form.tipo}
+                                    onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))} style={{ width: "100%" }}>
                                     <option value="CONCURSO">Concurso de Oposición</option>
                                     <option value="PROMOCION">Promoción</option>
                                     <option value="ACTUALIZACION">Actualización</option>
@@ -196,30 +205,30 @@ export default function UsicammPanel({ readOnly = false }: { readOnly?: boolean 
                                 </select>
                             </div>
                             <div>
-                                <label className="form-label">Descripción</label>
-                                <textarea className="form-input min-h-[80px]" value={form.descripcion}
+                                <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Descripción</label>
+                                <textarea className="form-control" rows={3} value={form.descripcion}
                                     onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
-                                    placeholder="Detalles importantes de la convocatoria..." />
+                                    placeholder="Detalles importantes de la convocatoria..." style={{ width: "100%", resize: "vertical" }} />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                                 <div>
-                                    <label className="form-label">Vigencia hasta</label>
-                                    <input type="date" className="form-input" value={form.fechaVigencia}
-                                        onChange={e => setForm(f => ({ ...f, fechaVigencia: e.target.value }))} />
+                                    <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Vigencia hasta</label>
+                                    <input type="date" className="form-control" value={form.fechaVigencia}
+                                        onChange={e => setForm(f => ({ ...f, fechaVigencia: e.target.value }))} style={{ width: "100%" }} />
                                 </div>
                                 <div>
-                                    <label className="form-label">URL Convocatoria Oficial</label>
-                                    <input type="url" className="form-input" value={form.convocatoriaUrl}
+                                    <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>URL Convocatoria Oficial</label>
+                                    <input type="url" className="form-control" value={form.convocatoriaUrl}
                                         onChange={e => setForm(f => ({ ...f, convocatoriaUrl: e.target.value }))}
-                                        placeholder="https://usicamm.gob.mx/..." />
+                                        placeholder="https://usicamm.gob.mx/..." style={{ width: "100%" }} />
                                 </div>
                             </div>
                         </div>
-                        <div className="flex gap-2 mt-6">
-                            <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">Cancelar</button>
+                        <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
+                            <button onClick={() => setShowForm(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
                             <button onClick={guardar} disabled={saving || !form.titulo}
-                                className="btn-primary flex-1 flex items-center justify-center gap-2">
-                                {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                                className="btn btn-primary" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+                                {saving ? <Loader2 size={15} className="spin" /> : <Save size={15} />}
                                 {editando ? "Guardar Cambios" : "Publicar Convocatoria"}
                             </button>
                         </div>
@@ -229,64 +238,74 @@ export default function UsicammPanel({ readOnly = false }: { readOnly?: boolean 
 
             {/* Listado */}
             {filtradas.length === 0 ? (
-                <div className="bg-gray-900/50 border border-gray-700/50 rounded-xl p-12 text-center">
-                    <Award className="mx-auto text-gray-600 mb-3" size={40} />
-                    <p className="text-gray-400 font-medium">
+                <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem", color: "var(--text-muted)" }}>
+                    <Award size={44} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem", color: "var(--text)" }}>
                         {busqueda ? "No se encontraron convocatorias" : "No hay convocatorias publicadas"}
                     </p>
-                    <p className="text-gray-500 text-sm mt-1">
+                    <p style={{ margin: "0.5rem 0 0", fontSize: "0.875rem" }}>
                         {!readOnly && !busqueda && "Publica la primera convocatoria con el botón \"Nueva Convocatoria\""}
                     </p>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {filtradas.map(c => {
                         const tipo = TIPO_LABELS[c.tipo] ?? TIPO_LABELS.OTRO;
                         const vigente = c.fechaVigencia ? new Date(c.fechaVigencia) > new Date() : true;
                         return (
-                            <div key={c.id}
-                                className={`bg-gray-900/60 border rounded-xl p-4 transition-all ${c.activo ? "border-gray-700/50" : "border-gray-800/30 opacity-60"}`}>
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${tipo.color}`}>{tipo.label}</span>
+                            <div key={c.id} className="card" style={{ opacity: c.activo ? 1 : 0.6 }}>
+                                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                                    <div style={{ flex: 1, minWidth: "250px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+                                            <span style={{
+                                                fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: "12px",
+                                                background: tipo.bg, color: tipo.color
+                                            }}>
+                                                {tipo.label}
+                                            </span>
                                             {!vigente && (
-                                                <span className="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-300">Vencida</span>
+                                                <span style={{ fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: "12px", background: "rgba(220, 38, 38, 0.15)", color: "#ef4444" }}>
+                                                    Vencida
+                                                </span>
                                             )}
                                             {!c.activo && (
-                                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700/50 text-gray-400">Inactiva</span>
+                                                <span style={{ fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: "12px", background: "rgba(107, 114, 128, 0.15)", color: "#9ca3af" }}>
+                                                    Inactiva
+                                                </span>
                                             )}
                                         </div>
-                                        <h3 className="text-white font-semibold">{c.titulo}</h3>
-                                        {c.descripcion && <p className="text-gray-400 text-sm mt-1 line-clamp-2">{c.descripcion}</p>}
-                                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                                            <span className="flex items-center gap-1">
-                                                <Calendar size={11} /> {new Date(c.fechaPublicacion).toLocaleDateString("es-MX")}
+                                        <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "var(--text)" }}>{c.titulo}</h3>
+                                        {c.descripcion && <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "var(--text-muted)", lineHeight: 1.4 }}>{c.descripcion}</p>}
+                                        <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                            <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                                <Calendar size={12} /> Publicado: {new Date(c.fechaPublicacion).toLocaleDateString("es-MX")}
                                             </span>
                                             {c.fechaVigencia && (
-                                                <span className={`flex items-center gap-1 ${vigente ? "text-green-400" : "text-red-400"}`}>
-                                                    {vigente ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+                                                <span style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: vigente ? "#10b981" : "#ef4444" }}>
+                                                    {vigente ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                                     Vigente hasta {new Date(c.fechaVigencia).toLocaleDateString("es-MX")}
                                                 </span>
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0">
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                         {c.convocatoriaUrl && (
                                             <a href={c.convocatoriaUrl} target="_blank" rel="noopener noreferrer"
-                                                className="btn-secondary text-xs py-1 px-3 flex items-center gap-1">
+                                                className="btn btn-outline" style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}>
                                                 <ExternalLink size={13} /> Ver
                                             </a>
                                         )}
                                         {!readOnly && (
                                             <>
-                                                <button onClick={() => abrirEditar(c)}
-                                                    className="btn-secondary text-xs py-1 px-3 flex items-center gap-1">
-                                                    <Edit2 size={13} />
+                                                <button onClick={() => abrirEditar(c)} className="btn btn-outline" style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}>
+                                                    <Edit2 size={13} /> Editar
                                                 </button>
-                                                <button onClick={() => toggleActivo(c)}
-                                                    className={`text-xs py-1 px-3 rounded-lg border transition-colors ${c.activo ? "border-red-700/50 text-red-400 hover:bg-red-900/30" : "border-green-700/50 text-green-400 hover:bg-green-900/30"}`}>
-                                                    {c.activo ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                                                <button
+                                                    onClick={() => toggleActivo(c)}
+                                                    className={`btn ${c.activo ? "btn-outline" : "btn-primary"}`}
+                                                    style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem", borderColor: c.activo ? "var(--danger)" : undefined, color: c.activo ? "#ef4444" : undefined }}
+                                                >
+                                                    {c.activo ? "Desactivar" : "Activar"}
                                                 </button>
                                             </>
                                         )}
