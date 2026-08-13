@@ -68,16 +68,9 @@ export async function GET(req: NextRequest) {
 
         const ranking = escuelas.map((esc: any) => {
             const entregas: any[] = esc.entregas || [];
-            const permisos: any = esc.permisos || {};
-            const programasInactivos: string[] = permisos.programasInactivos || [];
 
-            // Excluir únicamente entregas en estado EXENTO o de programas inactivos por excepción para la escuela
-            const entregasRequeridas = entregas.filter((e: any) => {
-                if (e.estado === "EXENTO") return false;
-                if (e.periodoEntrega?.programaId && programasInactivos.includes(e.periodoEntrega.programaId)) return false;
-                if (e.periodoEntrega?.programa?.nombre && programasInactivos.includes(e.periodoEntrega.programa.nombre)) return false;
-                return true;
-            });
+            // Evaluar todas las entregas del ciclo escolar (excepto EXENTO) independientemente de si el programa está activo o inactivo
+            const entregasRequeridas = entregas.filter((e: any) => e.estado !== "EXENTO");
             
             let totalRequeridas = entregasRequeridas.length;
             const entregadas = entregasRequeridas.filter((e: any) => ["APROBADO", "ENTREGADO_FISICO", "EN_REVISION", "REQUIERE_CORRECCION"].includes(e.estado));
