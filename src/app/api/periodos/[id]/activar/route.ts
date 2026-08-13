@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -20,7 +21,43 @@ export async function PATCH(
         const periodo = await prisma.periodoEntrega.update({
             where: { id },
             data: { activo: Boolean(activo) },
+            include: { programa: true },
         });
+
+        // Verificar si el programa tiene al menos un periodo activo en este ciclo
+        const periodosCiclo = await prisma.periodoEntrega.findMany({
+            where: {
+                cicloEscolarId: periodo.cicloEscolarId,
+                programaId: periodo.programaId,
+            },
+        });
+
+        const programaTienePeriodoActivo = periodosCiclo.some((p) => p.activo);
+
+        // Sincronizar escuelas: actualizar programasInactivos
+        const todasEscuelas = await prisma.escuela.findMany({ select: { id: true, permisos: true } });
+        const updatesEscuelas = todasEscuelas.map((esc) => {
+            const permisos = (esc.permisos as any) || {};
+            let inactivos: string[] = Array.isArray(permisos.programasInactivos) ? [...permisos.programasInactivos] : [];
+            if (periodo.programa?.nombre) {
+                inactivos = inactivos.filter((p: string) => p !== periodo.programa.nombre);
+            }
+            if (programaTienePeriodoActivo) {
+                inactivos = inactivos.filter((p: string) => p !== periodo.programaId);
+            } else {
+                if (!inactivos.includes(periodo.programaId)) {
+                    inactivos.push(periodo.programaId);
+                }
+            }
+            return prisma.escuela.update({
+                where: { id: esc.id },
+                data: { permisos: { ...permisos, programasInactivos: inactivos } },
+            });
+        });
+        await Promise.all(updatesEscuelas);
+
+        revalidatePath("/admin");
+        revalidatePath("/director");
 
         return NextResponse.json({ success: true, periodo });
     } catch (error: unknown) {

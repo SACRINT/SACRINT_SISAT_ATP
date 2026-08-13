@@ -186,6 +186,19 @@ export default function ProgramasModulosPorEscuela({
             });
             if (res.ok) {
                 toast.success(activar ? `Programa activado para ${escTarget.nombre}` : `Programa desactivado para ${escTarget.nombre}`);
+                // Si se activa y el programa no tenía periodos activos en el ciclo, activarlo en el ciclo
+                if (activar && cicloId) {
+                    const prog = programas.find(p => p.id === programaId);
+                    const tienePeriodosActivos = Array.isArray(prog?.periodos) && prog!.periodos.length > 0 && prog!.periodos.some(p => p.activo !== false);
+                    if (!tienePeriodosActivos) {
+                        await fetch(`/api/programas/${programaId}/toggle-ciclo`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ cicloId, activo: true })
+                        });
+                    }
+                }
+                router.refresh();
             } else {
                 toast.error("Error al actualizar programa");
             }
@@ -422,10 +435,12 @@ export default function ProgramasModulosPorEscuela({
 
                                     {/* Columnas de Programas con Botón Único Master */}
                                     {programas.map((prog) => {
-                                        const todosProgActivos = escuelasLista.every(e => {
+                                        const tienePeriodosActivos = Array.isArray(prog.periodos) && prog.periodos.length > 0 && prog.periodos.some(p => p.activo !== false);
+                                        const todasEscuelasSinExcepcion = escuelasLista.every(e => {
                                             const inactivos: string[] = e.permisos?.programasInactivos || [];
                                             return !inactivos.includes(prog.id) && !inactivos.includes(prog.nombre);
                                         });
+                                        const todosProgActivos = tienePeriodosActivos && todasEscuelasSinExcepcion;
 
                                         return (
                                             <th key={prog.id} style={{ padding: "0.75rem 0.5rem", fontWeight: 700, color: "var(--text-secondary)", textAlign: "center", minWidth: "130px", verticalAlign: "top" }}>
@@ -563,7 +578,9 @@ export default function ProgramasModulosPorEscuela({
 
                                     {/* Toggles por Programa */}
                                     {programas.map((prog) => {
-                                        const progActivo = !programasInactivos.includes(prog.id) && !programasInactivos.includes(prog.nombre);
+                                        const tienePeriodosActivos = Array.isArray(prog.periodos) && prog.periodos.length > 0 && prog.periodos.some(p => p.activo !== false);
+                                        const noEstaInactivoPorEscuela = !programasInactivos.includes(prog.id) && !programasInactivos.includes(prog.nombre);
+                                        const progActivo = tienePeriodosActivos && noEstaInactivoPorEscuela;
                                         return (
                                             <td key={prog.id} style={{ textAlign: "center", padding: "0.375rem" }}>
                                                 <button
