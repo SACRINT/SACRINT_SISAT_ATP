@@ -15,29 +15,44 @@ export async function POST(req: NextRequest) {
     // Obtener todas las escuelas registradas
     const escuelas = await prisma.escuela.findMany();
 
-    // ── Módulo Horarios IA (on/off por escuela) ──────────────────────────────
+    // ── Módulo Horarios IA (on/off por escuela + config global) ─────────────
     if (tipo === "HORARIOS_IA") {
       const horariosDesactivado = accion === "DESACTIVAR_TODOS";
-      await Promise.all(
-        escuelas.map((esc) => {
+      const activoGlobal = accion === "ACTIVAR_TODOS";
+
+      await Promise.all([
+        prisma.preRevisionConfig.upsert({
+          where: { id: "singleton" },
+          create: { id: "singleton", activoGlobalHorarios: activoGlobal },
+          update: { activoGlobalHorarios: activoGlobal },
+        }),
+        ...escuelas.map((esc) => {
           const permisosActuales = (esc.permisos as any) || {};
           return prisma.escuela.update({
             where: { id: esc.id },
             data: { permisos: { ...permisosActuales, horariosDesactivado } },
           });
         })
-      );
+      ]);
+
       return NextResponse.json({
         success: true,
-        message: `Horarios IA ${horariosDesactivado ? "desactivados" : "activados"} para TODAS las escuelas.`,
+        message: `Horarios IA ${horariosDesactivado ? "desactivados" : "activados"} globalmente y para TODAS las escuelas.`,
       });
     }
 
-    // ── Módulo Planeaciones IA (on/off por escuela) ──────────────────────────
+    // ── Módulo Planeaciones IA (on/off por escuela + config global) ─────────
     if (tipo === "PLANEACIONES_IA") {
       const planeacionesDesactivado = accion === "DESACTIVAR_TODOS";
-      await Promise.all(
-        escuelas
+      const activoGlobal = accion === "ACTIVAR_TODOS";
+
+      await Promise.all([
+        prisma.planeacionesConfig.upsert({
+          where: { id: "singleton" },
+          create: { id: "singleton", activoGlobal },
+          update: { activoGlobal },
+        }),
+        ...escuelas
           .filter((esc) => !(esc as any).esSupervision)
           .map((esc) => {
             const permisosActuales = (esc.permisos as any) || {};
@@ -46,10 +61,11 @@ export async function POST(req: NextRequest) {
               data: { permisos: { ...permisosActuales, planeacionesDesactivado } },
             });
           })
-      );
+      ]);
+
       return NextResponse.json({
         success: true,
-        message: `Módulo Planeaciones IA ${planeacionesDesactivado ? "desactivado" : "activado"} para TODAS las escuelas.`,
+        message: `Módulo Planeaciones IA ${planeacionesDesactivado ? "desactivado" : "activado"} globalmente y para TODAS las escuelas.`,
       });
     }
 
@@ -140,9 +156,10 @@ export async function POST(req: NextRequest) {
     // ── Activación/desactivación masiva por Programa ─────────────────────────
     if (tipo === "PROGRAMA" && (programaId || programaNombre)) {
       const esDesactivar = accion === "DESACTIVAR_TODOS";
+      const activoGlobal = accion === "ACTIVAR_TODOS";
 
-      await Promise.all(
-        escuelas.map((esc) => {
+      const updates: Promise<any>[] = [
+        ...escuelas.map((esc) => {
           const permisosActuales = (esc.permisos as any) || {};
           let programasInactivos: string[] = Array.isArray(permisosActuales.programasInactivos)
             ? permisosActuales.programasInactivos
@@ -166,11 +183,22 @@ export async function POST(req: NextRequest) {
             data: { permisos: { ...permisosActuales, programasInactivos } },
           });
         })
-      );
+      ];
+
+      if (programaId) {
+        updates.push(
+          prisma.programa.update({
+            where: { id: programaId },
+            data: { activo: activoGlobal },
+          }).catch((err) => console.warn(`[masivo-permisos] Warning al actualizar Programa ${programaId}:`, err))
+        );
+      }
+
+      await Promise.all(updates);
 
       return NextResponse.json({
         success: true,
-        message: `Programa "${programaNombre}" ${esDesactivar ? "desactivado" : "activado"} para TODAS las escuelas.`,
+        message: `Programa "${programaNombre || programaId}" ${esDesactivar ? "desactivado" : "activado"} globalmente y para TODAS las escuelas.`,
       });
     }
 

@@ -39,12 +39,13 @@ export default async function DirectorPage() {
         orderBy: { inicio: "desc" },
     });
 
-    // Get all entregas for this school in the active ciclo, with periodos and archivos
+    // Get all entregas for this school in the active ciclo, with periodos and archivos (solo periodos activos)
     const entregas = await prisma.entrega.findMany({
         where: {
             escuelaId: escuela.id,
             periodoEntrega: {
                 cicloEscolarId: ciclo.id,
+                activo: true,
             },
         },
         include: {

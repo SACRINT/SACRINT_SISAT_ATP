@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { Settings2, ToggleLeft, ToggleRight } from "lucide-react";
 import { ProgramaAdmin } from "@/types";
+import { useRouter } from "next/navigation";
 
 type Escuela = {
     id: string;
@@ -27,6 +28,7 @@ export default function ProgramasModulosPorEscuela({
     programas,
     readOnly = false
 }: ProgramasModulosPorEscuelaProps) {
+    const router = useRouter();
     const listadoInicial = escuelasProp || inicialEscuelas || [];
     const [escuelas, setEscuelas] = useState<Escuela[]>(listadoInicial);
     const [saving, setSaving] = useState(false);
@@ -248,6 +250,7 @@ export default function ProgramasModulosPorEscuela({
                         return { ...e, permisos: { ...permisosActuales, programasInactivos } };
                     }));
                 }
+                router.refresh();
             } else {
                 toast.error(data.error || "No se pudo actualizar permisos masivos.");
             }
