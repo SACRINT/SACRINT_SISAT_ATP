@@ -1340,6 +1340,8 @@ export default function AdminDashboard({
                             <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                                 <GestionProgramas 
                                     inicialProgramas={programas} 
+                                    cicloId={cicloId}
+                                    cicloNombre={ciclo}
                                     readOnly={!hasAccess("programas", "write")}
                                     onGoToPermisosIA={() => setProgramasTab("permisos-ia")}
                                 />

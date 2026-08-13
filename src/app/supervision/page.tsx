@@ -32,9 +32,8 @@ export default async function SupervisionPage() {
         orderBy: { inicio: "desc" },
     });
 
-    // Fetch programas con filtro de activos
+    // Fetch programas
     const programas = await prisma.programa.findMany({
-        where: { activo: true },
         orderBy: { orden: "asc" },
         include: {
             periodos: {

@@ -7,6 +7,10 @@ import { Plus, Edit2, Save, Trash2, X, FileText, Settings, AlignLeft, Layers, Be
 
 interface PeriodoAdmin {
     id: string;
+    cicloEscolarId?: string;
+    activo?: boolean;
+    mes?: number | null;
+    semestre?: number | null;
 }
 
 interface ProgramaAdmin {
@@ -25,7 +29,19 @@ interface ProgramaAdmin {
     periodos: PeriodoAdmin[];
 }
 
-export default function GestionProgramas({ inicialProgramas, readOnly = false, onGoToPermisosIA }: { inicialProgramas: ProgramaAdmin[]; readOnly?: boolean; onGoToPermisosIA?: () => void }) {
+export default function GestionProgramas({
+    inicialProgramas,
+    cicloId,
+    cicloNombre,
+    readOnly = false,
+    onGoToPermisosIA
+}: {
+    inicialProgramas: ProgramaAdmin[];
+    cicloId?: string;
+    cicloNombre?: string;
+    readOnly?: boolean;
+    onGoToPermisosIA?: () => void;
+}) {
     const [programas, setProgramas] = useState<ProgramaAdmin[]>(inicialProgramas);
 
     useEffect(() => {
@@ -199,36 +215,47 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
         }
     };
 
-    const handleToggleActivo = async (id: string, currentVal: boolean, nombre: string) => {
+    const isProgramaActivoEnCiclo = (prog: ProgramaAdmin) => {
+        if (!Array.isArray(prog.periodos) || prog.periodos.length === 0) {
+            return false;
+        }
+        return prog.periodos.some(p => p.activo !== false);
+    };
+
+    const handleToggleActivo = async (id: string, currentActivoEnCiclo: boolean, nombre: string) => {
+        if (!cicloId) {
+            setMessage({ type: "error", text: "No hay ciclo escolar seleccionado." });
+            return;
+        }
         setIsLoading(true);
+        const nuevoActivo = !currentActivoEnCiclo;
         try {
-            const res = await fetch(`/api/programas/${id}`, {
+            const res = await fetch(`/api/programas/${id}/toggle-ciclo`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ activo: !currentVal })
+                body: JSON.stringify({ cicloId, activo: nuevoActivo })
             });
-            if (!res.ok) throw new Error("Error al cambiar estado del programa");
-            const updated = await res.json();
-            const nuevoActivo: boolean = updated.activo;
-            setProgramas(prev => prev.map(p => p.id === id ? { ...p, activo: nuevoActivo } : p));
-
-            // Propagar el cambio a todas las escuelas (programasInactivos por escuela)
-            try {
-                const accion = nuevoActivo ? "ACTIVAR_TODOS" : "DESACTIVAR_TODOS";
-                const masRes = await fetch("/api/admin/escuelas/masivo-permisos", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ tipo: "PROGRAMA", accion, programaId: id, programaNombre: nombre })
-                });
-                const masData = await masRes.json();
-                if (masData.success) {
-                    setMessage({ type: "success", text: `Programa ${nuevoActivo ? "activado" : "desactivado"} y sincronizado con todas las escuelas.` });
-                } else {
-                    setMessage({ type: "success", text: `Programa ${nuevoActivo ? "activado" : "desactivado"}. (Advertencia: no se pudo sincronizar escuelas)` });
-                }
-            } catch {
-                setMessage({ type: "success", text: `Programa ${nuevoActivo ? "activado" : "desactivado"}. (Advertencia: no se pudo sincronizar escuelas)` });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Error al cambiar estado del programa en el ciclo");
             }
+            const data = await res.json();
+
+            // Actualizar el estado local de periodos del programa para este ciclo
+            setProgramas(prev => prev.map(p => {
+                if (p.id === id) {
+                    return {
+                        ...p,
+                        periodos: data.periodos || (nuevoActivo ? [{ id: "temp", activo: true }] : [])
+                    };
+                }
+                return p;
+            }));
+
+            setMessage({
+                type: "success",
+                text: `Programa "${nombre}" ${nuevoActivo ? "activado" : "desactivado"} para el ciclo ${cicloNombre || ""}.`
+            });
 
             setTimeout(() => setMessage(null), 4000);
             router.refresh();
@@ -307,12 +334,11 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
             <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "10px", padding: "0.85rem 1.25rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
                 <div>
                     <div style={{ fontWeight: 800, fontSize: "0.875rem", color: "#1d4ed8", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Settings size={18} /> Control Global de Programas
+                        <Settings size={18} /> Control de Programas por Ciclo Escolar {cicloNombre ? `(${cicloNombre})` : ""}
                     </div>
                     <div style={{ fontSize: "0.78125rem", color: "#1e40af", marginTop: "0.25rem" }}>
-                        El toggle de esta pantalla activa o desactiva un programa <strong>para todas las escuelas a la vez</strong>.
-                        Para desactivar un programa solo en una escuela específica, usa la pestaña <strong>"⚙️ Programas y Módulos por Escuela"</strong>.
-                        Para permisos de IA, ve a <strong>"🤖 Permisos de Herramientas de IA"</strong>.
+                        El toggle de esta pantalla activa o desactiva un programa <strong>exclusivamente para el ciclo {cicloNombre || "seleccionado"}</strong>.
+                        Los demás ciclos escolares permanecen totalmente independientes. Para permisos de IA, ve a <strong>"🤖 Permisos de Herramientas de IA"</strong>.
                     </div>
                 </div>
                 {onGoToPermisosIA && (
@@ -330,7 +356,7 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.5rem" }}>
                 {programas.sort((a, b) => a.orden - b.orden).map(prog => {
-                    const activo = prog.activo !== false;
+                    const activo = isProgramaActivoEnCiclo(prog);
                     const visible = prog.visibleEnDirector !== false;
                     return (
                     <div key={prog.id} className="card" style={{
@@ -386,7 +412,7 @@ export default function GestionProgramas({ inicialProgramas, readOnly = false, o
                                         onClick={() => handleToggleActivo(prog.id, activo, prog.nombre)}
                                         disabled={readOnly || isLoading}
                                         style={{ background: "none", border: "none", cursor: readOnly ? "default" : "pointer", padding: "4px" }}
-                                        title={activo ? "Desactivar programa" : "Activar programa"}
+                                        title={activo ? `Desactivar en ciclo ${cicloNombre || ""}` : `Activar en ciclo ${cicloNombre || ""}`}
                                     >
                                         {isLoading
                                             ? <Loader2 size={30} className="spin" style={{ color: "var(--text-muted)" }} />

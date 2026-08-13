@@ -115,10 +115,9 @@ export default async function DirectorPage() {
         : (configGlobal?.activoGlobalHorarios ?? true) && permisosEscuela.horariosDesactivado !== true;
     const programasInactivos: string[] = permisosEscuela.programasInactivos || [];
 
-    // Filtrar programas inactivos para esta escuela o desactivados globalmente
+    // Filtrar programas inactivos para esta escuela o si está marcado como oculto al director
     const programasFiltrados = Object.values(programasMap).filter(
         (p) => !programasInactivos.includes(p.programa.id) &&
-               p.programa.activo !== false &&
                p.programa.visibleEnDirector !== false
     );
 
