@@ -1267,7 +1267,7 @@ export default function AdminDashboard({
 
                 {/* ========= VISTA: RANKING ========= */}
                 {vista === "ranking" && (
-                    <RankingEscuelas cicloNombre={cicloObj.nombre} />
+                    <RankingEscuelas cicloNombre={cicloObj.nombre} cicloId={cicloId} />
                 )}
 
                 {/* ========= VISTA: FECHAS DE CORTE ========= */}

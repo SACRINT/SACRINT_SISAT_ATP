@@ -26,11 +26,12 @@ interface RankingItem {
 
 interface Props {
     cicloNombre: string;
+    cicloId?: string;
     isDirector?: boolean;
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
-export default function RankingEscuelas({ cicloNombre, isDirector = false }: Props) {
+export default function RankingEscuelas({ cicloNombre, cicloId, isDirector = false }: Props) {
     const [ranking, setRanking] = useState<RankingItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -40,7 +41,11 @@ export default function RankingEscuelas({ cicloNombre, isDirector = false }: Pro
 
     const fetchRanking = useCallback((isManual = false) => {
         if (isManual) setRefreshing(true);
-        fetch(`/api/admin/ranking?t=${Date.now()}`, { cache: "no-store" })
+        const queryParams = new URLSearchParams();
+        if (cicloId) queryParams.set("cicloId", cicloId);
+        queryParams.set("t", Date.now().toString());
+
+        fetch(`/api/admin/ranking?${queryParams.toString()}`, { cache: "no-store" })
             .then(r => r.json())
             .then(data => {
                 if (data.error) throw new Error(data.error);
@@ -53,7 +58,7 @@ export default function RankingEscuelas({ cicloNombre, isDirector = false }: Pro
                 setLoading(false);
                 setRefreshing(false);
             });
-    }, []);
+    }, [cicloId]);
 
     useEffect(() => {
         fetchRanking();

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Calendar, PlusCircle, Save, X, RefreshCw, Trophy, ToggleLeft, ToggleRight, Check, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { ordenarPeriodosEscolares } from "@/lib/constants";
 
 export default function GestionFechas({
     programas,
@@ -397,7 +398,7 @@ export default function GestionFechas({
 
                             {/* Listado de Periodos / Meses */}
                             <div>
-                                {prog.periodos.map((periodo: any) => {
+                                {ordenarPeriodosEscolares(prog.periodos).map((periodo: any) => {
                                     const initialVal = formatDateForInput(periodo.fechaLimite);
                                     const currentVal = fechas[periodo.id] !== undefined ? fechas[periodo.id] : initialVal;
                                     const isDirty = currentVal !== initialVal;

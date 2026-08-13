@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { obtenerCicloActual } from "@/lib/ciclo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     const session = await auth();
     const role = (session?.user as any)?.role;
     if (!session || !["admin", "supervision", "atp", "director"].includes(role)) {
@@ -13,9 +14,16 @@ export async function GET() {
     }
 
     try {
-        const cicloActivo = await prisma.cicloEscolar.findFirst({
-            where: { activo: true }
-        });
+        const { searchParams } = new URL(req.url);
+        const cicloIdParam = searchParams.get("cicloId");
+
+        let cicloActivo = null;
+        if (cicloIdParam) {
+            cicloActivo = await prisma.cicloEscolar.findUnique({ where: { id: cicloIdParam } });
+        }
+        if (!cicloActivo) {
+            cicloActivo = await obtenerCicloActual();
+        }
 
         if (!cicloActivo) {
             return NextResponse.json({ error: "No hay ciclo escolar activo" }, { status: 400 });
@@ -48,7 +56,11 @@ export async function GET() {
                         }
                     },
                     include: {
-                        periodoEntrega: true
+                        periodoEntrega: {
+                            include: {
+                                programa: true
+                            }
+                        }
                     }
                 }
             }
@@ -56,8 +68,17 @@ export async function GET() {
 
         const ranking = escuelas.map((esc: any) => {
             const entregas: any[] = esc.entregas || [];
-            // Exclude EXENTO from required
-            const entregasRequeridas = entregas.filter((e: any) => e.estado !== "EXENTO");
+            const permisos: any = esc.permisos || {};
+            const programasInactivos: string[] = permisos.programasInactivos || [];
+
+            // Excluir entregas de periodos o programas inactivos para la escuela
+            const entregasRequeridas = entregas.filter((e: any) => {
+                if (e.estado === "EXENTO") return false;
+                if (e.periodoEntrega?.activo === false) return false;
+                if (e.periodoEntrega?.programaId && programasInactivos.includes(e.periodoEntrega.programaId)) return false;
+                if (e.periodoEntrega?.programa?.nombre && programasInactivos.includes(e.periodoEntrega.programa.nombre)) return false;
+                return true;
+            });
             
             let totalRequeridas = entregasRequeridas.length;
             const entregadas = entregasRequeridas.filter((e: any) => ["APROBADO", "ENTREGADO_FISICO", "EN_REVISION", "REQUIERE_CORRECCION"].includes(e.estado));

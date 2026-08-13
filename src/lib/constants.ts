@@ -1,5 +1,27 @@
 export const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
+/** Orden oficial del ciclo escolar mexicano: Agosto (8) a Julio (7) */
+export const MESES_CICLO_ESCOLAR = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
+
+/** Devuelve la posición ordinal del mes en el ciclo escolar (Agosto=0, Septiembre=1 ... Julio=11) */
+export function getMesOrdenEscolar(mes?: number | null): number {
+    if (!mes || mes < 1 || mes > 12) return 999;
+    return mes >= 8 ? mes - 8 : mes + 4;
+}
+
+/** Ordena periodos respetando el ciclo escolar: Agosto a Julio y Semestre 1 a 2 */
+export function ordenarPeriodosEscolares<T extends { mes?: number | null; semestre?: number | null }>(periodos: T[]): T[] {
+    return [...periodos].sort((a, b) => {
+        if (a.semestre != null && b.semestre != null) {
+            return a.semestre - b.semestre;
+        }
+        if (a.mes != null && b.mes != null) {
+            return getMesOrdenEscolar(a.mes) - getMesOrdenEscolar(b.mes);
+        }
+        return 0;
+    });
+}
+
 export const ESTADOS = ["PENDIENTE", "EN_REVISION", "REQUIERE_CORRECCION", "APROBADO", "NO_APROBADO", "NO_ENTREGADO", "EXENTO", "ENTREGADO_FISICO"];
 
 export const ESTADO_LABELS: Record<string, string> = {

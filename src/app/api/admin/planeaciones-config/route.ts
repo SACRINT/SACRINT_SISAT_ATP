@@ -1,9 +1,5 @@
-/**
- * GET  /api/admin/planeaciones-config  → Lee la configuración global del módulo de planeaciones
- * POST /api/admin/planeaciones-config  → Actualiza la configuración global
- */
-
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -46,6 +42,37 @@ export async function POST(req: NextRequest) {
             ...(modoSinRestricciones !== undefined && { modoSinRestricciones }),
         },
     });
+
+    // Sincronizar en cascada con todas las escuelas para mantener total consistencia
+    const escuelas = await prisma.escuela.findMany();
+    await Promise.all(
+        escuelas
+            .filter((esc) => !(esc as any).esSupervision)
+            .map((esc) => {
+                const perms = (esc.permisos as any) || {};
+                const nuevosPerms = { ...perms };
+
+                if (activoGlobal !== undefined) {
+                    nuevosPerms.planeacionesDesactivado = !activoGlobal;
+                }
+                if (requiereApiKey !== undefined) {
+                    // Si requiereApiKey es false (desactivado), se exime a las escuelas (planeacionesSinApiKey = true)
+                    nuevosPerms.planeacionesSinApiKey = !requiereApiKey;
+                }
+                if (requierePaecPec !== undefined) {
+                    // Si requierePaecPec es false (desactivado), se exime a las escuelas (planeacionesSinPaec = true)
+                    nuevosPerms.planeacionesSinPaec = !requierePaecPec;
+                }
+
+                return prisma.escuela.update({
+                    where: { id: esc.id },
+                    data: { permisos: nuevosPerms },
+                });
+            })
+    );
+
+    revalidatePath("/admin");
+    revalidatePath("/director");
 
     return NextResponse.json({ ok: true, config });
 }

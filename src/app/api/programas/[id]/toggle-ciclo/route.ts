@@ -3,16 +3,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-function calcularMesesDelCiclo(inicio: Date, fin: Date): number[] {
-    const meses: number[] = [];
-    const cur = new Date(inicio);
-    cur.setDate(1);
-    const finCiclo = new Date(fin);
-    while (cur <= finCiclo) {
-        meses.push(cur.getMonth() + 1);
-        cur.setMonth(cur.getMonth() + 1);
-    }
-    return meses;
+function calcularMesesDelCiclo(inicio?: Date, fin?: Date): number[] {
+    return [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
 }
 
 export async function PUT(

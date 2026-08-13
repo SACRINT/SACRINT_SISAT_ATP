@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { GraduationCap, Settings2, School, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { GraduationCap, Settings2, School, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, XCircle, Clock, AlertTriangle, ToggleLeft, ToggleRight } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
 //  Tipos
@@ -98,23 +98,26 @@ export default function PlaneacionesAdminPanel() {
 
     useEffect(() => { cargar(); }, [cargar]);
 
-    // ── Guardar configuración de Planeaciones ─────────────────
-    const guardarConfig = async () => {
+    // ── Guardar configuración de Planeaciones automáticamente al toggle ─────────────────
+    const handleToggleConfig = async (key: keyof ConfigData, val: boolean) => {
         if (!config) return;
+        const newConfig = { ...config, [key]: val };
+        setConfig(newConfig);
         setSaving(true);
         try {
             const res = await fetch("/api/admin/planeaciones-config", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(config),
+                body: JSON.stringify({ [key]: val }),
             });
             if (res.ok) {
-                setMsg({ type: "success", text: "Configuración de Planeaciones guardada correctamente" });
+                setMsg({ type: "success", text: "Configuración actualizada y sincronizada correctamente." });
+                setTimeout(() => setMsg(null), 3000);
             } else {
-                setMsg({ type: "error", text: "Error al guardar configuración" });
+                setMsg({ type: "error", text: "Error al actualizar configuración" });
             }
         } catch {
-            setMsg({ type: "error", text: "Error de conexión" });
+            setMsg({ type: "error", text: "Error de conexión al guardar" });
         } finally {
             setSaving(false);
         }
@@ -257,42 +260,62 @@ export default function PlaneacionesAdminPanel() {
 
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                             {/* Toggle: Activo Global */}
-                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: "pointer" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--card-bg, #ffffff)" }}>
                                 <div>
                                     <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text)" }}>🟢 Módulo activo (global)</div>
                                     <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Si está desactivado, ninguna escuela puede usar la revisión de planeaciones</div>
                                 </div>
-                                <input type="checkbox" checked={config.activoGlobal} onChange={e => setConfig({ ...config, activoGlobal: e.target.checked })} style={{ width: "18px", height: "18px", cursor: "pointer" }} />
-                            </label>
+                                <button
+                                    type="button"
+                                    disabled={saving}
+                                    onClick={() => handleToggleConfig("activoGlobal", !config.activoGlobal)}
+                                    style={{ background: "none", border: "none", cursor: saving ? "not-allowed" : "pointer", padding: "4px", display: "inline-flex", alignItems: "center" }}
+                                    title={config.activoGlobal ? "Clic para desactivar globalmente" : "Clic para activar globalmente"}
+                                >
+                                    {config.activoGlobal
+                                        ? <ToggleRight size={28} style={{ color: "#10b981" }} />
+                                        : <ToggleLeft size={28} style={{ color: "#ef4444" }} />}
+                                </button>
+                            </div>
 
                             {/* Toggle: Requiere PAEC-PEC */}
-                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: "pointer" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--card-bg, #ffffff)" }}>
                                 <div>
                                     <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text)" }}>🔒 Requiere PAEC-PEC</div>
                                     <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Los directores deben haber subido su PAEC-PEC antes de poder usar este módulo</div>
                                 </div>
-                                <input type="checkbox" checked={config.requierePaecPec} onChange={e => setConfig({ ...config, requierePaecPec: e.target.checked })} style={{ width: "18px", height: "18px", cursor: "pointer" }} />
-                            </label>
+                                <button
+                                    type="button"
+                                    disabled={saving}
+                                    onClick={() => handleToggleConfig("requierePaecPec", !config.requierePaecPec)}
+                                    style={{ background: "none", border: "none", cursor: saving ? "not-allowed" : "pointer", padding: "4px", display: "inline-flex", alignItems: "center" }}
+                                    title={config.requierePaecPec ? "Clic para desactivar requisito de PAEC-PEC" : "Clic para activar requisito de PAEC-PEC"}
+                                >
+                                    {config.requierePaecPec
+                                        ? <ToggleRight size={28} style={{ color: "#10b981" }} />
+                                        : <ToggleLeft size={28} style={{ color: "#ef4444" }} />}
+                                </button>
+                            </div>
 
                             {/* Toggle: Requiere API Key */}
-                            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border)", cursor: "pointer" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--card-bg, #ffffff)" }}>
                                 <div>
                                     <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text)" }}>🔑 Requiere API Key propia</div>
                                     <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Si está activo, la escuela debe tener su API Key de Gemini configurada (además del pool del sistema)</div>
                                 </div>
-                                <input type="checkbox" checked={config.requiereApiKey} onChange={e => setConfig({ ...config, requiereApiKey: e.target.checked })} style={{ width: "18px", height: "18px", cursor: "pointer" }} />
-                            </label>
+                                <button
+                                    type="button"
+                                    disabled={saving}
+                                    onClick={() => handleToggleConfig("requiereApiKey", !config.requiereApiKey)}
+                                    style={{ background: "none", border: "none", cursor: saving ? "not-allowed" : "pointer", padding: "4px", display: "inline-flex", alignItems: "center" }}
+                                    title={config.requiereApiKey ? "Clic para desactivar requisito de API Key" : "Clic para activar requisito de API Key"}
+                                >
+                                    {config.requiereApiKey
+                                        ? <ToggleRight size={28} style={{ color: "#10b981" }} />
+                                        : <ToggleLeft size={28} style={{ color: "#ef4444" }} />}
+                                </button>
+                            </div>
                         </div>
-
-                        <button
-                            onClick={guardarConfig}
-                            disabled={saving}
-                            className="btn btn-primary"
-                            style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "0.375rem" }}
-                        >
-                            {saving ? <RefreshCw size={14} className="spin" /> : <Settings2 size={14} />}
-                            {saving ? "Guardando..." : "Guardar configuración"}
-                        </button>
                     </div>
                 )}
             </div>

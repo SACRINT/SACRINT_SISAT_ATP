@@ -4,16 +4,8 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { obtenerCicloActual } from "@/lib/ciclo";
 
-function calcularMesesDelCiclo(inicio: Date, fin: Date): number[] {
-  const meses: number[] = [];
-  const cur = new Date(inicio);
-  cur.setDate(1);
-  const finCiclo = new Date(fin);
-  while (cur <= finCiclo) {
-    meses.push(cur.getMonth() + 1);
-    cur.setMonth(cur.getMonth() + 1);
-  }
-  return meses;
+function calcularMesesDelCiclo(inicio?: Date, fin?: Date): number[] {
+  return [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
 }
 
 export async function POST(req: NextRequest) {
@@ -126,8 +118,13 @@ export async function POST(req: NextRequest) {
     // ── Exención granular: API Key para Planeaciones IA ──────────────────────
     if (tipo === "PLANEACIONES_SIN_API_KEY") {
       const sinApiKey = accion === "ACTIVAR_TODOS";
-      await Promise.all(
-        escuelas
+      await Promise.all([
+        prisma.planeacionesConfig.upsert({
+          where: { id: "singleton" },
+          update: { requiereApiKey: !sinApiKey },
+          create: { id: "singleton", requiereApiKey: !sinApiKey },
+        }),
+        ...escuelas
           .filter((esc) => !(esc as any).esSupervision)
           .map((esc) => {
             const permisosActuales = (esc.permisos as any) || {};
@@ -136,7 +133,7 @@ export async function POST(req: NextRequest) {
               data: { permisos: { ...permisosActuales, planeacionesSinApiKey: sinApiKey } },
             });
           })
-      );
+      ]);
       return NextResponse.json({
         success: true,
         message: sinApiKey
@@ -148,8 +145,13 @@ export async function POST(req: NextRequest) {
     // ── Exención granular: PAEC-PEC para Planeaciones IA ─────────────────────
     if (tipo === "PLANEACIONES_SIN_PAEC") {
       const sinPaec = accion === "ACTIVAR_TODOS";
-      await Promise.all(
-        escuelas
+      await Promise.all([
+        prisma.planeacionesConfig.upsert({
+          where: { id: "singleton" },
+          update: { requierePaecPec: !sinPaec },
+          create: { id: "singleton", requierePaecPec: !sinPaec },
+        }),
+        ...escuelas
           .filter((esc) => !(esc as any).esSupervision)
           .map((esc) => {
             const permisosActuales = (esc.permisos as any) || {};
@@ -158,7 +160,7 @@ export async function POST(req: NextRequest) {
               data: { permisos: { ...permisosActuales, planeacionesSinPaec: sinPaec } },
             });
           })
-      );
+      ]);
       return NextResponse.json({
         success: true,
         message: sinPaec
