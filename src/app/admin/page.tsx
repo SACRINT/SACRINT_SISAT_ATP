@@ -145,7 +145,12 @@ export default async function AdminPage() {
     });
 
     // Fetch admin sidebar config (singleton)
-    const sidebarConfigRaw = await prisma.adminSidebarConfig.findFirst();
+    let sidebarConfigRaw = null;
+    try {
+        sidebarConfigRaw = await prisma.adminSidebarConfig.findFirst();
+    } catch {
+        // Fallback en caso de error en BD
+    }
     const sidebarConfig = {
         showRecursos: sidebarConfigRaw?.showRecursos ?? true,
         showEventos: sidebarConfigRaw?.showEventos ?? true,
