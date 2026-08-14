@@ -352,6 +352,8 @@ export async function POST(req: NextRequest) {
             })
         );
 
+        const zonaPadded = (institucion.zona || "000").padStart(3, "0");
+
         // 11. Sello y QR Digital (CVD) - Solo si está aprobado
         if (entrega.estado === "APROBADO" && finalCvd) {
             paragraphs.push(new Paragraph({ text: "" }));
@@ -359,7 +361,7 @@ export async function POST(req: NextRequest) {
                 new Paragraph({
                     alignment: AlignmentType.LEFT,
                     children: [
-                        new TextRun({ text: "🛡️ VALIDEZ Y SELLO DIGITAL OFICIAL (SISAT-ATP ZONA 004)\n", bold: true, size: 16, font: "Courier New", color: "1e3a8a" }),
+                        new TextRun({ text: `🛡️ VALIDEZ Y SELLO DIGITAL OFICIAL (SISAT-ATP ZONA ${zonaPadded})\n`, bold: true, size: 16, font: "Courier New", color: "1e3a8a" }),
                         new TextRun({ text: `Código CVD: ${finalCvd}\n`, bold: true, size: 16, font: "Courier New", color: "4b5563" }),
                         new TextRun({ text: `Firma Electrónica: ${finalFirma}\n`, size: 14, font: "Courier New", color: "6b7280" }),
                         new TextRun({ text: `Enlace de Verificación: ${getAppUrl()}/validar-documento?cvd=${finalCvd}\n`, size: 14, font: "Courier New", color: "2563eb", underline: {} }),
@@ -390,7 +392,7 @@ export async function POST(req: NextRequest) {
 
         const buffer = await Packer.toBuffer(doc);
         const cleanSchoolName = escuelaNombre.replace(/[^a-zA-Z0-9]/g, "_");
-        const filename = `DICTAMEN_${programaNombre.toUpperCase()}_ZONA004_${cleanSchoolName}.docx`;
+        const filename = `DICTAMEN_${programaNombre.toUpperCase()}_ZONA${zonaPadded}_${cleanSchoolName}.docx`;
 
         return new Response(new Uint8Array(buffer), {
             status: 200,

@@ -1,27 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import {
-    Document,
-    Packer,
-    Paragraph,
-    TextRun,
-    AlignmentType,
-    HeadingLevel,
-} from "docx";
+import { getInstitucion } from "@/lib/institucion";
+import { Document, Paragraph, TextRun, AlignmentType, Packer } from "docx";
 
 export async function GET(req: NextRequest) {
     try {
         const session = await auth();
-        const user = session?.user as { role?: string } | undefined;
-        if (!session || user?.role !== "admin") {
+        if (!session?.user) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
+        const institucion = await getInstitucion();
+        const zonaPadded = (institucion.zona || "000").padStart(3, "0");
+
         const { searchParams } = new URL(req.url);
-        const programa = searchParams.get("programa"); // "BANAVIM" | "CEDAVIM"
-        const mes = searchParams.get("mes") || "Julio";
+        const mes = searchParams.get("mes") || "Enero";
         const anio = searchParams.get("anio") || "2026";
-        const oficioNum = searchParams.get("oficioNum") || "118";
+        const oficioNum = searchParams.get("oficioNum") || "001";
+        const programa = searchParams.get("programa") || "BANAVIM";
         const tieneAcoso = searchParams.get("tieneAcoso") === "true";
 
         // Caso de acoso (si aplica)
@@ -33,7 +29,7 @@ export async function GET(req: NextRequest) {
         const estatus = searchParams.get("estatus") || "";
 
         const mesMayus = mes.toUpperCase();
-        const fechaDocumento = `Villa Lázaro Cárdenas, Venustiano Carranza, Pue., a 01 de ${mes} del ${anio}.`;
+        const fechaDocumento = `${institucion.municipio || "Puebla"}, Pue., a 01 de ${mes} del ${anio}.`;
 
         const paragraphs: Paragraph[] = [];
 
@@ -47,7 +43,7 @@ export async function GET(req: NextRequest) {
                 alignment: AlignmentType.RIGHT,
                 children: [
                     new TextRun({
-                        text: `OFICIO NÚMERO: SEP-${semestreLetra}/ZONA004/${oficioNum}\n`,
+                        text: `OFICIO NÚMERO: SEP-${semestreLetra}/ZONA${zonaPadded}/${oficioNum}\n`,
                         bold: true,
                         size: 22,
                         font: "Arial",
@@ -164,9 +160,9 @@ export async function GET(req: NextRequest) {
                 alignment: AlignmentType.CENTER,
                 children: [
                     new TextRun({ text: "ATENTAMENTE\n", bold: true, size: 22, font: "Arial" }),
-                    new TextRun({ text: "SUPERVISOR DE LA ZONA ESCOLAR 004\n\n\n\n", bold: true, size: 20, font: "Arial" }),
+                    new TextRun({ text: `SUPERVISOR DE LA ZONA ESCOLAR ${zonaPadded}\n\n\n\n`, bold: true, size: 20, font: "Arial" }),
                     new TextRun({ text: "____________________________________________\n", size: 20, font: "Arial" }),
-                    new TextRun({ text: "ING. ALEJANDRO ESCAMILLA MARTÍNEZ", bold: true, size: 22, font: "Arial" }),
+                    new TextRun({ text: (institucion.supervisor || "SUPERVISOR ESCOLAR").toUpperCase(), bold: true, size: 22, font: "Arial" }),
                 ],
                 spacing: { before: 360 },
             })
@@ -192,7 +188,7 @@ export async function GET(req: NextRequest) {
 
         const buffer = await Packer.toBuffer(doc);
         const prefix = programa === "BANAVIM" ? "REPORTE_BANAVIM" : tieneAcoso ? "REPORTE_CEDAVIM_SI_ACOSO" : "REPORTE_CEDAVIM_NO_ACOSO";
-        const filename = `${prefix}_ZONA004_${mesMayus}_${anio}.docx`;
+        const filename = `${prefix}_ZONA${zonaPadded}_${mesMayus}_${anio}.docx`;
 
         return new Response(new Uint8Array(buffer), {
             status: 200,

@@ -33,15 +33,27 @@ export interface DocumentoNormativoUI {
   updatedAt: string;
 }
 
-const CATEGORIAS = [
+export const CATEGORIAS = [
   { id: "TODAS", label: "📚 Todas las Categorías" },
-  { id: "USICAMM", label: "🎖️ Rúbricas USICAMM" },
+  { id: "PLAN_TRABAJO_PAT", label: "📅 Plan Anual de Trabajo (PAT) / Cartografía" },
+  { id: "PMC", label: "📈 Plan de Mejora Continua (PMC)" },
   { id: "PAEC_PEC", label: "📋 Lineamientos PAEC / PEC" },
-  { id: "CAPEMS", label: "📐 Formatos CAPEMS" },
+  { id: "CAPEMS", label: "📐 Formatos y Guías CAPEMS" },
+  { id: "CTE", label: "👥 Consejo Técnico Escolar (CTE)" },
+  { id: "PIPS", label: "🎯 PIPS / Acompañamiento Pedagógico" },
+  { id: "USICAMM", label: "🎖️ Rúbricas y Procesos USICAMM" },
   { id: "CIRCULARES", label: "📢 Circulares SEP / Zonal" },
-  { id: "TRAMITES_SEP", label: "🏫 Trámites Escolares" },
-  { id: "HORARIOS_CURRICULO", label: "⏰ Horarios y Currículo" }
+  { id: "TRAMITES_SEP", label: "🏫 Control Escolar, SICEP y Trámites" },
+  { id: "HORARIOS_CURRICULO", label: "⏰ Horarios, Planes de Estudio y MCCEMS" },
+  { id: "ESTADISTICA_SPARH", label: "📊 Estadística 911 / Plantillas (SPARH)" },
+  { id: "SEGURIDAD_CONVIVENCIA", label: "🛡️ Convivencia, Protocolos y Seguridad" },
+  { id: "BECAS", label: "🎓 Becas Benito Juárez" }
 ];
+
+export function getCategoriaLabel(catId: string): string {
+  const found = CATEGORIAS.find((c) => c.id === catId);
+  return found ? found.label : catId;
+}
 
 export default function GestionNormativas() {
   const [normativas, setNormativas] = useState<DocumentoNormativoUI[]>([]);
@@ -412,8 +424,8 @@ export default function GestionNormativas() {
               >
                 <div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.4rem" }}>
-                    <span style={{ background: "#eff6ff", color: "#2563eb", padding: "0.2rem 0.6rem", borderRadius: "6px", fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase" }}>
-                      {doc.categoria}
+                    <span style={{ background: "#eff6ff", color: "#2563eb", padding: "0.25rem 0.6rem", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 800 }}>
+                      {getCategoriaLabel(doc.categoria)}
                     </span>
                     <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
                       {new Date(doc.updatedAt).toLocaleDateString("es-MX")}

@@ -395,9 +395,10 @@ export async function GET(
         // 2. Export to buffer
         const buffer = await Packer.toBuffer(doc);
 
-        // Sanitize school name for header
+        // Sanitize school name and cycle name for filename
         const cleanSchoolName = escuelaNombre.replace(/[^a-zA-Z0-9]/g, "_");
-        const filename = `REVISION_${programaNombre.toUpperCase()}_2025-2026_${cct}_${cleanSchoolName}.docx`;
+        const cleanCicloNombre = (entrega.periodoEntrega.cicloEscolar?.nombre || "Ciclo").replace(/[^a-zA-Z0-9]/g, "_");
+        const filename = `REVISION_${programaNombre.toUpperCase()}_${cleanCicloNombre}_${cct}_${cleanSchoolName}.docx`;
 
         return new Response(new Uint8Array(buffer), {
             status: 200,

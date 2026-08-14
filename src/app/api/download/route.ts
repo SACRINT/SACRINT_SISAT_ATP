@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
+import { auth } from "@/lib/auth";
 
 /**
  * GET /api/download?url=<cloudinary_url>&name=<filename>&publicId=<id>&inline=1
@@ -68,6 +69,11 @@ function buildSignedUrl(
 }
 
 export async function GET(request: NextRequest) {
+    const session = await auth();
+    if (!session?.user) {
+        return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const fileUrl        = searchParams.get("url");
     const fileName       = searchParams.get("name") || "archivo";

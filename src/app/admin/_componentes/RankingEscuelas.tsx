@@ -696,7 +696,7 @@ async function buildWordReport(data: any): Promise<Blob> {
                             }),
                             new Paragraph({
                                 alignment: AlignmentType.CENTER,
-                                children: [new TextRun({ text: "Zona 004  —  Venustiano Carranza, Pue.", size: 18, font: "Times New Roman" })]
+                                children: [new TextRun({ text: zonaStr ? `Zona ${zonaStr}` : "Supervisión Escolar", size: 18, font: "Times New Roman" })]
                             })
                         ]
                     }),
@@ -709,7 +709,7 @@ async function buildWordReport(data: any): Promise<Blob> {
                             }),
                             new Paragraph({
                                 alignment: AlignmentType.CENTER,
-                                children: [new TextRun({ text: "Supervisor Escolar  —  Zona 004", size: 18, font: "Times New Roman" })]
+                                children: [new TextRun({ text: zonaStr ? `Supervisor Escolar — Zona ${zonaStr}` : "Supervisor Escolar", size: 18, font: "Times New Roman" })]
                             })
                         ]
                     }),

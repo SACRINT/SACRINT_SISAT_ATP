@@ -6,12 +6,19 @@ export const maxDuration = 60;
 
 // Categorías válidas del sistema
 const CATEGORIAS_VALIDAS = [
-  "USICAMM",
+  "PLAN_TRABAJO_PAT",
+  "PMC",
   "PAEC_PEC",
   "CAPEMS",
+  "CTE",
+  "PIPS",
+  "USICAMM",
   "CIRCULARES",
   "TRAMITES_SEP",
   "HORARIOS_CURRICULO",
+  "ESTADISTICA_SPARH",
+  "SEGURIDAD_CONVIVENCIA",
+  "BECAS",
 ];
 
 async function generarCampo(
@@ -86,18 +93,25 @@ IMPORTANTE:
     const promptCategoria = `Analiza este documento oficial y determina cuál de las siguientes categorías le corresponde mejor.
 
 Categorías disponibles (responde EXACTAMENTE con uno de estos IDs):
-- USICAMM → Rúbricas, evaluaciones, convocatorias y documentos de USICAMM
-- PAEC_PEC → Lineamientos PAEC, PEC, planeación educativa
-- CAPEMS → Formatos CAPEMS, fichas, solicitudes de CAPEMS
-- CIRCULARES → Circulares SEP, circulares zonales, comunicados oficiales
-- TRAMITES_SEP → Trámites escolares, permisos, licencias, administrativos
-- HORARIOS_CURRICULO → Horarios, planes de estudio, currículo, materias
+- PLAN_TRABAJO_PAT → Plan Anual de Trabajo (PAT), planes de trabajo semestrales, cronogramas de entrega, cartografía de zona, calendarios oficiales y organización escolar
+- PMC → Plan de Mejora Continua (PMC), guías, lineamientos, diagnósticos e informes finales del PMC
+- PAEC_PEC → Programa Aula, Escuela y Comunidad (PAEC), proyectos escolares comunitarios (PEC)
+- CAPEMS → Consejos Académicos en Comunidades de Aprendizaje Profesional (CAPEMS), fichas, talleres y formación docente
+- CTE → Consejo Técnico Escolar (CTE), guías de sesiones, productos y acuerdos de CTE
+- PIPS → Plan de Intervención Pedagógica de Supervisión (PIPS), asesoría y acompañamiento pedagógico
+- USICAMM → Rúbricas, evaluaciones docentes, convocatorias y procesos de USICAMM
+- CIRCULARES → Circulares SEP, circulares de supervisión de zona, comunicados oficiales y memorándums
+- TRAMITES_SEP → Trámites escolares, inscripciones, reinscripciones, traslados, certificaciones, regularización, formatos 11 columnas, SICEP, CORDES
+- HORARIOS_CURRICULO → Horarios de clases, mapas curriculares, progresiones de aprendizaje, planes de estudio, MCCEMS, NEM
+- ESTADISTICA_SPARH → Estadística 911 inicio/fin de cursos, plantillas de personal SPARH, altas y bajas de personal
+- SEGURIDAD_CONVIVENCIA → Convivencia escolar, comités de paz, protocolos contra acoso y violencia, BANAVIM, CEDAVIM, salud y nutrición
+- BECAS → Convocatorias informativas y avisos de Becas Benito Juárez y programas de apoyo
 
 Título: "${titulo || "Sin título"}"
 Extracto:
-${extracto.substring(0, 1000)}
+${extracto.substring(0, 1500)}
 
-Responde ÚNICAMENTE con el ID exacto de la categoría (ejemplo: USICAMM). Sin explicaciones.`;
+Responde ÚNICAMENTE con el ID exacto de la categoría (ejemplo: PLAN_TRABAJO_PAT). Sin explicaciones.`;
 
     // Ejecutar las 3 llamadas en paralelo para mayor velocidad
     const [rawDescripcion, rawTags, rawCategoria] = await Promise.all([

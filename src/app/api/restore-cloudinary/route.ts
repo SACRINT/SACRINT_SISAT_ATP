@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { v2 as cloudinary } from "cloudinary";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,11 @@ function getCloudinaryConfig() {
 }
 
 export async function GET(req: NextRequest) {
+    const session = await auth();
+    if (!session || (session.user as any)?.role !== "admin") {
+        return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const log: string[] = [];
     log.push("Starting Cloudinary migration script...");
 

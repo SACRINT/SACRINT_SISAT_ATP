@@ -122,6 +122,7 @@ export default async function DirectorPage() {
     );
 
     // Fetch configs globales para los tabs
+    const tenantId = (session?.user as any)?.organizacionId || process.env.TENANT_ID || "zona004";
     const [sidebarConfig, eventosConfig, circularConfig, olimpiadaConfig, paecConfig, capemsConfig, expedientesConfig, planeacionesConfig, oficiosConfig, sparhConfig, estadistica911Config] = await Promise.all([
         prisma.adminSidebarConfig.findUnique({ where: { id: "singleton" } }),
         prisma.eventosConfig.findUnique({ where: { id: "singleton" } }),
@@ -131,9 +132,9 @@ export default async function DirectorPage() {
         prisma.capemsConfig.findFirst(),
         prisma.expedientesConfig.findUnique({ where: { id: "singleton" } }),
         prisma.planeacionesConfig.findUnique({ where: { id: "singleton" } }),
-        prisma.oficioConfig.findUnique({ where: { tenantId: "zona004" } }),
-        prisma.plantillaCorteConfig.findUnique({ where: { tenantId: "zona004" } }),
-        prisma.estadisticaPeriodoConfig.findUnique({ where: { tenantId: "zona004" } }).catch(() => null),
+        prisma.oficioConfig.findUnique({ where: { tenantId } }),
+        prisma.plantillaCorteConfig.findUnique({ where: { tenantId } }),
+        prisma.estadisticaPeriodoConfig.findUnique({ where: { tenantId } }).catch(() => null),
     ]);
 
     const isEventosActive = (eventosConfig?.activo ?? false) && (sidebarConfig?.showEventos ?? true);

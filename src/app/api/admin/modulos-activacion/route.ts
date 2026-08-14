@@ -6,10 +6,11 @@ import { registrarError } from "@/lib/error-log";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+    let tenantId = process.env.TENANT_ID || "zona004";
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        tenantId = user?.organizacionId || user?.tenantId || tenantId;
 
         if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -74,7 +75,7 @@ export async function GET() {
         });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Error al obtener activación de módulos";
-        await registrarError("zona004", {
+        await registrarError(tenantId, {
             mensaje: msg,
             ruta: "/api/admin/modulos-activacion",
             metodo: "GET",
@@ -85,10 +86,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+    let tenantId = process.env.TENANT_ID || "zona004";
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        tenantId = user?.organizacionId || user?.tenantId || tenantId;
 
         if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -165,7 +167,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, activo });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Error al actualizar activación de módulo";
-        await registrarError("zona004", {
+        await registrarError(tenantId, {
             mensaje: msg,
             ruta: "/api/admin/modulos-activacion",
             metodo: "POST",
@@ -176,10 +178,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+    let tenantId = process.env.TENANT_ID || "zona004";
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        tenantId = user?.organizacionId || user?.tenantId || tenantId;
 
         if (!session || !["admin", "supervision"].includes(user?.role || "")) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -304,7 +307,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ ok: true, mensaje: "Configuración de módulos actualizada correctamente" });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Error al actualizar activación de módulos";
-        await registrarError("zona004", {
+        await registrarError(tenantId, {
             mensaje: msg,
             ruta: "/api/admin/modulos-activacion",
             metodo: "PATCH",

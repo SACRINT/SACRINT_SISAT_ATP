@@ -30,16 +30,17 @@ export async function GET(req: NextRequest) {
         }
 
         const evaluarSoloActivos = (cicloActivo as any).evaluarSoloActivosRanking ?? false;
+        const tenantId = (session?.user as any)?.organizacionId || (session?.user as any)?.tenantId || process.env.TENANT_ID || "zona004";
 
         // Obtener configuración de SPARH para verificar si el módulo está activo
         const sparhConfig = await prisma.plantillaCorteConfig.findUnique({
-            where: { tenantId: "zona004" }
+            where: { tenantId }
         });
         const sparhActivo = sparhConfig?.activo ?? true;
 
         // Obtener registros de plantillas por escuela para el módulo SPARH
         const plantillasSparh = sparhActivo ? await prisma.plantillaPersonalRegistro.findMany({
-            where: { tenantId: "zona004" }
+            where: { tenantId }
         }) : [];
 
         const plantillasMap = new Map<string, any>();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { hasBackendAccess } from "@/lib/permissions";
+import { getInstitucion } from "@/lib/institucion";
 
 // PATCH: ATP changes delivery status
 export async function PATCH(
@@ -32,7 +33,9 @@ export async function PATCH(
                 const randomHex = crypto.randomBytes(4).toString("hex").toUpperCase();
                 const cleanCct = current.escuela.cct.replace(/\s+/g, "");
                 const cvd = `CVD-${cleanCct}-${randomHex}`;
-                const dataToSign = `${current.escuela.id}-${current.periodoEntrega.programa.nombre}-${new Date().toISOString()}-Ing.AlejandroEscamilla`;
+                const institucion = await getInstitucion();
+                const supervisorNombre = institucion.supervisor || "SUPERVISOR";
+                const dataToSign = `${current.escuela.id}-${current.periodoEntrega.programa.nombre}-${new Date().toISOString()}-${supervisorNombre}`;
                 const signature = crypto.createHash("sha256").update(dataToSign).digest("hex").substring(0, 32).toUpperCase();
                 extraData.cvd = cvd;
                 extraData.firmaDigital = signature;

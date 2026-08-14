@@ -7,10 +7,11 @@ import { obtenerCicloActual } from "@/lib/ciclo";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+    let tenantId = process.env.TENANT_ID || "zona004";
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        tenantId = user?.organizacionId || user?.tenantId || tenantId;
 
         if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -40,7 +41,7 @@ export async function GET() {
         return NextResponse.json({ success: true, config });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Error al obtener configuración de estadística 911";
-        await registrarError("zona004", {
+        await registrarError(tenantId, {
             mensaje: msg,
             ruta: "/api/admin/estadistica-911/config",
             metodo: "GET",
@@ -51,10 +52,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+    let tenantId = process.env.TENANT_ID || "zona004";
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        tenantId = user?.organizacionId || user?.tenantId || tenantId;
 
         if (!session || (user?.role !== "admin" && user?.role !== "superadmin" && user?.role !== "ATP")) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -104,7 +106,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, config });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Error al actualizar configuración de estadística 911";
-        await registrarError("zona004", {
+        await registrarError(tenantId, {
             mensaje: msg,
             ruta: "/api/admin/estadistica-911/config",
             metodo: "POST",

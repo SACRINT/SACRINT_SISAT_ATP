@@ -38,6 +38,14 @@ export async function GET(
         return NextResponse.json({ error: "Planeación no encontrada" }, { status: 404 });
     }
 
+    const userRole = (session.user as any).role;
+    if (userRole !== "admin" && userRole !== "supervision") {
+        const userEscuelaId = await obtenerEscuelaId(session.user);
+        if (planeacion.escuelaId !== userEscuelaId) {
+            return NextResponse.json({ error: "No autorizado para acceder a esta planeación" }, { status: 403 });
+        }
+    }
+
     return NextResponse.json(planeacion);
 }
 
@@ -56,6 +64,14 @@ export async function DELETE(
 
     if (!planeacion) {
         return NextResponse.json({ error: "Planeación no encontrada" }, { status: 404 });
+    }
+
+    const userRole = (session.user as any).role;
+    if (userRole !== "admin") {
+        const userEscuelaId = await obtenerEscuelaId(session.user);
+        if (planeacion.escuelaId !== userEscuelaId) {
+            return NextResponse.json({ error: "No autorizado para eliminar esta planeación" }, { status: 403 });
+        }
     }
 
     await prisma.planeacionDidactica.delete({ where: { id } });
@@ -78,6 +94,14 @@ export async function POST(
 
     if (!planeacion) {
         return NextResponse.json({ error: "Planeación no encontrada" }, { status: 404 });
+    }
+
+    const userRole = (session.user as any).role;
+    if (userRole !== "admin") {
+        const userEscuelaId = await obtenerEscuelaId(session.user);
+        if (planeacion.escuelaId !== userEscuelaId) {
+            return NextResponse.json({ error: "No autorizado para evaluar esta planeación" }, { status: 403 });
+        }
     }
 
     // Actualizar estado a EN_REVISION antes de la re-evaluación

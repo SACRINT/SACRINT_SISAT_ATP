@@ -285,13 +285,13 @@ export function generarConcentradoZonal911Excel(registros: {
     estado: string;
     sha256Hash?: string | null;
     detalles?: DetalleGradoInput[];
-}[]): Buffer {
+}[], nombreSupervision?: string): Buffer {
     const rows: (string | number)[][] = [];
 
     // Encabezado Oficial
     rows.push(["SECRETARÍA DE EDUCACIÓN PÚBLICA DEL ESTADO DE PUEBLA"]);
     rows.push(["SUBSECRETARÍA DE EDUCACIÓN OBLIGATORIA - DIRECCIÓN GENERAL DE BACHILLERATOS"]);
-    rows.push(["SUPERVISIÓN ESCOLAR DE BACHILLERATOS GENERALES - ZONA 004"]);
+    rows.push([nombreSupervision || (process.env.ZONA_ESCOLAR ? `SUPERVISIÓN ESCOLAR DE BACHILLERATOS GENERALES - ZONA ${process.env.ZONA_ESCOLAR}` : "SUPERVISIÓN ESCOLAR DE BACHILLERATOS GENERALES")]);
     rows.push(["CONCENTRADO ZONAL DE ESTADÍSTICA OFICIAL 911.8"]);
     rows.push([`FECHA DE GENERACIÓN: ${new Date().toLocaleDateString("es-MX", { dateStyle: "long" })}`]);
     rows.push([]); // Espacio

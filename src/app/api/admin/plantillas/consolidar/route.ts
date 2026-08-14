@@ -9,7 +9,7 @@ export async function POST() {
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
         if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -28,7 +28,7 @@ export async function POST() {
     } catch (err: unknown) {
         const session = await auth();
         const user = session?.user as { organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
         const msg = err instanceof Error ? err.message : "Error al generar consolidado de zona";
         await registrarError(tenantId, {

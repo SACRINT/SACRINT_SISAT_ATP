@@ -10,7 +10,7 @@ export async function GET() {
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
         if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -48,7 +48,7 @@ export async function GET() {
     } catch (err: unknown) {
         const session = await auth();
         const user = session?.user as { organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
         const msg = err instanceof Error ? err.message : "Error al obtener plantillas";
         await registrarError(tenantId, {
@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest) {
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
         if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -127,7 +127,7 @@ export async function PATCH(req: NextRequest) {
     } catch (err: unknown) {
         const session = await auth();
         const user = session?.user as { organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
         const msg = err instanceof Error ? err.message : "Error al actualizar estado de plantilla";
         await registrarError(tenantId, {
@@ -145,7 +145,7 @@ export async function DELETE(req: NextRequest) {
     try {
         const session = await auth();
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
         if (!session) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -166,7 +166,7 @@ export async function DELETE(req: NextRequest) {
     } catch (err: unknown) {
         const session = await auth();
         const user = session?.user as { organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || "zona004";
+        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
         const msg = err instanceof Error ? err.message : "Error al eliminar plantilla";
         await registrarError(tenantId, {

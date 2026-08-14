@@ -14,7 +14,7 @@ import { mergePdfsAndDownload, MergeProgress } from "@/lib/merge-pdfs";
 const DIA_NARANJA_NOMBRE = "DÍA NARANJA";
 
 /** Prefijo por defecto para los archivos unificados */
-const DEFAULT_PREFIX = "GEN004_21FMS0020X";
+const DEFAULT_PREFIX = "CONCENTRADO_ZONAL";
 
 interface ListadoProgramasProps {
     programas: ProgramaAdmin[];
@@ -490,7 +490,7 @@ export default function ListadoProgramas({ programas, onSetMessage, onSetCorrecc
                                         type="text"
                                         value={mergePrefix}
                                         onChange={(e) => setMergePrefix(e.target.value.toUpperCase())}
-                                        placeholder="GEN004_21FMS0020X"
+                                        placeholder="CONCENTRADO_ZONAL"
                                         style={{
                                             fontSize: "0.75rem", padding: "0.15rem 0.4rem",
                                             border: "1px solid var(--border)", borderRadius: "4px",

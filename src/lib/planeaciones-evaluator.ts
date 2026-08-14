@@ -181,7 +181,7 @@ export async function evaluarPlaneacion(input: InputEvaluacion): Promise<Resulta
 - El Marco Curricular Común de la Educación Media Superior (MCCEMS 2025-2028)
 - El programa de Promoción por Cambio de Categoría (USICAMM) — Anexo 12
 - Los lineamientos del PAEC/PEC (Proyecto Académico Escolar Comunitario / Proyecto Escolar Comunitario)
-- Las rúbricas, listas de cotejo y criterios oficiales de la Supervisión Escolar Zona 004
+- Las rúbricas, listas de cotejo y criterios oficiales de la Supervisión Escolar del estado de Puebla
 
 MODELO A USAR: gemini-3.5-flash-lite (ÚNICO MODELO AUTORIZADO)
 

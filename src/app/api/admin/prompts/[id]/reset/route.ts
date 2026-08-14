@@ -54,14 +54,14 @@ export async function POST(
                 throw new Error("Variable de entorno PROMPT_PMC_DOCX_PATH no configurada. Indica la ruta del DOCX del Prompt Maestro PMC.");
             }
             defaultText = await extractTextFromDocxFile(docxPath);
-            defaultName = "Prompt Maestro para Evaluar PMC 2025-2026 (Edición Actualizada)";
+            defaultName = "Prompt Maestro para Evaluar PMC (Edición Actualizada)";
         } else if (template.modulo === "PAEC") {
             const docxPath = process.env.PROMPT_PAEC_DOCX_PATH;
             if (!docxPath) {
                 throw new Error("Variable de entorno PROMPT_PAEC_DOCX_PATH no configurada. Indica la ruta del DOCX del Prompt Maestro PAEC.");
             }
             defaultText = await extractTextFromDocxFile(docxPath);
-            defaultName = "Prompt Maestro para Evaluar PAEC 2025-2026";
+            defaultName = "Prompt Maestro para Evaluar PAEC";
         } else if (template.modulo === "INFORME_FINAL") {
             defaultText = `INSTRUCCIONES DE EVALUACIÓN DEL INFORME FINAL DEL PLAN DE MEJORA CONTINUA (PMC)
 
@@ -78,11 +78,6 @@ CRITERIOS DE EVALUACIÓN
 ================================================================================
 
 1. CONGRUENCIA ENTRE EL PMC ORIGINAL Y EL INFORME FINAL:
-- Verifica que cada meta reportada en el Informe Final corresponda exactamente a una meta del PMC original.
-- Señala si el plantel modificó, suavizó o reformuló una meta para que pareciera cumplida.
-- Señala si falta reportar alguna meta del PMC original no mencionada en el Informe Final.
-- Señala si aparecen metas nuevas en el Informe Final que no estaban en la planeación original (alerta, salvo justificación).
-
 2. COBERTURA DE LAS 3 CATEGORÍAS Y SUS SUBCATEGORÍAS:
 - Categoría 1 — Desarrollo académico y aprendizaje: formación docente, propuestas pedagógicas, trabajo colegiado, PEC, MONAE, clubes de lectura, indicadores académicos, orientación y tutoría, planeación didáctica, otras actividades académicas.
 - Categoría 2 — Gestión y administración escolar: vinculación con instituciones educativas, vinculación con empresas/fundaciones/instituciones públicas, gestión y administración de recursos, seguimiento al desempeño docente en el aula, seguimiento de egresados.
@@ -144,7 +139,7 @@ ESTRUCTURA DE RESPUESTA EN TU INFORME DE EVALUACIÓN
 8. Cumplimiento de Requisitos de Cierre: presentación a la comunidad, firmas, sellos y folio de recepción.
 9. Recomendaciones para el Siguiente Ciclo Escolar: ajustes concretos priorizados por urgencia.
 10. Estatus Final del Informe: ACEPTADO / ACEPTADO CON OBSERVACIONES / RECHAZADO (requiere reelaboración antes de ser validado por la Supervisión de Zona).`;
-            defaultName = "Prompt Maestro para Evaluar Informe Final PMC 2025-2026 (Edición Completa)";
+            defaultName = "Prompt Maestro para Evaluar Informe Final PMC (Edición Completa)";
         } else if (template.modulo === "PIPS") {
             defaultName = "Prompt Maestro de Evaluación Integral del PIPS — Bachillerato General Estatal (Puebla)";
             defaultText = `================================================================================
