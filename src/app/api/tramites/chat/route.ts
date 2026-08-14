@@ -22,7 +22,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "El mensaje es requerido." }, { status: 400 });
     }
 
-    // 1. Guardar mensaje de usuario en historial
+    // 1. Obtener historial reciente de la conversación para soporte multi-turno
+    const historialPrevio = await prisma.chatTramitesMensaje.findMany({
+      where: { usuarioId: user.id || "usuario_anonimo" },
+      orderBy: { createdAt: "desc" },
+      take: 4
+    });
+    const historialFormateado = historialPrevio.reverse().map((m: any) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content
+    }));
+
+    // 2. Guardar mensaje de usuario en historial
     await prisma.chatTramitesMensaje.create({
       data: {
         usuarioId: user.id || "usuario_anonimo",
@@ -31,10 +42,14 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // 2. Ejecutar motor RAG con Gemini 3.5
-    const resultadoRAG = await responderConsultaNormativa(mensaje.trim(), escuelaId);
+    // 3. Ejecutar motor RAG Agéntico con Gemini y memoria contextual
+    const resultadoRAG = await responderConsultaNormativa(
+      mensaje.trim(),
+      escuelaId,
+      historialFormateado
+    );
 
-    // 3. Guardar respuesta del asistente
+    // 4. Guardar respuesta del asistente
     await prisma.chatTramitesMensaje.create({
       data: {
         usuarioId: user.id || "usuario_anonimo",
