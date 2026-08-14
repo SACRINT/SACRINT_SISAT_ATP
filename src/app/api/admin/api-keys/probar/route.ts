@@ -23,13 +23,12 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
             contents: [{ parts: [{ text: "Responde OK" }] }]
         };
 
-        // Lista de modelos oficiales disponibles en Google AI Studio (del más reciente al más compatible)
+        // Lista de modelos oficiales disponibles en Google AI Studio (priorizando alta cuota de 500 RPD)
         const modelsToTest = [
-            "gemini-2.5-flash",
             "gemini-3.5-flash-lite",
             "gemini-3.1-flash-lite",
-            "gemini-2.5-flash-lite",
-            "gemini-1.5-flash"
+            "gemini-flash-lite-latest",
+            "gemini-3.5-flash"
         ];
 
         let lastErrText = "";

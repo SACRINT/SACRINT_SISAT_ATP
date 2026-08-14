@@ -67,20 +67,20 @@ export default function GestionNormativas() {
     try {
       let textoTotal = "";
       const isPdf = file.name.toLowerCase().endsWith('.pdf');
-      const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+      const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB
 
       if (isPdf && file.size > MAX_FILE_SIZE) {
-        setProgresoChunking("Cargando PDF localmente...");
+        setProgresoChunking("Dividiendo PDF grande en lotes...");
         const { PDFDocument } = await import("pdf-lib");
         const arrayBuffer = await file.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
         const totalPages = pdfDoc.getPageCount();
         
         const PAGES_PER_CHUNK = 5;
         const totalChunks = Math.ceil(totalPages / PAGES_PER_CHUNK);
         
         for (let i = 0; i < totalChunks; i++) {
-          setProgresoChunking(`Procesando parte ${i + 1} de ${totalChunks}...`);
+          setProgresoChunking(`Procesando lote ${i + 1} de ${totalChunks} (OCR / Digital)...`);
           const subPdf = await PDFDocument.create();
           const startPage = i * PAGES_PER_CHUNK;
           const endPage = Math.min((i + 1) * PAGES_PER_CHUNK, totalPages);
@@ -105,10 +105,11 @@ export default function GestionNormativas() {
           if (data.success) {
              textoTotal += (data.texto || "") + "\n\n";
           } else {
-             throw new Error(`Error en parte ${i + 1}: ${data.error}`);
+             throw new Error(`Error en lote ${i + 1}: ${data.error}`);
           }
         }
       } else {
+        setProgresoChunking("Extrayendo texto y aplicando OCR con IA...");
         const formData = new FormData();
         formData.append("file", file);
 

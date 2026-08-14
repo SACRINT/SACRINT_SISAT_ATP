@@ -28,7 +28,7 @@ export async function callGemini(
 ): Promise<string> {
     // 1. Cargar la configuración actual de IA
     let providerToUse = "gemini";
-    let modelToUse = "gemini-1.5-flash";
+    let modelToUse = "gemini-3.5-flash-lite";
 
     try {
         let config = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
@@ -235,7 +235,7 @@ export async function callGemini(
         deepseek: "deepseek-chat",
         openai: "gpt-4o-mini",
         claude: "claude-3-5-sonnet-20241022",
-        gemini: "gemini-1.5-flash",
+        gemini: "gemini-3.5-flash-lite",
     };
 
     for (const altProvider of fallbackProviderOrder) {
@@ -374,13 +374,23 @@ async function callGeminiNative(
     pdfMimeType: string = "application/pdf",
     responseSchema?: any
 ): Promise<string> {
-    // Respetar el modelo seleccionado por el administrador. Si el modelo gemini-1.5-flash
-    // fue descontinuado en la API v1beta de Google, probar automáticamente gemini-3.5-flash-lite y gemini-3.1-flash-lite (500 RPD).
+    // Respetar el modelo seleccionado con cadena de respaldo de alta cuota (500 RPD / 15 RPM / 250K TPM)
     const buildModelChain = (requestedModel: string): string[] => {
-        if (requestedModel === "gemini-1.5-flash") {
-            return ["gemini-1.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+        const highQuotaModels = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"];
+        
+        let primary = requestedModel?.trim();
+        // Si no se especificó o viene con nombres obsoletos, usar el modelo más económico y de mayor cuota
+        if (!primary || primary.includes("1.5") || primary.includes("2.0") || primary === "gemini-flash") {
+            primary = "gemini-3.5-flash-lite";
         }
-        return [requestedModel];
+
+        const chain: string[] = [primary];
+        for (const m of highQuotaModels) {
+            if (!chain.includes(m)) {
+                chain.push(m);
+            }
+        }
+        return chain;
     };
 
     const modelChain = buildModelChain(model);
@@ -424,7 +434,7 @@ async function callGeminiNative(
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
-                signal: AbortSignal.timeout(20000), // 20s para no superar el límite de Vercel con failovers
+                signal: AbortSignal.timeout(pdfBuffer ? 45000 : 20000),
             });
 
             if (!res.ok) {
