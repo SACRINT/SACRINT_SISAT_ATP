@@ -8,13 +8,80 @@ import { callGemini } from "@/lib/gemini";
 export const maxDuration = 60;
 
 const PROMPT_SISTEMA_OCR =
-  "Eres un asistente especializado en digitalizar y extraer texto de normativas, circulares y documentos oficiales de la SEP y Educación Media Superior.";
+  "Eres un asistente especializado en digitalizar y extraer texto de normativas, circulares, mapas curriculares, calendarios y documentos oficiales de la SEP y Educación Media Superior de México.";
 
 const PROMPT_USUARIO_OCR =
   "Extrae y transcribe TODO el texto de este documento oficial exactamente como aparece. " +
-  "Mantén intacta toda la información: fechas, procesos, calendarios, tablas, notas y nombres. " +
-  "Formatea las tablas como tablas Markdown legibles. " +
-  "Responde ÚNICAMENTE con el texto extraído en formato Markdown limpio, sin introducciones ni comentarios adicionales.";
+  "Instrucciones obligatorias:\n" +
+  "1. Mantén intacta toda la información: fechas, procesos, calendarios, plazos, formatos, enlaces web, notas al pie y nombres de dependencias.\n" +
+  "2. Convierte todas las tablas a tablas Markdown legibles (| columna 1 | columna 2 | ...).\n" +
+  "3. Preserva las listas y numeraciones.\n" +
+  "4. Responde ÚNICAMENTE con el texto extraído en formato Markdown limpio, sin introducciones ni comentarios adicionales.";
+
+/**
+ * Parser inteligente de archivos DOCX (Word)
+ * Convierte tablas <w:tbl> en tablas Markdown y preserva párrafos y listas.
+ */
+function extraerTextoDocx(buffer: Buffer): string {
+  const zip = new PizZip(buffer);
+  const xml = zip.file("word/document.xml")?.asText() || "";
+
+  if (!xml) return "";
+
+  let docMarkdown = xml;
+
+  // Reemplazar saltos de línea y tabulaciones de Word
+  docMarkdown = docMarkdown.replace(/<w:br[^>]*\/>/g, "\n");
+  docMarkdown = docMarkdown.replace(/<w:cr[^>]*\/>/g, "\n");
+  docMarkdown = docMarkdown.replace(/<w:tab[^>]*\/>/g, "\t");
+
+  // Procesar tablas: <w:tbl> ... </w:tbl>
+  docMarkdown = docMarkdown.replace(/<w:tbl>([\s\S]*?)<\/w:tbl>/g, (_, tblContent) => {
+    const rows: string[][] = [];
+    const trMatches = tblContent.matchAll(/<w:tr[^>]*>([\s\S]*?)<\/w:tr>/g);
+    for (const tr of trMatches) {
+      const rowCells: string[] = [];
+      const tcMatches = tr[1].matchAll(/<w:tc[^>]*>([\s\S]*?)<\/w:tc>/g);
+      for (const tc of tcMatches) {
+        // Extraer texto de la celda limpiando tags
+        const cellText = tc[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        rowCells.push(cellText);
+      }
+      if (rowCells.some((c: string) => c.length > 0)) {
+        rows.push(rowCells);
+      }
+    }
+
+    if (rows.length === 0) return "";
+
+    const colCount = Math.max(...rows.map((r) => r.length));
+    let mdTable = "\n\n";
+
+    // Header
+    const header = rows[0];
+    mdTable += "| " + Array.from({ length: colCount }, (_, idx) => header[idx] || "").join(" | ") + " |\n";
+    mdTable += "| " + Array.from({ length: colCount }, () => ":---").join(" | ") + " |\n";
+
+    // Filas de datos
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      mdTable += "| " + Array.from({ length: colCount }, (_, idx) => r[idx] || "").join(" | ") + " |\n";
+    }
+    return mdTable + "\n\n";
+  });
+
+  // Convertir párrafos <w:p> a líneas
+  docMarkdown = docMarkdown.replace(/<w:p[^>]*>([\s\S]*?)<\/w:p>/g, (_, pContent) => {
+    const text = pContent.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return text ? `\n${text}\n` : "";
+  });
+
+  // Limpiar cualquier otra etiqueta XML residual
+  docMarkdown = docMarkdown.replace(/<[^>]+>/g, " ");
+  docMarkdown = docMarkdown.replace(/\n{3,}/g, "\n\n").trim();
+
+  return docMarkdown;
+}
 
 export async function POST(req: Request) {
   try {
@@ -37,11 +104,12 @@ export async function POST(req: Request) {
     let totalPaginas = 1;
 
     if (filename.toLowerCase().endsWith(".pdf")) {
+      let pdfDoc: PDFDocument | null = null;
       try {
-        const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+        pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
         totalPaginas = pdfDoc.getPageCount();
       } catch (loadErr: any) {
-        console.warn("[extraer-texto] No se pudo cargar con pdf-lib, intentando pdfParse directo:", loadErr?.message);
+        console.warn("[extraer-texto] pdf-lib no pudo cargar el PDF directamente:", loadErr?.message);
       }
 
       if (totalPaginas <= 3) {
@@ -70,16 +138,15 @@ export async function POST(req: Request) {
             if (parsedText.trim().length > 0) {
               textoExtraido = parsedText;
             } else {
-              throw new Error("El PDF es escaneado y el servicio OCR no respondió a tiempo. Intente con otro archivo o conviértalo a TXT.");
+              throw new Error("El PDF es escaneado y el servicio OCR no respondió a tiempo. Intente nuevamente.");
             }
           }
         } else {
           textoExtraido = parsedText;
         }
-      } else {
-        // Documentos multi-página: procesar en lotes (chunks) de 3 páginas
+      } else if (pdfDoc) {
+        // Documentos multi-página: procesar en lotes (chunks) de 3 a 5 páginas
         console.log(`[extraer-texto] Procesando PDF multi-página híbrido (${totalPaginas} páginas)...`);
-        const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
         const CHUNK_SIZE = 3;
         const totalChunks = Math.ceil(totalPaginas / CHUNK_SIZE);
         const partesTexto: string[] = [];
@@ -129,15 +196,18 @@ export async function POST(req: Request) {
         }
 
         textoExtraido = partesTexto.filter(Boolean).join("\n\n");
+      } else {
+        // Fallback cuando pdfDoc no pudo crearse con pdf-lib pero pdfParse funciona
+        const data = await pdfParse(buffer);
+        textoExtraido = data.text || "";
       }
     } else if (filename.toLowerCase().endsWith(".docx")) {
       try {
-        const zip = new PizZip(buffer);
-        const xml = zip.file("word/document.xml")?.asText() || "";
-        textoExtraido = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      } catch (errDocx) {
+        textoExtraido = extraerTextoDocx(buffer);
+      } catch (errDocx: any) {
+        console.error("[extraer-texto] Error en parseo estructurado de DOCX:", errDocx);
         return NextResponse.json(
-          { error: "Error extrayendo texto del archivo DOCX." },
+          { error: "Error extrayendo texto del archivo DOCX: " + (errDocx?.message || "") },
           { status: 400 }
         );
       }
@@ -182,3 +252,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

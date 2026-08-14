@@ -434,7 +434,7 @@ async function callGeminiNative(
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
-                signal: AbortSignal.timeout(pdfBuffer ? 45000 : 20000),
+                signal: AbortSignal.timeout(pdfBuffer ? 90000 : 30000),
             });
 
             if (!res.ok) {
