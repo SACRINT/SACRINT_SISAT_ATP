@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import {
     Award, Plus, RefreshCw, Search, ExternalLink, Calendar,
-    CheckCircle2, XCircle, Loader2, X, Save, AlertTriangle, Edit2,
+    CheckCircle2, XCircle, Loader2, X, Save, AlertTriangle, Edit2, Sparkles
 } from "lucide-react";
+import ModuloCopilotDrawer, { AccionSugerida } from "@/components/copilot/ModuloCopilotDrawer";
 
 interface Convocatoria {
     id: string;
@@ -37,6 +38,25 @@ export default function UsicammPanel({ readOnly = false }: { readOnly?: boolean 
     const [showForm, setShowForm] = useState(false);
     const [editando, setEditando] = useState<Convocatoria | null>(null);
     const [form, setForm] = useState(FORM_VACIO);
+    const [copilotOpen, setCopilotOpen] = useState(false);
+
+    const ACCIONES_USICAMM: AccionSugerida[] = [
+        {
+            id: "requisitos_promocion_horizontal",
+            etiqueta: "🏆 Requisitos Promoción Horizontal",
+            prompt: "¿Cuáles son los requisitos y etapas para participar en el proceso de Promoción Horizontal por niveles con incentivos de USICAMM?"
+        },
+        {
+            id: "horas_adicionales",
+            etiqueta: "⏱️ Proceso de Horas Adicionales",
+            prompt: "Explica los lineamientos y criterios para la asignación de horas adicionales a docentes de secundarias técnicas."
+        },
+        {
+            id: "plataforma_venus",
+            etiqueta: "🔑 Guía Plataforma Proyecto Venus",
+            prompt: "¿Cómo se realiza el registro, generación de cita y subida de documentación en la Ventanilla Única de Servicios (Proyecto Venus)?"
+        }
+    ];
 
     const cargar = useCallback(async () => {
         setLoading(true);
@@ -140,7 +160,24 @@ export default function UsicammPanel({ readOnly = false }: { readOnly?: boolean 
                         Difusión de concursos de oposición, promoción y actualización docente
                     </p>
                 </div>
-                <div style={{ display: "flex", gap: "0.75rem" }}>
+                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                    <button
+                        className="btn"
+                        onClick={() => setCopilotOpen(true)}
+                        style={{
+                            fontSize: "0.8125rem",
+                            background: "linear-gradient(135deg, #4f46e5, #4338ca)",
+                            color: "white",
+                            border: "1px solid rgba(99, 102, 241, 0.4)",
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.4rem",
+                            boxShadow: "0 3px 8px rgba(79, 70, 229, 0.3)"
+                        }}
+                    >
+                        <Sparkles size={15} /> ✨ Copiloto USICAMM
+                    </button>
                     <button className="btn btn-outline" onClick={cargar} style={{ fontSize: "0.8125rem" }}>
                         <RefreshCw size={15} /> Actualizar
                     </button>
@@ -316,6 +353,16 @@ export default function UsicammPanel({ readOnly = false }: { readOnly?: boolean 
                     })}
                 </div>
             )}
+
+            {/* ════════════ COPILOTO IA DE USICAMM ════════════ */}
+            <ModuloCopilotDrawer
+                modulo="usicamm"
+                titulo="Copiloto de Procesos USICAMM"
+                subtitulo="Requisitos, etapas, Proyecto Venus y normativas"
+                isOpen={copilotOpen}
+                onClose={() => setCopilotOpen(false)}
+                accionesSugeridas={ACCIONES_USICAMM}
+            />
         </div>
     );
 }

@@ -1,0 +1,321 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import {
+  Sparkles,
+  X,
+  Send,
+  RefreshCw,
+  Copy,
+  Check,
+  FileText,
+  AlertCircle,
+  HelpCircle,
+  BookOpen,
+  ArrowRight,
+  Maximize2,
+  Minimize2
+} from "lucide-react";
+
+export interface AccionSugerida {
+  id: string;
+  etiqueta: string;
+  prompt: string;
+  descripcion?: string;
+}
+
+export interface ModuloCopilotDrawerProps {
+  modulo: "oficios" | "estadistica_911" | "usicamm";
+  titulo: string;
+  subtitulo?: string;
+  isOpen: boolean;
+  onClose: () => void;
+  accionesSugeridas?: AccionSugerida[];
+  onInsertarTexto?: (texto: string) => void;
+}
+
+interface Mensaje {
+  role: "user" | "assistant";
+  content: string;
+  fuentes?: string[];
+  herramientasEjecutadas?: string[];
+}
+
+export default function ModuloCopilotDrawer({
+  modulo,
+  titulo,
+  subtitulo,
+  isOpen,
+  onClose,
+  accionesSugeridas = [],
+  onInsertarTexto
+}: ModuloCopilotDrawerProps) {
+  const [mensajes, setMensajes] = useState<Mensaje[]>([]);
+  const [inputTexto, setInputTexto] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [copiadoIdx, setCopiadoIdx] = useState<number | null>(null);
+  const [expandido, setExpandido] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Cargar mensaje de bienvenida contextual cuando se abre
+  useEffect(() => {
+    if (isOpen && mensajes.length === 0) {
+      let bienvenida = "";
+      if (modulo === "oficios") {
+        bienvenida = "¡Hola! Soy tu Copiloto de Oficios y Circulares. Puedo redactar propuestas institucionales con fundamento en la NEM, resumir oficios largos o verificar los plazos de entrega de la zona.";
+      } else if (modulo === "estadistica_911") {
+        bienvenida = "¡Hola! Soy tu Copiloto de Estadística 911. Puedo auditar la coherencia aritmética de tu matrícula (H+M = Total), revisar alumnos por grupo y comparar cortes estadísticos.";
+      } else if (modulo === "usicamm") {
+        bienvenida = "¡Hola! Soy tu Copiloto de USICAMM. Puedo orientarte sobre los requisitos de promoción vertical/horizontal, horas adicionales, fechas en plataforma Venus y normativas aplicables.";
+      } else {
+        bienvenida = "¡Hola! Soy tu Asistente Inteligente especializado en este módulo. ¿En qué puedo apoyarte hoy?";
+      }
+
+      setMensajes([
+        {
+          role: "assistant",
+          content: bienvenida
+        }
+      ]);
+    }
+  }, [isOpen, modulo, mensajes.length]);
+
+  useEffect(() => {
+    if (isOpen) {
+      chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [mensajes, isOpen]);
+
+  const enviarMensaje = async (texto: string) => {
+    if (!texto.trim() || cargando) return;
+
+    const nuevoMensajeUsuario: Mensaje = { role: "user", content: texto.trim() };
+    setMensajes((prev) => [...prev, nuevoMensajeUsuario]);
+    setInputTexto("");
+    setCargando(true);
+
+    try {
+      const res = await fetch("/api/tramites/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mensaje: texto.trim(),
+          modulo
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMensajes((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.respuesta,
+            fuentes: data.fuentes,
+            herramientasEjecutadas: data.herramientasEjecutadas
+          }
+        ]);
+      } else {
+        setMensajes((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.error || "Ocurrió un error al procesar tu consulta con el asistente."
+          }
+        ]);
+      }
+    } catch (err) {
+      setMensajes((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "No fue posible conectar con el servicio de IA. Verifica tu conexión e intenta nuevamente."
+        }
+      ]);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const copiarAlPortapapeles = (texto: string, idx: number) => {
+    navigator.clipboard.writeText(texto);
+    setCopiadoIdx(idx);
+    setTimeout(() => setCopiadoIdx(null), 2500);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-black/40 backdrop-blur-sm transition-opacity">
+      <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
+        <div
+          className={`w-screen bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col transition-all duration-300 ${
+            expandido ? "max-w-3xl" : "max-w-lg"
+          }`}
+        >
+          {/* Header */}
+          <div className="p-4 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+                <Sparkles className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white text-base flex items-center gap-2">
+                  {titulo}
+                  <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-normal">
+                    IA NEM
+                  </span>
+                </h3>
+                {subtitulo && (
+                  <p className="text-xs text-slate-400 truncate max-w-xs">{subtitulo}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setExpandido(!expandido)}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                title={expandido ? "Reducir panel" : "Expandir panel"}
+              >
+                {expandido ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                title="Cerrar panel"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Acciones Rápidas (Chips de 1 Clic) */}
+          {accionesSugeridas.length > 0 && (
+            <div className="p-3 bg-slate-950/40 border-b border-slate-800/80 overflow-x-auto">
+              <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-indigo-400" /> Acciones Rápidas Sugeridas
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {accionesSugeridas.map((acc) => (
+                  <button
+                    key={acc.id}
+                    onClick={() => enviarMensaje(acc.prompt)}
+                    disabled={cargando}
+                    className="text-xs bg-slate-800/90 hover:bg-indigo-600/30 hover:border-indigo-500/40 text-slate-200 border border-slate-700/70 px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-left disabled:opacity-50"
+                  >
+                    <span>{acc.etiqueta}</span>
+                    <ArrowRight className="w-3 h-3 text-slate-400" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Historial de Mensajes */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm scrollbar-thin scrollbar-thumb-slate-700">
+            {mensajes.map((m, idx) => {
+              const isUser = m.role === "user";
+              return (
+                <div
+                  key={idx}
+                  className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
+                >
+                  <div
+                    className={`max-w-[90%] rounded-2xl p-3.5 shadow-md ${
+                      isUser
+                        ? "bg-indigo-600 text-white rounded-br-none"
+                        : "bg-slate-800/90 text-slate-200 border border-slate-700/60 rounded-bl-none"
+                    }`}
+                  >
+                    <div className="whitespace-pre-wrap leading-relaxed font-sans text-xs sm:text-sm">
+                      {m.content}
+                    </div>
+
+                    {/* Acciones para mensajes del Asistente */}
+                    {!isUser && (
+                      <div className="mt-3 pt-2 border-t border-slate-700/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => copiarAlPortapapeles(m.content, idx)}
+                            className="flex items-center gap-1 text-slate-400 hover:text-indigo-300 transition-colors"
+                          >
+                            {copiadoIdx === idx ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span className="text-emerald-400 font-medium">Copiado</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Copiar</span>
+                              </>
+                            )}
+                          </button>
+
+                          {onInsertarTexto && (
+                            <button
+                              onClick={() => onInsertarTexto(m.content)}
+                              className="flex items-center gap-1 text-slate-400 hover:text-emerald-300 transition-colors"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Insertar en formulario</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {m.herramientasEjecutadas && m.herramientasEjecutadas.length > 0 && (
+                          <span className="text-[10px] text-slate-500 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800">
+                            ⚡ {m.herramientasEjecutadas.join(", ")}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {cargando && (
+              <div className="flex items-center gap-2 text-slate-400 text-xs p-3 bg-slate-800/50 rounded-xl w-fit border border-slate-700/40">
+                <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                <span>Analizando datos normativos y generando propuesta...</span>
+              </div>
+            )}
+            <div ref={chatBottomRef} />
+          </div>
+
+          {/* Footer / Input */}
+          <div className="p-3 border-t border-slate-800 bg-slate-950/80">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                enviarMensaje(inputTexto);
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                type="text"
+                value={inputTexto}
+                onChange={(e) => setInputTexto(e.target.value)}
+                placeholder="Escribe una instrucción o pregunta al Copiloto..."
+                disabled={cargando}
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={!inputTexto.trim() || cargando}
+                className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+            <div className="mt-2 text-[10px] text-slate-500 text-center flex items-center justify-center gap-1">
+              <span>Zero-Trust | Datos PII protegidos conforme a la Regla 7</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

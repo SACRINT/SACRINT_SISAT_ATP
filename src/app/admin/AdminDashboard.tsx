@@ -68,6 +68,7 @@ import ReportesNivel from "./_componentes/ReportesNivel";
 import RankingEscuelas from "./_componentes/RankingEscuelas";
 import PlaneacionesAdminPanel from "./_componentes/PlaneacionesAdminPanel";
 import ProgramasModulosPorEscuela from "./_componentes/ProgramasModulosPorEscuela";
+import AlertaBadge from "@/components/vigilancia/AlertaBadge";
 import PermisosHerramientasIA from "./_componentes/PermisosHerramientasIA";
 import GestionNormativas from "./_componentes/GestionNormativas";
 import AuditoriaInteligentePanel from "./_componentes/AuditoriaInteligentePanel";
@@ -775,31 +776,33 @@ export default function AdminDashboard({
                             ))}
                         </select>
                     </div>
-                    {/* Search Trigger Button */}
-                    <button
-                        onClick={() => setSearchOpen(true)}
-                        style={{
-                            marginTop: "0.75rem",
-                            width: "100%",
-                            padding: "0.5rem 0.75rem",
-                            borderRadius: "8px",
-                            border: "1px solid var(--border)",
-                            background: "var(--bg-secondary, #f1f5f9)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            fontSize: "0.75rem",
-                            color: "var(--text-secondary)",
-                            cursor: "pointer",
-                            outline: "none",
-                        }}
-                    >
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <Search size={14} />
-                            <span>Buscar...</span>
-                        </div>
-                        <kbd style={{ border: "1px solid var(--border)", borderRadius: "3px", padding: "0 4px", fontSize: "0.65rem", background: "white", boxShadow: "0 1px 0 rgba(0,0,0,0.05)" }}>Ctrl K</kbd>
-                    </button>
+                    {/* Search Trigger Button & Alert Badge */}
+                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", alignItems: "center" }}>
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            style={{
+                                flex: 1,
+                                padding: "0.5rem 0.75rem",
+                                borderRadius: "8px",
+                                border: "1px solid var(--border)",
+                                background: "var(--bg-secondary, #f1f5f9)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                fontSize: "0.75rem",
+                                color: "var(--text-secondary)",
+                                cursor: "pointer",
+                                outline: "none",
+                            }}
+                        >
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Search size={14} />
+                                <span>Buscar...</span>
+                            </div>
+                            <kbd style={{ border: "1px solid var(--border)", borderRadius: "3px", padding: "0 4px", fontSize: "0.65rem", background: "white", boxShadow: "0 1px 0 rgba(0,0,0,0.05)" }}>Ctrl K</kbd>
+                        </button>
+                        <AlertaBadge />
+                    </div>
                 </div>
 
                 <div className="admin-sidebar-nav">

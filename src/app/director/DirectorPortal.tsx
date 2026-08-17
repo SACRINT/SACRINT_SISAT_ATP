@@ -43,6 +43,7 @@ import CteSesionesPanel from "../admin/_componentes/CteSesionesPanel";
 import UsicammPanel from "../admin/_componentes/UsicammPanel";
 import ComitesPanel from "../admin/_componentes/ComitesPanel";
 import BecasPanel from "../admin/_componentes/BecasPanel";
+import AlertaBadge from "@/components/vigilancia/AlertaBadge";
 
 import { ProgramaGroup, RecursoDirector } from "@/types/director";
 
@@ -291,31 +292,33 @@ export default function DirectorPortal({
                         </div>
                     </div>
                     
-                    {/* Search Trigger Button */}
-                    <button
-                        onClick={() => setSearchOpen(true)}
-                        style={{
-                            marginTop: "0.75rem",
-                            width: "100%",
-                            padding: "0.5rem 0.75rem",
-                            borderRadius: "8px",
-                            border: "1px solid var(--border)",
-                            background: "var(--bg-secondary, #f1f5f9)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            fontSize: "0.75rem",
-                            color: "var(--text-secondary)",
-                            cursor: "pointer",
-                            outline: "none",
-                        }}
-                    >
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <Search size={14} />
-                            <span>Buscar...</span>
-                        </div>
-                        <kbd style={{ border: "1px solid var(--border)", borderRadius: "3px", padding: "0 4px", fontSize: "0.65rem", background: "white", boxShadow: "0 1px 0 rgba(0,0,0,0.05)" }}>Ctrl K</kbd>
-                    </button>
+                    {/* Search Trigger Button & Alert Badge */}
+                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", alignItems: "center" }}>
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            style={{
+                                flex: 1,
+                                padding: "0.5rem 0.75rem",
+                                borderRadius: "8px",
+                                border: "1px solid var(--border)",
+                                background: "var(--bg-secondary, #f1f5f9)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                fontSize: "0.75rem",
+                                color: "var(--text-secondary)",
+                                cursor: "pointer",
+                                outline: "none",
+                            }}
+                        >
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <Search size={14} />
+                                <span>Buscar...</span>
+                            </div>
+                            <kbd style={{ border: "1px solid var(--border)", borderRadius: "3px", padding: "0 4px", fontSize: "0.65rem", background: "white", boxShadow: "0 1px 0 rgba(0,0,0,0.05)" }}>Ctrl K</kbd>
+                        </button>
+                        <AlertaBadge />
+                    </div>
                     </div>{/* end column wrapper */}
                 </div>
 

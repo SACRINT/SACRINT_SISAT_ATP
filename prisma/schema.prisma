@@ -98,6 +98,9 @@ model Escuela {
 
   // ─── Comités de Convivencia y Seguridad ───
   comiteRegistros ComiteEscolarRegistro[]
+
+  // ─── Vigilancia Proactiva y Centro de Alertas ───
+  alertasProactivas AlertaProactiva[]
 }
 
 model CicloEscolar {
@@ -933,6 +936,55 @@ model ChatTramitesMensaje {
   createdAt   DateTime @default(now())
 }
 
+/// Registro de auditoría de consultas y herramientas ejecutadas por el Chatbot Agéntico
+model ChatAuditoriaLog {
+  id               String    @id @default(cuid())
+  tenantId         String
+  usuarioId        String
+  usuarioEmail     String?
+  rolUsuario       String    // "admin" | "supervision" | "director"
+  escuelaId        String?
+  mensajeUsuario   String    @db.Text
+  herramientaUsada String
+  parametrosJson   Json?
+  filasRetornadas  Int       @default(0)
+  duracionMs       Int
+  exitoso          Boolean   @default(true)
+  errorMensaje     String?   @db.Text
+  createdAt        DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@index([herramientaUsada])
+  @@index([createdAt])
+}
+
+/// Registro de alertas generadas por el Agente de Vigilancia Proactiva
+model AlertaProactiva {
+  id              String    @id @default(cuid())
+  tenantId        String
+  reglaCodigo     String    // "REGLA_1_VENCIMIENTO_INMINENTE", "REGLA_2_OFICIO_URGENTE_SIN_ACUSE", etc.
+  criticidad      String    // "CRITICA" | "ADVERTENCIA" | "INFORMATIVA"
+  escuelaId       String?
+  titulo          String
+  descripcion     String    @db.Text
+  metadata        Json?     // { diasRestantes, porcentaje, oficioId, entregaId, registro911Id }
+  leida           Boolean   @default(false)
+  fechaLeida      DateTime?
+  archivada       Boolean   @default(false)
+  fechaExpira     DateTime?
+  notificadaEmail Boolean   @default(false)
+  notificadan8n   Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  escuela         Escuela?  @relation(fields: [escuelaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, criticidad, leida])
+  @@index([escuelaId, leida])
+  @@index([tenantId, reglaCodigo, escuelaId, createdAt])
+}
+
 // ─── AUDITORÍA Y DESCUBRIMIENTO DE PROCESOS ATP (MULTI-TENANT) ──────────────
 
 model CuentaAuditoria {
@@ -1658,6 +1710,7 @@ model CteSesionConfig {
   updatedAt   DateTime    @updatedAt
 
   productos   CteProductoEscuela[]
+  compromisos CteCompromisoZonal[]
 
   @@unique([tenantId, numero, fase])
   @@index([tenantId])
@@ -1687,19 +1740,30 @@ model CteProductoEscuela {
   @@index([escuelaId])
 }
 
-/// Compromiso zonal consolidado extraído por IA de los productos de CTE
+/// Compromiso zonal consolidado extraído o administrado en CTE
 model CteCompromisoZonal {
-  id          String    @id @default(cuid())
-  tenantId    String    @default("zona004")
-  sesionId    String
-  texto       String    @db.Text
-  categoria   String?   // Eje temático del CTE
-  prioridad   Int       @default(1)
-  resuelto    Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  id               String          @id @default(cuid())
+  tenantId         String          @default("zona004")
+  sesionId         String
+  texto            String          @db.Text
+  categoria        String?         // Eje temático: "APRENDIZAJES", "CONVIVENCIA", "GESTION", "FORMACION_DOCENTE"
+  prioridad        Int             @default(1) // 1: Normal, 2: Media, 3: Alta
+  estado           String          @default("PENDIENTE") // PENDIENTE | EN_PROCESO | RESUELTO
+  resuelto         Boolean         @default(false)
+  fechaLimite      DateTime?       // Fecha límite específica opcional
+  escuelasIds      Json?           // Array de ids de escuelas involucradas o null si es zonal general
+  notasSeguimiento String?         @db.Text
+  origenIA         Boolean         @default(false)
+  oficializado     Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  sesion           CteSesionConfig @relation(fields: [sesionId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([sesionId])
+  @@index([tenantId, estado])
+  @@index([tenantId, resuelto])
 }
 
 

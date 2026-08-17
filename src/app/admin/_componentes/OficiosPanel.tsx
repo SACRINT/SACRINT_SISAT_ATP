@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSession } from "next-auth/react";
+import ModuloCopilotDrawer, { AccionSugerida } from "@/components/copilot/ModuloCopilotDrawer";
 
 // ── Tipos y Formateadores ───────────────────────────────────────────────────
 
@@ -107,6 +108,25 @@ export default function OficiosPanel() {
 
     // Detalle
     const [detalle, setDetalle] = useState<Oficio | null>(null);
+    const [copilotOpen, setCopilotOpen] = useState(false);
+
+    const ACCIONES_OFICIOS: AccionSugerida[] = [
+        {
+            id: "redactar_convocatoria",
+            etiqueta: "📝 Redactar Oficio Formal NEM",
+            prompt: "Redacta una propuesta formal de oficio para directores de la zona solicitando la entrega de planeaciones del 2do trimestre con fecha límite el próximo viernes a las 14:00 hrs."
+        },
+        {
+            id: "verificar_urgentes",
+            etiqueta: "🚨 Revisar Oficios Urgentes (Rojo)",
+            prompt: "Consulta los oficios pendientes con semáforo rojo y resúmeme los plazos más críticos."
+        },
+        {
+            id: "consultar_normativa",
+            etiqueta: "⚖️ Consultar Fundamentación Legal SEP",
+            prompt: "¿Cuál es el fundamento normativo vigente de la SEP Puebla para el control de asistencia y justificantes de personal docente?"
+        }
+    ];
 
     // Cargar oficios
     const cargarOficios = useCallback(async () => {
@@ -345,6 +365,28 @@ export default function OficiosPanel() {
                 >
                     <Sliders size={15} />
                     <span>Configuración</span>
+                </button>
+
+                <button
+                    onClick={() => setCopilotOpen(true)}
+                    style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        padding: "0.5rem 1.125rem",
+                        borderRadius: "8px",
+                        fontSize: "0.8125rem",
+                        fontWeight: 700,
+                        border: "1px solid rgba(99, 102, 241, 0.4)",
+                        cursor: "pointer",
+                        background: "linear-gradient(135deg, #4f46e5, #4338ca)",
+                        color: "white",
+                        boxShadow: "0 3px 8px rgba(79, 70, 229, 0.3)",
+                        transition: "all 0.2s ease"
+                    }}
+                >
+                    <Bot size={15} />
+                    <span>✨ Copiloto IA de Oficios</span>
                 </button>
             </div>
 
@@ -713,6 +755,16 @@ export default function OficiosPanel() {
                     onRefresh={() => { cargarOficios(); if (detalle) abrirDetalle(detalle.id); }}
                 />
             )}
+
+            {/* ════════════ COPILOTO IA DE OFICIOS ════════════ */}
+            <ModuloCopilotDrawer
+                modulo="oficios"
+                titulo="Copiloto de Oficios y Circulares"
+                subtitulo="Redacción NEM, plazos y fundamentación jurídica"
+                isOpen={copilotOpen}
+                onClose={() => setCopilotOpen(false)}
+                accionesSugeridas={ACCIONES_OFICIOS}
+            />
         </div>
     );
 }

@@ -15,7 +15,11 @@ import {
     Users,
     Building,
     Check,
+    Sparkles,
+    TrendingUp,
+    Layers
 } from "lucide-react";
+import ModuloCopilotDrawer, { AccionSugerida } from "@/components/copilot/ModuloCopilotDrawer";
 
 interface Estadistica911DirectorProps {
     escuela: {
@@ -60,7 +64,51 @@ export default function Estadistica911Director({ escuela }: Estadistica911Direct
     const [config, setConfig] = useState<PeriodoConfig | null>(null);
     const [registro, setRegistro] = useState<RegistroEscuela | null>(null);
     const [mensaje, setMensaje] = useState<{ tipo: "success" | "error" | "info"; texto: string } | null>(null);
+    const [copilotOpen, setCopilotOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Estado predictivo para el plantel del director
+    const [proyeccion, setProyeccion] = useState<any | null>(null);
+    const [loadingProyeccion, setLoadingProyeccion] = useState(false);
+    const [corteProyeccion, setCorteProyeccion] = useState<"INICIO_DE_CURSOS" | "FIN_DE_CURSOS">("INICIO_DE_CURSOS");
+
+    const ACCIONES_911: AccionSugerida[] = [
+        {
+            id: "auditar_plantel",
+            etiqueta: "📊 Auditar Matrícula de mi Escuela",
+            prompt: "Realiza una auditoría matemática sobre los datos estadísticos 911 cargados para mi plantel y verifica que no existan inconsistencias antes de la entrega oficial."
+        },
+        {
+            id: "proyeccion_plantel",
+            etiqueta: "🔮 Capacidad Áulica y Proyección de mi Escuela",
+            prompt: "Evalúa la capacidad de las aulas y la proyección de matrícula de mi plantel para saber si estamos en sobrecupo o subutilización según la SEP."
+        },
+        {
+            id: "comparar_cortes",
+            etiqueta: "🔄 Comparar Inicio vs Fin de Cursos",
+            prompt: "Compara los registros estadísticos 911 de inicio y fin de cursos de mi escuela y detalla variaciones de alumnos o grupos."
+        },
+        {
+            id: "normas_grupos",
+            etiqueta: "📋 Parámetros de Alumnos por Grupo SEP",
+            prompt: "¿Cuál es el mínimo y máximo normativo de alumnos por grupo permitido por la SEP en secundarias técnicas?"
+        }
+    ];
+
+    const cargarProyeccion = async (corte = corteProyeccion) => {
+        setLoadingProyeccion(true);
+        try {
+            const res = await fetch(`/api/director/estadistica-911/predictivo?corte=${corte}`);
+            if (res.ok) {
+                const data = await res.json();
+                setProyeccion(data.proyeccion);
+            }
+        } catch (err) {
+            console.error("Error al cargar proyección del plantel:", err);
+        } finally {
+            setLoadingProyeccion(false);
+        }
+    };
 
     const cargarDatos = async () => {
         setLoading(true);
@@ -83,6 +131,9 @@ export default function Estadistica911Director({ escuela }: Estadistica911Direct
                     setRegistro(null);
                 }
             }
+
+            // Cargar proyección inicial
+            await cargarProyeccion(corteProyeccion);
         } catch (err: any) {
             console.error("Error al cargar datos de Estadística 911:", err);
             setMensaje({ tipo: "error", texto: "No se pudieron cargar los datos de estadística." });
@@ -175,9 +226,31 @@ export default function Estadistica911Director({ escuela }: Estadistica911Direct
                         Formato Oficial 911.8 — {config?.periodoCorte === "FIN_CURSOS" ? "Fin de Cursos" : "Inicio de Cursos"}
                     </p>
                 </div>
-                <div style={{ background: "rgba(255,255,255,0.15)", padding: "0.6rem 1rem", borderRadius: "12px", fontSize: "0.825rem", textAlign: "right" }}>
-                    <div style={{ fontWeight: 700 }}>{escuela.cct}</div>
-                    <div style={{ opacity: 0.9 }}>{escuela.nombre}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <button
+                        onClick={() => setCopilotOpen(true)}
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.4rem",
+                            padding: "0.5rem 1rem",
+                            borderRadius: "10px",
+                            background: "linear-gradient(135deg, #4f46e5, #4338ca)",
+                            color: "white",
+                            border: "1px solid rgba(255, 255, 255, 0.2)",
+                            fontSize: "0.825rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)"
+                        }}
+                    >
+                        <Sparkles size={15} />
+                        <span>✨ Copiloto 911</span>
+                    </button>
+                    <div style={{ background: "rgba(255,255,255,0.15)", padding: "0.6rem 1rem", borderRadius: "12px", fontSize: "0.825rem", textAlign: "right" }}>
+                        <div style={{ fontWeight: 700 }}>{escuela.cct}</div>
+                        <div style={{ opacity: 0.9 }}>{escuela.nombre}</div>
+                    </div>
                 </div>
             </div>
 
@@ -388,6 +461,148 @@ export default function Estadistica911Director({ escuela }: Estadistica911Direct
                     </div>
                 </div>
             )}
+
+            {/* ════════════ PROYECCIÓN Y ANÁLISIS DE CAPACIDAD ÁULICA (DIRECTOR) ════════════ */}
+            {proyeccion && (
+                <div style={{
+                    background: "#ffffff",
+                    borderRadius: "14px",
+                    border: "1px solid #e2e8f0",
+                    padding: "1.5rem",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1.25rem"
+                }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <TrendingUp size={22} color="#4f46e5" />
+                            <h3 style={{ fontSize: "1.1rem", fontWeight: 800, margin: 0, color: "#1e293b" }}>
+                                Proyección Predictiva y Capacidad Áulica del Plantel
+                            </h3>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <button
+                                onClick={() => {
+                                    setCorteProyeccion("INICIO_DE_CURSOS");
+                                    cargarProyeccion("INICIO_DE_CURSOS");
+                                }}
+                                style={{
+                                    padding: "0.3rem 0.65rem",
+                                    borderRadius: "6px",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 700,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    background: corteProyeccion === "INICIO_DE_CURSOS" ? "#059669" : "#f1f5f9",
+                                    color: corteProyeccion === "INICIO_DE_CURSOS" ? "#ffffff" : "#64748b"
+                                }}
+                            >
+                                911.8A Inicio
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCorteProyeccion("FIN_DE_CURSOS");
+                                    cargarProyeccion("FIN_DE_CURSOS");
+                                }}
+                                style={{
+                                    padding: "0.3rem 0.65rem",
+                                    borderRadius: "6px",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 700,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    background: corteProyeccion === "FIN_DE_CURSOS" ? "#2563eb" : "#f1f5f9",
+                                    color: corteProyeccion === "FIN_DE_CURSOS" ? "#ffffff" : "#64748b"
+                                }}
+                            >
+                                911.8B Fin
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Banner de Advertencia */}
+                    <div style={{
+                        background: "#fffbeb",
+                        border: "1px solid #fef3c7",
+                        borderLeft: "4px solid #f59e0b",
+                        padding: "0.75rem 1rem",
+                        borderRadius: "8px",
+                        fontSize: "0.8rem",
+                        color: "#92400e"
+                    }}>
+                        <strong>⚠️ PROYECCIÓN ESTIMADA:</strong> Los valores son proyecciones deterministas calculadas con base en la estructura de grupos autorizados y estándares SEP. No sustituyen las cifras oficiales de captura.
+                    </div>
+
+                    {/* KPIs de la Proyección */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                        <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700 }}>MATRÍCULA PROYECTADA</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "#1e293b", marginTop: "0.2rem" }}>
+                                {proyeccion.matriculaTotalEstimada}
+                            </div>
+                            <div style={{ fontSize: "0.7rem", color: "#059669", marginTop: "0.2rem" }}>
+                                Capacidad óptima: {proyeccion.capacidadInstaladaOptima}
+                            </div>
+                        </div>
+
+                        <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700 }}>CAPACIDAD INSTALADA</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "#059669", marginTop: "0.2rem" }}>
+                                {proyeccion.capacidadInstaladaOptima}
+                            </div>
+                            <div style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "0.2rem" }}>
+                                Rango normativo: [{proyeccion.intervaloConfianzaMin} - {proyeccion.intervaloConfianzaMax}]
+                            </div>
+                        </div>
+
+                        <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700 }}>DENSIDAD Y DOCENTES</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "#3b82f6", marginTop: "0.2rem" }}>
+                                {proyeccion.densidadPromedioPorGrupo} <span style={{ fontSize: "0.85rem", color: "#64748b", fontWeight: 600 }}>Alumn/Grp</span>
+                            </div>
+                            <div style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "0.2rem" }}>
+                                {proyeccion.totalGruposAutorizados} grupos autorizados • {proyeccion.docentesEstimadosRequeridos} docentes req.
+                            </div>
+                        </div>
+
+                        <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700 }}>DIAGNÓSTICO DE CAPACIDAD</div>
+                            <div style={{ marginTop: "0.4rem" }}>
+                                <span style={{
+                                    padding: "0.25rem 0.65rem",
+                                    borderRadius: "9999px",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 800,
+                                    background: proyeccion.semaforoRiesgo === "RIESGO_SOBRECUPO" ? "#fee2e2" :
+                                        proyeccion.semaforoRiesgo === "RIESGO_SUBUTILIZACION" ? "#fef3c7" :
+                                            proyeccion.semaforoRiesgo === "RIESGO_DESERCION_CRITICA" ? "#f3e8ff" : "#dcfce7",
+                                    color: proyeccion.semaforoRiesgo === "RIESGO_SOBRECUPO" ? "#991b1b" :
+                                        proyeccion.semaforoRiesgo === "RIESGO_SUBUTILIZACION" ? "#92400e" :
+                                            proyeccion.semaforoRiesgo === "RIESGO_DESERCION_CRITICA" ? "#6b21a8" : "#166534"
+                                }}>
+                                    {proyeccion.semaforoRiesgo === "RIESGO_SOBRECUPO" ? "⚠️ RIESGO SOBRECUPO" :
+                                        proyeccion.semaforoRiesgo === "RIESGO_SUBUTILIZACION" ? "⚠️ SUBUTILIZACIÓN" :
+                                            proyeccion.semaforoRiesgo === "RIESGO_DESERCION_CRITICA" ? "⚠️ ALERTA DESERCIÓN" : "✅ EQUILIBRADO"}
+                                </span>
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "#334155", marginTop: "0.4rem", lineHeight: 1.3 }}>
+                                {proyeccion.observacionOperativa}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ════════════ COPILOTO IA DE ESTADÍSTICA 911 (DIRECTOR) ════════════ */}
+            <ModuloCopilotDrawer
+                modulo="estadistica_911"
+                titulo="Copiloto de Estadística 911"
+                subtitulo={`Auditoría de matrícula para ${escuela.nombre} (${escuela.cct})`}
+                isOpen={copilotOpen}
+                onClose={() => setCopilotOpen(false)}
+                accionesSugeridas={ACCIONES_911}
+            />
         </div>
     );
 }

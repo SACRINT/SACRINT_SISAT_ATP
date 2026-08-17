@@ -20,8 +20,12 @@ import {
     Users,
     GraduationCap,
     Send,
-    HelpCircle
+    HelpCircle,
+    Sparkles,
+    TrendingUp,
+    Layers
 } from "lucide-react";
+import ModuloCopilotDrawer, { AccionSugerida } from "@/components/copilot/ModuloCopilotDrawer";
 
 interface Estadistica911PanelProps {
     readOnly?: boolean;
@@ -59,6 +63,54 @@ export default function Estadistica911Panel({ readOnly = false }: Estadistica911
     // Form notas ATP
     const [notasAtp, setNotasAtp] = useState("");
     const [savingEstado, setSavingEstado] = useState(false);
+    const [copilotOpen, setCopilotOpen] = useState(false);
+
+    // Estado para vista predictiva
+    const [vistaTab, setVistaTab] = useState<"auditoria" | "predictivo">("auditoria");
+    const [proyeccionZonal, setProyeccionZonal] = useState<any | null>(null);
+    const [loadingProyeccion, setLoadingProyeccion] = useState(false);
+    const [corteProyeccion, setCorteProyeccion] = useState<"INICIO_DE_CURSOS" | "FIN_DE_CURSOS">("INICIO_DE_CURSOS");
+
+    const ACCIONES_911: AccionSugerida[] = [
+        {
+            id: "validar_coherencia",
+            etiqueta: "📊 Auditar Coherencia Aritmética 911",
+            prompt: "Realiza una auditoría matemática y de consistencia lógica sobre los registros 911 de la zona escolar y alerta sobre descuadres de género o promedios atípicos por grupo."
+        },
+        {
+            id: "proyeccion_capacidad",
+            etiqueta: "🔮 Análisis Predictivo de Matrícula y Aulas",
+            prompt: "Analiza la proyección de matrícula y capacidad áulica de las escuelas de la zona e indícame cuáles planteles tienen riesgo de sobrecupo o subutilización."
+        },
+        {
+            id: "resumen_matricula",
+            etiqueta: "📈 Resumen Ejecutivo de Matrícula Zonal",
+            prompt: "Genera un reporte ejecutivo con la matrícula total de la zona, desglose de alumnos, docentes y planteles validados para la supervisión."
+        },
+        {
+            id: "normativa_sicep",
+            etiqueta: "📚 Normativa de Validación SICEP / 911",
+            prompt: "¿Cuáles son las fechas y criterios normativos de la SEP para el cierre y validación de formatos 911?"
+        }
+    ];
+
+    const cargarProyeccion = async (corte = corteProyeccion) => {
+        setLoadingProyeccion(true);
+        try {
+            const res = await fetch(`/api/admin/estadistica-911/predictivo?corte=${corte}`);
+            if (res.ok) {
+                const json = await res.json();
+                setProyeccionZonal(json.proyeccionZonal);
+            } else {
+                toast.error("Error al cargar proyecciones predictivas");
+            }
+        } catch (err) {
+            console.error("Error al cargar proyección 911:", err);
+            toast.error("Error de conexión al cargar proyecciones");
+        } finally {
+            setLoadingProyeccion(false);
+        }
+    };
 
     const cargarDatos = async () => {
         try {
@@ -303,6 +355,27 @@ export default function Estadistica911Panel({ readOnly = false }: Estadistica911
                         Exportar Concentrado Excel
                     </a>
 
+                    <button
+                        onClick={() => setCopilotOpen(true)}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            padding: "0.6rem 1.1rem",
+                            borderRadius: "10px",
+                            background: "linear-gradient(135deg, #4f46e5, #4338ca)",
+                            color: "#ffffff",
+                            border: "1px solid rgba(99, 102, 241, 0.4)",
+                            fontSize: "0.85rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)"
+                        }}
+                    >
+                        <Sparkles style={{ width: "16px", height: "16px" }} />
+                        ✨ Copiloto 911
+                    </button>
+
                     {!readOnly && (
                         <button
                             onClick={() => setModalConfigOpen(true)}
@@ -327,328 +400,605 @@ export default function Estadistica911Panel({ readOnly = false }: Estadistica911
                 </div>
             </div>
 
-            {/* Tarjetas KPIs Zonales */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
-                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
-                        <span>MATRÍCULA ZONAL</span>
-                        <GraduationCap style={{ width: "18px", height: "18px", color: "#3b82f6" }} />
-                    </div>
-                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#1e293b", marginTop: "0.25rem" }}>
-                        {kpis.matriculaZonal.toLocaleString()}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
-                        👨 {kpis.hombresZonal.toLocaleString()} Hombres | 👩 {kpis.mujeresZonal.toLocaleString()} Mujeres
-                    </div>
-                </div>
-
-                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
-                        <span>ENTREGAS 911</span>
-                        <Building2 style={{ width: "18px", height: "18px", color: "#6366f1" }} />
-                    </div>
-                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#1e293b", marginTop: "0.25rem" }}>
-                        {kpis.entregadas} / {kpis.totalEscuelas}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
-                        {Math.round((kpis.entregadas / (kpis.totalEscuelas || 1)) * 100)}% de cobertura en zona
-                    </div>
-                </div>
-
-                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
-                        <span>VALIDADOS SIN ERROR</span>
-                        <CheckCircle2 style={{ width: "18px", height: "18px", color: "#10b981" }} />
-                    </div>
-                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#059669", marginTop: "0.25rem" }}>
-                        {kpis.validados}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#059669", marginTop: "0.25rem" }}>
-                        Cuadre aritmético 100% perfecto
-                    </div>
-                </div>
-
-                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
-                        <span>CON DISCREPANCIAS</span>
-                        <AlertTriangle style={{ width: "18px", height: "18px", color: "#f59e0b" }} />
-                    </div>
-                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: kpis.conInconsistencias > 0 ? "#d97706" : "#64748b", marginTop: "0.25rem" }}>
-                        {kpis.conInconsistencias}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#d97706", marginTop: "0.25rem" }}>
-                        {kpis.pendientes} pendientes de entregar
-                    </div>
-                </div>
-
-                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
-                        <span>GRUPOS Y DOCENTES</span>
-                        <Users style={{ width: "18px", height: "18px", color: "#8b5cf6" }} />
-                    </div>
-                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#1e293b", marginTop: "0.25rem" }}>
-                        {kpis.gruposZonal} <span style={{ fontSize: "1rem", color: "#64748b", fontWeight: 600 }}>Grupos</span>
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
-                        👨‍🏫 {kpis.docentesZonal} docentes frente a grupo
-                    </div>
-                </div>
+            {/* Selector de Pestañas: Auditoría vs Proyecciones */}
+            <div style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.5rem" }}>
+                <button
+                    onClick={() => setVistaTab("auditoria")}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        padding: "0.6rem 1.25rem",
+                        borderRadius: "8px",
+                        fontWeight: 700,
+                        fontSize: "0.875rem",
+                        border: "none",
+                        cursor: "pointer",
+                        background: vistaTab === "auditoria" ? "#1e293b" : "#f1f5f9",
+                        color: vistaTab === "auditoria" ? "#ffffff" : "#64748b"
+                    }}
+                >
+                    <BarChart3 style={{ width: "16px", height: "16px" }} />
+                    <span>📋 Auditoría y Captura 911</span>
+                </button>
+                <button
+                    onClick={() => {
+                        setVistaTab("predictivo");
+                        if (!proyeccionZonal) {
+                            cargarProyeccion(corteProyeccion);
+                        }
+                    }}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        padding: "0.6rem 1.25rem",
+                        borderRadius: "8px",
+                        fontWeight: 700,
+                        fontSize: "0.875rem",
+                        border: "none",
+                        cursor: "pointer",
+                        background: vistaTab === "predictivo" ? "#4f46e5" : "#f1f5f9",
+                        color: vistaTab === "predictivo" ? "#ffffff" : "#64748b"
+                    }}
+                >
+                    <TrendingUp style={{ width: "16px", height: "16px" }} />
+                    <span>📈 Proyecciones y Capacidad Áulica</span>
+                </button>
             </div>
 
-            {/* Barra de Búsqueda y Filtros */}
-            <div style={{
-                background: "#ffffff",
-                padding: "1rem 1.25rem",
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "1rem"
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1, minWidth: "260px" }}>
-                    <Search style={{ width: "18px", height: "18px", color: "#94a3b8" }} />
-                    <input
-                        type="text"
-                        placeholder="Buscar por escuela, CCT o localidad..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            width: "100%",
-                            border: "none",
-                            outline: "none",
-                            fontSize: "0.875rem",
-                            color: "#1e293b"
-                        }}
-                    />
-                </div>
+            {vistaTab === "auditoria" ? (
+                <>
+                    {/* Tarjetas KPIs Zonales */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                        <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
+                                <span>MATRÍCULA ZONAL</span>
+                                <GraduationCap style={{ width: "18px", height: "18px", color: "#3b82f6" }} />
+                            </div>
+                            <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#1e293b", marginTop: "0.25rem" }}>
+                                {kpis.matriculaZonal.toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+                                👨 {kpis.hombresZonal.toLocaleString()} Hombres | 👩 {kpis.mujeresZonal.toLocaleString()} Mujeres
+                            </div>
+                        </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <Filter style={{ width: "16px", height: "16px", color: "#64748b" }} />
-                    <span style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>Estado:</span>
-                    <select
-                        value={filtroEstado}
-                        onChange={(e) => setFiltroEstado(e.target.value)}
-                        style={{
-                            padding: "0.4rem 0.8rem",
-                            borderRadius: "8px",
-                            border: "1px solid #cbd5e1",
-                            fontSize: "0.8rem",
-                            fontWeight: 600,
-                            color: "#1e293b",
-                            background: "#f8fafc",
-                            cursor: "pointer"
-                        }}
-                    >
-                        <option value="TODOS">Todos ({escuelas.length})</option>
-                        <option value="VALIDADO">Validados ({kpis.validados})</option>
-                        <option value="CON_INCONSISTENCIAS">Con Inconsistencias ({kpis.conInconsistencias})</option>
-                        <option value="ENTREGADO_A_CORDE">Entregados a CORDE</option>
-                        <option value="PENDIENTE">Pendientes ({kpis.pendientes})</option>
-                    </select>
-                </div>
-            </div>
+                        <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
+                                <span>ENTREGAS 911</span>
+                                <Building2 style={{ width: "18px", height: "18px", color: "#6366f1" }} />
+                            </div>
+                            <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#1e293b", marginTop: "0.25rem" }}>
+                                {kpis.entregadas} / {kpis.totalEscuelas}
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+                                {Math.round((kpis.entregadas / (kpis.totalEscuelas || 1)) * 100)}% de cobertura en zona
+                            </div>
+                        </div>
 
-            {/* Tabla de Escuelas */}
-            <div style={{
-                background: "#ffffff",
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-                overflow: "hidden",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
-            }}>
-                <div style={{ overflowX: "auto", maxHeight: "65vh" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.825rem" }}>
-                        <thead>
-                            <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0", color: "#475569", fontWeight: 800 }}>
-                                <th style={{ padding: "0.85rem 1rem" }}>Escuela / CCT</th>
-                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>1er Año (H/M/Tot)</th>
-                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>2do Año (H/M/Tot)</th>
-                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>3er Año (H/M/Tot)</th>
-                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Matrícula Total</th>
-                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Grupos / Docentes</th>
-                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Estado</th>
-                                <th style={{ padding: "0.85rem 1rem", textAlign: "right" }}>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {escuelasFiltradas.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
-                                        No se encontraron escuelas con los filtros seleccionados.
-                                    </td>
-                                </tr>
-                            ) : (
-                                escuelasFiltradas.map((esc) => {
-                                    const reg = registrosMap.get(esc.id);
-                                    const estado = reg ? reg.estado : "PENDIENTE";
-                                    const tieneInconsistencias = reg && Array.isArray(reg.inconsistenciasJson) && reg.inconsistenciasJson.length > 0;
+                        <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
+                                <span>VALIDADOS SIN ERROR</span>
+                                <CheckCircle2 style={{ width: "18px", height: "18px", color: "#10b981" }} />
+                            </div>
+                            <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#059669", marginTop: "0.25rem" }}>
+                                {kpis.validados}
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "#059669", marginTop: "0.25rem" }}>
+                                Cuadre aritmético 100% perfecto
+                            </div>
+                        </div>
 
-                                    let a1H = 0, a1M = 0, a1T = 0;
-                                    let a2H = 0, a2M = 0, a2T = 0;
-                                    let a3H = 0, a3M = 0, a3T = 0;
+                        <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
+                                <span>CON DISCREPANCIAS</span>
+                                <AlertTriangle style={{ width: "18px", height: "18px", color: "#f59e0b" }} />
+                            </div>
+                            <div style={{ fontSize: "1.75rem", fontWeight: 900, color: kpis.conInconsistencias > 0 ? "#d97706" : "#64748b", marginTop: "0.25rem" }}>
+                                {kpis.conInconsistencias}
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "#d97706", marginTop: "0.25rem" }}>
+                                {kpis.pendientes} pendientes de entregar
+                            </div>
+                        </div>
 
-                                    if (reg && reg.detalles) {
-                                        reg.detalles.forEach((d: any) => {
-                                            if (d.semestreGrado === 1 || d.semestreGrado === 2) {
-                                                a1H += d.hombres; a1M += d.mujeres; a1T += d.total;
-                                            } else if (d.semestreGrado === 3 || d.semestreGrado === 4) {
-                                                a2H += d.hombres; a2M += d.mujeres; a2T += d.total;
-                                            } else if (d.semestreGrado === 5 || d.semestreGrado === 6) {
-                                                a3H += d.hombres; a3M += d.mujeres; a3T += d.total;
-                                            }
-                                        });
-                                    }
+                        <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: "0.8rem", fontWeight: 700 }}>
+                                <span>GRUPOS Y DOCENTES</span>
+                                <Users style={{ width: "18px", height: "18px", color: "#8b5cf6" }} />
+                            </div>
+                            <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#1e293b", marginTop: "0.25rem" }}>
+                                {kpis.gruposZonal} <span style={{ fontSize: "1rem", color: "#64748b", fontWeight: 600 }}>Grupos</span>
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+                                👨‍🏫 {kpis.docentesZonal} docentes frente a grupo
+                            </div>
+                        </div>
+                    </div>
 
-                                    return (
-                                        <tr
-                                            key={esc.id}
-                                            style={{
-                                                borderBottom: "1px solid #f1f5f9",
-                                                transition: "background 0.15s ease"
-                                            }}
-                                        >
-                                            <td style={{ padding: "0.85rem 1rem" }}>
-                                                <div style={{ fontWeight: 700, color: "#1e293b" }}>{esc.nombre}</div>
-                                                <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.75rem", color: "#64748b" }}>
-                                                    <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#2563eb" }}>{esc.cct}</span>
-                                                    <span>•</span>
-                                                    <span>{esc.localidad || "Sin localidad"}</span>
-                                                </div>
-                                            </td>
+                    {/* Barra de Búsqueda y Filtros */}
+                    <div style={{
+                        background: "#ffffff",
+                        padding: "1rem 1.25rem",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "1rem"
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, minWidth: "260px" }}>
+                            <Search style={{ width: "18px", height: "18px", color: "#94a3b8" }} />
+                            <input
+                                type="text"
+                                placeholder="Buscar por CCT, nombre de escuela o municipio..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{
+                                    border: "none",
+                                    outline: "none",
+                                    width: "100%",
+                                    fontSize: "0.875rem",
+                                    color: "#1e293b"
+                                }}
+                            />
+                        </div>
 
-                                            <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
-                                                {reg ? (
-                                                    <span style={{ fontWeight: 600, color: "#334155" }}>
-                                                        {a1H} / {a1M} = <strong style={{ color: "#1e293b" }}>{a1T}</strong>
-                                                    </span>
-                                                ) : <span style={{ color: "#cbd5e1" }}>-</span>}
-                                            </td>
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                            <Filter style={{ width: "16px", height: "16px", color: "#64748b" }} />
+                            {["TODOS", "VALIDADO", "CON_INCONSISTENCIAS", "PENDIENTE"].map((st) => (
+                                <button
+                                    key={st}
+                                    onClick={() => setFiltroEstado(st)}
+                                    style={{
+                                        padding: "0.35rem 0.75rem",
+                                        borderRadius: "8px",
+                                        fontSize: "0.75rem",
+                                        fontWeight: 700,
+                                        border: "none",
+                                        cursor: "pointer",
+                                        background: filtroEstado === st ? "#1e293b" : "#f1f5f9",
+                                        color: filtroEstado === st ? "#ffffff" : "#64748b"
+                                    }}
+                                >
+                                    {st === "TODOS" ? "Todos" : st === "VALIDADO" ? "Validados" : st === "CON_INCONSISTENCIAS" ? "Con Errores" : "Pendientes"}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-                                            <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
-                                                {reg ? (
-                                                    <span style={{ fontWeight: 600, color: "#334155" }}>
-                                                        {a2H} / {a2M} = <strong style={{ color: "#1e293b" }}>{a2T}</strong>
-                                                    </span>
-                                                ) : <span style={{ color: "#cbd5e1" }}>-</span>}
-                                            </td>
-
-                                            <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
-                                                {reg ? (
-                                                    <span style={{ fontWeight: 600, color: "#334155" }}>
-                                                        {a3H} / {a3M} = <strong style={{ color: "#1e293b" }}>{a3T}</strong>
-                                                    </span>
-                                                ) : <span style={{ color: "#cbd5e1" }}>-</span>}
-                                            </td>
-
-                                            <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
-                                                {reg ? (
-                                                    <div>
-                                                        <div style={{ fontSize: "1rem", fontWeight: 800, color: "#1e293b" }}>
-                                                            {reg.totalAlumnos}
-                                                        </div>
-                                                        <div style={{ fontSize: "0.7rem", color: "#64748b" }}>
-                                                            {reg.totalHombres} H / {reg.totalMujeres} M
-                                                        </div>
-                                                    </div>
-                                                ) : <span style={{ color: "#cbd5e1" }}>-</span>}
-                                            </td>
-
-                                            <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
-                                                {reg ? (
-                                                    <span style={{ fontWeight: 600, color: "#334155" }}>
-                                                        {reg.totalGrupos} grp / {reg.totalDocentes} doc
-                                                    </span>
-                                                ) : <span style={{ color: "#cbd5e1" }}>-</span>}
-                                            </td>
-
-                                            <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
-                                                {estado === "VALIDADO" && (
-                                                    <span style={{ background: "#ecfdf5", color: "#059669", padding: "0.25rem 0.6rem", borderRadius: "9999px", fontWeight: 700, fontSize: "0.725rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                                        <CheckCircle2 style={{ width: "12px", height: "12px" }} /> Validado
-                                                    </span>
-                                                )}
-                                                {estado === "CON_INCONSISTENCIAS" && (
-                                                    <span style={{ background: "#fffbeb", color: "#d97706", padding: "0.25rem 0.6rem", borderRadius: "9999px", fontWeight: 700, fontSize: "0.725rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                                        <AlertTriangle style={{ width: "12px", height: "12px" }} /> Descuadre
-                                                    </span>
-                                                )}
-                                                {estado === "ENTREGADO_A_CORDE" && (
-                                                    <span style={{ background: "#eff6ff", color: "#2563eb", padding: "0.25rem 0.6rem", borderRadius: "9999px", fontWeight: 700, fontSize: "0.725rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                                        <Send style={{ width: "12px", height: "12px" }} /> En CORDE
-                                                    </span>
-                                                )}
-                                                {estado === "PENDIENTE" && (
-                                                    <span style={{ background: "#f1f5f9", color: "#64748b", padding: "0.25rem 0.6rem", borderRadius: "9999px", fontWeight: 600, fontSize: "0.725rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                                        <Clock style={{ width: "12px", height: "12px" }} /> Pendiente
-                                                    </span>
-                                                )}
-                                            </td>
-
-                                            <td style={{ padding: "0.85rem 1rem", textAlign: "right" }}>
-                                                <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.4rem" }}>
-                                                    {reg && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedEscuela(esc);
-                                                                setSelectedRegistro(reg);
-                                                                setNotasAtp(reg.notasAtp || "");
-                                                                setModalDetalleOpen(true);
-                                                            }}
-                                                            style={{
-                                                                background: "#f1f5f9",
-                                                                border: "none",
-                                                                padding: "0.35rem 0.65rem",
-                                                                borderRadius: "8px",
-                                                                color: "#334155",
-                                                                fontWeight: 600,
-                                                                fontSize: "0.75rem",
-                                                                cursor: "pointer",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: "0.25rem"
-                                                            }}
-                                                        >
-                                                            <Eye style={{ width: "14px", height: "14px" }} />
-                                                            {tieneInconsistencias ? "Inconsistencias" : "Detalles"}
-                                                        </button>
-                                                    )}
-
-                                                    {!readOnly && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedEscuela(esc);
-                                                                setModalUploadOpen(true);
-                                                            }}
-                                                            style={{
-                                                                background: "#eff6ff",
-                                                                border: "1px solid #bfdbfe",
-                                                                padding: "0.35rem 0.65rem",
-                                                                borderRadius: "8px",
-                                                                color: "#2563eb",
-                                                                fontWeight: 600,
-                                                                fontSize: "0.75rem",
-                                                                cursor: "pointer",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: "0.25rem"
-                                                            }}
-                                                        >
-                                                            <Upload style={{ width: "14px", height: "14px" }} />
-                                                            {reg ? "Reemplazar" : "Subir"}
-                                                        </button>
-                                                    )}
-                                                </div>
+                    {/* Tabla de Auditoría 911 */}
+                    <div style={{
+                        background: "#ffffff",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        overflow: "hidden",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                    }}>
+                        <div style={{ overflowX: "auto", maxHeight: "65vh" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.825rem" }}>
+                                <thead>
+                                    <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0", color: "#475569", fontWeight: 800 }}>
+                                        <th style={{ padding: "0.85rem 1rem" }}>Escuela / CCT</th>
+                                        <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>1er Año (H/M/Tot)</th>
+                                        <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>2do Año (H/M/Tot)</th>
+                                        <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>3er Año (H/M/Tot)</th>
+                                        <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Matrícula Total</th>
+                                        <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Grupos / Docentes</th>
+                                        <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Estado</th>
+                                        <th style={{ padding: "0.85rem 1rem", textAlign: "right" }}>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {escuelasFiltradas.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
+                                                No se encontraron escuelas con los filtros seleccionados.
                                             </td>
                                         </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                    ) : (
+                                        escuelasFiltradas.map((esc) => {
+                                            const reg = registrosMap.get(esc.id);
+                                            const estado = reg ? reg.estado : "PENDIENTE";
+                                            const tieneInconsistencias = reg && Array.isArray(reg.inconsistenciasJson) && reg.inconsistenciasJson.length > 0;
+
+                                            let a1H = 0, a1M = 0, a1T = 0;
+                                            let a2H = 0, a2M = 0, a2T = 0;
+                                            let a3H = 0, a3M = 0, a3T = 0;
+
+                                            if (reg && reg.detalles) {
+                                                reg.detalles.forEach((d: any) => {
+                                                    if (d.semestreGrado === 1 || d.semestreGrado === 2) {
+                                                        a1H += d.hombres; a1M += d.mujeres; a1T += d.total;
+                                                    } else if (d.semestreGrado === 3 || d.semestreGrado === 4) {
+                                                        a2H += d.hombres; a2M += d.mujeres; a2T += d.total;
+                                                    } else if (d.semestreGrado === 5 || d.semestreGrado === 6) {
+                                                        a3H += d.hombres; a3M += d.mujeres; a3T += d.total;
+                                                    }
+                                                });
+                                            }
+
+                                            return (
+                                                <tr
+                                                    key={esc.id}
+                                                    style={{
+                                                        borderBottom: "1px solid #f1f5f9",
+                                                        background: tieneInconsistencias ? "#fffbeb" : "#ffffff",
+                                                        transition: "background 0.15s ease"
+                                                    }}
+                                                >
+                                                    <td style={{ padding: "0.85rem 1rem" }}>
+                                                        <div style={{ fontWeight: 700, color: "#1e293b" }}>{esc.nombre}</div>
+                                                        <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                                            {esc.cct} • {esc.localidad || esc.municipio || "Zona 004"}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: "0.85rem 0.75rem", textAlign: "center", fontFamily: "monospace" }}>
+                                                        {reg ? `${a1H}/${a1M}/${a1T}` : "—"}
+                                                    </td>
+                                                    <td style={{ padding: "0.85rem 0.75rem", textAlign: "center", fontFamily: "monospace" }}>
+                                                        {reg ? `${a2H}/${a2M}/${a2T}` : "—"}
+                                                    </td>
+                                                    <td style={{ padding: "0.85rem 0.75rem", textAlign: "center", fontFamily: "monospace" }}>
+                                                        {reg ? `${a3H}/${a3M}/${a3T}` : "—"}
+                                                    </td>
+                                                    <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
+                                                        <div style={{ fontWeight: 800, color: "#0f172a" }}>
+                                                            {reg ? reg.totalAlumnos : esc.total || "—"}
+                                                        </div>
+                                                        {reg && (
+                                                            <div style={{ fontSize: "0.7rem", color: "#64748b" }}>
+                                                                👨 {reg.totalHombres} | 👩 {reg.totalMujeres}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
+                                                        <div style={{ fontWeight: 700, color: "#334155" }}>
+                                                            {(esc.gruposPrimerAno || 0) + (esc.gruposSegundoAno || 0) + (esc.gruposTercerAno || 0)} Gp.
+                                                        </div>
+                                                        <div style={{ fontSize: "0.7rem", color: "#64748b" }}>
+                                                            {reg ? `${reg.totalDocentes} Doc.` : "—"}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
+                                                        <span style={{
+                                                            padding: "0.25rem 0.65rem",
+                                                            borderRadius: "9999px",
+                                                            fontSize: "0.7rem",
+                                                            fontWeight: 800,
+                                                            display: "inline-flex",
+                                                            alignItems: "center",
+                                                            gap: "0.25rem",
+                                                            background: estado === "VALIDADO" ? "#dcfce7" : estado === "CON_INCONSISTENCIAS" ? "#fef3c7" : "#f1f5f9",
+                                                            color: estado === "VALIDADO" ? "#15803d" : estado === "CON_INCONSISTENCIAS" ? "#b45309" : "#475569"
+                                                        }}>
+                                                            {estado === "VALIDADO" ? <CheckCircle2 style={{ width: "12px", height: "12px" }} /> :
+                                                                estado === "CON_INCONSISTENCIAS" ? <AlertTriangle style={{ width: "12px", height: "12px" }} /> :
+                                                                    <Clock style={{ width: "12px", height: "12px" }} />}
+                                                            {estado}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: "0.85rem 1rem", textAlign: "right" }}>
+                                                        <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end" }}>
+                                                            {reg && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedEscuela(esc);
+                                                                        setSelectedRegistro(reg);
+                                                                        setNotasAtp(reg.notasAtp || "");
+                                                                        setModalDetalleOpen(true);
+                                                                    }}
+                                                                    style={{
+                                                                        background: tieneInconsistencias ? "#fef3c7" : "#f8fafc",
+                                                                        border: `1px solid ${tieneInconsistencias ? "#fde68a" : "#e2e8f0"}`,
+                                                                        padding: "0.35rem 0.65rem",
+                                                                        borderRadius: "8px",
+                                                                        color: tieneInconsistencias ? "#b45309" : "#334155",
+                                                                        fontWeight: 600,
+                                                                        fontSize: "0.75rem",
+                                                                        cursor: "pointer",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        gap: "0.25rem"
+                                                                    }}
+                                                                >
+                                                                    <Eye style={{ width: "14px", height: "14px" }} />
+                                                                    {tieneInconsistencias ? "Inconsistencias" : "Detalles"}
+                                                                </button>
+                                                            )}
+
+                                                            {!readOnly && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedEscuela(esc);
+                                                                        setModalUploadOpen(true);
+                                                                    }}
+                                                                    style={{
+                                                                        background: "#eff6ff",
+                                                                        border: "1px solid #bfdbfe",
+                                                                        padding: "0.35rem 0.65rem",
+                                                                        borderRadius: "8px",
+                                                                        color: "#2563eb",
+                                                                        fontWeight: 600,
+                                                                        fontSize: "0.75rem",
+                                                                        cursor: "pointer",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        gap: "0.25rem"
+                                                                    }}
+                                                                >
+                                                                    <Upload style={{ width: "14px", height: "14px" }} />
+                                                                    {reg ? "Reemplazar" : "Subir"}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                /* Tablero Predictivo Zonal */
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                    {/* Banner de Advertencia Normativa */}
+                    <div style={{
+                        background: "#fffbeb",
+                        border: "1px solid #fef3c7",
+                        borderLeft: "5px solid #f59e0b",
+                        padding: "1rem 1.25rem",
+                        borderRadius: "10px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem"
+                    }}>
+                        <AlertTriangle style={{ width: "24px", height: "24px", color: "#d97706", flexShrink: 0 }} />
+                        <div>
+                            <div style={{ fontWeight: 800, color: "#92400e", fontSize: "0.875rem" }}>
+                                ⚠️ PROYECCIÓN ESTADÍSTICA ESTIMADA (ATP-MOD-03)
+                            </div>
+                            <div style={{ fontSize: "0.8rem", color: "#b45309", marginTop: "0.15rem" }}>
+                                Los valores son estimaciones deterministas basadas en capacidad instalada de grupos y normativas de ocupación SEP. No sustituyen los datos capturados y sellados en el formato oficial 911.8.
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Selector de Corte y Recalcular */}
+                    <div style={{
+                        background: "#ffffff",
+                        padding: "1rem 1.25rem",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "1rem"
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#475569" }}>Corte a proyectar:</span>
+                            <button
+                                onClick={() => {
+                                    setCorteProyeccion("INICIO_DE_CURSOS");
+                                    cargarProyeccion("INICIO_DE_CURSOS");
+                                }}
+                                style={{
+                                    padding: "0.4rem 0.85rem",
+                                    borderRadius: "8px",
+                                    fontSize: "0.8rem",
+                                    fontWeight: 700,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    background: corteProyeccion === "INICIO_DE_CURSOS" ? "#059669" : "#f1f5f9",
+                                    color: corteProyeccion === "INICIO_DE_CURSOS" ? "#ffffff" : "#64748b"
+                                }}
+                            >
+                                911.8A Inicio de Cursos
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setCorteProyeccion("FIN_DE_CURSOS");
+                                    cargarProyeccion("FIN_DE_CURSOS");
+                                }}
+                                style={{
+                                    padding: "0.4rem 0.85rem",
+                                    borderRadius: "8px",
+                                    fontSize: "0.8rem",
+                                    fontWeight: 700,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    background: corteProyeccion === "FIN_DE_CURSOS" ? "#2563eb" : "#f1f5f9",
+                                    color: corteProyeccion === "FIN_DE_CURSOS" ? "#ffffff" : "#64748b"
+                                }}
+                            >
+                                911.8B Fin de Cursos
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => cargarProyeccion(corteProyeccion)}
+                            disabled={loadingProyeccion}
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.5rem",
+                                padding: "0.5rem 1rem",
+                                borderRadius: "8px",
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                color: "#334155",
+                                fontSize: "0.8rem",
+                                fontWeight: 700,
+                                cursor: "pointer"
+                            }}
+                        >
+                            <RefreshCw style={{ width: "14px", height: "14px", animation: loadingProyeccion ? "spin 1s linear infinite" : "none" }} />
+                            Recalcular Proyección
+                        </button>
+                    </div>
+
+                    {loadingProyeccion ? (
+                        <div style={{ padding: "3rem", textAlign: "center", color: "#64748b" }}>
+                            <RefreshCw style={{ width: "24px", height: "24px", animation: "spin 1s linear infinite", margin: "0 auto 0.5rem auto" }} />
+                            <div>Calculando proyecciones deterministas por capacidad...</div>
+                        </div>
+                    ) : proyeccionZonal ? (
+                        <>
+                            {/* KPIs Zonales Predictivos */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+                                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                                    <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 700, display: "flex", justifyContent: "space-between" }}>
+                                        <span>MATRÍCULA PROYECTADA</span>
+                                        <TrendingUp style={{ width: "18px", height: "18px", color: "#4f46e5" }} />
+                                    </div>
+                                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#1e293b", marginTop: "0.25rem" }}>
+                                        {proyeccionZonal.matriculaZonalEstimada.toLocaleString()}
+                                    </div>
+                                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+                                        Rango: [{proyeccionZonal.matriculaZonalMin.toLocaleString()} - {proyeccionZonal.matriculaZonalMax.toLocaleString()}] alumnos
+                                    </div>
+                                </div>
+
+                                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                                    <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 700, display: "flex", justifyContent: "space-between" }}>
+                                        <span>CAPACIDAD ÓPTIMA INSTALADA</span>
+                                        <Building2 style={{ width: "18px", height: "18px", color: "#059669" }} />
+                                    </div>
+                                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#059669", marginTop: "0.25rem" }}>
+                                        {proyeccionZonal.capacidadZonalOptima.toLocaleString()}
+                                    </div>
+                                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+                                        En {proyeccionZonal.totalGruposZonales} aulas autorizadas ({proyeccionZonal.totalEscuelasAnalizadas} planteles)
+                                    </div>
+                                </div>
+
+                                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                                    <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 700, display: "flex", justifyContent: "space-between" }}>
+                                        <span>DOCENTES REQUERIDOS</span>
+                                        <Users style={{ width: "18px", height: "18px", color: "#8b5cf6" }} />
+                                    </div>
+                                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#1e293b", marginTop: "0.25rem" }}>
+                                        {proyeccionZonal.docentesZonalesRequeridos}
+                                    </div>
+                                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+                                        Fórmula normativa (factor 1.3 por grupo)
+                                    </div>
+                                </div>
+
+                                <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                                    <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 700, display: "flex", justifyContent: "space-between" }}>
+                                        <span>SEMAFORIZACIÓN ZONAL</span>
+                                        <Layers style={{ width: "18px", height: "18px", color: "#f59e0b" }} />
+                                    </div>
+                                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                                        <span style={{ background: "#dcfce7", color: "#15803d", padding: "0.2rem 0.5rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 800 }}>
+                                            {proyeccionZonal.conteoEquilibradas} Óptimas
+                                        </span>
+                                        <span style={{ background: "#fee2e2", color: "#b91c1c", padding: "0.2rem 0.5rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 800 }}>
+                                            {proyeccionZonal.conteoRiesgoSobrecupo} Sobrecupo
+                                        </span>
+                                        <span style={{ background: "#fef3c7", color: "#b45309", padding: "0.2rem 0.5rem", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 800 }}>
+                                            {proyeccionZonal.conteoRiesgoSubutilizacion} Subutilizadas
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "0.35rem" }}>
+                                        Algoritmo determinista: {proyeccionZonal.metodoCalculo}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Tabla Detallada por Escuela */}
+                            <div style={{
+                                background: "#ffffff",
+                                borderRadius: "12px",
+                                border: "1px solid #e2e8f0",
+                                overflow: "hidden",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                            }}>
+                                <div style={{ overflowX: "auto", maxHeight: "65vh" }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.825rem" }}>
+                                        <thead>
+                                            <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0", color: "#475569", fontWeight: 800 }}>
+                                                <th style={{ padding: "0.85rem 1rem" }}>Plantel / CCT</th>
+                                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Grupos Autorizados</th>
+                                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Matrícula Est. Total</th>
+                                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Rango Capacidad [Mín - Máx]</th>
+                                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Densidad (Alumn/Grp)</th>
+                                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Docentes Req.</th>
+                                                <th style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>Semáforo</th>
+                                                <th style={{ padding: "0.85rem 1rem" }}>Recomendación Operativa</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {proyeccionZonal.escuelas?.map((ep: any) => {
+                                                const semaforoColor = ep.semaforoRiesgo === "RIESGO_SOBRECUPO"
+                                                    ? { bg: "#fee2e2", text: "#991b1b", label: "SOBRECUPO" }
+                                                    : ep.semaforoRiesgo === "RIESGO_SUBUTILIZACION"
+                                                        ? { bg: "#fef3c7", text: "#92400e", label: "SUBUTILIZADO" }
+                                                        : ep.semaforoRiesgo === "RIESGO_DESERCION_CRITICA"
+                                                            ? { bg: "#f3e8ff", text: "#6b21a8", label: "DESERCIÓN CRÍTICA" }
+                                                            : { bg: "#dcfce7", text: "#166534", label: "EQUILIBRADO" };
+
+                                                return (
+                                                    <tr key={ep.escuelaId} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                                                        <td style={{ padding: "0.85rem 1rem" }}>
+                                                            <div style={{ fontWeight: 700, color: "#1e293b" }}>{ep.nombre}</div>
+                                                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                                                {ep.cct} • {ep.municipio || "Zona 004"}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: "0.85rem 0.75rem", textAlign: "center", fontFamily: "monospace" }}>
+                                                            {ep.totalGruposAutorizados} grupos
+                                                        </td>
+                                                        <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
+                                                            <div style={{ fontWeight: 800, color: "#0f172a" }}>
+                                                                {ep.matriculaTotalEstimada}
+                                                            </div>
+                                                            <div style={{ fontSize: "0.7rem", color: "#059669" }}>
+                                                                Óptimo: {ep.capacidadInstaladaOptima}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: "0.85rem 0.75rem", textAlign: "center", fontSize: "0.75rem", color: "#475569" }}>
+                                                            [{ep.intervaloConfianzaMin} - <strong style={{ color: "#059669" }}>{ep.capacidadInstaladaOptima}</strong> - {ep.intervaloConfianzaMax}]
+                                                        </td>
+                                                        <td style={{ padding: "0.85rem 0.75rem", textAlign: "center", fontWeight: 700, color: "#334155" }}>
+                                                            {ep.densidadPromedioPorGrupo}
+                                                        </td>
+                                                        <td style={{ padding: "0.85rem 0.75rem", textAlign: "center", fontWeight: 700, color: "#8b5cf6" }}>
+                                                            {ep.docentesEstimadosRequeridos}
+                                                        </td>
+                                                        <td style={{ padding: "0.85rem 0.75rem", textAlign: "center" }}>
+                                                            <span style={{
+                                                                background: semaforoColor.bg,
+                                                                color: semaforoColor.text,
+                                                                padding: "0.25rem 0.6rem",
+                                                                borderRadius: "9999px",
+                                                                fontSize: "0.7rem",
+                                                                fontWeight: 800
+                                                            }}>
+                                                                {semaforoColor.label}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: "0.85rem 1rem", fontSize: "0.75rem", color: "#475569" }}>
+                                                            {ep.observacionOperativa}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    ) : null}
                 </div>
-            </div>
+            )}
 
             {/* Modal: Detalle de Inconsistencias y Validación */}
             {modalDetalleOpen && selectedEscuela && selectedRegistro && (
@@ -1073,6 +1423,16 @@ export default function Estadistica911Panel({ readOnly = false }: Estadistica911
                     </div>
                 </div>
             )}
+
+            {/* ════════════ COPILOTO IA DE ESTADÍSTICA 911 ════════════ */}
+            <ModuloCopilotDrawer
+                modulo="estadistica_911"
+                titulo="Copiloto de Estadística 911 / SICEP"
+                subtitulo="Auditoría matemática, consistencia H+M y análisis zonal"
+                isOpen={copilotOpen}
+                onClose={() => setCopilotOpen(false)}
+                accionesSugeridas={ACCIONES_911}
+            />
         </div>
     );
 }

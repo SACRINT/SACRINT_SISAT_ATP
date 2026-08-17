@@ -8,7 +8,8 @@ const N8N_BASE = process.env.N8N_WEBHOOK_BASE_URL;
 
 type N8nEvent =
     | "entrega-subida"
-    | "correccion-enviada";
+    | "correccion-enviada"
+    | "alerta-proactiva";
 
 interface EntregaSubidaPayload {
     escuelaNombre: string;
@@ -27,7 +28,20 @@ interface CorreccionEnviadaPayload {
     adminNombre: string;
 }
 
-type N8nPayload = EntregaSubidaPayload | CorreccionEnviadaPayload;
+export interface AlertaProactivaN8nPayload {
+    alertaId: string;
+    tenantId: string;
+    reglaCodigo: string;
+    criticidad: string;
+    titulo: string;
+    descripcion: string;
+    escuelaNombre?: string;
+    escuelaCCT?: string;
+    escuelaEmail?: string;
+    metadata?: Record<string, unknown>;
+}
+
+type N8nPayload = EntregaSubidaPayload | CorreccionEnviadaPayload | AlertaProactivaN8nPayload;
 
 export async function notifyN8n(
     event: N8nEvent,

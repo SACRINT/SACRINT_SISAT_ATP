@@ -5,8 +5,9 @@ import {
     BookOpen, CheckCircle2, Clock, AlertTriangle,
     ChevronDown, ChevronUp, Plus, Settings, RefreshCw,
     FileText, Calendar, GraduationCap, Loader2, X, Save,
-    Users,
+    Users, Layers,
 } from "lucide-react";
+import CteCompromisosTablero from "@/components/cte/CteCompromisosTablero";
 
 interface Escuela {
     id: string;
@@ -46,6 +47,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
     const [sesiones, setSesiones] = useState<Sesion[]>([]);
     const [escuelas, setEscuelas] = useState<Escuela[]>([]);
     const [loading, setLoading] = useState(true);
+    const [tabActiva, setTabActiva] = useState<"productos" | "compromisos">("productos");
     const [sesionExpandida, setSesionExpandida] = useState<string | null>(null);
     const [showFormSesion, setShowFormSesion] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -184,6 +186,50 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                 </div>
             </div>
 
+            {/* Selector de Pestañas */}
+            <div style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
+                <button
+                    onClick={() => setTabActiva("productos")}
+                    style={{
+                        background: tabActiva === "productos" ? "var(--primary)" : "transparent",
+                        color: tabActiva === "productos" ? "#fff" : "var(--text-muted)",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "0.45rem 0.9rem",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                        transition: "all 0.2s ease",
+                    }}
+                >
+                    <FileText size={15} />
+                    Entregas y Productos Escolar
+                </button>
+                <button
+                    onClick={() => setTabActiva("compromisos")}
+                    style={{
+                        background: tabActiva === "compromisos" ? "var(--primary)" : "transparent",
+                        color: tabActiva === "compromisos" ? "#fff" : "var(--text-muted)",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "0.45rem 0.9rem",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                        transition: "all 0.2s ease",
+                    }}
+                >
+                    <Layers size={15} />
+                    Tablero de Acuerdos Zonal
+                </button>
+            </div>
+
             {error && (
                 <div className="alert alert-error">
                     <AlertTriangle size={16} /> {error}
@@ -259,19 +305,33 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                 </div>
             )}
 
-            {/* Tarjetas de sesiones */}
-            {sesiones.length === 0 ? (
-                <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem", color: "var(--text-muted)" }}>
-                    <GraduationCap size={44} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem", color: "var(--text)" }}>No hay sesiones de CTE configuradas</p>
-                    <p style={{ margin: "0.5rem 0 0", fontSize: "0.875rem" }}>Crea la primera sesión con el botón "Nueva Sesión"</p>
-                </div>
-            ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    {sesiones.map(sesion => {
-                        const res = resumenSesion(sesion);
-                        const expandida = sesionExpandida === sesion.id;
-                        const pct = res.total > 0 ? Math.round((res.entregados / res.total) * 100) : 0;
+            {/* Vista 2: Tablero de Acuerdos */}
+            {tabActiva === "compromisos" && (
+                <CteCompromisosTablero
+                    sesiones={sesiones.map(s => ({
+                        id: s.id,
+                        numero: s.numero,
+                        fase: s.fase,
+                        descripcion: s.descripcion,
+                    }))}
+                    readOnly={readOnly}
+                />
+            )}
+
+            {/* Vista 1: Tarjetas de sesiones de productos */}
+            {tabActiva === "productos" && (
+                sesiones.length === 0 ? (
+                    <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem", color: "var(--text-muted)" }}>
+                        <GraduationCap size={44} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem", color: "var(--text)" }}>No hay sesiones de CTE configuradas</p>
+                        <p style={{ margin: "0.5rem 0 0", fontSize: "0.875rem" }}>Crea la primera sesión con el botón "Nueva Sesión"</p>
+                    </div>
+                ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                        {sesiones.map(sesion => {
+                            const res = resumenSesion(sesion);
+                            const expandida = sesionExpandida === sesion.id;
+                            const pct = res.total > 0 ? Math.round((res.entregados / res.total) * 100) : 0;
                         return (
                             <div key={sesion.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
                                 {/* Cabecera de sesión */}
@@ -451,7 +511,8 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                         );
                     })}
                 </div>
-            )}
+            )
+        )}
         </div>
     );
 }

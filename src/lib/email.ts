@@ -244,3 +244,66 @@ export async function sendTactfulReminder(
     console.error("Error sending reminder email:", error);
   }
 }
+
+interface EnviarAlertaProactivaParams {
+  to: string;
+  escuelaNombre: string;
+  titulo: string;
+  descripcion: string;
+  criticidad: string;
+  reglaCodigo: string;
+  metadata?: Record<string, unknown>;
+}
+
+export async function enviarAlertaProactivaEmail({
+  to,
+  escuelaNombre,
+  titulo,
+  descripcion,
+  criticidad,
+  reglaCodigo,
+}: EnviarAlertaProactivaParams): Promise<boolean> {
+  const APP_URL = getAppUrl();
+  const colorHeader = criticidad === "CRITICA" ? "#dc2626" : "#d97706";
+  const iconHeader = criticidad === "CRITICA" ? "🚨 ALERTA CRÍTICA INSTITUCIONAL" : "⚠️ AVISO DE VIGILANCIA PROACTIVA";
+
+  const htmlContent = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden;">
+      <div style="background-color: ${colorHeader}; color: #ffffff; padding: 18px 24px;">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">${iconHeader}</h2>
+        <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">Supervisión Escolar Zona 004 — Centro de Mando ATP</p>
+      </div>
+      
+      <div style="padding: 24px;">
+        <p style="font-size: 15px; margin-top: 0;">Estimado(a) Director(a) / Personal Directivo de <strong>${escuelaNombre}</strong>,</p>
+        
+        <div style="background-color: #f8fafc; border-left: 4px solid ${colorHeader}; padding: 14px 18px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+          <h3 style="margin: 0 0 6px 0; font-size: 16px; color: #0f172a;">${titulo}</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #334155;">${descripcion}</p>
+        </div>
+
+        <p style="font-size: 14px; line-height: 1.5;">El sistema de vigilancia preventiva ha detectado este evento prioritario para su atención oportuna antes de que derive en observaciones administrativas o retrasos de zona.</p>
+        
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${APP_URL}" style="background-color: #0f172a; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Ingresar a la Plataforma SISAT</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 12px; color: #64748b; margin: 0;">Código de Regla: <code>${reglaCodigo}</code> | Este es un mensaje automatizado del Sistema de Vigilancia Proactiva SISAT-ATP.</p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await sendEmail({
+      to,
+      subject: `${criticidad === "CRITICA" ? "🚨 [CRÍTICO]" : "⚠️ [AVISO]"} ${titulo} — ${escuelaNombre}`,
+      html: htmlContent,
+    });
+    return res.success;
+  } catch (error) {
+    console.error("[vigilancia-email] Error enviando correo de alerta:", error);
+    return false;
+  }
+}
+

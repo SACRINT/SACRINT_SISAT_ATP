@@ -12,10 +12,16 @@ export async function PATCH(
 ) {
     try {
         const session = await auth();
-        const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
-        const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
+        if (!session?.user) {
+            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        }
+        const user = session.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
+        const tenantId = user?.organizacionId || user?.tenantId;
+        if (!tenantId) {
+            return NextResponse.json({ error: "Sesión sin tenantId" }, { status: 400 });
+        }
 
-        if (!session || (user?.role !== "admin" && user?.role !== "superadmin" && user?.role !== "ATP")) {
+        if (user?.role !== "admin" && user?.role !== "superadmin" && user?.role !== "ATP") {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
 
@@ -41,8 +47,7 @@ export async function PATCH(
         return NextResponse.json({ success: true, registro });
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Error al actualizar estado del registro 911";
-        const fallbackTenant = process.env.TENANT_ID || "zona004";
-        await registrarError(fallbackTenant, {
+        await registrarError("global", {
             mensaje: msg,
             ruta: "/api/admin/estadistica-911/[id]/estado",
             metodo: "PATCH",
