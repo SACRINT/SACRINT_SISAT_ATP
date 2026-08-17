@@ -121,31 +121,53 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
   let intento = 0;
   const maxIntentos = keys.length;
   let rawGeminiResponse: any = null;
-  let activeKey: string = "";
+  let activeKeyObj: any = null;
 
   while (intento < maxIntentos) {
     const keyObj = keys[globalKeyIndex % keys.length];
     globalKeyIndex++;
-    activeKey = keyObj.key;
 
     try {
       rawGeminiResponse = await callGeminiApiDirect(
-        activeKey,
+        keyObj.key,
         systemInstruction,
         contents,
         toolsPayload
       );
+      activeKeyObj = keyObj;
       break; // Éxito
     } catch (err: any) {
       console.warn(`[agentic-chat] Error con llave "${keyObj.label}": ${err.message}. Intentando siguiente...`);
       if (err.message.includes("401") && keyObj.id !== "env") {
-        prisma.apiKey.update({ where: { id: keyObj.id }, data: { active: false, errorCount: 5 } }).catch(() => {});
+        prisma.apiKey.update({ where: { id: keyObj.id }, data: { active: false, errorCount: 10 } }).catch(() => {});
       }
       intento++;
-      if (intento >= maxIntentos) {
-        throw new Error("Todos los intentos con las llaves de IA fallaron.");
-      }
     }
+  }
+
+  // Fallback de emergencia a OpenRouter si todas las llaves de Gemini están temporalmente saturadas
+  if (!rawGeminiResponse) {
+    try {
+      const openRouterKeys = await prisma.apiKey.findMany({
+        where: { provider: "openrouter", active: true }
+      });
+      const orKey = openRouterKeys[0]?.key || process.env.OPENROUTER_API_KEY;
+      if (orKey) {
+        console.log("[agentic-chat] Activando fallback de emergencia con OpenRouter...");
+        rawGeminiResponse = await callOpenRouterCompatible(orKey, systemInstruction, contents);
+      }
+    } catch (orErr: any) {
+      console.warn("[agentic-chat] Fallback OpenRouter no disponible:", orErr.message);
+    }
+  }
+
+  if (!rawGeminiResponse) {
+    return {
+      respuesta: "Estimado usuario: Los servicios de inteligencia artificial de Google se encuentran experimentando una alta demanda en este momento. Por favor intente su consulta nuevamente en unos instantes.",
+      fuentes: [],
+      huboFuentes: false,
+      herramientasEjecutadas: []
+    };
   }
 
   const candidate = rawGeminiResponse?.candidates?.[0];
@@ -192,10 +214,10 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
     let secondAttempt = 0;
 
     while (secondAttempt < keys.length && !secondTurnSuccess) {
-      const currentKey = activeKey || keys[globalKeyIndex % keys.length].key;
+      const currentKeyObj = activeKeyObj || keys[globalKeyIndex % keys.length];
       try {
         const secondTurnResponse = await callGeminiApiDirect(
-          currentKey,
+          currentKeyObj.key,
           systemInstruction,
           contents,
           toolsPayload
@@ -203,22 +225,45 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
         const secondCandidate = secondTurnResponse?.candidates?.[0];
         const textParts = secondCandidate?.content?.parts?.filter((p: any) => p.text) || [];
         respuestaTexto = textParts.map((p: any) => p.text).join("\n").trim();
-        secondTurnSuccess = true;
+        if (respuestaTexto) {
+          secondTurnSuccess = true;
+        }
       } catch (secondErr: any) {
-        console.warn(`[agentic-chat] Intento de síntesis falló con llave activa: ${secondErr.message}`);
+        console.warn(`[agentic-chat] Intento de síntesis falló con llave "${currentKeyObj.label}": ${secondErr.message}`);
         globalKeyIndex++;
-        activeKey = keys[globalKeyIndex % keys.length].key;
+        activeKeyObj = keys[globalKeyIndex % keys.length];
         secondAttempt++;
       }
     }
 
     if (!secondTurnSuccess) {
-      respuestaTexto = `Se ejecutó la consulta institucional correctamente:\n\`\`\`json\n${JSON.stringify(toolResult.data || toolResult.mensaje, null, 2)}\n\`\`\``;
+      // Formateo institucional de respaldo limpio garantizado
+      if (toolResult.data?.respuesta) {
+        respuestaTexto = toolResult.data.respuesta;
+      } else if (toolResult.data && Array.isArray(toolResult.data) && toolResult.data.length > 0) {
+        const listaFormateada = toolResult.data.map((item: any) => {
+          return `- **${item.titulo || item.asunto || item.nombre || item.numeroOficio || "Elemento"}**: ${item.descripcion || item.fechaLimite || item.fechaSesion || item.tipo || ""}`;
+        }).join("\n");
+        respuestaTexto = `Estimado(a) usuario(a):\n\nConforme a los registros del sistema, se localizó la siguiente información institucional:\n\n${listaFormateada}\n\n*Fuente: Base de Datos SISAT-ATP (${toolName})*`;
+      } else if (toolResult.mensaje) {
+        respuestaTexto = `Estimado(a) usuario(a):\n\n${toolResult.mensaje}`;
+      } else if (toolResult.data && typeof toolResult.data === "object" && Object.keys(toolResult.data).length > 0) {
+        const campos = Object.entries(toolResult.data)
+          .filter(([k]) => k !== "fuentes" && k !== "huboFuentes")
+          .map(([k, v]) => `- **${k}**: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+          .join("\n");
+        respuestaTexto = `Estimado(a) usuario(a):\n\nConforme a los registros institucionales:\n\n${campos}\n\n*Fuente: Base de Datos SISAT-ATP (${toolName})*`;
+      } else {
+        respuestaTexto = "Estimado(a) usuario(a):\n\nNo se encontraron registros activos o pendientes para los criterios consultados en la base de datos de la Supervisión.";
+      }
     }
   } else {
     // Si Gemini no llamó a ninguna herramienta, tomar el texto directo
     const textParts = modelParts.filter((p: any) => p.text);
     respuestaTexto = textParts.map((p: any) => p.text).join("\n").trim();
+    if (!respuestaTexto && rawGeminiResponse?.choices?.[0]?.message?.content) {
+      respuestaTexto = rawGeminiResponse.choices[0].message.content;
+    }
   }
 
   // 7. Aplicar el Sanitizer estricto para evitar cualquier fuga de CURP o RFC
@@ -233,7 +278,7 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
 }
 
 /**
- * Llamada HTTP directa a la API v1beta de Google Gemini con soporte de Tools.
+ * Llamada HTTP directa a la API v1beta de Google Gemini con soporte de Tools y cascada de modelos.
  */
 async function callGeminiApiDirect(
   apiKey: string,
@@ -241,32 +286,101 @@ async function callGeminiApiDirect(
   contents: any[],
   tools?: any[]
 ): Promise<any> {
-  const model = "gemini-3.5-flash-lite";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const candidateModels = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-lite-latest"
+  ];
 
-  const body = {
-    contents,
-    systemInstruction: systemInstruction ? {
-      parts: [{ text: systemInstruction }]
-    } : undefined,
-    tools: tools && tools.length > 0 ? tools : undefined,
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 4096
+  let lastError: any = null;
+
+  for (const model of candidateModels) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const body = {
+      contents,
+      systemInstruction: systemInstruction ? {
+        parts: [{ text: systemInstruction }]
+      } : undefined,
+      tools: tools && tools.length > 0 ? tools : undefined,
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 4096
+      }
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000)
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      const errText = await response.text();
+      // Si el modelo específico arrojó 404 (no disponible) o 503 (sobrecarga temporal de ese modelo), intentar el siguiente modelo
+      if (response.status === 404 || response.status === 503) {
+        lastError = new Error(`Gemini API Error (${response.status}): ${errText}`);
+        continue;
+      }
+
+      // Si es 401 (llave inválida) o 429 (cuota de la cuenta agotada), propagar de inmediato para cambiar de llave
+      throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+    } catch (fetchErr: any) {
+      if (fetchErr.message.includes("(401)") || fetchErr.message.includes("(429)")) {
+        throw fetchErr;
+      }
+      lastError = fetchErr;
     }
-  };
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(45000)
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API Error (${response.status}): ${errText}`);
   }
 
-  return await response.json();
+  throw lastError || new Error("No se pudo conectar con los modelos de Gemini disponibles.");
+}
+
+/**
+ * Fallback a OpenRouter si todos los endpoints nativos de Gemini fallan.
+ */
+async function callOpenRouterCompatible(
+  apiKey: string,
+  systemInstruction: string,
+  contents: any[]
+): Promise<any> {
+  const messages: any[] = [];
+  if (systemInstruction) {
+    messages.push({ role: "system", content: systemInstruction });
+  }
+
+  for (const c of contents) {
+    const role = c.role === "model" ? "assistant" : c.role === "user" ? "user" : "user";
+    const text = c.parts?.map((p: any) => p.text || JSON.stringify(p)).join("\n") || "";
+    if (text) {
+      messages.push({ role, content: text });
+    }
+  }
+
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages,
+      temperature: 0.2
+    }),
+    signal: AbortSignal.timeout(30000)
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`OpenRouter Error (${res.status}): ${text}`);
+  }
+
+  const json = await res.json();
+  return json;
 }
