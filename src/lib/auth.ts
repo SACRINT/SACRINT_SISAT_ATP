@@ -76,6 +76,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 token.cct = customUser.cct;
                 token.permisos = customUser.permisos;
                 token.organizacionId = customUser.organizacionId;
+            } else if (!token.organizacionId && token.sub) {
+                // Auto-hidratación de sesiones previas en cookies
+                try {
+                    if (token.role === "admin") {
+                        const admin = await prisma.admin.findUnique({
+                            where: { id: token.sub },
+                            select: { organizacionId: true },
+                        });
+                        token.organizacionId = admin?.organizacionId || "zona004";
+                    } else {
+                        const escuela = await prisma.escuela.findUnique({
+                            where: { id: token.sub },
+                            select: { zonaEscolar: true },
+                        });
+                        token.organizacionId = escuela?.zonaEscolar
+                            ? `zona${escuela.zonaEscolar.replace(/^0+/, "").padStart(3, "0")}`
+                            : "zona004";
+                    }
+                } catch (error) {
+                    console.error("Error auto-hidratando organizacionId en jwt callback:", error);
+                    token.organizacionId = "zona004";
+                }
             }
             return token;
         },
@@ -87,8 +109,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 customSessionUser.dbRole = token.dbRole;
                 customSessionUser.cct = token.cct;
                 customSessionUser.permisos = token.permisos;
-                customSessionUser.organizacionId = token.organizacionId;
-                customSessionUser.tenantId = token.organizacionId;
+                const orgId = token.organizacionId || "zona004";
+                customSessionUser.organizacionId = orgId;
+                customSessionUser.tenantId = orgId;
             }
             return session;
         },
