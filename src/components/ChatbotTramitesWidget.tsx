@@ -32,6 +32,155 @@ const PREGUNTAS_SUGERIDAS = [
   "¿Qué requisitos exige la Circular 03?"
 ];
 
+const cleanTextForAudio = (str: string) => {
+  return str
+    .replace(/[*_#`~>]/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/•/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+function FormateadorTextoChat({ texto }: { texto: string }) {
+  if (!texto) return null;
+
+  const lineas = texto.split("\n");
+  const bloques: Array<{ tipo: "parrafo" | "lista" | "encabezado"; contenido: string | string[] }> = [];
+  let listaActual: string[] = [];
+
+  const flushLista = () => {
+    if (listaActual.length > 0) {
+      bloques.push({ tipo: "lista", contenido: [...listaActual] });
+      listaActual = [];
+    }
+  };
+
+  for (let i = 0; i < lineas.length; i++) {
+    const rawLinea = lineas[i];
+    const linea = rawLinea.trim();
+
+    if (!linea) {
+      flushLista();
+      continue;
+    }
+
+    const matchPunto = /^[•\-\*]\s+(.*)$/.exec(linea);
+    const matchNumero = /^(\d+[\.\)])\s+(.*)$/.exec(linea);
+
+    if (matchPunto) {
+      listaActual.push(matchPunto[1]);
+    } else if (matchNumero) {
+      listaActual.push(`${matchNumero[1]} ${matchNumero[2]}`);
+    } else if (linea.startsWith("#")) {
+      flushLista();
+      const encabezado = linea.replace(/^#+\s*/, "");
+      bloques.push({ tipo: "encabezado", contenido: encabezado });
+    } else {
+      flushLista();
+      bloques.push({ tipo: "parrafo", contenido: linea });
+    }
+  }
+
+  flushLista();
+
+  const renderizarLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s\)]+)/g;
+    const partes = text.split(urlRegex);
+    return partes.map((parte, idx) => {
+      if (parte.match(urlRegex)) {
+        return (
+          <a
+            key={idx}
+            href={parte}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "#60a5fa",
+              textDecoration: "underline",
+              wordBreak: "break-all",
+              fontWeight: 500
+            }}
+          >
+            {parte}
+          </a>
+        );
+      }
+      return parte;
+    });
+  };
+
+  const renderTextoEnLinea = (str: string) => {
+    const sinAsteriscos = str
+      .replace(/\*\*\*([^\*\n]+)\*\*\*/g, "$1")
+      .replace(/\*\*([^\*\n]+)\*\*/g, "$1")
+      .replace(/__([^_\n]+)__/g, "$1")
+      .replace(/\*([^\*\n]+)\*/g, "$1")
+      .replace(/_([^_\n]+)_/g, "$1")
+      .replace(/\*+/g, "");
+
+    const matchClaveValor = /^([^:]{2,45}:\s*)(.*)$/.exec(sinAsteriscos);
+    if (matchClaveValor && !sinAsteriscos.startsWith("http") && !sinAsteriscos.startsWith("Estimado") && !sinAsteriscos.startsWith("Conforme") && !sinAsteriscos.startsWith("Saludos")) {
+      return (
+        <span>
+          <strong style={{ fontWeight: 600, color: "#f8fafc" }}>{matchClaveValor[1]}</strong>
+          <span>{renderizarLinks(matchClaveValor[2])}</span>
+        </span>
+      );
+    }
+
+    return renderizarLinks(sinAsteriscos);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+      {bloques.map((b, idx) => {
+        if (b.tipo === "encabezado") {
+          return (
+            <div
+              key={idx}
+              style={{
+                fontWeight: 700,
+                color: "#93c5fd",
+                fontSize: "0.875rem",
+                marginTop: "0.3rem",
+                marginBottom: "0.1rem"
+              }}
+            >
+              {renderTextoEnLinea(b.contenido as string)}
+            </div>
+          );
+        }
+        if (b.tipo === "lista") {
+          return (
+            <ul
+              key={idx}
+              style={{
+                margin: "0.15rem 0",
+                paddingLeft: "1.2rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.35rem",
+                listStyleType: "disc"
+              }}
+            >
+              {(b.contenido as string[]).map((item, itemIdx) => (
+                <li key={itemIdx} style={{ lineHeight: 1.5 }}>
+                  {renderTextoEnLinea(item)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <p key={idx} style={{ margin: 0, lineHeight: 1.55 }}>
+            {renderTextoEnLinea(b.contenido as string)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function TTSControls({ text }: { text: string }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -60,7 +209,8 @@ function TTSControls({ text }: { text: string }) {
     
     // Necesitamos esperar un momento para que el navegador procese el cancel()
     setTimeout(() => {
-      const remainingText = text.substring(startPos);
+      const textoLimpio = cleanTextForAudio(text);
+      const remainingText = textoLimpio.substring(startPos);
       if (!remainingText.trim()) {
         setIsPlaying(false);
         setIsPaused(false);
@@ -85,7 +235,6 @@ function TTSControls({ text }: { text: string }) {
       
       utterance.onerror = (e) => { 
         console.error("TTS error:", e);
-        // Algunos navegadores disparan un error si se interrumpe
         if (e.error !== 'interrupted' && e.error !== 'canceled') {
           setIsPlaying(false); 
           setIsPaused(false); 
@@ -200,7 +349,7 @@ export default function ChatbotTramitesWidget({ escuelaId }: { escuelaId?: strin
   const [historial, setHistorial] = useState<ChatMensajeTramite[]>([
     {
       role: "assistant",
-      content: "👋 ¡Hola! Soy el **Asistente Virtual de Trámites y Normativa SEP** de la Supervisión Escolar.\n\nPuedes preguntarme a cualquier hora sobre fechas del PAEC/PEC, formatos CAPEMS, rúbricas USICAMM o circulares oficiales. ¿En qué te puedo ayudar hoy?"
+      content: "👋 ¡Hola! Soy el Asistente Virtual de Trámites y Normativa SEP de la Supervisión Escolar.\n\nPuedes preguntarme a cualquier hora sobre fechas del PAEC/PEC, formatos CAPEMS, rúbricas USICAMM o circulares oficiales. ¿En qué te puedo ayudar hoy?"
     }
   ]);
 
@@ -388,11 +537,10 @@ export default function ChatbotTramitesWidget({ escuelaId }: { escuelaId?: strin
                     color: "#ffffff",
                     fontSize: "0.8125rem",
                     lineHeight: 1.5,
-                    border: msg.role === "user" ? "none" : "1px solid #334155",
-                    whiteSpace: "pre-wrap"
+                    border: msg.role === "user" ? "none" : "1px solid #334155"
                   }}
                 >
-                  {msg.content}
+                  <FormateadorTextoChat texto={msg.content} />
                 </div>
 
                 {msg.role === "assistant" && (

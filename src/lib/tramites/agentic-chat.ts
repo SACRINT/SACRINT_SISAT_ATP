@@ -65,8 +65,15 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
 
 3. ESTILO DE COMUNICACIÓN INSTITUCIONAL:
    - Responde siempre en un tono profesional, cortés e institucional ("Estimado(a) Director(a)..." o "Estimada Supervisión...").
-   - Utiliza viñetas y tablas limpias para presentar cifras y listas.
-   - Al final de tu respuesta cita las fuentes o módulos consultados.`;
+   - Redacta de forma clara y ejecutiva.
+   - Al final de tu respuesta cita las fuentes o módulos consultados.
+
+4. REGLAS ESTRICTAS DE FORMATO Y PRESENTACIÓN VISUAL (TEXTO NORMAL):
+   - Redacta estrictamente en formato de texto normal, limpio y legible.
+   - PROHIBIDO EL USO DE ASTERISCOS: NO utilices asteriscos (** ni *) para poner negritas o cursivas.
+   - Para estructurar títulos o destacar conceptos, escribe el nombre del campo seguido de dos puntos (ejemplo: "Fecha límite: 26 de octubre de 2026").
+   - Para listar elementos, utiliza viñetas estándar con punto limpio (• ) o numeración ordenada (1., 2., 3.) con separación clara entre renglones.
+   - NO utilices símbolos de encabezados markdown (#, ##, ###). Escribe los títulos en un renglón propio con mayúsculas iniciales.`;
 
   if (moduloConfig?.systemInstruction) {
     systemInstruction += `\n\nCONTEXTO ESPECIALIZADO DEL MÓDULO (${moduloConfig.nombreVisible || moduloConfig.moduloId}):\n${moduloConfig.systemInstruction}`;
@@ -242,17 +249,19 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
         respuestaTexto = toolResult.data.respuesta;
       } else if (toolResult.data && Array.isArray(toolResult.data) && toolResult.data.length > 0) {
         const listaFormateada = toolResult.data.map((item: any) => {
-          return `- **${item.titulo || item.asunto || item.nombre || item.numeroOficio || "Elemento"}**: ${item.descripcion || item.fechaLimite || item.fechaSesion || item.tipo || ""}`;
+          const itemTitulo = item.titulo || item.asunto || item.nombre || item.numeroOficio || "Elemento";
+          const itemDetalle = item.descripcion || item.fechaLimite || item.fechaSesion || item.tipo || "";
+          return itemDetalle ? `• ${itemTitulo}: ${itemDetalle}` : `• ${itemTitulo}`;
         }).join("\n");
-        respuestaTexto = `Estimado(a) usuario(a):\n\nConforme a los registros del sistema, se localizó la siguiente información institucional:\n\n${listaFormateada}\n\n*Fuente: Base de Datos SISAT-ATP (${toolName})*`;
+        respuestaTexto = `Estimado(a) usuario(a):\n\nConforme a los registros del sistema, se localizó la siguiente información institucional:\n\n${listaFormateada}\n\nFuente: Base de Datos SISAT-ATP (${toolName})`;
       } else if (toolResult.mensaje) {
         respuestaTexto = `Estimado(a) usuario(a):\n\n${toolResult.mensaje}`;
       } else if (toolResult.data && typeof toolResult.data === "object" && Object.keys(toolResult.data).length > 0) {
         const campos = Object.entries(toolResult.data)
           .filter(([k]) => k !== "fuentes" && k !== "huboFuentes")
-          .map(([k, v]) => `- **${k}**: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+          .map(([k, v]) => `• ${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
           .join("\n");
-        respuestaTexto = `Estimado(a) usuario(a):\n\nConforme a los registros institucionales:\n\n${campos}\n\n*Fuente: Base de Datos SISAT-ATP (${toolName})*`;
+        respuestaTexto = `Estimado(a) usuario(a):\n\nConforme a los registros institucionales:\n\n${campos}\n\nFuente: Base de Datos SISAT-ATP (${toolName})`;
       } else {
         respuestaTexto = "Estimado(a) usuario(a):\n\nNo se encontraron registros activos o pendientes para los criterios consultados en la base de datos de la Supervisión.";
       }

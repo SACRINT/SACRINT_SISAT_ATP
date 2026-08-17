@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { callGemini } from "@/lib/gemini";
+import { sanitizeOutput } from "./sanitizer";
 
 export interface FuenteOficial {
   id: string;
@@ -293,7 +294,7 @@ Proporciona la respuesta institucional basada en las normativas anteriores sigui
     }));
 
     return {
-      respuesta: respuestaIA,
+      respuesta: sanitizeOutput(respuestaIA),
       fuentes: fuentesOficiales,
       huboFuentes: mejoresDocs.length > 0
     };

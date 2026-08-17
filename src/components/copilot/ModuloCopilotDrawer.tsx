@@ -41,6 +41,128 @@ interface Mensaje {
   herramientasEjecutadas?: string[];
 }
 
+function FormateadorTextoCopilot({ texto }: { texto: string }) {
+  if (!texto) return null;
+
+  const lineas = texto.split("\n");
+  const bloques: Array<{ tipo: "parrafo" | "lista" | "encabezado"; contenido: string | string[] }> = [];
+  let listaActual: string[] = [];
+
+  const flushLista = () => {
+    if (listaActual.length > 0) {
+      bloques.push({ tipo: "lista", contenido: [...listaActual] });
+      listaActual = [];
+    }
+  };
+
+  for (let i = 0; i < lineas.length; i++) {
+    const rawLinea = lineas[i];
+    const linea = rawLinea.trim();
+
+    if (!linea) {
+      flushLista();
+      continue;
+    }
+
+    const matchPunto = /^[•\-\*]\s+(.*)$/.exec(linea);
+    const matchNumero = /^(\d+[\.\)])\s+(.*)$/.exec(linea);
+
+    if (matchPunto) {
+      listaActual.push(matchPunto[1]);
+    } else if (matchNumero) {
+      listaActual.push(`${matchNumero[1]} ${matchNumero[2]}`);
+    } else if (linea.startsWith("#")) {
+      flushLista();
+      const encabezado = linea.replace(/^#+\s*/, "");
+      bloques.push({ tipo: "encabezado", contenido: encabezado });
+    } else {
+      flushLista();
+      bloques.push({ tipo: "parrafo", contenido: linea });
+    }
+  }
+
+  flushLista();
+
+  const renderizarLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s\)]+)/g;
+    const partes = text.split(urlRegex);
+    return partes.map((parte, idx) => {
+      if (parte.match(urlRegex)) {
+        return (
+          <a
+            key={idx}
+            href={parte}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-indigo-400 hover:text-indigo-300 underline break-all font-medium"
+          >
+            {parte}
+          </a>
+        );
+      }
+      return parte;
+    });
+  };
+
+  const renderTextoEnLinea = (str: string) => {
+    const sinAsteriscos = str
+      .replace(/\*\*\*([^\*\n]+)\*\*\*/g, "$1")
+      .replace(/\*\*([^\*\n]+)\*\*/g, "$1")
+      .replace(/__([^_\n]+)__/g, "$1")
+      .replace(/\*([^\*\n]+)\*/g, "$1")
+      .replace(/_([^_\n]+)_/g, "$1")
+      .replace(/\*+/g, "");
+
+    const matchClaveValor = /^([^:]{2,45}:\s*)(.*)$/.exec(sinAsteriscos);
+    if (matchClaveValor && !sinAsteriscos.startsWith("http") && !sinAsteriscos.startsWith("Estimado") && !sinAsteriscos.startsWith("Conforme") && !sinAsteriscos.startsWith("Saludos")) {
+      return (
+        <span>
+          <strong className="font-semibold text-slate-100">{matchClaveValor[1]}</strong>
+          <span>{renderizarLinks(matchClaveValor[2])}</span>
+        </span>
+      );
+    }
+
+    return renderizarLinks(sinAsteriscos);
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {bloques.map((b, idx) => {
+        if (b.tipo === "encabezado") {
+          return (
+            <div
+              key={idx}
+              className="font-bold text-indigo-300 text-xs sm:text-sm mt-1 mb-0.5"
+            >
+              {renderTextoEnLinea(b.contenido as string)}
+            </div>
+          );
+        }
+        if (b.tipo === "lista") {
+          return (
+            <ul
+              key={idx}
+              className="my-0.5 pl-4 flex flex-col gap-1.5 list-disc"
+            >
+              {(b.contenido as string[]).map((item, itemIdx) => (
+                <li key={itemIdx} className="leading-relaxed">
+                  {renderTextoEnLinea(item)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <p key={idx} className="m-0 leading-relaxed">
+            {renderTextoEnLinea(b.contenido as string)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ModuloCopilotDrawer({
   modulo,
   titulo,
@@ -228,8 +350,8 @@ export default function ModuloCopilotDrawer({
                         : "bg-slate-800/90 text-slate-200 border border-slate-700/60 rounded-bl-none"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap leading-relaxed font-sans text-xs sm:text-sm">
-                      {m.content}
+                    <div className="font-sans text-xs sm:text-sm">
+                      <FormateadorTextoCopilot texto={m.content} />
                     </div>
 
                     {/* Acciones para mensajes del Asistente */}
