@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/vigilancia/alertas
  * Obtiene la lista de alertas activas para el usuario en sesión.
- * - Directores: Solo ven alertas de su escuela o generales de zona.
+ * - Directores: Solo ven alertas de su propia escuela.
  * - Supervisión / Admin: Ven todas las alertas de la zona.
  */
 export async function GET(req: NextRequest) {
@@ -35,10 +35,7 @@ export async function GET(req: NextRequest) {
     };
 
     if (userRole === "director") {
-      whereClause.OR = [
-        { escuelaId: user.id },
-        { escuelaId: null },
-      ];
+      whereClause.escuelaId = user.id;
     }
 
     if (soloNoLeidas) {

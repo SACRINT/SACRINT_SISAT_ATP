@@ -81,7 +81,7 @@ export default async function DirectorPage() {
 
     // Group entregas by programa
     const programasMap: Record<string, {
-        programa: { id: string; nombre: string; numArchivos: number; tipo: string; etiquetasArchivos?: string[]; activo?: boolean; visibleEnDirector?: boolean; quienesPuedenSubir?: string[] };
+        programa: { id: string; nombre: string; numArchivos: number; tipo: string; etiquetasArchivos?: string[]; activo?: boolean; visibleEnDirector?: boolean; esParaSupervision?: boolean; quienesPuedenSubir?: string[] };
         entregas: typeof entregas;
     }> = {};
 
@@ -98,6 +98,7 @@ export default async function DirectorPage() {
                     etiquetasArchivos: (prog.etiquetasArchivos as string[]) || [],
                     activo: (prog as any).activo ?? true,
                     visibleEnDirector: (prog as any).visibleEnDirector ?? true,
+                    esParaSupervision: (prog as any).esParaSupervision ?? false,
                     quienesPuedenSubir: (prog as any).quienesPuedenSubir || ["director"]
                 },
                 entregas: [],
@@ -115,10 +116,12 @@ export default async function DirectorPage() {
         : (configGlobal?.activoGlobalHorarios ?? true) && permisosEscuela.horariosDesactivado !== true;
     const programasInactivos: string[] = permisosEscuela.programasInactivos || [];
 
-    // Filtrar programas inactivos para esta escuela o si está marcado como oculto al director
+    // Filtrar programas inactivos para esta escuela o si está marcado como oculto al director / exclusivo de supervisión
     const programasFiltrados = Object.values(programasMap).filter(
         (p) => !programasInactivos.includes(p.programa.id) &&
-               p.programa.visibleEnDirector !== false
+               p.programa.visibleEnDirector !== false &&
+               p.programa.esParaSupervision !== true &&
+               (p.programa.quienesPuedenSubir || ["director"]).includes("director")
     );
 
     // Fetch configs globales para los tabs
