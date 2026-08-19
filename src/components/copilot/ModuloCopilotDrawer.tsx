@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   X,
@@ -172,12 +173,27 @@ export default function ModuloCopilotDrawer({
   accionesSugeridas = [],
   onInsertarTexto
 }: ModuloCopilotDrawerProps) {
+  const [mounted, setMounted] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [inputTexto, setInputTexto] = useState("");
   const [cargando, setCargando] = useState(false);
   const [copiadoIdx, setCopiadoIdx] = useState<number | null>(null);
   const [expandido, setExpandido] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Cargar mensaje de bienvenida contextual cuando se abre
   useEffect(() => {
@@ -267,16 +283,27 @@ export default function ModuloCopilotDrawer({
     setTimeout(() => setCopiadoIdx(null), 2500);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/40 backdrop-blur-sm transition-opacity">
-      <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
-        <div
-          className={`w-screen bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col transition-all duration-300 ${
-            expandido ? "max-w-3xl" : "max-w-lg"
-          }`}
-        >
+  const content = (
+    <div
+      className="drawer-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="copilot-drawer-title"
+    >
+      <div
+        className="drawer-panel"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: expandido ? "760px" : "480px",
+          background: "#0f172a",
+          color: "#ffffff",
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          transition: "max-width 0.3s ease",
+        }}
+      >
           {/* Header */}
           <div className="p-4 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -438,8 +465,9 @@ export default function ModuloCopilotDrawer({
               <span>Zero-Trust | Datos PII protegidos conforme a la Regla 7</span>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }

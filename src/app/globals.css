@@ -959,4 +959,82 @@ h3 {
   z-index: 1;
   background: var(--bg);
   box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
-}
+}
+
+/* ==========================================================================
+   DRAWER & ALERTS DESIGN SYSTEM (Vigilancia & Copilot)
+   ========================================================================== */
+
+@keyframes drawerFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes drawerSlideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulseAlertaCritica {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 99999;
+  display: flex;
+  justify-content: flex-end;
+  animation: drawerFadeIn 0.2s ease-out;
+}
+
+.drawer-panel {
+  width: 100%;
+  max-width: 480px;
+  height: 100vh;
+  background: #ffffff;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: drawerSlideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.alerta-badge-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary, #f1f5f9);
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  height: 36px;
+}
+
+.alerta-badge-btn:hover {
+  background: var(--border, #e2e8f0);
+  color: var(--text);
+}
+
+.alerta-badge-btn.has-critica {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  animation: pulseAlertaCritica 2s infinite ease-in-out;
+}
+
+.alerta-badge-btn.has-warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #d97706;
+}
+

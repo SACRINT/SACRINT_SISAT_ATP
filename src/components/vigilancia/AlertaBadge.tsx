@@ -21,7 +21,7 @@ export default function AlertaBadge({ className = "" }: AlertaBadgeProps) {
         setTotalNoLeidas(data.totalNoLeidas || 0);
         setTotalCriticas(data.totalCriticas || 0);
       }
-    } catch (err) {
+    } catch {
       // Silencioso para no romper UI
     }
   }, []);
@@ -41,25 +41,46 @@ export default function AlertaBadge({ className = "" }: AlertaBadgeProps) {
   const hasCriticas = totalCriticas > 0;
   const hasNoLeidas = totalNoLeidas > 0;
 
+  const getButtonClass = () => {
+    if (hasCriticas) return "alerta-badge-btn has-critica";
+    if (hasNoLeidas) return "alerta-badge-btn has-warning";
+    return "alerta-badge-btn";
+  };
+
   return (
     <>
       <button
         onClick={() => setDrawerOpen(true)}
-        className={`relative p-2 rounded-xl border transition-all flex items-center justify-center ${
-          hasCriticas
-            ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 animate-pulse"
-            : hasNoLeidas
-            ? "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
-            : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
-        } ${className}`}
-        title={`Centro de Alertas (${totalNoLeidas} pendientes)`}
+        className={`${getButtonClass()} ${className}`}
+        title={`Centro de Alertas (${totalNoLeidas} no leídas, ${totalCriticas} críticas)`}
+        aria-label="Abrir Centro de Alertas"
+        style={{
+          outline: "none",
+          flexShrink: 0,
+        }}
       >
-        <Bell className="w-4 h-4" />
+        <Bell size={16} />
         {hasNoLeidas && (
           <span
-            className={`absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-sm ${
-              hasCriticas ? "bg-red-600" : "bg-amber-500"
-            }`}
+            style={{
+              position: "absolute",
+              top: "-5px",
+              right: "-5px",
+              backgroundColor: hasCriticas ? "#dc2626" : "#d97706",
+              color: "#ffffff",
+              fontSize: "0.625rem",
+              fontWeight: 700,
+              minWidth: "18px",
+              height: "18px",
+              borderRadius: "999px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 4px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+              border: "2px solid #ffffff",
+              lineHeight: 1,
+            }}
           >
             {totalNoLeidas > 99 ? "99+" : totalNoLeidas}
           </span>
