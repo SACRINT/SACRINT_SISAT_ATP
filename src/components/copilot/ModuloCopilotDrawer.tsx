@@ -25,7 +25,7 @@ export interface AccionSugerida {
 }
 
 export interface ModuloCopilotDrawerProps {
-  modulo: "oficios" | "estadistica_911" | "usicamm";
+  modulo: "oficios" | "estadistica_911" | "usicamm" | "expedientes_personal";
   titulo: string;
   subtitulo?: string;
   isOpen: boolean;
@@ -189,6 +189,8 @@ export default function ModuloCopilotDrawer({
         bienvenida = "¡Hola! Soy tu Copiloto de Estadística 911. Puedo auditar la coherencia aritmética de tu matrícula (H+M = Total), revisar alumnos por grupo y comparar cortes estadísticos.";
       } else if (modulo === "usicamm") {
         bienvenida = "¡Hola! Soy tu Copiloto de USICAMM. Puedo orientarte sobre los requisitos de promoción vertical/horizontal, horas adicionales, fechas en plataforma Venus y normativas aplicables.";
+      } else if (modulo === "expedientes_personal") {
+        bienvenida = "¡Hola! Soy tu Copiloto de Expedientes de Personal. Puedo informarte sobre la plantilla de docentes, directivos y administrativos, auditar la integración de los 10 documentos obligatorios e identificar faltantes.";
       } else {
         bienvenida = "¡Hola! Soy tu Asistente Inteligente especializado en este módulo. ¿En qué puedo apoyarte hoy?";
       }

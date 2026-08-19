@@ -1,7 +1,17 @@
 import { prisma } from "@/lib/db";
 import { getInstitucion } from "@/lib/institucion";
 import { responderConsultaNormativa } from "./rag-engine";
+import { DOCUMENTOS_PREDETERMINADOS } from "@/lib/constants";
 import type { CriticidadOficio, TipoFaseCte } from "@prisma/client";
+
+function countCompleteDocs(documentos: any[]): number {
+  const uploadedOrNotOwnedTypes = new Set(
+    documentos
+      .filter((d: any) => d.archivoDriveUrl || d.noTiene)
+      .map((d: any) => d.tipoDocumento)
+  );
+  return DOCUMENTOS_PREDETERMINADOS.filter(dp => uploadedOrNotOwnedTypes.has(dp.tipo)).length;
+}
 
 export interface AgentSessionContext {
   userId: string;
@@ -181,6 +191,33 @@ export const AGENT_TOOLS_DECLARATIONS = [
         }
       },
       required: ["proceso"]
+    }
+  },
+  {
+    name: "consultarExpedientesPersonal",
+    description: "Consulta los expedientes de personal y la plantilla laboral registrada en la plataforma (docentes, directivos/responsables, administrativos y personal de apoyo), cantidad de empleados y estado de integración de documentos obligatorios. Para directores consulta únicamente su plantel; para supervisores/admin consulta el consolidado zonal o por escuela específica.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        cargo: {
+          type: "STRING",
+          enum: ["DOCENTE", "RESPONSABLE", "ADMINISTRATIVO", "APOYO"],
+          description: "Filtro opcional por tipo de cargo o función."
+        },
+        cct: {
+          type: "STRING",
+          description: "CCT de la escuela a consultar (ej. '21EBH0088T'). Si se omite y el usuario es Admin/Supervisión, devuelve el consolidado zonal."
+        },
+        nombreEscuela: {
+          type: "STRING",
+          description: "Nombre o fragmento del nombre de la escuela a consultar (ej. 'Vasconcelos', 'Zapata')."
+        },
+        estadoExpediente: {
+          type: "STRING",
+          enum: ["COMPLETO", "INCOMPLETO"],
+          description: "Filtrar por expedientes completos (10 de 10 documentos) o incompletos."
+        }
+      }
     }
   }
 ];
@@ -827,6 +864,203 @@ ${inst.supervisor ? inst.supervisor.toUpperCase() : "SUPERVISIÓN ESCOLAR / DIRE
         break;
       }
 
+      case "consultarExpedientesPersonal": {
+        const { cargo, cct, nombreEscuela, estadoExpediente } = args || {};
+
+        if (context.role === "director") {
+          // Vista aislada para Director (solo su propio plantel)
+          const escuela = await prisma.escuela.findUnique({
+            where: { id: context.escuelaId || context.userId },
+            include: {
+              personal: {
+                where: {
+                  ...(cargo ? { cargo: cargo.toUpperCase() } : {})
+                },
+                include: { documentos: true },
+                orderBy: [{ orden: "asc" }, { apellidoPaterno: "asc" }]
+              }
+            }
+          });
+
+          if (!escuela) {
+            result = {
+              toolName,
+              autorizada: true,
+              mensaje: "No se localizó información del plantel para el usuario actual.",
+              data: { total: 0, personal: [] },
+              filasRetornadas: 0
+            };
+            break;
+          }
+
+          const lista = escuela.personal.map(p => {
+            const docsCount = countCompleteDocs(p.documentos);
+            const esCompleto = docsCount >= DOCUMENTOS_PREDETERMINADOS.length;
+            const faltantes = DOCUMENTOS_PREDETERMINADOS
+              .filter(dp => !p.documentos.some(d => (d.tipoDocumento === dp.tipo) && (d.archivoDriveUrl || d.noTiene)))
+              .map(dp => dp.label);
+
+            return {
+              nombreCompleto: `${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno}`,
+              cargo: p.cargo,
+              sexo: p.sexo,
+              gradoAcademico: p.gradoAcademico || "No especificado",
+              horasOficiales: p.horasOficiales,
+              documentosIntegrados: `${docsCount}/${DOCUMENTOS_PREDETERMINADOS.length}`,
+              estadoExpediente: esCompleto ? "COMPLETO" : "INCOMPLETO",
+              documentosFaltantes: faltantes.length > 0 ? faltantes : ["Ninguno (Expediente Completo)"]
+            };
+          });
+
+          const filtrados = estadoExpediente
+            ? lista.filter(p => p.estadoExpediente === estadoExpediente.toUpperCase())
+            : lista;
+
+          const totalPersonalPlantel = escuela.personal.length;
+          const completosPlantel = escuela.personal.filter(p => countCompleteDocs(p.documentos) >= DOCUMENTOS_PREDETERMINADOS.length).length;
+
+          result = {
+            toolName,
+            autorizada: true,
+            data: {
+              plantel: escuela.nombre,
+              cct: escuela.cct,
+              totalPersonalRegistrado: totalPersonalPlantel,
+              desglosePorCargo: {
+                docentes: escuela.personal.filter(p => p.cargo === "DOCENTE").length,
+                responsables: escuela.personal.filter(p => p.cargo === "RESPONSABLE").length,
+                administrativos: escuela.personal.filter(p => p.cargo === "ADMINISTRATIVO").length,
+                apoyo: escuela.personal.filter(p => p.cargo === "APOYO").length
+              },
+              expedientesCompletos: `${completosPlantel}/${totalPersonalPlantel}`,
+              porcentajeCompletitud: totalPersonalPlantel > 0 ? `${Math.round((completosPlantel / totalPersonalPlantel) * 100)}%` : "N/A",
+              detallePersonal: filtrados
+            },
+            filasRetornadas: filtrados.length
+          };
+        } else {
+          // Vista Supervisión / Administrador
+          const escuelaWhere: any = {
+            esDePrueba: false // REGLA: Nunca contar la escuela de prueba
+          };
+
+          if (cct) {
+            escuelaWhere.cct = { contains: cct.trim().toUpperCase() };
+          } else if (nombreEscuela) {
+            escuelaWhere.nombre = { contains: nombreEscuela.trim(), mode: "insensitive" };
+          }
+
+          const escuelas = await prisma.escuela.findMany({
+            where: escuelaWhere,
+            include: {
+              personal: {
+                where: {
+                  ...(cargo ? { cargo: cargo.toUpperCase() } : {})
+                },
+                include: { documentos: true },
+                orderBy: [{ orden: "asc" }, { apellidoPaterno: "asc" }]
+              }
+            },
+            orderBy: { nombre: "asc" }
+          });
+
+          const escuelasRegulares = escuelas.filter(e => !e.esSupervision);
+          const escuelaSupervision = escuelas.find(e => e.esSupervision);
+
+          let totalPersonalZona = 0;
+          let totalDocentesZona = 0;
+          let totalResponsablesZona = 0;
+          let totalAdminZona = 0;
+          let totalApoyoZona = 0;
+          let totalCompletosZona = 0;
+
+          const desgloseEscuelas = escuelasRegulares.map(esc => {
+            const total = esc.personal.length;
+            const docentes = esc.personal.filter(p => p.cargo === "DOCENTE").length;
+            const resp = esc.personal.filter(p => p.cargo === "RESPONSABLE").length;
+            const adm = esc.personal.filter(p => p.cargo === "ADMINISTRATIVO").length;
+            const apo = esc.personal.filter(p => p.cargo === "APOYO").length;
+            const completos = esc.personal.filter(p => countCompleteDocs(p.documentos) >= DOCUMENTOS_PREDETERMINADOS.length).length;
+
+            totalPersonalZona += total;
+            totalDocentesZona += docentes;
+            totalResponsablesZona += resp;
+            totalAdminZona += adm;
+            totalApoyoZona += apo;
+            totalCompletosZona += completos;
+
+            return {
+              escuela: esc.nombre,
+              cct: esc.cct,
+              totalPersonal: total,
+              docentes,
+              responsables: resp,
+              administrativos: adm,
+              apoyo: apo,
+              expedientesCompletos: `${completos}/${total}`,
+              porcentajeCompletitud: total > 0 ? `${Math.round((completos / total) * 100)}%` : "N/A"
+            };
+          });
+
+          // Si se filtró una sola escuela específica, incluir detalle nominal sin datos sensibles
+          let detallePersonalEscuela: any[] | undefined = undefined;
+          if ((cct || nombreEscuela) && escuelas.length === 1) {
+            const escUnica = escuelas[0];
+            detallePersonalEscuela = escUnica.personal.map(p => {
+              const docsCount = countCompleteDocs(p.documentos);
+              const esCompleto = docsCount >= DOCUMENTOS_PREDETERMINADOS.length;
+              const faltantes = DOCUMENTOS_PREDETERMINADOS
+                .filter(dp => !p.documentos.some(d => (d.tipoDocumento === dp.tipo) && (d.archivoDriveUrl || d.noTiene)))
+                .map(dp => dp.label);
+
+              return {
+                nombreCompleto: `${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno}`,
+                cargo: p.cargo,
+                sexo: p.sexo,
+                gradoAcademico: p.gradoAcademico || "No especificado",
+                horasOficiales: p.horasOficiales,
+                documentosIntegrados: `${docsCount}/${DOCUMENTOS_PREDETERMINADOS.length}`,
+                estadoExpediente: esCompleto ? "COMPLETO" : "INCOMPLETO",
+                documentosFaltantes: faltantes.length > 0 ? faltantes : ["Ninguno (Expediente Completo)"]
+              };
+            });
+
+            if (estadoExpediente) {
+              detallePersonalEscuela = detallePersonalEscuela.filter(p => p.estadoExpediente === estadoExpediente.toUpperCase());
+            }
+          }
+
+          result = {
+            toolName,
+            autorizada: true,
+            data: {
+              resumenZonal: {
+                totalEscuelasRegularesOficiales: escuelasRegulares.length,
+                totalPersonalRegistradoZona: totalPersonalZona,
+                desglosePorCargo: {
+                  docentes: totalDocentesZona,
+                  responsablesDirectivos: totalResponsablesZona,
+                  administrativos: totalAdminZona,
+                  personalDeApoyo: totalApoyoZona
+                },
+                totalExpedientesCompletos: `${totalCompletosZona}/${totalPersonalZona}`,
+                porcentajeCompletitudGlobal: totalPersonalZona > 0 
+                  ? `${Math.round((totalCompletosZona / totalPersonalZona) * 100)}%`
+                  : "0%",
+                notaSedeSupervision: escuelaSupervision 
+                  ? `La Sede de Supervisión Escolar (${escuelaSupervision.nombre} - ${escuelaSupervision.cct}) es la oficina central de la zona escolar; cuenta con ${escuelaSupervision.personal.length} integrantes en funciones directivas y técnico-pedagógicas (Supervisora y ATPs), por lo que NO cuenta con personal docente frente a grupo.`
+                  : "La sede de Supervisión Escolar es la oficina central (Supervisora y ATPs) y no tiene docentes frente a grupo.",
+                notaExclusionPrueba: "La Escuela de Prueba (esDePrueba: true) fue excluida de todas las estadísticas y registros oficiales."
+              },
+              desglosePorEscuela: desgloseEscuelas,
+              detallePersonalFiltrado: detallePersonalEscuela
+            },
+            filasRetornadas: escuelas.length
+          };
+        }
+        break;
+      }
+
       default:
         result = {
           toolName,
@@ -883,3 +1117,4 @@ async function registrarAuditoria(
     console.error("[agentic-tools] Error al registrar log de auditoría:", auditErr);
   }
 }
+

@@ -25,6 +25,12 @@ const CONFIG_MODULOS: Record<string, ModuloCopilotoConfig> = {
     nombreVisible: "Copiloto de Procesos USICAMM",
     systemInstruction: "Tu rol principal en este módulo es asesorar a directores y docentes sobre los requisitos, etapas, documentación y fechas clave de convocatorias USICAMM (Promoción Horizontal/Vertical, Admisión, Horas Adicionales y Cambios de C.T.). Utiliza prioritariamente 'orientarConvocatoriaUsicamm', 'consultarConvocatoriasUsicamm' y 'consultarNormativasSEP'.",
     toolsAllowlist: ["orientarConvocatoriaUsicamm", "consultarConvocatoriasUsicamm", "consultarNormativasSEP"]
+  },
+  expedientes_personal: {
+    moduloId: "expedientes_personal",
+    nombreVisible: "Copiloto de Expedientes de Personal",
+    systemInstruction: "Tu rol principal en este módulo es informar y asesorar sobre los expedientes del personal docente, directivo y administrativo de los planteles, verificar el estado de integración de los 10 documentos obligatorios, identificar faltantes o expedientes incompletos y auditar la plantilla laboral activa. Utiliza prioritariamente 'consultarExpedientesPersonal' y 'consultarNormativasSEP'.",
+    toolsAllowlist: ["consultarExpedientesPersonal", "consultarNormativasSEP"]
   }
 };
 
