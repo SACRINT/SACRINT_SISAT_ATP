@@ -896,7 +896,7 @@ export default function AdminDashboard({
                                     </button>
                                     <button className={`sidebar-link ${vista === "cte" ? "active" : ""}`} onClick={() => navigate("cte")}>
                                         <GraduationCap size={17} />
-                                        <span>Acompañamiento CTE</span>
+                                        <span>Consejos Académicos (CAPEMS)</span>
                                     </button>
                                     <button className={`sidebar-link ${vista === "usicamm" ? "active" : ""}`} onClick={() => navigate("usicamm")}>
                                         <Award size={17} />

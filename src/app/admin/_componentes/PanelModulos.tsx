@@ -164,8 +164,8 @@ const MODULOS: ModuloInfo[] = [
     },
     {
         key: "showCte",
-        nombre: "Acompañamiento CTE",
-        descripcion: "Repositorio y seguimiento de productos de Consejos Técnicos Escolares.",
+        nombre: "Consejos Académicos (CAPEMS)",
+        descripcion: "Repositorio de sesiones CAPEMS: presentaciones, temas y acuerdos.",
         icon: <GraduationCap size={22} />,
         color: "#3b82f6",
         configEndpoint: "/api/admin/modulos-activacion",

@@ -160,7 +160,7 @@ export default function DirectorPortal({
     // Count active special modules
     const specialModules: { key: TabType; label: string; icon: React.ReactNode; active: boolean }[] = [
         { key: "estadistica-911", label: "Estadística 911", icon: <BarChart3 size={17} />, active: isEstadistica911Active },
-        { key: "cte", label: "Acompañamiento CTE", icon: <GraduationCap size={17} />, active: isCteActive },
+        { key: "cte", label: "Consejos Académicos (CAPEMS)", icon: <GraduationCap size={17} />, active: isCteActive },
         { key: "usicamm", label: "Convocatorias USICAMM", icon: <Trophy size={17} />, active: isUsicammActive },
         { key: "comites", label: "Comités Escolares", icon: <Users size={17} />, active: isComitesActive },
         { key: "becas", label: "Difusión de Becas", icon: <BookMarked size={17} />, active: isBecasActive },
@@ -179,7 +179,7 @@ export default function DirectorPortal({
         ranking: "Ranking Escuelas",
         recursos: "Recursos",
         "estadistica-911": "Estadística 911 / SICEP",
-        cte: "Acompañamiento CTE",
+        cte: "Consejos Académicos (CAPEMS)",
         usicamm: "Convocatorias USICAMM",
         comites: "Comités Escolares",
         becas: "Difusión de Becas",

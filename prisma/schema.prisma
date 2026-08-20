@@ -1704,10 +1704,17 @@ model CteSesionConfig {
   descripcion String?
   fechaSesion DateTime?
   fechaLimite DateTime?   // Fecha límite de entrega del producto
-  guiaUrl     String?     // Enlace a la guía de trabajo oficial
-  activo      Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  guiaUrl             String?     // Enlace a la guía de trabajo oficial
+  archivoNombre       String?     // nombre original subido
+  archivoUrl          String?     // secure_url de Cloudinary
+  archivoPublicId     String?     // public_id de Cloudinary (para descarga firmada/borrado)
+  sha256Hash          String?     // integridad (mismo patrón que oficios)
+  iaProcessed         Boolean     @default(false)
+  temasIA             Json?       // array [{ titulo: string, descripcion: string | null }]
+  acuerdosSugeridosIA Json?       // array [{ texto: string }]
+  activo              Boolean     @default(true)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   productos   CteProductoEscuela[]
   compromisos CteCompromisoZonal[]
