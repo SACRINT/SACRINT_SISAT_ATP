@@ -97,6 +97,80 @@ export async function deleteFileFromCloudinary(publicId: string): Promise<void> 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
+ * Descarga un archivo desde Cloudinary como Buffer usando enlaces firmados HMAC.
+ * Intenta en orden:
+ *   a) private_download_url con resource_type: "raw"
+ *   b) private_download_url con resource_type: "image"
+ *   c) fetch directo a la URL del archivo
+ */
+export async function downloadCloudinaryBuffer(opts: {
+    archivoUrl: string;
+    archivoPublicId: string;
+    nombreArchivo: string;
+}): Promise<Buffer> {
+    const { archivoUrl, archivoPublicId, nombreArchivo } = opts;
+    getCloudinaryConfig();
+
+    let lastStatus: number | string = "desconocido";
+
+    // a) Intento con resource_type: "raw"
+    try {
+        const signedRawUrl = cloudinary.utils.private_download_url(archivoPublicId, "", {
+            resource_type: "raw",
+            type: "upload",
+        });
+        console.log(`[cloudinary] Descargando buffer (raw): publicId=${archivoPublicId} (${nombreArchivo})`);
+        const resRaw = await fetch(signedRawUrl, {
+            signal: AbortSignal.timeout(15000),
+        });
+        console.log(`[cloudinary] Intento raw status: ${resRaw.status}`);
+        if (resRaw.ok) {
+            return Buffer.from(await resRaw.arrayBuffer());
+        }
+        lastStatus = resRaw.status;
+    } catch (err: any) {
+        console.warn(`[cloudinary] Error en intento raw:`, err.message || err);
+    }
+
+    // b) Intento con resource_type: "image"
+    try {
+        const signedImageUrl = cloudinary.utils.private_download_url(archivoPublicId, "", {
+            resource_type: "image",
+            type: "upload",
+        });
+        console.log(`[cloudinary] Descargando buffer (image): publicId=${archivoPublicId} (${nombreArchivo})`);
+        const resImage = await fetch(signedImageUrl, {
+            signal: AbortSignal.timeout(15000),
+        });
+        console.log(`[cloudinary] Intento image status: ${resImage.status}`);
+        if (resImage.ok) {
+            return Buffer.from(await resImage.arrayBuffer());
+        }
+        lastStatus = resImage.status;
+    } catch (err: any) {
+        console.warn(`[cloudinary] Error en intento image:`, err.message || err);
+    }
+
+    // c) fetch directo de archivoUrl con header User-Agent
+    try {
+        console.log(`[cloudinary] Descargando buffer directo de archivoUrl: ${archivoUrl}`);
+        const resDirect = await fetch(archivoUrl, {
+            headers: { "User-Agent": "SISAT-ATP/1.0" },
+            signal: AbortSignal.timeout(15000),
+        });
+        console.log(`[cloudinary] Intento directo status: ${resDirect.status}`);
+        if (resDirect.ok) {
+            return Buffer.from(await resDirect.arrayBuffer());
+        }
+        lastStatus = resDirect.status;
+    } catch (err: any) {
+        console.warn(`[cloudinary] Error en intento directo:`, err.message || err);
+    }
+
+    throw new Error(`No se pudo descargar desde Cloudinary (último intento HTTP ${lastStatus}). publicId=${archivoPublicId}`);
+}
+
+/**
  * Removemos caracteres no permitidos en el public_id de Cloudinary.
  */
 function sanitizeFileName(name: string): string {

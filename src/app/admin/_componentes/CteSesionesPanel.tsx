@@ -47,6 +47,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
     const [showFormSesion, setShowFormSesion] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [campoInvalido, setCampoInvalido] = useState<string | null>(null);
 
     // Formulario nueva sesión
     const [formSesion, setFormSesion] = useState({
@@ -89,7 +90,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
             const res = await fetch("/api/admin/cte");
             if (!res.ok) throw new Error("Error al cargar datos de CAPEMS");
             const data = await res.json();
-            setSesiones(data.sesiones ?? []);
+            setSesiones(Array.isArray(data) ? data : (data.sesiones ?? []));
         } catch (e) {
             setError(e instanceof Error ? e.message : "Error desconocido");
         } finally {
@@ -100,9 +101,14 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
     useEffect(() => { cargar(); }, [cargar]);
 
     const crearSesion = async () => {
-        if (!formSesion.numero || !formSesion.fase) return;
+        if (!formSesion.numero) {
+            setError("Por favor ingresa el Número de Sesión.");
+            setCampoInvalido("numero");
+            return;
+        }
         setSaving(true);
         setError(null);
+        setCampoInvalido(null);
         try {
             if (archivoSeleccionado) {
                 if (archivoSeleccionado.size > 100 * 1024 * 1024) {
@@ -320,7 +326,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                         <RefreshCw size={15} /> Actualizar
                     </button>
                     {!readOnly && (
-                        <button className="btn btn-primary" onClick={() => { setError(null); setShowFormSesion(true); }} style={{ fontSize: "0.8125rem" }}>
+                        <button className="btn btn-primary" onClick={() => { setError(null); setCampoInvalido(null); setShowFormSesion(true); }} style={{ fontSize: "0.8125rem" }}>
                             <Plus size={15} /> Nueva Sesión
                         </button>
                     )}
@@ -389,7 +395,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                             <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                 <Settings size={18} style={{ color: "var(--primary)" }} /> Configurar Sesión CAPEMS
                             </h3>
-                            <button onClick={() => { setError(null); setShowFormSesion(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                            <button onClick={() => { setError(null); setCampoInvalido(null); setShowFormSesion(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                                 <X size={20} />
                             </button>
                         </div>
@@ -402,8 +408,21 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                                 <div>
                                     <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Número de Sesión *</label>
-                                    <input type="number" min="1" className="form-control" value={formSesion.numero}
-                                        onChange={e => setFormSesion(f => ({ ...f, numero: e.target.value }))} placeholder="1" style={{ width: "100%" }} />
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        className="form-control"
+                                        value={formSesion.numero}
+                                        onChange={e => {
+                                            setFormSesion(f => ({ ...f, numero: e.target.value }));
+                                            if (campoInvalido === "numero") setCampoInvalido(null);
+                                        }}
+                                        placeholder="1"
+                                        style={{
+                                            width: "100%",
+                                            borderColor: campoInvalido === "numero" ? "#ef4444" : undefined,
+                                        }}
+                                    />
                                 </div>
                                 <div>
                                     <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Fase *</label>
@@ -457,8 +476,8 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                             </div>
                         </div>
                         <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
-                            <button onClick={() => { setError(null); setShowFormSesion(false); }} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
-                            <button onClick={crearSesion} disabled={saving || !formSesion.numero}
+                            <button onClick={() => { setError(null); setCampoInvalido(null); setShowFormSesion(false); }} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
+                            <button onClick={crearSesion} disabled={saving}
                                 className="btn btn-primary" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
                                 {saving ? <Loader2 size={15} className="spin" /> : <Save size={15} />}
                                 {saving ? "Procesando con IA..." : "Guardar Sesión"}

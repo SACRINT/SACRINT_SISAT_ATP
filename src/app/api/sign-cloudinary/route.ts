@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
             folder = `SISAT-ATP/${folderPath}`;
         }
 
-        if (originalFilename) {
+        if (originalFilename && programa !== "SESION_CAPEMS") {
             const isAcosoEscolar = programaNombre.toUpperCase().includes("ACOSO ESCOLAR");
             const isExpedientes = programaNombre === "Expedientes";
 

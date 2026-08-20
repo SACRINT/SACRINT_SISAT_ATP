@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { extraerTemasAcuerdosCapemsIA } from "@/lib/cte/capems-extractor-ia";
+import { downloadCloudinaryBuffer } from "@/lib/cloudinary";
 import crypto from "crypto";
 import { TipoFaseCte } from "@prisma/client";
 
@@ -71,15 +72,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Descarga el archivo desde Cloudinary (flujo salida, sin límite de body de Vercel)
-    console.log(`[api/admin/cte/upload] Descargando "${archivoNombre}" desde Cloudinary...`);
-    const downloadRes = await fetch(String(archivoUrl));
-    if (!downloadRes.ok) {
-      return NextResponse.json(
-        { error: `No se pudo descargar el archivo desde Cloudinary (HTTP ${downloadRes.status}).` },
-        { status: 400 }
-      );
-    }
-    const fileBuffer = Buffer.from(await downloadRes.arrayBuffer());
+    console.log(`[api/admin/cte/upload] Descargando "${archivoNombre}" (publicId ${archivoPublicId}) desde Cloudinary...`);
+    const fileBuffer = await downloadCloudinaryBuffer({
+      archivoUrl: String(archivoUrl),
+      archivoPublicId: String(archivoPublicId),
+      nombreArchivo: String(archivoNombre),
+    });
+    console.log(`[api/admin/cte/upload] Archivo descargado: ${fileBuffer.length} bytes.`);
 
     if (fileBuffer.length === 0) {
       return NextResponse.json({ error: "El archivo descargado está vacío." }, { status: 400 });
