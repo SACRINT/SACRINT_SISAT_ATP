@@ -198,7 +198,6 @@ export async function ejecutarVigilanciaProactiva(tenantIdParam?: string): Promi
     if (cicloActivo) {
       for (const periodo of cicloActivo.periodos) {
         if (!periodo.fechaLimite) continue;
-        if (periodo.programa.esParaSupervision === true || periodo.programa.activo === false) continue;
         const diffMs = periodo.fechaLimite.getTime() - ahora.getTime();
         const diffHoras = diffMs / (1000 * 60 * 60);
 
@@ -243,42 +242,39 @@ export async function ejecutarVigilanciaProactiva(tenantIdParam?: string): Promi
     // ─────────────────────────────────────────────────────────────────────────
     // REGLA 2: Oficio Urgente Sin Acuse de Recibo (> 48h)
     // ─────────────────────────────────────────────────────────────────────────
-    const oficioConfig = await prisma.oficioConfig.findUnique({ where: { tenantId } });
-    if (oficioConfig?.activo === true) {
-      const oficiosUrgentes = await prisma.oficio.findMany({
-        where: {
-          tenantId,
-          criticidad: "ROJO",
-          createdAt: { lte: new Date(ahora.getTime() - 48 * 60 * 60 * 1000) },
+    const oficiosUrgentes = await prisma.oficio.findMany({
+      where: {
+        tenantId,
+        criticidad: "ROJO",
+        createdAt: { lte: new Date(ahora.getTime() - 48 * 60 * 60 * 1000) },
+      },
+      include: {
+        destinatarios: {
+          where: { acuseRecibido: false },
         },
-        include: {
-          destinatarios: {
-            where: { acuseRecibido: false },
+      },
+    });
+
+    for (const oficio of oficiosUrgentes) {
+      for (const dest of oficio.destinatarios) {
+        const horasEmitido = Math.round((ahora.getTime() - oficio.createdAt.getTime()) / (1000 * 60 * 60));
+
+        await registrarAlerta({
+          reglaCodigo: "REGLA_2_OFICIO_URGENTE_SIN_ACUSE",
+          criticidad: "CRITICA",
+          escuelaId: dest.escuelaId,
+          escuelaNombre: dest.escuelaNombre || undefined,
+          escuelaCCT: dest.escuelaCCT || undefined,
+          escuelaEmail: dest.emailDestino || undefined,
+          titulo: `Oficio Urgente Sin Acuse: ${oficio.numeroOficio || oficio.asunto}`,
+          descripcion: `El oficio con semáforo ROJO "${oficio.asunto}" fue emitido hace ${horasEmitido} horas y aún no se ha registrado acuse digital de enterado.`,
+          metadata: {
+            oficioId: oficio.id,
+            numeroOficio: oficio.numeroOficio,
+            horasEmitido,
+            asunto: oficio.asunto,
           },
-        },
-      });
-
-      for (const oficio of oficiosUrgentes) {
-        for (const dest of oficio.destinatarios) {
-          const horasEmitido = Math.round((ahora.getTime() - oficio.createdAt.getTime()) / (1000 * 60 * 60));
-
-          await registrarAlerta({
-            reglaCodigo: "REGLA_2_OFICIO_URGENTE_SIN_ACUSE",
-            criticidad: "CRITICA",
-            escuelaId: dest.escuelaId,
-            escuelaNombre: dest.escuelaNombre || undefined,
-            escuelaCCT: dest.escuelaCCT || undefined,
-            escuelaEmail: dest.emailDestino || undefined,
-            titulo: `Oficio Urgente Sin Acuse: ${oficio.numeroOficio || oficio.asunto}`,
-            descripcion: `El oficio con semáforo ROJO "${oficio.asunto}" fue emitido hace ${horasEmitido} horas y aún no se ha registrado acuse digital de enterado.`,
-            metadata: {
-              oficioId: oficio.id,
-              numeroOficio: oficio.numeroOficio,
-              horasEmitido,
-              asunto: oficio.asunto,
-            },
-          });
-        }
+        });
       }
     }
 
@@ -449,38 +445,35 @@ export async function ejecutarVigilanciaProactiva(tenantIdParam?: string): Promi
     // ─────────────────────────────────────────────────────────────────────────
     // REGLA 7 (Complementaria): Sábana SPARH con Inconsistencias
     // ─────────────────────────────────────────────────────────────────────────
-    const plantillaCorteConfig = await prisma.plantillaCorteConfig.findUnique({ where: { tenantId } });
-    if (plantillaCorteConfig?.activo === true) {
-      const plantillasConError = await prisma.plantillaPersonalRegistro.findMany({
-        where: {
-          tenantId,
-          OR: [
-            { estado: "CON_ERRORES" },
-            { estado: "CORREGIR" },
-            { inconsistencias: { some: { severidad: "ERROR_CRITICO" } } },
-          ],
-        },
-        include: {
-          inconsistencias: true,
+    const plantillasConError = await prisma.plantillaPersonalRegistro.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { estado: "CON_ERRORES" },
+          { estado: "CORREGIR" },
+          { inconsistencias: { some: { severidad: "ERROR_CRITICO" } } },
+        ],
+      },
+      include: {
+        inconsistencias: true,
+      },
+    });
+
+    for (const plan of plantillasConError) {
+      await registrarAlerta({
+        reglaCodigo: "REGLA_7_SPARH_INCONSISTENCIA",
+        criticidad: "ADVERTENCIA",
+        escuelaId: plan.escuelaId,
+        escuelaNombre: plan.escuelaNombre || undefined,
+        escuelaCCT: plan.escuelaCCT || undefined,
+        titulo: `Inconsistencias en Plantilla SPARH: ${plan.escuelaNombre || plan.escuelaCCT}`,
+        descripcion: `La sábana de personal registra ${plan.inconsistencias.length} inconsistencias detectadas en plazas o carga horaria y requiere corrección antes de validar con CORDE.`,
+        metadata: {
+          plantillaId: plan.id,
+          totalInconsistencias: plan.inconsistencias.length,
+          estado: plan.estado,
         },
       });
-
-      for (const plan of plantillasConError) {
-        await registrarAlerta({
-          reglaCodigo: "REGLA_7_SPARH_INCONSISTENCIA",
-          criticidad: "ADVERTENCIA",
-          escuelaId: plan.escuelaId,
-          escuelaNombre: plan.escuelaNombre || undefined,
-          escuelaCCT: plan.escuelaCCT || undefined,
-          titulo: `Inconsistencias en Plantilla SPARH: ${plan.escuelaNombre || plan.escuelaCCT}`,
-          descripcion: `La sábana de personal registra ${plan.inconsistencias.length} inconsistencias detectadas en plazas o carga horaria y requiere corrección antes de validar con CORDE.`,
-          metadata: {
-            plantillaId: plan.id,
-            totalInconsistencias: plan.inconsistencias.length,
-            estado: plan.estado,
-          },
-        });
-      }
     }
   } catch (error: any) {
     console.error("[vigilancia-engine] Error en ejecución de vigilancia proactiva:", error);
