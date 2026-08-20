@@ -95,7 +95,12 @@ function FormateadorTextoCopilot({ texto }: { texto: string }) {
             href={parte}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-400 hover:text-indigo-300 underline break-all font-medium"
+            style={{
+              color: "#818cf8",
+              textDecoration: "underline",
+              wordBreak: "break-all",
+              fontWeight: 500,
+            }}
           >
             {parte}
           </a>
@@ -118,7 +123,7 @@ function FormateadorTextoCopilot({ texto }: { texto: string }) {
     if (matchClaveValor && !sinAsteriscos.startsWith("http") && !sinAsteriscos.startsWith("Estimado") && !sinAsteriscos.startsWith("Conforme") && !sinAsteriscos.startsWith("Saludos")) {
       return (
         <span>
-          <strong className="font-semibold text-slate-100">{matchClaveValor[1]}</strong>
+          <strong style={{ fontWeight: 700, color: "#ffffff" }}>{matchClaveValor[1]}</strong>
           <span>{renderizarLinks(matchClaveValor[2])}</span>
         </span>
       );
@@ -128,13 +133,20 @@ function FormateadorTextoCopilot({ texto }: { texto: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
       {bloques.map((b, idx) => {
         if (b.tipo === "encabezado") {
           return (
             <div
               key={idx}
-              className="font-bold text-indigo-300 text-xs sm:text-sm mt-1 mb-0.5"
+              style={{
+                fontWeight: 700,
+                color: "#a5b4fc",
+                fontSize: "0.875rem",
+                marginTop: "0.4rem",
+                marginBottom: "0.2rem",
+                lineHeight: 1.4,
+              }}
             >
               {renderTextoEnLinea(b.contenido as string)}
             </div>
@@ -144,10 +156,17 @@ function FormateadorTextoCopilot({ texto }: { texto: string }) {
           return (
             <ul
               key={idx}
-              className="my-0.5 pl-4 flex flex-col gap-1.5 list-disc"
+              style={{
+                margin: "0.25rem 0",
+                paddingLeft: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.35rem",
+                listStyleType: "disc",
+              }}
             >
               {(b.contenido as string[]).map((item, itemIdx) => (
-                <li key={itemIdx} className="leading-relaxed">
+                <li key={itemIdx} style={{ lineHeight: 1.5, fontSize: "0.85rem" }}>
                   {renderTextoEnLinea(item)}
                 </li>
               ))}
@@ -155,7 +174,7 @@ function FormateadorTextoCopilot({ texto }: { texto: string }) {
           );
         }
         return (
-          <p key={idx} className="m-0 leading-relaxed">
+          <p key={idx} style={{ margin: 0, lineHeight: 1.55, fontSize: "0.85rem" }}>
             {renderTextoEnLinea(b.contenido as string)}
           </p>
         );
@@ -302,172 +321,471 @@ export default function ModuloCopilotDrawer({
           color: "#ffffff",
           fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
           transition: "max-width 0.3s ease",
+          boxShadow: "-8px 0 32px rgba(0, 0, 0, 0.4)",
+          borderLeft: "1px solid #334155",
         }}
       >
-          {/* Header */}
-          <div className="p-4 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
-                <Sparkles className="w-5 h-5 animate-pulse" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-white text-base flex items-center gap-2">
-                  {titulo}
-                  <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-normal">
-                    IA NEM
-                  </span>
-                </h3>
-                {subtitulo && (
-                  <p className="text-xs text-slate-400 truncate max-w-xs">{subtitulo}</p>
-                )}
-              </div>
+        {/* Header */}
+        <div
+          style={{
+            padding: "1rem 1.25rem",
+            borderBottom: "1px solid #334155",
+            background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+            <div
+              style={{
+                padding: "0.5rem",
+                borderRadius: "10px",
+                backgroundColor: "rgba(99, 102, 241, 0.18)",
+                color: "#818cf8",
+                border: "1px solid rgba(99, 102, 241, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Sparkles size={20} />
             </div>
-
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={() => setExpandido(!expandido)}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                title={expandido ? "Reducir panel" : "Expandir panel"}
+            <div style={{ minWidth: 0 }}>
+              <h3
+                id="copilot-drawer-title"
+                style={{
+                  margin: 0,
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  lineHeight: 1.25,
+                }}
               >
-                {expandido ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={onClose}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                title="Cerrar panel"
-              >
-                <X className="w-5 h-5" />
-              </button>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titulo}</span>
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    backgroundColor: "rgba(99, 102, 241, 0.2)",
+                    color: "#a5b4fc",
+                    padding: "0.15rem 0.5rem",
+                    borderRadius: "9999px",
+                    border: "1px solid rgba(99, 102, 241, 0.35)",
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
+                  IA NEM
+                </span>
+              </h3>
+              {subtitulo && (
+                <p
+                  style={{
+                    margin: "0.2rem 0 0 0",
+                    fontSize: "0.75rem",
+                    color: "#94a3b8",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {subtitulo}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Acciones Rápidas (Chips de 1 Clic) */}
-          {accionesSugeridas.length > 0 && (
-            <div className="p-3 bg-slate-950/40 border-b border-slate-800/80 overflow-x-auto">
-              <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-indigo-400" /> Acciones Rápidas Sugeridas
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {accionesSugeridas.map((acc) => (
-                  <button
-                    key={acc.id}
-                    onClick={() => enviarMensaje(acc.prompt)}
-                    disabled={cargando}
-                    className="text-xs bg-slate-800/90 hover:bg-indigo-600/30 hover:border-indigo-500/40 text-slate-200 border border-slate-700/70 px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-left disabled:opacity-50"
-                  >
-                    <span>{acc.etiqueta}</span>
-                    <ArrowRight className="w-3 h-3 text-slate-400" />
-                  </button>
-                ))}
-              </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexShrink: 0 }}>
+            <button
+              onClick={() => setExpandido(!expandido)}
+              style={{
+                background: "rgba(255, 255, 255, 0.08)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                color: "#cbd5e1",
+                cursor: "pointer",
+                padding: "0.45rem",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.16)";
+                e.currentTarget.style.color = "#ffffff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                e.currentTarget.style.color = "#cbd5e1";
+              }}
+              title={expandido ? "Reducir panel" : "Expandir panel"}
+            >
+              {expandido ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                background: "rgba(255, 255, 255, 0.08)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                color: "#cbd5e1",
+                cursor: "pointer",
+                padding: "0.45rem",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.25)";
+                e.currentTarget.style.color = "#ffffff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                e.currentTarget.style.color = "#cbd5e1";
+              }}
+              title="Cerrar panel"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Acciones Rápidas (Chips de 1 Clic) */}
+        {accionesSugeridas.length > 0 && (
+          <div
+            className="copilot-scroll"
+            style={{
+              padding: "0.75rem 1rem",
+              backgroundColor: "#0b0f19",
+              borderBottom: "1px solid #1e293b",
+              overflowX: "auto",
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                fontSize: "0.6875rem",
+                fontWeight: 600,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: "0.5rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+              }}
+            >
+              <Sparkles size={12} style={{ color: "#818cf8" }} /> Acciones Rápidas Sugeridas
             </div>
-          )}
-
-          {/* Historial de Mensajes */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm scrollbar-thin scrollbar-thumb-slate-700">
-            {mensajes.map((m, idx) => {
-              const isUser = m.role === "user";
-              return (
-                <div
-                  key={idx}
-                  className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
+              {accionesSugeridas.map((acc) => (
+                <button
+                  key={acc.id}
+                  onClick={() => enviarMensaje(acc.prompt)}
+                  disabled={cargando}
+                  style={{
+                    fontSize: "0.75rem",
+                    backgroundColor: "#1e293b",
+                    color: "#e2e8f0",
+                    border: "1px solid #334155",
+                    padding: "0.4rem 0.65rem",
+                    borderRadius: "8px",
+                    cursor: cargando ? "not-allowed" : "pointer",
+                    opacity: cargando ? 0.5 : 1,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.375rem",
+                    textAlign: "left",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!cargando) {
+                      e.currentTarget.style.backgroundColor = "rgba(79, 70, 229, 0.25)";
+                      e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.5)";
+                      e.currentTarget.style.color = "#ffffff";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!cargando) {
+                      e.currentTarget.style.backgroundColor = "#1e293b";
+                      e.currentTarget.style.borderColor = "#334155";
+                      e.currentTarget.style.color = "#e2e8f0";
+                    }
+                  }}
                 >
-                  <div
-                    className={`max-w-[90%] rounded-2xl p-3.5 shadow-md ${
-                      isUser
-                        ? "bg-indigo-600 text-white rounded-br-none"
-                        : "bg-slate-800/90 text-slate-200 border border-slate-700/60 rounded-bl-none"
-                    }`}
-                  >
-                    <div className="font-sans text-xs sm:text-sm">
-                      <FormateadorTextoCopilot texto={m.content} />
-                    </div>
+                  <span>{acc.etiqueta}</span>
+                  <ArrowRight size={12} style={{ color: "#94a3b8" }} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-                    {/* Acciones para mensajes del Asistente */}
-                    {!isUser && (
-                      <div className="mt-3 pt-2 border-t border-slate-700/50 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => copiarAlPortapapeles(m.content, idx)}
-                            className="flex items-center gap-1 text-slate-400 hover:text-indigo-300 transition-colors"
-                          >
-                            {copiadoIdx === idx ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                <span className="text-emerald-400 font-medium">Copiado</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5" />
-                                <span>Copiar</span>
-                              </>
-                            )}
-                          </button>
+        {/* Historial de Mensajes */}
+        <div
+          className="copilot-scroll"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "1.25rem 1rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+            background: "#090d16",
+          }}
+        >
+          {mensajes.map((m, idx) => {
+            const isUser = m.role === "user";
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: isUser ? "flex-end" : "flex-start",
+                }}
+              >
+                <div
+                  style={{
+                    maxWidth: isUser ? "85%" : "95%",
+                    padding: "0.875rem 1rem",
+                    borderRadius: isUser ? "16px 16px 2px 16px" : "16px 16px 16px 2px",
+                    background: isUser
+                      ? "linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)"
+                      : "#1e293b",
+                    color: isUser ? "#ffffff" : "#f1f5f9",
+                    border: isUser ? "none" : "1px solid #334155",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+                  }}
+                >
+                  <div style={{ fontFamily: "inherit" }}>
+                    <FormateadorTextoCopilot texto={m.content} />
+                  </div>
 
-                          {onInsertarTexto && (
-                            <button
-                              onClick={() => onInsertarTexto(m.content)}
-                              className="flex items-center gap-1 text-slate-400 hover:text-emerald-300 transition-colors"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              <span>Insertar en formulario</span>
-                            </button>
+                  {/* Acciones para mensajes del Asistente */}
+                  {!isUser && (
+                    <div
+                      style={{
+                        marginTop: "0.75rem",
+                        paddingTop: "0.5rem",
+                        borderTop: "1px solid rgba(51, 65, 85, 0.7)",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "0.5rem",
+                        fontSize: "0.75rem",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+                        <button
+                          onClick={() => copiarAlPortapapeles(m.content, idx)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                            background: "none",
+                            border: "none",
+                            color: copiadoIdx === idx ? "#34d399" : "#94a3b8",
+                            cursor: "pointer",
+                            padding: "0.2rem 0.4rem",
+                            borderRadius: "4px",
+                            fontWeight: 500,
+                            transition: "color 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (copiadoIdx !== idx) e.currentTarget.style.color = "#a5b4fc";
+                          }}
+                          onMouseLeave={(e) => {
+                            if (copiadoIdx !== idx) e.currentTarget.style.color = "#94a3b8";
+                          }}
+                        >
+                          {copiadoIdx === idx ? (
+                            <>
+                              <Check size={14} style={{ color: "#34d399" }} />
+                              <span style={{ color: "#34d399", fontWeight: 600 }}>Copiado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={14} />
+                              <span>Copiar</span>
+                            </>
                           )}
-                        </div>
+                        </button>
 
-                        {m.herramientasEjecutadas && m.herramientasEjecutadas.length > 0 && (
-                          <span className="text-[10px] text-slate-500 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800">
-                            ⚡ {m.herramientasEjecutadas.join(", ")}
-                          </span>
+                        {onInsertarTexto && (
+                          <button
+                            onClick={() => onInsertarTexto(m.content)}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.25rem",
+                              background: "none",
+                              border: "none",
+                              color: "#94a3b8",
+                              cursor: "pointer",
+                              padding: "0.2rem 0.4rem",
+                              borderRadius: "4px",
+                              fontWeight: 500,
+                              transition: "color 0.15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = "#6ee7b7";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = "#94a3b8";
+                            }}
+                          >
+                            <FileText size={14} />
+                            <span>Insertar en formulario</span>
+                          </button>
                         )}
                       </div>
-                    )}
-                  </div>
+
+                      {m.herramientasEjecutadas && m.herramientasEjecutadas.length > 0 && (
+                        <span
+                          style={{
+                            fontSize: "0.625rem",
+                            color: "#64748b",
+                            backgroundColor: "rgba(15, 23, 42, 0.8)",
+                            padding: "0.15rem 0.4rem",
+                            borderRadius: "4px",
+                            border: "1px solid #1e293b",
+                          }}
+                        >
+                          ⚡ {m.herramientasEjecutadas.join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              );
-            })}
-
-            {cargando && (
-              <div className="flex items-center gap-2 text-slate-400 text-xs p-3 bg-slate-800/50 rounded-xl w-fit border border-slate-700/40">
-                <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                <span>Analizando datos normativos y generando propuesta...</span>
               </div>
-            )}
-            <div ref={chatBottomRef} />
-          </div>
+            );
+          })}
 
-          {/* Footer / Input */}
-          <div className="p-3 border-t border-slate-800 bg-slate-950/80">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                enviarMensaje(inputTexto);
+          {cargando && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "#94a3b8",
+                fontSize: "0.75rem",
+                padding: "0.75rem 1rem",
+                backgroundColor: "rgba(30, 41, 59, 0.7)",
+                borderRadius: "12px",
+                width: "fit-content",
+                border: "1px solid rgba(51, 65, 85, 0.5)",
               }}
-              className="flex items-center gap-2"
             >
-              <input
-                type="text"
-                value={inputTexto}
-                onChange={(e) => setInputTexto(e.target.value)}
-                placeholder="Escribe una instrucción o pregunta al Copiloto..."
-                disabled={cargando}
-                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={!inputTexto.trim() || cargando}
-                className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-            <div className="mt-2 text-[10px] text-slate-500 text-center flex items-center justify-center gap-1">
-              <span>Zero-Trust | Datos PII protegidos conforme a la Regla 7</span>
+              <RefreshCw size={16} style={{ color: "#818cf8", animation: "spin 1s linear infinite" }} />
+              <span>Analizando datos normativos y generando propuesta...</span>
             </div>
+          )}
+          <div ref={chatBottomRef} />
+        </div>
+
+        {/* Footer / Input */}
+        <div
+          style={{
+            padding: "0.875rem 1rem",
+            borderTop: "1px solid #1e293b",
+            backgroundColor: "#0b0f19",
+            flexShrink: 0,
+          }}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              enviarMensaje(inputTexto);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
+            <input
+              type="text"
+              value={inputTexto}
+              onChange={(e) => setInputTexto(e.target.value)}
+              placeholder="Escribe una instrucción o pregunta al Copiloto..."
+              disabled={cargando}
+              style={{
+                flex: 1,
+                backgroundColor: "#1e293b",
+                border: "1px solid #334155",
+                borderRadius: "10px",
+                padding: "0.65rem 0.85rem",
+                fontSize: "0.85rem",
+                color: "#ffffff",
+                outline: "none",
+                transition: "border-color 0.15s ease",
+                opacity: cargando ? 0.6 : 1,
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "#6366f1";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "#334155";
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!inputTexto.trim() || cargando}
+              style={{
+                padding: "0.65rem 0.85rem",
+                backgroundColor: "#4f46e5",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "10px",
+                cursor: !inputTexto.trim() || cargando ? "not-allowed" : "pointer",
+                opacity: !inputTexto.trim() || cargando ? 0.5 : 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 6px rgba(79, 70, 229, 0.3)",
+                transition: "background-color 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (inputTexto.trim() && !cargando) {
+                  e.currentTarget.style.backgroundColor = "#4338ca";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (inputTexto.trim() && !cargando) {
+                  e.currentTarget.style.backgroundColor = "#4f46e5";
+                }
+              }}
+            >
+              <Send size={16} />
+            </button>
+          </form>
+          <div
+            style={{
+              marginTop: "0.5rem",
+              fontSize: "0.625rem",
+              color: "#64748b",
+              textAlign: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.25rem",
+            }}
+          >
+            <span>Zero-Trust | Datos PII protegidos conforme a la Regla 7</span>
           </div>
+        </div>
       </div>
     </div>
   );
 
   return createPortal(content, document.body);
 }
+

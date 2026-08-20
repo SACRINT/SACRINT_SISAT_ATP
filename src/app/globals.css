@@ -1037,4 +1037,28 @@ h3 {
   border-color: #fde68a;
   color: #d97706;
 }
+
+.copilot-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+
+.copilot-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.copilot-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.copilot-scroll::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.copilot-scroll::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
 
