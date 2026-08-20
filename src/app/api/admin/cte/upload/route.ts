@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { uploadFileToCloudinary } from "@/lib/cloudinary";
 import { extraerTemasAcuerdosCapemsIA } from "@/lib/cte/capems-extractor-ia";
 import crypto from "crypto";
 import { TipoFaseCte } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-// Límite máximo de tamaño: 100 MB
+// Límite máximo de tamaño: 100 MB (límite de Cloudinary)
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
+// Gemini Vision no acepta entradas mayores a ~20 MB
+const MAX_VISION_SIZE = 20 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,38 +30,38 @@ export async function POST(req: NextRequest) {
 
     const tenantId = user.tenantId || user.organizacionId || process.env.TENANT_ID || "zona004";
 
-    const formData = await req.formData();
-    const file = formData.get("archivo") as File | null;
-    const numeroStr = formData.get("numero") as string | null;
-    const fase = formData.get("fase") as string | null;
-    const descripcion = formData.get("descripcion") as string | null;
-    const fechaSesion = formData.get("fechaSesion") as string | null;
-    const fechaLimite = formData.get("fechaLimite") as string | null;
-    const guiaUrl = formData.get("guiaUrl") as string | null;
+    const body = await req.json();
+    const {
+      numero,
+      fase,
+      descripcion,
+      fechaSesion,
+      fechaLimite,
+      guiaUrl,
+      archivoNombre,
+      archivoUrl,
+      archivoPublicId,
+    } = body || {};
 
-    if (!numeroStr || isNaN(Number(numeroStr))) {
+    if (numero == null || isNaN(Number(numero))) {
       return NextResponse.json({ error: "El número de sesión es requerido y debe ser numérico." }, { status: 400 });
     }
-    const numero = Number(numeroStr);
+    const numeroFinal = Number(numero);
 
     if (!fase || !["ORDINARIA", "INTENSIVA"].includes(fase)) {
       return NextResponse.json({ error: "La fase debe ser ORDINARIA o INTENSIVA." }, { status: 400 });
     }
 
-    if (!file) {
-      return NextResponse.json({ error: "No se proporcionó ningún archivo." }, { status: 400 });
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
+    if (!archivoUrl || !archivoNombre || !archivoPublicId) {
       return NextResponse.json(
-        { error: `El archivo excede el tamaño máximo permitido de 100 MB (${(file.size / 1024 / 1024).toFixed(1)} MB).` },
+        { error: "Se requiere archivoUrl, archivoNombre y archivoPublicId (el archivo debe subirse a Cloudinary primero)." },
         { status: 400 }
       );
     }
 
-    const fileNameLower = file.name.toLowerCase();
-    const isPptx = fileNameLower.endsWith(".pptx") || file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-    const isPdf = fileNameLower.endsWith(".pdf") || file.type === "application/pdf" || file.type.includes("pdf");
+    const fileNameLower = String(archivoNombre).toLowerCase();
+    const isPptx = fileNameLower.endsWith(".pptx");
+    const isPdf = fileNameLower.endsWith(".pdf");
 
     if (!isPptx && !isPdf) {
       return NextResponse.json(
@@ -69,7 +70,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    // Descarga el archivo desde Cloudinary (flujo salida, sin límite de body de Vercel)
+    console.log(`[api/admin/cte/upload] Descargando "${archivoNombre}" desde Cloudinary...`);
+    const downloadRes = await fetch(String(archivoUrl));
+    if (!downloadRes.ok) {
+      return NextResponse.json(
+        { error: `No se pudo descargar el archivo desde Cloudinary (HTTP ${downloadRes.status}).` },
+        { status: 400 }
+      );
+    }
+    const fileBuffer = Buffer.from(await downloadRes.arrayBuffer());
+
+    if (fileBuffer.length === 0) {
+      return NextResponse.json({ error: "El archivo descargado está vacío." }, { status: 400 });
+    }
+    if (fileBuffer.length > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `El archivo excede el tamaño máximo permitido de 100 MB (${(fileBuffer.length / 1024 / 1024).toFixed(1)} MB).` },
+        { status: 400 }
+      );
+    }
+
     const mimeType = isPptx
       ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
       : "application/pdf";
@@ -77,24 +98,15 @@ export async function POST(req: NextRequest) {
     // Cálculo de SHA-256 para integridad
     const sha256Hash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
 
-    // 1. Subida a Cloudinary
-    console.log(`[api/admin/cte/upload] Subiendo archivo "${file.name}" a Cloudinary...`);
-    const uploadResult = await uploadFileToCloudinary(
-      fileBuffer,
-      file.name,
-      mimeType,
-      "CAPEMS/zona004"
-    );
-    console.log(`[api/admin/cte/upload] Archivo subido exitosamente: ${uploadResult.url}`);
-
-    // 2. Extracción de Temas y Acuerdos con IA
+    // Extracción de Temas y Acuerdos con IA
     let iaProcessed = false;
     let temas: { titulo: string; descripcion: string | null }[] = [];
     let acuerdosSugeridos: { texto: string }[] = [];
+    let iaWarning: string | null = null;
 
     try {
-      console.log(`[api/admin/cte/upload] Iniciando extracción de IA para "${file.name}"...`);
-      const resultadoIA = await extraerTemasAcuerdosCapemsIA(fileBuffer, mimeType, file.name);
+      console.log(`[api/admin/cte/upload] Iniciando extracción de IA para "${archivoNombre}"...`);
+      const resultadoIA = await extraerTemasAcuerdosCapemsIA(fileBuffer, mimeType, String(archivoNombre));
       temas = resultadoIA.temas;
       acuerdosSugeridos = resultadoIA.acuerdosSugeridos;
       iaProcessed = true;
@@ -106,12 +118,18 @@ export async function POST(req: NextRequest) {
       acuerdosSugeridos = [];
     }
 
-    // 3. Upsert en Base de Datos
+    if (!iaProcessed && isPdf && fileBuffer.length > MAX_VISION_SIZE) {
+      iaWarning =
+        "El documento es un PDF escaneado demasiado grande para la visión de IA (máx 20 MB). " +
+        "Sube la versión digital del PDF o el PPTX original para extraer temas automáticamente.";
+    }
+
+    // Upsert en Base de Datos
     const sesion = await prisma.cteSesionConfig.upsert({
       where: {
         tenantId_numero_fase: {
           tenantId,
-          numero,
+          numero: numeroFinal,
           fase: fase as TipoFaseCte,
         },
       },
@@ -120,9 +138,9 @@ export async function POST(req: NextRequest) {
         fechaSesion: fechaSesion ? new Date(fechaSesion) : null,
         fechaLimite: fechaLimite ? new Date(fechaLimite) : null,
         guiaUrl: guiaUrl || null,
-        archivoNombre: file.name,
-        archivoUrl: uploadResult.url,
-        archivoPublicId: uploadResult.publicId,
+        archivoNombre: String(archivoNombre),
+        archivoUrl: String(archivoUrl),
+        archivoPublicId: String(archivoPublicId),
         sha256Hash,
         iaProcessed,
         temasIA: (temas && temas.length > 0 ? (temas as any) : []),
@@ -131,15 +149,15 @@ export async function POST(req: NextRequest) {
       },
       create: {
         tenantId,
-        numero,
+        numero: numeroFinal,
         fase: fase as TipoFaseCte,
         descripcion: descripcion || null,
         fechaSesion: fechaSesion ? new Date(fechaSesion) : null,
         fechaLimite: fechaLimite ? new Date(fechaLimite) : null,
         guiaUrl: guiaUrl || null,
-        archivoNombre: file.name,
-        archivoUrl: uploadResult.url,
-        archivoPublicId: uploadResult.publicId,
+        archivoNombre: String(archivoNombre),
+        archivoUrl: String(archivoUrl),
+        archivoPublicId: String(archivoPublicId),
         sha256Hash,
         iaProcessed,
         temasIA: (temas && temas.length > 0 ? (temas as any) : []),
@@ -154,6 +172,7 @@ export async function POST(req: NextRequest) {
         sesion,
         temas,
         acuerdosSugeridos,
+        iaWarning,
       },
       { status: 201 }
     );

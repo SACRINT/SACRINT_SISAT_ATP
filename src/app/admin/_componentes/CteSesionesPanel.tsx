@@ -105,27 +105,67 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
         setError(null);
         try {
             if (archivoSeleccionado) {
-                // Envío Multipart con archivo y extracción IA
-                const formData = new FormData();
-                formData.append("archivo", archivoSeleccionado);
-                formData.append("numero", formSesion.numero);
-                formData.append("fase", formSesion.fase);
-                if (formSesion.descripcion) formData.append("descripcion", formSesion.descripcion);
-                if (formSesion.fechaSesion) formData.append("fechaSesion", formSesion.fechaSesion);
-                if (formSesion.fechaLimite) formData.append("fechaLimite", formSesion.fechaLimite);
-                if (formSesion.guiaUrl) formData.append("guiaUrl", formSesion.guiaUrl);
-
-                const res = await fetch("/api/admin/cte/upload", {
-                    method: "POST",
-                    body: formData,
-                });
-
-                if (!res.ok) {
-                    const errData = await res.json();
-                    throw new Error(errData.error || "Error al subir archivo de sesión");
+                if (archivoSeleccionado.size > 100 * 1024 * 1024) {
+                    throw new Error(`El archivo excede el tamaño máximo permitido de 100 MB (${(archivoSeleccionado.size / 1024 / 1024).toFixed(1)} MB).`);
                 }
 
-                const result = await res.json();
+                // 1. Firma de subida directa a Cloudinary (evita el límite de body de Vercel)
+                const signRes = await fetch("/api/sign-cloudinary", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        programa: "SESION_CAPEMS",
+                        originalFilename: archivoSeleccionado.name,
+                    }),
+                });
+                if (!signRes.ok) throw new Error("Error obteniendo firma de subida");
+                const { signature, timestamp, folder, apiKey, cloudName, publicId } = await signRes.json();
+
+                // 2. Subida directa navegador → Cloudinary (sin límite de Vercel)
+                const upForm = new FormData();
+                upForm.append("file", archivoSeleccionado);
+                upForm.append("api_key", apiKey);
+                upForm.append("timestamp", timestamp.toString());
+                upForm.append("signature", signature);
+                upForm.append("folder", folder);
+                if (publicId) upForm.append("public_id", publicId);
+
+                const upRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+                    method: "POST",
+                    body: upForm,
+                });
+                if (!upRes.ok) throw new Error("Error subiendo el archivo a Cloudinary");
+                const upData = await upRes.json();
+
+                // 3. Crear sesión con los datos del archivo (el servidor descarga desde Cloudinary y corre la IA)
+                const res = await fetch("/api/admin/cte/upload", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        numero: Number(formSesion.numero),
+                        fase: formSesion.fase,
+                        descripcion: formSesion.descripcion || null,
+                        fechaSesion: formSesion.fechaSesion || null,
+                        fechaLimite: formSesion.fechaLimite || null,
+                        guiaUrl: formSesion.guiaUrl || null,
+                        archivoNombre: archivoSeleccionado.name,
+                        archivoUrl: upData.secure_url,
+                        archivoPublicId: upData.public_id,
+                    }),
+                });
+
+                const resText = await res.text();
+                if (!res.ok) {
+                    let msg = "Error al subir archivo de sesión";
+                    try { msg = JSON.parse(resText).error || msg; } catch { /* cuerpo no JSON */ }
+                    throw new Error(msg);
+                }
+                const result = JSON.parse(resText);
+
+                if (result.iaWarning) {
+                    setError(result.iaWarning);
+                }
+
                 setShowFormSesion(false);
                 setArchivoSeleccionado(null);
                 setFormSesion({ numero: "", fase: "ORDINARIA", descripcion: "", fechaSesion: "", fechaLimite: "", guiaUrl: "" });
@@ -280,7 +320,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                         <RefreshCw size={15} /> Actualizar
                     </button>
                     {!readOnly && (
-                        <button className="btn btn-primary" onClick={() => setShowFormSesion(true)} style={{ fontSize: "0.8125rem" }}>
+                        <button className="btn btn-primary" onClick={() => { setError(null); setShowFormSesion(true); }} style={{ fontSize: "0.8125rem" }}>
                             <Plus size={15} /> Nueva Sesión
                         </button>
                     )}
@@ -349,10 +389,15 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                             <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                 <Settings size={18} style={{ color: "var(--primary)" }} /> Configurar Sesión CAPEMS
                             </h3>
-                            <button onClick={() => setShowFormSesion(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                            <button onClick={() => { setError(null); setShowFormSesion(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                                 <X size={20} />
                             </button>
                         </div>
+                        {error && (
+                            <div className="alert alert-error" style={{ fontSize: "0.8125rem", padding: "0.6rem 0.8rem" }}>
+                                <AlertTriangle size={16} /> {error}
+                            </div>
+                        )}
                         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                                 <div>
@@ -412,7 +457,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                             </div>
                         </div>
                         <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
-                            <button onClick={() => setShowFormSesion(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
+                            <button onClick={() => { setError(null); setShowFormSesion(false); }} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
                             <button onClick={crearSesion} disabled={saving || !formSesion.numero}
                                 className="btn btn-primary" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
                                 {saving ? <Loader2 size={15} className="spin" /> : <Save size={15} />}

@@ -23,9 +23,20 @@ export async function POST(req: NextRequest) {
         let escuelaCct: string = "";
         let escuelaNombreResolved: string = "";
         let programaNombre: string = "";
+        let publicId: string | undefined = undefined;
 
-        // ─── CAPEMS mode: no entregaId needed ───
-        if (programa === "CAPEMS" && cct && escuelaNombre) {
+        // ─── SESION_CAPEMS mode: repositorio zonal fijo, no entregaId ni escuela ───
+        if (programa === "SESION_CAPEMS") {
+            folder = "SISAT-ATP/CAPEMS/zona004";
+            if (originalFilename) {
+                const docName = originalFilename
+                    .replace(/\.(pdf|pptx)$/i, "")
+                    .replace(/\s+/g, "_")
+                    .replace(/[^a-zA-Z0-9._\-]/g, "")
+                    .slice(0, 80);
+                publicId = `${Date.now()}_${docName}`;
+            }
+        } else if (programa === "CAPEMS" && cct && escuelaNombre) {
             escuelaCct = cct;
             escuelaNombreResolved = escuelaNombre;
             programaNombre = "CAPEMS";
@@ -73,7 +84,6 @@ export async function POST(req: NextRequest) {
             folder = `SISAT-ATP/${folderPath}`;
         }
 
-        let publicId: string | undefined = undefined;
         if (originalFilename) {
             const isAcosoEscolar = programaNombre.toUpperCase().includes("ACOSO ESCOLAR");
             const isExpedientes = programaNombre === "Expedientes";

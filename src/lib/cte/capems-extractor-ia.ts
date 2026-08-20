@@ -188,6 +188,12 @@ export async function extraerTemasAcuerdosCapemsIA(
       );
       return parseJsonResult(rawResponse);
     } else {
+      if (buffer.length > 20 * 1024 * 1024) {
+        console.warn(
+          `[capems-extractor-ia] PDF escaneado demasiado grande para Gemini Vision (${(buffer.length / 1024 / 1024).toFixed(1)} MB > 20 MB). Se omite la extracción con visión.`
+        );
+        return { temas: [], acuerdosSugeridos: [] };
+      }
       console.log(`[capems-extractor-ia] PDF Escaneado o con poco texto (${extractedText.length} caracteres). Usando Gemini Vision.`);
       const rawResponse = await callGemini(
         SYSTEM_INSTRUCTION,
