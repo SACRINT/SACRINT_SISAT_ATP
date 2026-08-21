@@ -70,3 +70,30 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: error.message || "Error al actualizar comité" }, { status: 500 });
     }
 }
+
+/** DELETE /api/admin/comites?id=... — Eliminar un registro de comité de una escuela */
+export async function DELETE(req: Request) {
+    try {
+        const session = await auth();
+        if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get("id");
+        if (!id) return NextResponse.json({ error: "id es requerido" }, { status: 400 });
+
+        const tenantId = (session.user as any)?.organizacionId || (session.user as any)?.tenantId || process.env.TENANT_ID || "zona004";
+
+        const comite = await prisma.comiteEscolarRegistro.findFirst({
+            where: { id, tenantId },
+            select: { id: true },
+        });
+        if (!comite) return NextResponse.json({ error: "Comité no encontrado" }, { status: 404 });
+
+        await prisma.comiteEscolarRegistro.delete({ where: { id } });
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error("Error en DELETE /api/admin/comites:", error);
+        return NextResponse.json({ error: error.message || "Error al eliminar comité" }, { status: 500 });
+    }
+}

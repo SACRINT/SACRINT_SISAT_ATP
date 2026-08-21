@@ -44,7 +44,16 @@ export async function POST(req: NextRequest) {
     const user = session.user as any;
     const body = await req.json();
     const { accion, uacName, semester, component, totalHours, escuelaId, nombre, apellidoPaterno, apellidoMaterno, sexo } = body;
-    const targetEscuelaId = escuelaId || user.escuelaId || user.id;
+
+    let targetEscuelaId: string;
+    if (user.role === "admin" || user.role === "supervision") {
+      targetEscuelaId = escuelaId || user.escuelaId || user.id;
+    } else {
+      targetEscuelaId = user.escuelaId || user.id;
+      if (escuelaId && escuelaId !== targetEscuelaId) {
+        return NextResponse.json({ error: "Acceso denegado a otra escuela" }, { status: 403 });
+      }
+    }
 
     if (accion === "CREAR_DOCENTE") {
       if (!nombre || !apellidoPaterno) {

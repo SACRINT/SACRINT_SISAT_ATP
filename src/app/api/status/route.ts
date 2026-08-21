@@ -1,9 +1,27 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 // API for n8n to poll delivery status
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
+        const authHeader = req.headers.get("authorization");
+        const cronSecret = process.env.CRON_SECRET;
+        const isCronAuthorized = Boolean(cronSecret && (
+            authHeader === `Bearer ${cronSecret}` ||
+            req.headers.get("x-cron-secret") === cronSecret
+        ));
+
+        if (!isCronAuthorized) {
+            const session = await auth();
+            const role = (session?.user as any)?.role;
+            if (!session || !["admin", "supervision", "atp", "director"].includes(role)) {
+                return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+            }
+        }
+
         // Get the active ciclo escolar
         const ciclo = await prisma.cicloEscolar.findFirst({
             where: { activo: true },

@@ -12,8 +12,17 @@ export async function POST(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const user = session.user as any;
     const params = await context.params;
     const escuelaId = params.id;
+
+    if (user.role !== "admin" && user.role !== "supervision") {
+      const userEscuelaId = user.escuelaId || user.id;
+      if (escuelaId !== userEscuelaId) {
+        return NextResponse.json({ error: "Acceso denegado a otra escuela" }, { status: 403 });
+      }
+    }
+
     const body = await req.json();
     const { grupoNombre, semestre, capacitacionNombre, ffeOptativas } = body;
 

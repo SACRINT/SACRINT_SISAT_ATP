@@ -13,7 +13,16 @@ export async function POST(req: NextRequest) {
     const user = session.user as any;
     const body = await req.json();
     const { escuelaId: reqEscuelaId, nombreVersion } = body;
-    const escuelaId = reqEscuelaId || user.escuelaId || user.id;
+
+    let escuelaId: string;
+    if (user.role === "admin" || user.role === "supervision") {
+      escuelaId = reqEscuelaId || user.escuelaId || user.id;
+    } else {
+      escuelaId = user.escuelaId || user.id;
+      if (reqEscuelaId && reqEscuelaId !== escuelaId) {
+        return NextResponse.json({ error: "Acceso denegado a otra escuela" }, { status: 403 });
+      }
+    }
 
     if (!escuelaId) {
       return NextResponse.json({ error: "escuelaId es requerido" }, { status: 400 });

@@ -16,6 +16,13 @@ export async function POST(
     const params = await context.params;
     const escuelaId = params.id;
 
+    if (user.role !== "admin" && user.role !== "supervision") {
+      const userEscuelaId = user.escuelaId || user.id;
+      if (escuelaId !== userEscuelaId) {
+        return NextResponse.json({ error: "Acceso denegado a otra escuela" }, { status: 403 });
+      }
+    }
+
     // Verificar si la plataforma está en Modo Mantenimiento
     const configGlobal = await prisma.preRevisionConfig.findUnique({ where: { id: "singleton" } });
     if (configGlobal?.mantenimiento && user.role !== "admin") {

@@ -27,6 +27,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No se encontró el horario especificado." }, { status: 404 });
     }
 
+    if (user.role !== "admin" && user.role !== "supervision") {
+      const userEscuelaId = user.escuelaId || user.id;
+      if (horarioExistente.escuelaId !== userEscuelaId) {
+        return NextResponse.json({ error: "Acceso denegado a este horario." }, { status: 403 });
+      }
+    }
+
     // Actualizar celdas y metadata en la base de datos dentro de una transacción
     await prisma.$transaction(async (tx) => {
       for (const celda of celdas) {

@@ -38,6 +38,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Horario no encontrado" }, { status: 404 });
     }
 
+    const user = session.user as any;
+    if (user.role !== "admin" && user.role !== "supervision") {
+      const userEscuelaId = user.escuelaId || user.id;
+      if (horario.escuelaId !== userEscuelaId) {
+        return NextResponse.json({ error: "Acceso denegado a este horario" }, { status: 403 });
+      }
+    }
+
     const escuelaId = horario.escuelaId;
 
     // Extraer slotsLibresBloqueados desde scoreMetricas del horario

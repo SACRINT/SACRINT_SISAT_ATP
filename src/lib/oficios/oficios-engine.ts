@@ -138,6 +138,14 @@ export function guardarArchivoOficio(
         );
     }
 
+    const ext = path.extname(nombreArchivo).toLowerCase();
+    const extensionesPermitidas = [".pdf", ".png", ".jpg", ".jpeg", ".webp", ".docx", ".xlsx"];
+    if (!extensionesPermitidas.includes(ext)) {
+        throw new Error(
+            `Extensión de archivo no permitida: ${ext}. Solo se permiten: ${extensionesPermitidas.join(", ")}`
+        );
+    }
+
     const dirTenant = path.join(baseDir, "oficios", tenantId);
     fs.mkdirSync(dirTenant, { recursive: true });
 

@@ -7,11 +7,33 @@ export const dynamic = "force-dynamic";
 // GET - Listar documentos de un personal
 export async function GET(req: Request) {
     const session = await auth();
-    if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+    const user = session.user as any;
     const { searchParams } = new URL(req.url);
     const personalId = searchParams.get("personalId");
     if (!personalId) return NextResponse.json({ error: "personalId requerido" }, { status: 400 });
+
+    if (user?.role === "director") {
+        const personal = await prisma.personal.findUnique({
+            where: { id: personalId },
+            select: { escuelaId: true }
+        });
+        if (!personal) {
+            return NextResponse.json({ error: "Personal no encontrado" }, { status: 404 });
+        }
+        const userEscuelaId = user.escuelaId || user.id;
+        if (personal.escuelaId !== userEscuelaId) {
+            if (user.cct) {
+                const escuela = await prisma.escuela.findUnique({ where: { cct: user.cct }, select: { id: true } });
+                if (!escuela || escuela.id !== personal.escuelaId) {
+                    return NextResponse.json({ error: "No autorizado para ver este expediente" }, { status: 403 });
+                }
+            } else {
+                return NextResponse.json({ error: "No autorizado para ver este expediente" }, { status: 403 });
+            }
+        }
+    }
 
     const documentos = await prisma.documentoPersonal.findMany({
         where: { personalId },

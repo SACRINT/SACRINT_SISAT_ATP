@@ -32,10 +32,22 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { plantillaId, personalId, datosFinales, actualizarExpediente } = body;
-        const escuelaId = (session.user as any).id; // El ID del usuario director es el escuelaId
+        const user = session.user as any;
+        const escuelaId = user.escuelaId || user.id;
 
         if (!plantillaId || !personalId || !datosFinales) {
             return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 });
+        }
+
+        const personal = await prisma.personal.findUnique({
+            where: { id: personalId },
+            select: { id: true, escuelaId: true }
+        });
+        if (!personal) {
+            return NextResponse.json({ error: "Personal no encontrado" }, { status: 404 });
+        }
+        if (user.role === "director" && personal.escuelaId !== escuelaId) {
+            return NextResponse.json({ error: "No autorizado para operar con personal de otra escuela" }, { status: 403 });
         }
 
         const escuela = await prisma.escuela.findUnique({ where: { id: escuelaId } });

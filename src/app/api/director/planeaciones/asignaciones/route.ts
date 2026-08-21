@@ -13,17 +13,36 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { escuelaId: paramEscuelaId, grupoNombre, semestre, asignatura, personalId } = body;
 
-    let escuelaId = paramEscuelaId;
-    if (!escuelaId) {
+    let escuelaId: string;
+    if (user.role === "admin" || user.role === "supervision") {
+      escuelaId = paramEscuelaId || user.escuelaId || user.id;
+      if (!escuelaId && user.cct) {
+        const esc = await prisma.escuela.findUnique({ where: { cct: user.cct }, select: { id: true } });
+        if (esc) escuelaId = esc.id;
+      }
+    } else {
       escuelaId = user.escuelaId || user.id;
       if (!escuelaId && user.cct) {
         const esc = await prisma.escuela.findUnique({ where: { cct: user.cct }, select: { id: true } });
         if (esc) escuelaId = esc.id;
       }
+      if (paramEscuelaId && paramEscuelaId !== escuelaId) {
+        return NextResponse.json({ error: "Acceso denegado a otra escuela" }, { status: 403 });
+      }
     }
 
     if (!escuelaId || !grupoNombre || !semestre || !asignatura) {
       return NextResponse.json({ error: "Faltan parámetros obligatorios" }, { status: 400 });
+    }
+
+    if (personalId && personalId !== "SIN_ASIGNAR") {
+      const personal = await prisma.personal.findUnique({
+        where: { id: personalId },
+        select: { escuelaId: true },
+      });
+      if (!personal || personal.escuelaId !== escuelaId) {
+        return NextResponse.json({ error: "El personal no pertenece a esta escuela" }, { status: 400 });
+      }
     }
 
     // 1. Asegurar que existe el grupo en HorarioGrupo

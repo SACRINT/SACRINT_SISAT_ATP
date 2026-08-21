@@ -43,7 +43,17 @@ export async function GET(req: NextRequest) {
     const user = session.user as any;
     const searchParams = req.nextUrl.searchParams;
     const escuelaIdQuery = searchParams.get("escuelaId");
-    const escuelaId = escuelaIdQuery || await obtenerEscuelaId(user);
+
+    let escuelaId: string | null;
+    if (user.role === "admin" || user.role === "supervision") {
+        escuelaId = escuelaIdQuery || await obtenerEscuelaId(user);
+    } else {
+        escuelaId = await obtenerEscuelaId(user);
+        if (escuelaIdQuery && escuelaIdQuery !== escuelaId) {
+            return NextResponse.json({ error: "Acceso denegado a otra escuela" }, { status: 403 });
+        }
+    }
+
     if (!escuelaId) return NextResponse.json({ error: "No autorizado (escuela no encontrada)" }, { status: 401 });
 
     const [requisitos, planeaciones, escuela, personal, cargas, grupos] = await Promise.all([

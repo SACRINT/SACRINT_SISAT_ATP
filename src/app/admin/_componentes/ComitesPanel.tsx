@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
     ShieldCheck, Users, RefreshCw, Plus, AlertTriangle, CheckCircle2,
-    Clock, Loader2, X, Save, ChevronDown, ChevronUp, FileText,
+    Clock, Loader2, X, Save, ChevronDown, ChevronUp, FileText, Trash2,
 } from "lucide-react";
 
 interface Escuela {
@@ -85,6 +85,20 @@ export default function ComitesPanel({ readOnly = false }: { readOnly?: boolean 
             await cargar();
         } catch { /* silencio */ } finally {
             setSaving(prev => ({ ...prev, [escuelaId]: false }));
+        }
+    };
+
+    const eliminarComite = async (comite: Comite) => {
+        if (!confirm(`¿Eliminar el comité de "${comite.escuela.nombre}" (${comite.escuela.cct})?`)) return;
+        setSaving(prev => ({ ...prev, [comite.id]: true }));
+        try {
+            const res = await fetch(`/api/admin/comites?id=${comite.id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Error al eliminar comité");
+            await cargar();
+        } catch (e) {
+            alert(e instanceof Error ? e.message : "Error al eliminar comité");
+        } finally {
+            setSaving(prev => ({ ...prev, [comite.id]: false }));
         }
     };
 
@@ -270,6 +284,17 @@ export default function ComitesPanel({ readOnly = false }: { readOnly?: boolean 
                                             </div>
                                         </div>
                                     )}
+                                    <div style={{ display: "flex", justifyContent: "flex-end", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                                        <button
+                                            onClick={() => eliminarComite(comite)}
+                                            disabled={saving[comite.id]}
+                                            className="btn btn-outline"
+                                            style={{ padding: "0.4rem 0.75rem", color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.4)" }}
+                                        >
+                                            {saving[comite.id] ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}
+                                            Eliminar comité
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>

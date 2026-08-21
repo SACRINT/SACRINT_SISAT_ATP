@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import PizZip from "pizzip";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { PDFDocument } from "pdf-lib";
@@ -85,12 +86,24 @@ function extraerTextoDocx(buffer: Buffer): string {
 
 export async function POST(req: Request) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
     if (!file) {
       return NextResponse.json(
         { error: "No se proporcionó ningún archivo." },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "El archivo supera el límite permitido de 10MB." },
         { status: 400 }
       );
     }
@@ -243,11 +256,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("[extraer-texto] Error procesando archivo:", error);
     return NextResponse.json(
-      {
-        error:
-          "Ocurrió un error al procesar el archivo: " +
-          (error?.message || error),
-      },
+      { error: "Error al procesar el archivo. Verifique el formato e intente nuevamente." },
       { status: 500 }
     );
   }

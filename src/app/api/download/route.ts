@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
 /**
  * GET /api/download?url=<cloudinary_url>&name=<filename>&publicId=<id>&inline=1
@@ -99,6 +100,49 @@ export async function GET(request: NextRequest) {
 
     const { cloudName, resourceType: urlResourceType, format } = parsed;
     const publicId      = directPublicId || parsed.publicId;
+
+    // ── Ownership validation for directores ──
+    const user = session.user as any;
+    if (user?.role === "director") {
+        const userEscuelaId = user.escuelaId || user.id;
+
+        // 1. Entregas de otra escuela
+        const entregaAjena = await prisma.archivo.findFirst({
+            where: {
+                OR: [{ driveId: publicId }, { driveUrl: { contains: publicId } }],
+                entrega: { escuelaId: { not: userEscuelaId } }
+            },
+            select: { id: true }
+        });
+        if (entregaAjena) {
+            return NextResponse.json({ error: "No tienes permiso para descargar archivos de otra escuela" }, { status: 403 });
+        }
+
+        // 2. Expedientes personales de otra escuela
+        const docAjeno = await prisma.documentoPersonal.findFirst({
+            where: {
+                OR: [{ archivoDriveId: publicId }, { archivoDriveUrl: { contains: publicId } }],
+                personal: { escuelaId: { not: userEscuelaId } }
+            },
+            select: { id: true }
+        });
+        if (docAjeno) {
+            return NextResponse.json({ error: "No tienes permiso para descargar expedientes de otra escuela" }, { status: 403 });
+        }
+
+        // 3. Planeaciones de otra escuela
+        const planAjena = await prisma.planeacionDidactica.findFirst({
+            where: {
+                archivoUrl: { contains: publicId },
+                escuelaId: { not: userEscuelaId }
+            },
+            select: { id: true }
+        });
+        if (planAjena) {
+            return NextResponse.json({ error: "No tienes permiso para descargar planeaciones de otra escuela" }, { status: 403 });
+        }
+    }
+
     const configuredCloud = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey          = process.env.CLOUDINARY_API_KEY;
     const apiSecret       = process.env.CLOUDINARY_API_SECRET;

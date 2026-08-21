@@ -13,7 +13,11 @@ export async function POST(req: NextRequest) {
         if (!session?.user) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 });
         }
-        const user = session.user as { role?: string; organizacionId?: string; tenantId?: string; id?: string } | undefined;
+        const user = session.user as { role?: string; organizacionId?: string; tenantId?: string; id?: string; escuelaId?: string } | undefined;
+        if (!user || !["admin", "supervision", "director"].includes(user.role || "")) {
+            return NextResponse.json({ error: "Rol no autorizado" }, { status: 403 });
+        }
+
         const tenantId = user?.organizacionId || user?.tenantId;
         if (!tenantId) {
             return NextResponse.json({ error: "Sesión sin tenantId" }, { status: 400 });
@@ -46,12 +50,18 @@ export async function POST(req: NextRequest) {
             const file = formData.get("file") as File | null;
             const escIdForm = formData.get("escuelaId") as string | null;
 
-            if (escIdForm) {
-                escuelaId = escIdForm;
-            } else if (user?.role === "director") {
-                // El director sube para su propia escuela
-                const esc = await prisma.escuela.findUnique({ where: { id: user.id } });
-                if (esc) escuelaId = esc.id;
+            if (user.role === "director") {
+                const userEscuelaId = user.escuelaId || user.id;
+                if (escIdForm && escIdForm !== userEscuelaId) {
+                    return NextResponse.json({ error: "Acceso denegado a otra escuela" }, { status: 403 });
+                }
+                escuelaId = userEscuelaId || "";
+            } else {
+                escuelaId = escIdForm || "";
+            }
+
+            if (!escuelaId) {
+                return NextResponse.json({ error: "escuelaId es requerido" }, { status: 400 });
             }
 
             if (!file) {

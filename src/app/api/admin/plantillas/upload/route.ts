@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
         const user = session?.user as { role?: string; organizacionId?: string; tenantId?: string } | undefined;
         const tenantId = user?.organizacionId || user?.tenantId || process.env.TENANT_ID || "zona004";
 
-        if (!session) {
-            return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        if (!session || !["admin", "supervision"].includes(user?.role || "")) {
+            return NextResponse.json({ error: "Rol no autorizado. Solo administración o supervisión pueden cargar plantillas." }, { status: 403 });
         }
 
         const formData = await req.formData();
@@ -26,6 +26,26 @@ export async function POST(req: NextRequest) {
 
         if (!pdfFile && !excelFile) {
             return NextResponse.json({ error: "Debe subir al menos el PDF escaneado (entregable principal) o la sábana Excel" }, { status: 400 });
+        }
+
+        const MAX_SIZE = 25 * 1024 * 1024; // 25MB
+        if (pdfFile) {
+            if (pdfFile.size > MAX_SIZE) {
+                return NextResponse.json({ error: "El archivo PDF supera el límite de 25MB" }, { status: 400 });
+            }
+            const ext = pdfFile.name.split(".").pop()?.toLowerCase();
+            if (ext !== "pdf") {
+                return NextResponse.json({ error: "El archivo PDF debe tener extensión .pdf" }, { status: 400 });
+            }
+        }
+        if (excelFile) {
+            if (excelFile.size > MAX_SIZE) {
+                return NextResponse.json({ error: "El archivo Excel supera el límite de 25MB" }, { status: 400 });
+            }
+            const ext = excelFile.name.split(".").pop()?.toLowerCase();
+            if (ext !== "xlsx" && ext !== "xls") {
+                return NextResponse.json({ error: "El archivo Excel debe tener extensión .xlsx o .xls" }, { status: 400 });
+            }
         }
 
         // Cargar configuración de corte
