@@ -68,15 +68,24 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { numero, fase, descripcion, fechaSesion, fechaLimite, guiaUrl } = body;
+        const { numero, fase, tipoSesion = "CAPEMS", descripcion, fechaSesion, fechaLimite, guiaUrl } = body;
 
         if (!numero || !fase) {
             return NextResponse.json({ error: "numero y fase son requeridos" }, { status: 400 });
         }
 
+        const tipoSesionFinal = String(tipoSesion || "CAPEMS");
         const sesion = await prisma.cteSesionConfig.upsert({
-            where: { tenantId_numero_fase: { tenantId, numero: Number(numero), fase } },
+            where: {
+                tenantId_numero_fase_tipoSesion: {
+                    tenantId,
+                    numero: Number(numero),
+                    fase,
+                    tipoSesion: tipoSesionFinal
+                }
+            },
             update: {
+                tipoSesion: tipoSesionFinal,
                 descripcion,
                 fechaSesion: fechaSesion ? new Date(fechaSesion) : null,
                 fechaLimite: fechaLimite ? new Date(fechaLimite) : null,
@@ -87,6 +96,7 @@ export async function POST(req: Request) {
                 tenantId,
                 numero: Number(numero),
                 fase,
+                tipoSesion: tipoSesionFinal,
                 descripcion,
                 fechaSesion: fechaSesion ? new Date(fechaSesion) : null,
                 fechaLimite: fechaLimite ? new Date(fechaLimite) : null,

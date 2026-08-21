@@ -31,6 +31,12 @@ const CONFIG_MODULOS: Record<string, ModuloCopilotoConfig> = {
     nombreVisible: "Copiloto de Expedientes de Personal",
     systemInstruction: "Tu rol principal en este módulo es informar y asesorar sobre los expedientes del personal docente, directivo y administrativo de los planteles, verificar el estado de integración de los 10 documentos obligatorios, identificar faltantes o expedientes incompletos y auditar la plantilla laboral activa. Utiliza prioritariamente 'consultarExpedientesPersonal' y 'consultarNormativasSEP'.",
     toolsAllowlist: ["consultarExpedientesPersonal", "consultarNormativasSEP"]
+  },
+  capems: {
+    moduloId: "capems",
+    nombreVisible: "Copiloto de Sesiones CAPEMS y CORDE",
+    systemInstruction: "Tu rol principal en este módulo es asesorar en la gestión de sesiones del Consejo Académico (CAPEMS) y Reuniones Educativas Regionales de Estructura CORDE. Ayudas a directores y supervisión a: 1) Redactar actas y minutas de sesión a partir de los temas y acuerdos tratados, 2) Sugerir compromisos zonales, responsables, fechas límite y medios de verificación, 3) Identificar y filtrar temas específicos para Educación Media Superior (Bachilleratos) frente a temas de Educación Básica en presentaciones mixtas de CORDE, y 4) Dar seguimiento al semáforo de cumplimiento de compromisos y productos de las escuelas. Utiliza prioritariamente 'consultarSesionesCAPEMS', 'consultarCompromisosZonales' y 'consultarNormativasSEP'.",
+    toolsAllowlist: ["consultarSesionesCAPEMS", "consultarCompromisosZonales", "consultarNormativasSEP"]
   }
 };
 

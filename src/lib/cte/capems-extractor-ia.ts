@@ -5,6 +5,7 @@ import { callGemini } from "@/lib/gemini";
 export interface TemaCapemsIA {
   titulo: string;
   descripcion: string | null;
+  nivelAplicable?: "MEDIA_SUPERIOR" | "BASICA" | "TODOS" | null;
 }
 
 export interface AcuerdoSugeridoCapemsIA {
@@ -18,18 +19,19 @@ export interface ResultadoExtraccionCapemsIA {
 
 const SYSTEM_INSTRUCTION = `
 Eres un asistente experto en gestión pedagógica y administración escolar de Educación Media Superior en México.
-Tu tarea es analizar presentaciones y documentos oficiales de sesiones de Consejos Académicos (CAPEMS) y Consejos Técnicos Escolares para extraer la orden del día, temas tratados y compromisos o acuerdos explícitos.
+Tu tarea es analizar presentaciones y documentos oficiales de sesiones de Consejos Académicos (CAPEMS), Reuniones Educativas Regionales (CORDE) y Consejos Técnicos Escolares para extraer la orden del día, temas tratados clasificados por nivel educativo y compromisos o acuerdos explícitos.
 Responde ÚNICAMENTE con el objeto JSON solicitado, sin explicaciones ni markdown.
 `.trim();
 
 const PROMPT_BASE = `
-Analiza el contenido del documento/presentación oficial de la sesión de CAPEMS adjunto y extrae los temas y acuerdos en formato JSON estricto con la siguiente estructura:
+Analiza el contenido del documento/presentación oficial adjunto (sesión de CAPEMS o Reunión Educativa Regional con CORDE/Supervisión) y extrae los temas y acuerdos en formato JSON estricto con la siguiente estructura:
 
 {
   "temas": [
     {
       "titulo": "Título de la sección u orden del día (string)",
-      "descripcion": "Resumen conciso del contenido tratado (string o null si es solo un título breve)"
+      "descripcion": "Resumen conciso del contenido tratado (string o null si es solo un título breve)",
+      "nivelAplicable": "MEDIA_SUPERIOR" | "BASICA" | "TODOS"
     }
   ],
   "acuerdosSugeridos": [
@@ -41,9 +43,13 @@ Analiza el contenido del documento/presentación oficial de la sesión de CAPEMS
 
 Reglas estrictas:
 1. "temas": Extrae la Orden del Día o los temas/secciones clave desarrollados a lo largo del documento.
-2. "acuerdosSugeridos": Incluye acuerdos o compromisos ÚNICAMENTE si el documento los declara de manera explícita (por ejemplo: secciones tituladas "Acuerdos y Compromisos", "Acuerdos Zonales", "Acuerdo 1...", tablas de responsables/evidencias).
-3. Si el documento NO declara acuerdos explícitos, devuelve un arreglo vacío [] en "acuerdosSugeridos". NO inventes, infieras ni supongas compromisos.
-4. Responde SOLO con el JSON válido, sin bloques de código \`\`\`json ni texto introductorio.
+2. "nivelAplicable": Clasifica cada tema:
+   - "MEDIA_SUPERIOR": Si el tema, lineamiento o taller es exclusivo o aplicable a Bachilleratos / Preparatorias / EMS.
+   - "BASICA": Si el tema es exclusivo de Educación Básica (Preescolar, Primarias, Secundarias).
+   - "TODOS": Si es un tema institucional general o transversal (Control Escolar, SICEP, Seguridad Pública, Becas, etc.).
+3. "acuerdosSugeridos": Incluye acuerdos o compromisos ÚNICAMENTE si el documento los declara de manera explícita (por ejemplo: secciones tituladas "Acuerdos y Compromisos", "Acuerdos Zonales", "Acuerdo 1...", tablas de responsables/evidencias).
+4. Si el documento NO declara acuerdos explícitos, devuelve un arreglo vacío [] en "acuerdosSugeridos". NO inventes, infieras ni supongas compromisos.
+5. Responde SOLO con el JSON válido, sin bloques de código \`\`\`json ni texto introductorio.
 `.trim();
 
 /**

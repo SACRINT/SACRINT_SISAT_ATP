@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     const {
       numero,
       fase,
+      tipoSesion = "CAPEMS",
       descripcion,
       fechaSesion,
       fechaLimite,
@@ -124,15 +125,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Upsert en Base de Datos
+    const tipoSesionFinal = String(tipoSesion || "CAPEMS");
     const sesion = await prisma.cteSesionConfig.upsert({
       where: {
-        tenantId_numero_fase: {
+        tenantId_numero_fase_tipoSesion: {
           tenantId,
           numero: numeroFinal,
           fase: fase as TipoFaseCte,
+          tipoSesion: tipoSesionFinal,
         },
       },
       update: {
+        tipoSesion: tipoSesionFinal,
         descripcion: descripcion || null,
         fechaSesion: fechaSesion ? new Date(fechaSesion) : null,
         fechaLimite: fechaLimite ? new Date(fechaLimite) : null,
@@ -150,6 +154,7 @@ export async function POST(req: NextRequest) {
         tenantId,
         numero: numeroFinal,
         fase: fase as TipoFaseCte,
+        tipoSesion: tipoSesionFinal,
         descripcion: descripcion || null,
         fechaSesion: fechaSesion ? new Date(fechaSesion) : null,
         fechaLimite: fechaLimite ? new Date(fechaLimite) : null,

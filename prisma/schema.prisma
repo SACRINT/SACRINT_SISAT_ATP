@@ -1701,6 +1701,7 @@ model CteSesionConfig {
   tenantId    String      @default("zona004")
   numero      Int         // Número de sesión (1, 2, 3...)
   fase        TipoFaseCte @default(ORDINARIA)
+  tipoSesion  String      @default("CAPEMS") // "CAPEMS" | "REUNION_ESTRUCTURA"
   descripcion String?
   fechaSesion DateTime?
   fechaLimite DateTime?   // Fecha límite de entrega del producto
@@ -1710,7 +1711,7 @@ model CteSesionConfig {
   archivoPublicId     String?     // public_id de Cloudinary (para descarga firmada/borrado)
   sha256Hash          String?     // integridad (mismo patrón que oficios)
   iaProcessed         Boolean     @default(false)
-  temasIA             Json?       // array [{ titulo: string, descripcion: string | null }]
+  temasIA             Json?       // array [{ titulo: string, descripcion: string | null, nivelAplicable?: string }]
   acuerdosSugeridosIA Json?       // array [{ texto: string }]
   activo              Boolean     @default(true)
   createdAt           DateTime    @default(now())
@@ -1719,7 +1720,7 @@ model CteSesionConfig {
   productos   CteProductoEscuela[]
   compromisos CteCompromisoZonal[]
 
-  @@unique([tenantId, numero, fase])
+  @@unique([tenantId, numero, fase, tipoSesion])
   @@index([tenantId])
 }
 

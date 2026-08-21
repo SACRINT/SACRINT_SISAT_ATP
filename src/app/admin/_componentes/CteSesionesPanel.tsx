@@ -6,15 +6,17 @@ import {
     ChevronDown, ChevronUp, Plus, Settings, RefreshCw,
     FileText, Calendar, GraduationCap, Loader2, X, Save,
     Layers, Download, Eye, CheckSquare, Sparkles, CheckCircle2,
-    Upload
+    Upload, Filter, Building2
 } from "lucide-react";
 import CteCompromisosTablero from "@/components/cte/CteCompromisosTablero";
 import PdfViewerModal from "@/app/_componentes/PdfViewerModal";
 import { getDownloadUrl } from "@/lib/download-url";
+import ModuloCopilotDrawer, { AccionSugerida } from "@/components/copilot/ModuloCopilotDrawer";
 
 interface TemaIA {
     titulo: string;
     descripcion: string | null;
+    nivelAplicable?: "MEDIA_SUPERIOR" | "BASICA" | "TODOS" | null;
 }
 
 interface AcuerdoSugeridoIA {
@@ -25,6 +27,7 @@ interface Sesion {
     id: string;
     numero: number;
     fase: "INTENSIVA" | "ORDINARIA";
+    tipoSesion?: "CAPEMS" | "REUNION_ESTRUCTURA" | string;
     descripcion: string | null;
     fechaSesion: string | null;
     fechaLimite: string | null;
@@ -39,6 +42,33 @@ interface Sesion {
     activo: boolean;
 }
 
+const ACCIONES_COPILOTO_CAPEMS: AccionSugerida[] = [
+    {
+        id: "acta_sesion",
+        etiqueta: "📝 Redactar Acta de Sesión",
+        prompt: "Genera una propuesta formal e institucional de Acta de Sesión oficial (formato supervisión escolar) para la última sesión registrada, organizando los antecedentes, orden del día, desarrollo de temas y acuerdos alcanzados.",
+        descripcion: "Genera una propuesta formal de acta de sesión"
+    },
+    {
+        id: "sugerir_compromisos",
+        etiqueta: "🎯 Sugerir Compromisos y Responsables",
+        prompt: "Analiza los temas y acuerdos de las sesiones recientes y sugiere una lista estructurada de compromisos zonales, indicando categoría (APRENDIZAJES, GESTION, CONVIVENCIA), nivel de prioridad y fecha límite sugerida.",
+        descripcion: "Estructura compromisos zonales con responsables"
+    },
+    {
+        id: "filtrar_ems",
+        etiqueta: "🔍 Filtrar Temas de Media Superior",
+        prompt: "Consulta las presentaciones y sesiones de Reunión de Estructura CORDE e identifica con precisión únicamente los temas, talleres y lineamientos que aplican a Educación Media Superior (Bachilleratos), separándolos de Educación Básica.",
+        descripcion: "Discrimina temas específicos para bachilleratos"
+    },
+    {
+        id: "seguimiento_acuerdos",
+        etiqueta: "📊 Consultar Seguimiento de Acuerdos",
+        prompt: "Proporciona un reporte de seguimiento del estatus de los compromisos zonales y cumplimiento de las escuelas en las sesiones de CAPEMS / CORDE.",
+        descripcion: "Revisa el semáforo y estatus de cumplimiento"
+    }
+];
+
 export default function CteSesionesPanel({ readOnly = false }: { readOnly?: boolean }) {
     const [sesiones, setSesiones] = useState<Sesion[]>([]);
     const [loading, setLoading] = useState(true);
@@ -48,11 +78,14 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [campoInvalido, setCampoInvalido] = useState<string | null>(null);
+    const [copilotOpen, setCopilotOpen] = useState(false);
+    const [filtroNivelPorSesion, setFiltroNivelPorSesion] = useState<Record<string, "TODOS" | "MEDIA_SUPERIOR">>({});
 
     // Formulario nueva sesión
     const [formSesion, setFormSesion] = useState({
         numero: "",
         fase: "ORDINARIA",
+        tipoSesion: "CAPEMS",
         descripcion: "",
         fechaSesion: "",
         fechaLimite: "",
@@ -66,6 +99,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
         sesionId: string;
         numero: number;
         fase: string;
+        tipoSesion?: string;
         temas: TemaIA[];
         acuerdos: AcuerdoSugeridoIA[];
         acuerdosSeleccionados: boolean[];
@@ -150,6 +184,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                     body: JSON.stringify({
                         numero: Number(formSesion.numero),
                         fase: formSesion.fase,
+                        tipoSesion: formSesion.tipoSesion || "CAPEMS",
                         descripcion: formSesion.descripcion || null,
                         fechaSesion: formSesion.fechaSesion || null,
                         fechaLimite: formSesion.fechaLimite || null,
@@ -174,7 +209,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
 
                 setShowFormSesion(false);
                 setArchivoSeleccionado(null);
-                setFormSesion({ numero: "", fase: "ORDINARIA", descripcion: "", fechaSesion: "", fechaLimite: "", guiaUrl: "" });
+                setFormSesion({ numero: "", fase: "ORDINARIA", tipoSesion: "CAPEMS", descripcion: "", fechaSesion: "", fechaLimite: "", guiaUrl: "" });
                 await cargar();
 
                 // Abrir modal de revisión IA si se obtuvieron temas o acuerdos
@@ -187,6 +222,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                             sesionId: result.sesion.id,
                             numero: result.sesion.numero,
                             fase: result.sesion.fase,
+                            tipoSesion: result.sesion.tipoSesion,
                             temas: temasExtraidos,
                             acuerdos: acuerdosExtraidos,
                             acuerdosSeleccionados: acuerdosExtraidos.map(() => true),
@@ -201,6 +237,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                     body: JSON.stringify({
                         numero: Number(formSesion.numero),
                         fase: formSesion.fase,
+                        tipoSesion: formSesion.tipoSesion || "CAPEMS",
                         descripcion: formSesion.descripcion || null,
                         fechaSesion: formSesion.fechaSesion || null,
                         fechaLimite: formSesion.fechaLimite || null,
@@ -214,7 +251,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                 }
 
                 setShowFormSesion(false);
-                setFormSesion({ numero: "", fase: "ORDINARIA", descripcion: "", fechaSesion: "", fechaLimite: "", guiaUrl: "" });
+                setFormSesion({ numero: "", fase: "ORDINARIA", tipoSesion: "CAPEMS", descripcion: "", fechaSesion: "", fechaLimite: "", guiaUrl: "" });
                 await cargar();
             }
         } catch (e) {
@@ -315,13 +352,30 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                 <div>
                     <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text)" }}>
                         <GraduationCap style={{ color: "var(--primary)" }} size={28} />
-                        Consejos Académicos (CAPEMS)
+                        Consejos Académicos (CAPEMS) y CORDE
                     </h2>
                     <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-                        Repositorio de sesiones de Consejos Académicos (CAPEMS) — Zona 004
+                        Repositorio de sesiones de Consejos Académicos (CAPEMS) y Reuniones Educativas Regionales de CORDE — Zona 004
                     </p>
                 </div>
-                <div style={{ display: "flex", gap: "0.75rem" }}>
+                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                        className="btn btn-outline"
+                        onClick={() => setCopilotOpen(true)}
+                        style={{
+                            fontSize: "0.8125rem",
+                            borderColor: "rgba(124, 58, 237, 0.4)",
+                            color: "#7c3aed",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.4rem",
+                            background: "rgba(124, 58, 237, 0.08)",
+                            fontWeight: 700
+                        }}
+                    >
+                        <Sparkles size={15} style={{ color: "#7c3aed" }} />
+                        ✨ Copiloto CAPEMS / CORDE
+                    </button>
                     <button className="btn btn-outline" onClick={cargar} style={{ fontSize: "0.8125rem" }}>
                         <RefreshCw size={15} /> Actualizar
                     </button>
@@ -393,7 +447,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                     <div className="card" style={{ width: "100%", maxWidth: "540px", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                <Settings size={18} style={{ color: "var(--primary)" }} /> Configurar Sesión CAPEMS
+                                <Settings size={18} style={{ color: "var(--primary)" }} /> Configurar Sesión Oficial
                             </h3>
                             <button onClick={() => { setError(null); setCampoInvalido(null); setShowFormSesion(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
                                 <X size={20} />
@@ -405,6 +459,18 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                             </div>
                         )}
                         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <div>
+                                <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Tipo de Sesión Oficial *</label>
+                                <select
+                                    className="form-control"
+                                    value={formSesion.tipoSesion}
+                                    onChange={e => setFormSesion(f => ({ ...f, tipoSesion: e.target.value }))}
+                                    style={{ width: "100%", fontWeight: 600 }}
+                                >
+                                    <option value="CAPEMS">🎓 Consejo Académico (CAPEMS - Educación Media Superior)</option>
+                                    <option value="REUNION_ESTRUCTURA">🏛️ Reunión de Estructura CORDE (Regional)</option>
+                                </select>
+                            </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                                 <div>
                                     <label className="form-label" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.25rem", display: "block" }}>Número de Sesión *</label>
@@ -583,6 +649,27 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                                     });
                                                 }}
                                             />
+                                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.1rem" }}>
+                                                <label style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-muted)" }}>Nivel Aplicable:</label>
+                                                <select
+                                                    className="form-control"
+                                                    style={{ fontSize: "0.75rem", padding: "0.15rem 0.4rem", width: "auto", fontWeight: 600 }}
+                                                    value={tema.nivelAplicable || "TODOS"}
+                                                    onChange={e => {
+                                                        const val = e.target.value as any;
+                                                        setModalIA(prev => {
+                                                            if (!prev) return null;
+                                                            const newTemas = [...prev.temas];
+                                                            newTemas[idx] = { ...newTemas[idx], nivelAplicable: val };
+                                                            return { ...prev, temas: newTemas };
+                                                        });
+                                                    }}
+                                                >
+                                                    <option value="TODOS">🌐 General / Todos los niveles</option>
+                                                    <option value="MEDIA_SUPERIOR">🏫 Media Superior (Bachilleratos)</option>
+                                                    <option value="BASICA">🎒 Educación Básica</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -689,7 +776,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                 sesiones.length === 0 ? (
                     <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem", color: "var(--text-muted)" }}>
                         <GraduationCap size={44} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
-                        <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem", color: "var(--text)" }}>No hay sesiones de CAPEMS configuradas</p>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem", color: "var(--text)" }}>No hay sesiones configuradas</p>
                         <p style={{ margin: "0.5rem 0 0", fontSize: "0.875rem" }}>Crea la primera sesión con el botón &quot;Nueva Sesión&quot;</p>
                     </div>
                 ) : (
@@ -697,6 +784,17 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                         {sesiones.map(sesion => {
                             const expandida = sesionExpandida === sesion.id;
                             const temasList = (sesion.temasIA as TemaIA[]) || [];
+                            const filtroNivel = filtroNivelPorSesion[sesion.id] || "TODOS";
+                            
+                            const temasFiltrados = temasList.filter(tema => {
+                                if (filtroNivel === "MEDIA_SUPERIOR") {
+                                    return tema.nivelAplicable === "MEDIA_SUPERIOR" || tema.nivelAplicable === "TODOS" || !tema.nivelAplicable;
+                                }
+                                return true;
+                            });
+
+                            const emsCount = temasList.filter(t => t.nivelAplicable === "MEDIA_SUPERIOR" || t.nivelAplicable === "TODOS" || !t.nivelAplicable).length;
+                            const esEstructura = sesion.tipoSesion === "REUNION_ESTRUCTURA";
 
                             return (
                                 <div key={sesion.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -711,7 +809,8 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                                             <div style={{
                                                 width: "42px", height: "42px", borderRadius: "10px",
-                                                background: "rgba(37, 99, 235, 0.1)", color: "var(--primary)",
+                                                background: esEstructura ? "rgba(124, 58, 237, 0.12)" : "rgba(37, 99, 235, 0.1)",
+                                                color: esEstructura ? "#7c3aed" : "var(--primary)",
                                                 display: "flex", alignItems: "center", justifyContent: "center",
                                                 fontWeight: 800, fontSize: "1rem"
                                             }}>
@@ -722,6 +821,18 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                                     <span style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text)" }}>
                                                         Sesión {sesion.numero} — {sesion.fase === "INTENSIVA" ? "Fase Intensiva" : "Fase Ordinaria"}
                                                     </span>
+
+                                                    {/* Badge Tipo de Sesión */}
+                                                    <span style={{
+                                                        fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: "12px",
+                                                        background: esEstructura ? "rgba(124, 58, 237, 0.15)" : "rgba(37, 99, 235, 0.15)",
+                                                        color: esEstructura ? "#7c3aed" : "var(--primary)",
+                                                        display: "inline-flex", alignItems: "center", gap: "0.25rem"
+                                                    }}>
+                                                        {esEstructura ? <Building2 size={11} /> : <GraduationCap size={11} />}
+                                                        {esEstructura ? "Estructura CORDE" : "CAPEMS"}
+                                                    </span>
+
                                                     <span style={{
                                                         fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: "12px",
                                                         background: sesion.fase === "INTENSIVA" ? "rgba(124, 58, 237, 0.15)" : "rgba(37, 99, 235, 0.15)",
@@ -730,6 +841,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                                     }}>
                                                         {sesion.fase}
                                                     </span>
+
                                                     {sesion.archivoUrl && (
                                                         <span style={{
                                                             fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.5rem", borderRadius: "12px",
@@ -777,7 +889,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                                             <Eye size={14} /> Ver Presentación Oficial
                                                         </button>
                                                         <a
-                                                            href={getDownloadUrl(sesion.archivoUrl, sesion.archivoNombre || `CAPEMS_Sesion_${sesion.numero}`, sesion.archivoPublicId)}
+                                                            href={getDownloadUrl(sesion.archivoUrl, sesion.archivoNombre || `Sesion_${sesion.numero}`, sesion.archivoPublicId)}
                                                             download
                                                             className="btn btn-outline"
                                                             style={{ fontSize: "0.8rem", padding: "0.4rem 0.85rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
@@ -807,6 +919,7 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                                                 sesionId: sesion.id,
                                                                 numero: sesion.numero,
                                                                 fase: sesion.fase,
+                                                                tipoSesion: sesion.tipoSesion,
                                                                 temas: (sesion.temasIA as TemaIA[]) || [],
                                                                 acuerdos: (sesion.acuerdosSugeridosIA as AcuerdoSugeridoIA[]) || [],
                                                                 acuerdosSeleccionados: ((sesion.acuerdosSugeridosIA as AcuerdoSugeridoIA[]) || []).map(() => true),
@@ -820,42 +933,104 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                                                 )}
                                             </div>
 
-                                            {/* 2. Bloque de Temas Tratados */}
+                                            {/* 2. Bloque de Temas Tratados con Filtro Rápido */}
                                             <div style={{ background: "var(--bg-card)", padding: "1rem", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                                                <h4 style={{ margin: "0 0 0.75rem", fontSize: "0.875rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--text)" }}>
-                                                    <FileText size={15} style={{ color: "var(--primary)" }} /> Temas y Orden del Día de la Sesión
-                                                </h4>
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                                                    <h4 style={{ margin: 0, fontSize: "0.875rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--text)" }}>
+                                                        <FileText size={15} style={{ color: "var(--primary)" }} /> Temas y Orden del Día de la Sesión ({temasFiltrados.length})
+                                                    </h4>
 
-                                                {temasList.length === 0 ? (
+                                                    {/* Filtro Rápido de Nivel */}
+                                                    {temasList.length > 0 && (
+                                                        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                                                            <Filter size={13} style={{ color: "var(--text-muted)" }} />
+                                                            <button
+                                                                onClick={() => setFiltroNivelPorSesion(prev => ({ ...prev, [sesion.id]: "TODOS" }))}
+                                                                style={{
+                                                                    fontSize: "0.7rem",
+                                                                    fontWeight: 600,
+                                                                    padding: "0.2rem 0.5rem",
+                                                                    borderRadius: "6px",
+                                                                    border: "1px solid var(--border)",
+                                                                    background: filtroNivel === "TODOS" ? "var(--primary)" : "var(--bg-secondary)",
+                                                                    color: filtroNivel === "TODOS" ? "#fff" : "var(--text-muted)",
+                                                                    cursor: "pointer"
+                                                                }}
+                                                            >
+                                                                Todos los temas ({temasList.length})
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setFiltroNivelPorSesion(prev => ({ ...prev, [sesion.id]: "MEDIA_SUPERIOR" }))}
+                                                                style={{
+                                                                    fontSize: "0.7rem",
+                                                                    fontWeight: 600,
+                                                                    padding: "0.2rem 0.5rem",
+                                                                    borderRadius: "6px",
+                                                                    border: "1px solid var(--border)",
+                                                                    background: filtroNivel === "MEDIA_SUPERIOR" ? "#059669" : "var(--bg-secondary)",
+                                                                    color: filtroNivel === "MEDIA_SUPERIOR" ? "#fff" : "var(--text-muted)",
+                                                                    cursor: "pointer"
+                                                                }}
+                                                            >
+                                                                🏫 Solo Media Superior ({emsCount})
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {temasFiltrados.length === 0 ? (
                                                     <p style={{ margin: 0, fontSize: "0.8125rem", color: "var(--text-muted)", fontStyle: "italic" }}>
-                                                        Sin temas registrados para esta sesión.
+                                                        {temasList.length === 0 ? "Sin temas registrados para esta sesión." : "No hay temas con el filtro seleccionado."}
                                                     </p>
                                                 ) : (
                                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.75rem" }}>
-                                                        {temasList.map((tema, idx) => (
-                                                            <div key={idx} style={{
-                                                                padding: "0.75rem", borderRadius: "6px",
-                                                                background: "var(--bg-secondary)", border: "1px solid var(--border)",
-                                                                display: "flex", flexDirection: "column", gap: "0.25rem"
-                                                            }}>
-                                                                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                                                                    <span style={{
-                                                                        fontSize: "0.7rem", fontWeight: 800, padding: "0.1rem 0.4rem",
-                                                                        borderRadius: "4px", background: "rgba(37, 99, 235, 0.1)", color: "var(--primary)"
-                                                                    }}>
-                                                                        {idx + 1}
-                                                                    </span>
-                                                                    <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text)" }}>
-                                                                        {tema.titulo}
-                                                                    </span>
+                                                        {temasFiltrados.map((tema, idx) => {
+                                                            const nivel = tema.nivelAplicable || "TODOS";
+                                                            return (
+                                                                <div key={idx} style={{
+                                                                    padding: "0.75rem", borderRadius: "6px",
+                                                                    background: "var(--bg-secondary)", border: "1px solid var(--border)",
+                                                                    display: "flex", flexDirection: "column", gap: "0.35rem"
+                                                                }}>
+                                                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.4rem" }}>
+                                                                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                                                            <span style={{
+                                                                                fontSize: "0.7rem", fontWeight: 800, padding: "0.1rem 0.4rem",
+                                                                                borderRadius: "4px", background: "rgba(37, 99, 235, 0.1)", color: "var(--primary)"
+                                                                            }}>
+                                                                                {idx + 1}
+                                                                            </span>
+                                                                            <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text)" }}>
+                                                                                {tema.titulo}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        {/* Badge de nivel educativo */}
+                                                                        <span style={{
+                                                                            fontSize: "0.65rem", fontWeight: 700, padding: "0.1rem 0.45rem", borderRadius: "10px",
+                                                                            background: nivel === "MEDIA_SUPERIOR"
+                                                                                ? "rgba(16, 185, 129, 0.15)"
+                                                                                : nivel === "BASICA"
+                                                                                    ? "rgba(245, 158, 11, 0.15)"
+                                                                                    : "rgba(100, 116, 139, 0.15)",
+                                                                            color: nivel === "MEDIA_SUPERIOR"
+                                                                                ? "#059669"
+                                                                                : nivel === "BASICA"
+                                                                                    ? "#d97706"
+                                                                                    : "#64748b",
+                                                                            whiteSpace: "nowrap"
+                                                                        }}>
+                                                                            {nivel === "MEDIA_SUPERIOR" ? "🏫 Media Superior" : nivel === "BASICA" ? "🎒 Básica" : "🌐 General"}
+                                                                        </span>
+                                                                    </div>
+                                                                    {tema.descripcion && (
+                                                                        <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                                                                            {tema.descripcion}
+                                                                        </p>
+                                                                    )}
                                                                 </div>
-                                                                {tema.descripcion && (
-                                                                    <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
-                                                                        {tema.descripcion}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        ))}
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>
@@ -879,6 +1054,16 @@ export default function CteSesionesPanel({ readOnly = false }: { readOnly?: bool
                     fileName={pdfViewer.fileName}
                 />
             )}
+
+            {/* Copiloto IA CAPEMS & CORDE */}
+            <ModuloCopilotDrawer
+                modulo="capems"
+                titulo="Copiloto CAPEMS & CORDE"
+                subtitulo="Asistente de Consejos Académicos y Reuniones Regionales"
+                isOpen={copilotOpen}
+                onClose={() => setCopilotOpen(false)}
+                accionesSugeridas={ACCIONES_COPILOTO_CAPEMS}
+            />
         </div>
     );
 }

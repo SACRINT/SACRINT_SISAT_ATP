@@ -108,6 +108,52 @@ export const AGENT_TOOLS_DECLARATIONS = [
     }
   },
   {
+    name: "consultarSesionesCAPEMS",
+    description: "Consulta las sesiones oficiales de CAPEMS (Consejo Académico de Educación Media Superior) y Reuniones Educativas Regionales de Estructura CORDE, incluyendo tipo de sesión, fechas, temas tratados clasificados por nivel educativo (MEDIA_SUPERIOR, BASICA, TODOS) y acuerdos sugeridos extraídos de las presentaciones.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        tipoSesion: {
+          type: "STRING",
+          enum: ["CAPEMS", "REUNION_ESTRUCTURA"],
+          description: "Tipo de sesión oficial a consultar: 'CAPEMS' (Consejo Académico EMS) o 'REUNION_ESTRUCTURA' (Reunión Regional CORDE)."
+        },
+        fase: {
+          type: "STRING",
+          enum: ["ORDINARIA", "INTENSIVA"],
+          description: "Fase de la sesión (ORDINARIA o INTENSIVA)."
+        },
+        numero: {
+          type: "NUMBER",
+          description: "Número de la sesión (ej. 1, 2, 3...)."
+        },
+        nivel: {
+          type: "STRING",
+          enum: ["MEDIA_SUPERIOR", "BASICA", "TODOS"],
+          description: "Filtro opcional para temas por nivel educativo aplicable."
+        }
+      }
+    }
+  },
+  {
+    name: "consultarCompromisosZonales",
+    description: "Consulta los compromisos y acuerdos zonales derivados de sesiones CAPEMS y CORDE, incluyendo su categoría temática, semáforo de cumplimiento, estado de resolución y notas de seguimiento.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        estado: {
+          type: "STRING",
+          enum: ["PENDIENTE", "EN_PROCESO", "RESUELTO"],
+          description: "Filtro opcional por estado del compromiso zonal."
+        },
+        sesionId: {
+          type: "STRING",
+          description: "ID opcional de la sesión específica de CAPEMS/CORDE."
+        }
+      }
+    }
+  },
+  {
     name: "consultarConvocatoriasUsicamm",
     description: "Consulta convocatorias vigentes de USICAMM (cambio de categoría, horas adicionales, reconocimientos) y sus fechas de vigencia.",
     parameters: {
@@ -598,6 +644,97 @@ export async function executeAgentTool(
             guiaUrl: s.guiaUrl
           })),
           filasRetornadas: sesiones.length
+        };
+        break;
+      }
+
+      case "consultarSesionesCAPEMS": {
+        const { tipoSesion, fase, numero, nivel } = args || {};
+        const sesiones = await prisma.cteSesionConfig.findMany({
+          where: {
+            tenantId: context.tenantId,
+            activo: true,
+            ...(tipoSesion ? { tipoSesion: String(tipoSesion) } : {}),
+            ...(fase ? { fase: fase as TipoFaseCte } : {}),
+            ...(numero ? { numero: Number(numero) } : {})
+          },
+          include: {
+            _count: {
+              select: { compromisos: true, productos: true }
+            }
+          },
+          orderBy: [{ fase: "asc" }, { numero: "asc" }]
+        });
+
+        const dataFormateada = sesiones.map(s => {
+          let temas = Array.isArray(s.temasIA) ? (s.temasIA as any[]) : [];
+          if (nivel) {
+            temas = temas.filter(t => t.nivelAplicable === nivel || (!t.nivelAplicable && nivel === "TODOS"));
+          }
+          return {
+            id: s.id,
+            tipoSesion: s.tipoSesion || "CAPEMS",
+            numeroSesion: s.numero,
+            fase: s.fase,
+            descripcion: s.descripcion,
+            fechaSesion: s.fechaSesion,
+            fechaLimite: s.fechaLimite,
+            archivoNombre: s.archivoNombre,
+            iaProcessed: s.iaProcessed,
+            totalTemas: temas.length,
+            temas,
+            acuerdosSugeridosIA: s.acuerdosSugeridosIA,
+            totalCompromisosOficializados: s._count.compromisos,
+            totalEntregasEscuelas: s._count.productos
+          };
+        });
+
+        result = {
+          toolName,
+          autorizada: true,
+          data: dataFormateada,
+          filasRetornadas: dataFormateada.length
+        };
+        break;
+      }
+
+      case "consultarCompromisosZonales": {
+        const { estado, sesionId } = args || {};
+        const compromisos = await prisma.cteCompromisoZonal.findMany({
+          where: {
+            tenantId: context.tenantId,
+            ...(sesionId ? { sesionId: String(sesionId) } : {}),
+            ...(estado ? { estado: String(estado) } : {})
+          },
+          include: {
+            sesion: {
+              select: {
+                numero: true,
+                fase: true,
+                tipoSesion: true,
+                descripcion: true
+              }
+            }
+          },
+          orderBy: [{ prioridad: "desc" }, { createdAt: "desc" }]
+        });
+
+        result = {
+          toolName,
+          autorizada: true,
+          data: compromisos.map(c => ({
+            id: c.id,
+            texto: c.texto,
+            categoria: c.categoria,
+            prioridad: c.prioridad,
+            estado: c.estado,
+            resuelto: c.resuelto,
+            fechaLimite: c.fechaLimite,
+            notasSeguimiento: c.notasSeguimiento,
+            origenIA: c.origenIA,
+            sesion: c.sesion
+          })),
+          filasRetornadas: compromisos.length
         };
         break;
       }

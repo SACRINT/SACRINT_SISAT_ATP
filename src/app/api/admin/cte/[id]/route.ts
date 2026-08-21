@@ -57,6 +57,10 @@ export async function PATCH(
       dataToUpdate.guiaUrl = body.guiaUrl ? String(body.guiaUrl).trim() : null;
     }
 
+    if (body.tipoSesion !== undefined) {
+      dataToUpdate.tipoSesion = String(body.tipoSesion || "CAPEMS");
+    }
+
     if (typeof body.activo === "boolean") {
       dataToUpdate.activo = body.activo;
     }

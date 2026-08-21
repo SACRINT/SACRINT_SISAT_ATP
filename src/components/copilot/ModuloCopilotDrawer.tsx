@@ -26,7 +26,7 @@ export interface AccionSugerida {
 }
 
 export interface ModuloCopilotDrawerProps {
-  modulo: "oficios" | "estadistica_911" | "usicamm" | "expedientes_personal";
+  modulo: "oficios" | "estadistica_911" | "usicamm" | "expedientes_personal" | "capems";
   titulo: string;
   subtitulo?: string;
   isOpen: boolean;
@@ -226,6 +226,8 @@ export default function ModuloCopilotDrawer({
         bienvenida = "¡Hola! Soy tu Copiloto de USICAMM. Puedo orientarte sobre los requisitos de promoción vertical/horizontal, horas adicionales, fechas en plataforma Venus y normativas aplicables.";
       } else if (modulo === "expedientes_personal") {
         bienvenida = "¡Hola! Soy tu Copiloto de Expedientes de Personal. Puedo informarte sobre la plantilla de docentes, directivos y administrativos, auditar la integración de los 10 documentos obligatorios e identificar faltantes.";
+      } else if (modulo === "capems") {
+        bienvenida = "¡Hola! Soy tu Copiloto de CAPEMS y Reuniones de Estructura CORDE. Puedo ayudarte a redactar actas de sesión, sugerir y dar seguimiento a compromisos zonales, y filtrar temas específicos de Educación Media Superior.";
       } else {
         bienvenida = "¡Hola! Soy tu Asistente Inteligente especializado en este módulo. ¿En qué puedo apoyarte hoy?";
       }
