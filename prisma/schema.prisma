@@ -1713,6 +1713,7 @@ model CteSesionConfig {
   iaProcessed         Boolean     @default(false)
   temasIA             Json?       // array [{ titulo: string, descripcion: string | null, nivelAplicable?: string }]
   acuerdosSugeridosIA Json?       // array [{ texto: string }]
+  contenidoTexto      String?     @db.Text // Texto completo de diapositivas indexado para búsqueda RAG
   activo              Boolean     @default(true)
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt

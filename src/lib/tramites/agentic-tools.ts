@@ -131,6 +131,10 @@ export const AGENT_TOOLS_DECLARATIONS = [
           type: "STRING",
           enum: ["MEDIA_SUPERIOR", "BASICA", "TODOS"],
           description: "Filtro opcional para temas por nivel educativo aplicable."
+        },
+        query: {
+          type: "STRING",
+          description: "Término de búsqueda o tema específico a consultar dentro de las presentaciones y diapositivas oficiales (ej. inventarios, seguros, GMX, AGROASEMEX, formatos BM-03, 01, 04, plazos, lineamientos, evaluaciones EIA, etc.)."
         }
       }
     }
@@ -649,7 +653,7 @@ export async function executeAgentTool(
       }
 
       case "consultarSesionesCAPEMS": {
-        const { tipoSesion, fase, numero, nivel } = args || {};
+        const { tipoSesion, fase, numero, nivel, query } = args || {};
         const sesiones = await prisma.cteSesionConfig.findMany({
           where: {
             tenantId: context.tenantId,
@@ -666,11 +670,54 @@ export async function executeAgentTool(
           orderBy: [{ fase: "asc" }, { numero: "asc" }]
         });
 
+        const queryTerm = query ? String(query).toLowerCase().trim() : "";
+        const keywords = queryTerm
+          .replace(/[^\w\sáéíóúñ]/gi, "")
+          .split(/\s+/)
+          .filter((w: string) => w.length > 2);
+
         const dataFormateada = sesiones.map(s => {
           let temas = Array.isArray(s.temasIA) ? (s.temasIA as any[]) : [];
           if (nivel) {
             temas = temas.filter(t => t.nivelAplicable === nivel || (!t.nivelAplicable && nivel === "TODOS"));
           }
+
+          // Búsqueda en diapositivas si se especificó query
+          let diapositivasCoincidentes: { diapositivaNumero: number; contenido: string; relevancia: number }[] = [];
+          if (queryTerm && s.contenidoTexto) {
+            const rawSlides = s.contenidoTexto.split(/\n\n---\n\n|\n(?=\[Diapositiva\s+\d+\])/g);
+            for (const slideBlock of rawSlides) {
+              const slideMatch = slideBlock.match(/\[Diapositiva\s+(\d+)\](?::)?\s*([\s\S]*)/i);
+              if (!slideMatch) continue;
+              const numSlide = parseInt(slideMatch[1], 10);
+              const slideContent = slideMatch[2].trim();
+              const slideContentLow = slideContent.toLowerCase();
+
+              let matchScore = 0;
+              if (queryTerm.length > 3 && slideContentLow.includes(queryTerm)) {
+                matchScore += 100;
+              }
+              for (const kw of keywords) {
+                if (slideContentLow.includes(kw)) {
+                  matchScore += 25;
+                }
+              }
+
+              if (matchScore > 0) {
+                diapositivasCoincidentes.push({
+                  diapositivaNumero: numSlide,
+                  contenido: slideContent,
+                  relevancia: matchScore
+                });
+              }
+            }
+
+            // Ordenar por relevancia y por número de diapositiva
+            diapositivasCoincidentes.sort((a, b) => b.relevancia - a.relevancia || a.diapositivaNumero - b.diapositivaNumero);
+            // Limitar a las 12 diapositivas más relevantes
+            diapositivasCoincidentes = diapositivasCoincidentes.slice(0, 12);
+          }
+
           return {
             id: s.id,
             tipoSesion: s.tipoSesion || "CAPEMS",
@@ -684,16 +731,22 @@ export async function executeAgentTool(
             totalTemas: temas.length,
             temas,
             acuerdosSugeridosIA: s.acuerdosSugeridosIA,
+            ...(queryTerm ? { diapositivasCoincidentes, totalDiapositivasEncontradas: diapositivasCoincidentes.length } : {}),
             totalCompromisosOficializados: s._count.compromisos,
             totalEntregasEscuelas: s._count.productos
           };
         });
 
+        // Si hay query, priorizar sesiones con coincidencias
+        const dataFiltrada = queryTerm
+          ? dataFormateada.filter(s => (s.diapositivasCoincidentes && s.diapositivasCoincidentes.length > 0) || s.temas.some(t => t.titulo.toLowerCase().includes(queryTerm)))
+          : dataFormateada;
+
         result = {
           toolName,
           autorizada: true,
-          data: dataFormateada,
-          filasRetornadas: dataFormateada.length
+          data: dataFiltrada.length > 0 ? dataFiltrada : dataFormateada,
+          filasRetornadas: dataFiltrada.length > 0 ? dataFiltrada.length : dataFormateada.length
         };
         break;
       }

@@ -15,6 +15,7 @@ export interface AcuerdoSugeridoCapemsIA {
 export interface ResultadoExtraccionCapemsIA {
   temas: TemaCapemsIA[];
   acuerdosSugeridos: AcuerdoSugeridoCapemsIA[];
+  contenidoTexto?: string;
 }
 
 const SYSTEM_INSTRUCTION = `
@@ -101,7 +102,7 @@ export async function extractTextFromPptx(buffer: Buffer): Promise<string> {
       .trim();
 
     if (slideText.length > 0) {
-      slidesText.push(`[Diapositiva ${entry.num}]\n${slideText}`);
+      slidesText.push(`[Diapositiva ${entry.num}]: ${slideText}`);
     }
   }
 
@@ -123,6 +124,7 @@ function parseJsonResult(raw: string): ResultadoExtraccionCapemsIA {
     ? parsed.temas.map((t: any) => ({
         titulo: String(t.titulo || "").trim(),
         descripcion: t.descripcion ? String(t.descripcion).trim() : null,
+        nivelAplicable: t.nivelAplicable || "TODOS",
       })).filter((t: TemaCapemsIA) => t.titulo.length > 0)
     : [];
 
@@ -167,7 +169,9 @@ export async function extraerTemasAcuerdosCapemsIA(
       false
     );
 
-    return parseJsonResult(rawResponse);
+    const parsed = parseJsonResult(rawResponse);
+    parsed.contenidoTexto = pptxText;
+    return parsed;
   }
 
   if (isPdf) {
@@ -192,13 +196,15 @@ export async function extraerTemasAcuerdosCapemsIA(
         undefined,
         false
       );
-      return parseJsonResult(rawResponse);
+      const parsed = parseJsonResult(rawResponse);
+      parsed.contenidoTexto = extractedText;
+      return parsed;
     } else {
       if (buffer.length > 20 * 1024 * 1024) {
         console.warn(
           `[capems-extractor-ia] PDF escaneado demasiado grande para Gemini Vision (${(buffer.length / 1024 / 1024).toFixed(1)} MB > 20 MB). Se omite la extracción con visión.`
         );
-        return { temas: [], acuerdosSugeridos: [] };
+        return { temas: [], acuerdosSugeridos: [], contenidoTexto: undefined };
       }
       console.log(`[capems-extractor-ia] PDF Escaneado o con poco texto (${extractedText.length} caracteres). Usando Gemini Vision.`);
       const rawResponse = await callGemini(
@@ -209,7 +215,8 @@ export async function extraerTemasAcuerdosCapemsIA(
         undefined,
         false
       );
-      return parseJsonResult(rawResponse);
+      const parsed = parseJsonResult(rawResponse);
+      return parsed;
     }
   }
 

@@ -58,6 +58,7 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
    - Para redactar propuestas formales de oficios usa 'redactarBorradorOficio'.
    - Para auditar matemáticamente datos estadísticos usa 'validarCoherenciaEstadistica911'.
    - Para asesorar detalladamente sobre trámites USICAMM usa 'orientarConvocatoriaUsicamm'.
+   - Para temas, acuerdos, diapositivas y presentaciones de Consejo Académico (CAPEMS) y Reuniones Educativas Regionales CORDE usa 'consultarSesionesCAPEMS' (con parámetro 'query' para buscar temas en diapositivas) y 'consultarCompromisosZonales'.
 
 2. REGLAS DE SEGURIDAD Y PERMISOS:
    - La escuela con estatus de prueba (esDePrueba: true) nunca se cuenta en las estadísticas ni consultas oficiales.

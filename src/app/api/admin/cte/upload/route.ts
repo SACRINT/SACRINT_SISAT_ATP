@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
     let iaProcessed = false;
     let temas: { titulo: string; descripcion: string | null }[] = [];
     let acuerdosSugeridos: { texto: string }[] = [];
+    let contenidoTexto: string | null = null;
     let iaWarning: string | null = null;
 
     try {
@@ -109,6 +110,7 @@ export async function POST(req: NextRequest) {
       const resultadoIA = await extraerTemasAcuerdosCapemsIA(fileBuffer, mimeType, String(archivoNombre));
       temas = resultadoIA.temas;
       acuerdosSugeridos = resultadoIA.acuerdosSugeridos;
+      contenidoTexto = resultadoIA.contenidoTexto || null;
       iaProcessed = true;
       console.log(`[api/admin/cte/upload] Extracción exitosa. ${temas.length} temas, ${acuerdosSugeridos.length} acuerdos sugeridos.`);
     } catch (iaError: any) {
@@ -116,6 +118,7 @@ export async function POST(req: NextRequest) {
       iaProcessed = false;
       temas = [];
       acuerdosSugeridos = [];
+      contenidoTexto = null;
     }
 
     if (!iaProcessed && isPdf && fileBuffer.length > MAX_VISION_SIZE) {
@@ -148,6 +151,7 @@ export async function POST(req: NextRequest) {
         iaProcessed,
         temasIA: (temas && temas.length > 0 ? (temas as any) : []),
         acuerdosSugeridosIA: (acuerdosSugeridos && acuerdosSugeridos.length > 0 ? (acuerdosSugeridos as any) : []),
+        contenidoTexto,
         activo: true,
       },
       create: {
@@ -166,6 +170,7 @@ export async function POST(req: NextRequest) {
         iaProcessed,
         temasIA: (temas && temas.length > 0 ? (temas as any) : []),
         acuerdosSugeridosIA: (acuerdosSugeridos && acuerdosSugeridos.length > 0 ? (acuerdosSugeridos as any) : []),
+        contenidoTexto,
         activo: true,
       },
     });
