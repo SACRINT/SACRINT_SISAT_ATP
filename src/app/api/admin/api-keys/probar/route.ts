@@ -23,12 +23,10 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
             contents: [{ parts: [{ text: "Responde OK" }] }]
         };
 
-        // Lista de modelos oficiales disponibles en Google AI Studio (priorizando alta cuota de 500 RPD)
+        // Lista de modelos oficiales permitidos en la plataforma (cuota 500 RPD)
         const modelsToTest = [
             "gemini-3.5-flash-lite",
-            "gemini-3.1-flash-lite",
-            "gemini-flash-lite-latest",
-            "gemini-3.5-flash"
+            "gemini-3.1-flash-lite"
         ];
 
         let lastErrText = "";
@@ -45,14 +43,11 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
                 });
 
                 if (res.ok) {
-                    const isPro = testModel === "gemini-2.5-flash";
                     return {
                         label,
                         provider: "gemini",
-                        status: isPro ? "OK_PRO" : "OK_FREE",
-                        message: isPro 
-                            ? `🟢 Excelente: Llave activa (Cuenta Pro / Soporta ${testModel})`
-                            : `🟢 Activa: Llave funcional en Plan Gratuito (Modelo: ${testModel})`,
+                        status: "OK_FREE",
+                        message: `🟢 Activa: Llave funcional (Modelo: ${testModel} - 500 RPD)`,
                         modelsSupported: [testModel]
                     };
                 }

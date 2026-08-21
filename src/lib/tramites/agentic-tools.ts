@@ -116,7 +116,7 @@ export const AGENT_TOOLS_DECLARATIONS = [
         tipoSesion: {
           type: "STRING",
           enum: ["CAPEMS", "REUNION_ESTRUCTURA"],
-          description: "Tipo de sesión oficial a consultar: 'CAPEMS' (Consejo Académico EMS) o 'REUNION_ESTRUCTURA' (Reunión Regional CORDE)."
+          description: "Opcional: 'CAPEMS' (Consejo Académico EMS) o 'REUNION_ESTRUCTURA' (Reunión Regional CORDE). Si buscas un tema con 'query', omite este filtro para buscar en todas las presentaciones."
         },
         fase: {
           type: "STRING",
@@ -654,11 +654,18 @@ export async function executeAgentTool(
 
       case "consultarSesionesCAPEMS": {
         const { tipoSesion, fase, numero, nivel, query } = args || {};
+        const queryTerm = query ? String(query).toLowerCase().trim() : "";
+        const keywords = queryTerm
+          .replace(/[^\w\sáéíóúñ]/gi, "")
+          .split(/\s+/)
+          .filter((w: string) => w.length > 2);
+
+        // Si hay término de búsqueda (query), buscamos en TODAS las sesiones (CAPEMS y REUNION_ESTRUCTURA)
         const sesiones = await prisma.cteSesionConfig.findMany({
           where: {
             tenantId: context.tenantId,
             activo: true,
-            ...(tipoSesion ? { tipoSesion: String(tipoSesion) } : {}),
+            ...(queryTerm ? {} : (tipoSesion ? { tipoSesion: String(tipoSesion) } : {})),
             ...(fase ? { fase: fase as TipoFaseCte } : {}),
             ...(numero ? { numero: Number(numero) } : {})
           },
@@ -669,12 +676,6 @@ export async function executeAgentTool(
           },
           orderBy: [{ fase: "asc" }, { numero: "asc" }]
         });
-
-        const queryTerm = query ? String(query).toLowerCase().trim() : "";
-        const keywords = queryTerm
-          .replace(/[^\w\sáéíóúñ]/gi, "")
-          .split(/\s+/)
-          .filter((w: string) => w.length > 2);
 
         const dataFormateada = sesiones.map(s => {
           let temas = Array.isArray(s.temasIA) ? (s.temasIA as any[]) : [];

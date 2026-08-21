@@ -37,7 +37,7 @@ export async function POST(req: Request) {
             });
         } else {
             // Probar Gemini
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: "Hola, responde únicamente con la palabra OK." }] }]
             };

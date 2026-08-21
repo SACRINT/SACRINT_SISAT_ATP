@@ -53,11 +53,7 @@ const PROVIDERS = [
 const MODELS: Record<string, { value: string; label: string }[]> = {
     gemini: [
         { value: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite (Recomendado - 500 RPD / 15 RPM / 250K TPM)" },
-        { value: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (Alta Capacidad - 500 RPD / 15 RPM / 250K TPM)" },
-        { value: "gemini-3.5-flash", label: "Gemini 3.5 Flash (20 RPD Free / 5 RPM)" },
-        { value: "gemini-3.6-flash", label: "Gemini 3.6 Flash (20 RPD Free / 5 RPM)" },
-        { value: "gemini-3.7-flash", label: "Gemini 3.7 Flash (20 RPD Free / 5 RPM)" },
-        { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Cuentas de Pago / Pro)" }
+        { value: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (Alta Capacidad - 500 RPD / 15 RPM / 250K TPM)" }
     ],
     openai: [
         { value: "gpt-4o-mini", label: "GPT-4o Mini" },
@@ -71,8 +67,7 @@ const MODELS: Record<string, { value: string; label: string }[]> = {
         { value: "deepseek-reasoner", label: "DeepSeek-R1 (Razonamiento)" }
     ],
     openrouter: [
-        { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash via OpenRouter" },
-        { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro via OpenRouter" },
+        { value: "google/gemini-2.0-flash-lite-001", label: "Gemini Flash Lite via OpenRouter" },
         { value: "openai/gpt-4o-mini", label: "GPT-4o Mini via OpenRouter" },
         { value: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet via OpenRouter" },
         { value: "deepseek/deepseek-chat", label: "DeepSeek-V3 via OpenRouter" }

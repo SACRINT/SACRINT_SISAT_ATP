@@ -53,9 +53,9 @@ export async function POST(req: Request) {
             mantenimiento: body.mantenimiento ?? false,
             limiteIntentos: body.limiteIntentos !== undefined ? Number(body.limiteIntentos) : 3,
             providerDefault: body.providerDefault ?? "gemini",
-            modelDefault: body.modelDefault ?? "gemini-2.5-flash",
+            modelDefault: body.modelDefault ?? "gemini-3.5-flash-lite",
             providerPremium: body.providerPremium ?? "gemini",
-            modelPremium: body.modelPremium ?? "gemini-2.5-pro",
+            modelPremium: body.modelPremium ?? "gemini-3.1-flash-lite",
         },
     });
 

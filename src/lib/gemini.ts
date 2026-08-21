@@ -376,11 +376,11 @@ async function callGeminiNative(
 ): Promise<string> {
     // Respetar el modelo seleccionado con cadena de respaldo de alta disponibilidad (500 RPD / 15 RPM / 500 Tools)
     const buildModelChain = (requestedModel: string): string[] => {
-        const highQuotaModels = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"];
+        const highQuotaModels = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
         
         let primary = requestedModel?.trim();
         // Si no se especificó o viene con nombres de baja cuota, usar el modelo más económico y de mayor cuota
-        if (!primary || primary.includes("1.5") || primary.includes("2.0") || primary.includes("2.5") || primary.includes("3.6") || primary === "gemini-flash") {
+        if (!primary || primary.includes("1.5") || primary.includes("2.0") || primary.includes("2.5") || primary.includes("3.6") || primary.includes("3.7") || primary === "gemini-flash") {
             primary = "gemini-3.5-flash-lite";
         }
 

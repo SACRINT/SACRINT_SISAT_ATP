@@ -241,6 +241,9 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
         }
       } catch (secondErr: any) {
         console.warn(`[agentic-chat] Intento de síntesis falló con llave "${currentKeyObj.label}": ${secondErr.message}`);
+        if (secondErr.message.includes("401") && currentKeyObj.id !== "env") {
+          prisma.apiKey.update({ where: { id: currentKeyObj.id }, data: { active: false, errorCount: 10 } }).catch(() => {});
+        }
         globalKeyIndex++;
         activeKeyObj = keys[globalKeyIndex % keys.length];
         secondAttempt++;
@@ -252,12 +255,24 @@ INSTRUCCIONES CLAVE DE OPERACIÓN:
       if (toolResult.data?.respuesta) {
         respuestaTexto = toolResult.data.respuesta;
       } else if (toolResult.data && Array.isArray(toolResult.data) && toolResult.data.length > 0) {
-        const listaFormateada = toolResult.data.map((item: any) => {
-          const itemTitulo = item.titulo || item.asunto || item.nombre || item.numeroOficio || "Elemento";
-          const itemDetalle = item.descripcion || item.fechaLimite || item.fechaSesion || item.tipo || "";
-          return itemDetalle ? `• ${itemTitulo}: ${itemDetalle}` : `• ${itemTitulo}`;
-        }).join("\n");
-        respuestaTexto = `Estimado(a) usuario(a):\n\nConforme a los registros del sistema, se localizó la siguiente información institucional:\n\n${listaFormateada}\n\nFuente: Base de Datos SISAT-ATP (${toolName})`;
+        const tieneDiapositivas = toolResult.data.some((item: any) => item.diapositivasCoincidentes && item.diapositivasCoincidentes.length > 0);
+        if (tieneDiapositivas) {
+          const secciones = toolResult.data
+            .filter((item: any) => item.diapositivasCoincidentes && item.diapositivasCoincidentes.length > 0)
+            .map((item: any) => {
+              const encabezado = item.descripcion || item.archivoNombre || `Sesión ${item.numeroSesion}`;
+              const diapositivas = (item.diapositivasCoincidentes || []).map((d: any) => `• Diapositiva ${d.diapositivaNumero}:\n${d.contenido}`).join("\n\n");
+              return `Información oficial de "${encabezado}":\n\n${diapositivas}`;
+            }).join("\n\n---\n\n");
+          respuestaTexto = `Estimado(a) usuario(a):\n\nCon base en las presentaciones oficiales registradas en el sistema, se localizó la siguiente información:\n\n${secciones}\n\nFuente: Base de Datos SISAT-ATP (${toolName})`;
+        } else {
+          const listaFormateada = toolResult.data.map((item: any) => {
+            const itemTitulo = item.titulo || item.descripcion || item.asunto || item.nombre || item.numeroOficio || "Elemento";
+            const itemDetalle = item.fechaLimite || item.fechaSesion || item.tipo || "";
+            return itemDetalle ? `• ${itemTitulo}: ${itemDetalle}` : `• ${itemTitulo}`;
+          }).join("\n");
+          respuestaTexto = `Estimado(a) usuario(a):\n\nConforme a los registros del sistema, se localizó la siguiente información institucional:\n\n${listaFormateada}\n\nFuente: Base de Datos SISAT-ATP (${toolName})`;
+        }
       } else if (toolResult.mensaje) {
         respuestaTexto = `Estimado(a) usuario(a):\n\n${toolResult.mensaje}`;
       } else if (toolResult.data && typeof toolResult.data === "object" && Object.keys(toolResult.data).length > 0) {
@@ -301,8 +316,7 @@ async function callGeminiApiDirect(
 ): Promise<any> {
   const candidateModels = [
     "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-flash-lite-latest"
+    "gemini-3.1-flash-lite"
   ];
 
   let lastError: any = null;
@@ -382,7 +396,7 @@ async function callOpenRouterCompatible(
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.0-flash-lite-001",
       messages,
       temperature: 0.2
     }),
