@@ -67,10 +67,11 @@ const MODELS: Record<string, { value: string; label: string }[]> = {
         { value: "deepseek-reasoner", label: "DeepSeek-R1 (Razonamiento)" }
     ],
     openrouter: [
-        { value: "google/gemini-2.0-flash-lite-001", label: "Gemini Flash Lite via OpenRouter" },
+        { value: "google/gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite via OpenRouter" },
+        { value: "deepseek/deepseek-chat", label: "DeepSeek-V3 via OpenRouter" },
+        { value: "liquid/lfm-2.5-2.6b:free", label: "Liquid LFM 2.5 (Free Tier via OpenRouter)" },
         { value: "openai/gpt-4o-mini", label: "GPT-4o Mini via OpenRouter" },
-        { value: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet via OpenRouter" },
-        { value: "deepseek/deepseek-chat", label: "DeepSeek-V3 via OpenRouter" }
+        { value: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet via OpenRouter" }
     ],
     morphllm: [
         { value: "morph-glm52-744b", label: "GLM-5.2 744B" },

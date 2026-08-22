@@ -119,25 +119,79 @@ async function testSingleKey(apiKey: string, provider: string, label: string = "
                 return {
                     label,
                     provider: "openrouter",
-                    status: "INVALID_KEY",
+                    status: (res.status === 401 || res.status === 403) ? "INVALID_KEY" : "ERROR",
                     message: errMsg,
-                    modelsSupported: ["openrouter/auth"],
+                    modelsSupported: [],
                     rawError: errMsg,
                 };
             }
 
             const data = await res.json();
-            const keyLabel = data?.data?.label || "API Key válida";
-            const credits = data?.data?.usage !== undefined
-                ? ` | Uso: $${(data.data.usage / 1000000).toFixed(4)}`
-                : "";
+            const usageVal = data?.data?.usage !== undefined ? Number(data.data.usage) : 0;
+            const isFree = data?.data?.is_free_tier ?? true;
+
+            // Generación de prueba ligera para verificar disponibilidad de créditos/modelos
+            const testGenRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${key}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": getAppUrl(),
+                    "X-Title": "SISAT-ATP",
+                },
+                body: JSON.stringify({
+                    model: "deepseek/deepseek-chat",
+                    messages: [{ role: "user", content: "OK" }],
+                    max_tokens: 10,
+                    temperature: 0.1
+                }),
+                signal: AbortSignal.timeout(15000),
+            });
+
+            if (!testGenRes.ok) {
+                const genErr = await testGenRes.json().catch(() => ({}));
+                const genErrMsg = genErr?.error?.message || `HTTP ${testGenRes.status}`;
+
+                if (testGenRes.status === 402) {
+                    return {
+                        label,
+                        provider: "openrouter",
+                        status: "QUOTA_EXHAUSTED",
+                        message: `⚠️ Sin créditos: La cuenta de OpenRouter requiere saldo para generar respuestas.`,
+                        modelsSupported: ["openrouter/auth"],
+                        rawError: genErrMsg
+                    };
+                }
+
+                if (testGenRes.status === 429) {
+                    return {
+                        label,
+                        provider: "openrouter",
+                        status: "RATE_LIMITED",
+                        message: `⚠️ Límite temporal alcanzado en OpenRouter (429). Reintente en un momento.`,
+                        modelsSupported: ["openrouter/auth"],
+                        rawError: genErrMsg
+                    };
+                }
+
+                if (testGenRes.status === 401 || testGenRes.status === 403) {
+                    return {
+                        label,
+                        provider: "openrouter",
+                        status: "INVALID_KEY",
+                        message: `❌ Llave no autorizada para generación en OpenRouter (${testGenRes.status}).`,
+                        modelsSupported: [],
+                        rawError: genErrMsg
+                    };
+                }
+            }
 
             return {
                 label,
                 provider: "openrouter",
-                status: "OK_PRO",
-                message: `${keyLabel}${credits}`,
-                modelsSupported: ["openrouter/auth"],
+                status: isFree ? "OK_FREE" : "OK_PRO",
+                message: `🟢 Activa: Llave funcional en OpenRouter | Uso acumulado: $${usageVal.toFixed(4)} USD`,
+                modelsSupported: ["deepseek/deepseek-chat", "google/gemini-3.5-flash-lite", "liquid/lfm-2.5-2.6b:free"],
             };
         } catch (e: any) {
             return {

@@ -109,14 +109,14 @@ export const AGENT_TOOLS_DECLARATIONS = [
   },
   {
     name: "consultarSesionesCAPEMS",
-    description: "Consulta las sesiones oficiales de CAPEMS (Consejo Académico de Educación Media Superior) y Reuniones Educativas Regionales de Estructura CORDE, incluyendo tipo de sesión, fechas, temas tratados clasificados por nivel educativo (MEDIA_SUPERIOR, BASICA, TODOS) y acuerdos sugeridos extraídos de las presentaciones.",
+    description: "Consulta las presentaciones, diapositivas y acuerdos tratados en sesiones de CAPEMS (Consejo Académico de Educación Media Superior) y Reuniones Educativas Regionales de Estructura CORDE.",
     parameters: {
       type: "OBJECT",
       properties: {
         tipoSesion: {
           type: "STRING",
           enum: ["CAPEMS", "REUNION_ESTRUCTURA"],
-          description: "Opcional: 'CAPEMS' (Consejo Académico EMS) o 'REUNION_ESTRUCTURA' (Reunión Regional CORDE). Si buscas un tema con 'query', omite este filtro para buscar en todas las presentaciones."
+          description: "Opcional: 'CAPEMS' (Consejo Académico EMS) o 'REUNION_ESTRUCTURA' (Reunión Regional CORDE)."
         },
         fase: {
           type: "STRING",
@@ -134,7 +134,7 @@ export const AGENT_TOOLS_DECLARATIONS = [
         },
         query: {
           type: "STRING",
-          description: "Término de búsqueda o tema específico a consultar dentro de las presentaciones y diapositivas oficiales (ej. inventarios, seguros, GMX, AGROASEMEX, formatos BM-03, 01, 04, plazos, lineamientos, evaluaciones EIA, etc.)."
+          description: "Término o tema específico a buscar dentro de las diapositivas y presentaciones oficiales de las reuniones."
         }
       }
     }
@@ -172,13 +172,13 @@ export const AGENT_TOOLS_DECLARATIONS = [
   },
   {
     name: "consultarNormativasSEP",
-    description: "Búsqueda en la biblioteca de normativas oficiales, circulares, planes de estudio y lineamientos de la SEP cargados en el sistema.",
+    description: "Búsqueda en la Biblioteca de Normativas SEP: repositorio oficial de lineamientos de inventarios y patrimonio escolar, bienes muebles e inmuebles, manuales de organización, circulares estatales, protocolos de convivencia y seguridad escolar, leyes educativas, modelos curriculares y acuerdos oficiales de la SEP cargados en la plataforma.",
     parameters: {
       type: "OBJECT",
       properties: {
         query: {
           type: "STRING",
-          description: "Pregunta o término normativo a buscar en los documentos oficiales."
+          description: "Pregunta, término o tema normativo a buscar en los documentos oficiales y lineamientos de la SEP."
         }
       },
       required: ["query"]
@@ -281,6 +281,52 @@ export function getAgentToolsDeclarations(allowlist?: string[]) {
   }
   const allowSet = new Set(allowlist);
   return AGENT_TOOLS_DECLARATIONS.filter(t => allowSet.has(t.name));
+}
+
+/**
+ * Convierte tipos de OpenAPI/Gemini (OBJECT, STRING, NUMBER, ARRAY) a tipos válidos JSON Schema en minúsculas.
+ */
+function convertSchemaToJsonSchema(schema: any): any {
+  if (!schema || typeof schema !== "object") return schema;
+
+  const result: any = {};
+
+  if (schema.type) {
+    const t = String(schema.type).toLowerCase();
+    result.type = t === "object" ? "object" : t === "string" ? "string" : t === "number" ? "number" : t === "array" ? "array" : t === "boolean" ? "boolean" : t;
+  }
+
+  if (schema.description) result.description = schema.description;
+  if (schema.enum) result.enum = schema.enum;
+  if (schema.required) result.required = schema.required;
+
+  if (schema.properties) {
+    result.properties = {};
+    for (const [key, val] of Object.entries(schema.properties)) {
+      result.properties[key] = convertSchemaToJsonSchema(val);
+    }
+  }
+
+  if (schema.items) {
+    result.items = convertSchemaToJsonSchema(schema.items);
+  }
+
+  return result;
+}
+
+/**
+ * Retorna las declaraciones de herramientas en formato OpenAI Tools (compatible con OpenRouter).
+ */
+export function getOpenAIToolsDeclarations(allowlist?: string[]) {
+  const geminiDecls = getAgentToolsDeclarations(allowlist);
+  return geminiDecls.map(decl => ({
+    type: "function",
+    function: {
+      name: decl.name,
+      description: decl.description,
+      parameters: convertSchemaToJsonSchema(decl.parameters) || { type: "object", properties: {} }
+    }
+  }));
 }
 
 /**
